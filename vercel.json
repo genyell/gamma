@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/KEURGOUMAK_t14.html" }
+    { "source": "/(.*)", "destination": "/KEURGOUMAK_beta.html" }
   ]
 }
