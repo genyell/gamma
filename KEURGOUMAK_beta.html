@@ -25412,21 +25412,79 @@ async function supprimerAnnonce(i) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  📷 GESTION PHOTO PLAT (item-icon → base64 image)
+//  📷 GESTION PHOTO PLAT (upload → Supabase Storage, pas de base64)
 // ═══════════════════════════════════════════════════════════════
 
-function handleItemImageUpload(input) {
+async function _uploadImageToStorage(file, prefix) {
+  // Prévisualisation locale immédiate
+  const b64preview = await new Promise(res => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.readAsDataURL(file);
+  });
+
+  if(!KGSync.isConnected) {
+    // Pas de Supabase connecté → on garde base64 en fallback (temporaire)
+    console.warn('Supabase non connecté, utilisation base64 temporaire');
+    return { url: b64preview, preview: b64preview };
+  }
+
+  try {
+    const sb  = KGSync.getClient();
+    const rid = window._KG_RESTAURANT_ID || 'default';
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `menu/${rid}/${prefix}_${Date.now()}.${ext}`;
+    const bucket = 'restaurant-photos';
+
+    const { error: upErr } = await sb.storage.from(bucket).upload(path, file, {
+      cacheControl: '3600', upsert: true, contentType: file.type
+    });
+
+    if(upErr) {
+      if(upErr.message?.includes('Bucket not found') || upErr.statusCode === 400) {
+        // Bucket manquant → fallback base64 temporaire
+        console.warn('Bucket restaurant-photos introuvable, utilisation base64 temporaire');
+        return { url: b64preview, preview: b64preview };
+      }
+      throw upErr;
+    }
+
+    const { data: urlData } = sb.storage.from(bucket).getPublicUrl(path);
+    const publicUrl = urlData?.publicUrl || '';
+    if(!publicUrl) throw new Error('URL publique introuvable');
+
+    return { url: publicUrl, preview: b64preview };
+  } catch(e) {
+    console.error('_uploadImageToStorage:', e);
+    // Fallback base64 si erreur
+    return { url: b64preview, preview: b64preview };
+  }
+}
+
+async function handleItemImageUpload(input) {
   const file = input.files[0];
   if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const b64 = e.target.result;
-    document.getElementById('item-icon').value = b64;
-    const prev = document.getElementById('item-img-preview');
-    const emoji = document.getElementById('item-img-emoji-display');
-    prev.src = b64; prev.style.display = 'block'; emoji.style.display = 'none';
+  const prev = document.getElementById('item-img-preview');
+  const emoji = document.getElementById('item-img-emoji-display');
+  const statusEl = document.getElementById('item-upload-status');
+
+  // Prévisualisation immédiate
+  const tmpReader = new FileReader();
+  tmpReader.onload = e => {
+    prev.src = e.target.result; prev.style.display = 'block'; emoji.style.display = 'none';
   };
-  reader.readAsDataURL(file);
+  tmpReader.readAsDataURL(file);
+
+  if(statusEl) statusEl.innerHTML = '⏳ Upload…';
+
+  const { url, preview } = await _uploadImageToStorage(file, 'item');
+  document.getElementById('item-icon').value = url;
+  prev.src = preview; prev.style.display = 'block'; emoji.style.display = 'none';
+
+  if(statusEl) {
+    statusEl.innerHTML = url.startsWith('http') ? '✅ Photo uploadée !' : '⚠️ Mode hors-ligne (base64)';
+    setTimeout(() => { if(statusEl) statusEl.innerHTML = ''; }, 3000);
+  }
 }
 
 function clearItemImage() {
@@ -25436,20 +25494,34 @@ function clearItemImage() {
   document.getElementById('item-img-emoji-display').style.display = 'block';
   document.getElementById('item-img-emoji-display').textContent = '🍽️';
   document.getElementById('item-img-file').value = '';
+  const statusEl = document.getElementById('item-upload-status');
+  if(statusEl) statusEl.innerHTML = '';
 }
 
-function handleEmiImageUpload(input) {
+async function handleEmiImageUpload(input) {
   const file = input.files[0];
   if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const b64 = e.target.result;
-    document.getElementById('emi-icon').value = b64;
-    const prev = document.getElementById('emi-img-preview');
-    const emoji = document.getElementById('emi-img-emoji-display');
-    prev.src = b64; prev.style.display = 'block'; emoji.style.display = 'none';
+  const prev = document.getElementById('emi-img-preview');
+  const emoji = document.getElementById('emi-img-emoji-display');
+  const statusEl = document.getElementById('emi-upload-status');
+
+  // Prévisualisation immédiate
+  const tmpReader = new FileReader();
+  tmpReader.onload = e => {
+    prev.src = e.target.result; prev.style.display = 'block'; emoji.style.display = 'none';
   };
-  reader.readAsDataURL(file);
+  tmpReader.readAsDataURL(file);
+
+  if(statusEl) statusEl.innerHTML = '⏳ Upload…';
+
+  const { url, preview } = await _uploadImageToStorage(file, 'emi');
+  document.getElementById('emi-icon').value = url;
+  prev.src = preview; prev.style.display = 'block'; emoji.style.display = 'none';
+
+  if(statusEl) {
+    statusEl.innerHTML = url.startsWith('http') ? '✅ Photo uploadée !' : '⚠️ Mode hors-ligne (base64)';
+    setTimeout(() => { if(statusEl) statusEl.innerHTML = ''; }, 3000);
+  }
 }
 
 function clearEmiImage() {
@@ -25459,6 +25531,8 @@ function clearEmiImage() {
   document.getElementById('emi-img-emoji-display').style.display = 'block';
   document.getElementById('emi-img-emoji-display').textContent = '🍽️';
   document.getElementById('emi-img-file').value = '';
+  const statusEl = document.getElementById('emi-upload-status');
+  if(statusEl) statusEl.innerHTML = '';
 }
 
 // ═══════════════════════════════════════════════════════════════
