@@ -986,7 +986,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     // 🚀 CACHE EGRESS CLIENT — logo, cover, menu mis en cache
     // localStorage pour éviter re-téléchargement Supabase
     // ══════════════════════════════════════════════════════
-    const _CACHE_TTL   = 5 * 60 * 1000; // 5 minutes
+    const _CACHE_TTL   = 30 * 60 * 1000; // ✅ FIX v3 : 5min → 30min (économie egress)
     const _cMenuKey    = 'kg_cmd_menu_'  + restaurantId;
     const _cMenuTs     = 'kg_cmd_menu_ts_'  + restaurantId;
     const _cRestoKey   = 'kg_cmd_resto_' + restaurantId;
@@ -1849,8 +1849,11 @@ function startOrderTracking(orderId, ref, statut='en_attente', lignes=[], total=
 async function resumeAllTracking() {
   const orders = getSavedOrders().filter(o => o.rid===restaurantId);
   if(!orders.length) return;
+  // ✅ FIX v3 : ne reprendre que les commandes non terminées en local d'abord
+  const activeOrders = orders.filter(o => o.statut!=='livree' && o.statut!=='annulee');
+  if(!activeOrders.length) return; // toutes terminées — pas de requête Supabase
   // Rafraîchir les statuts depuis la DB (silencieux — pas d'affichage du FAB)
-  const ids = orders.map(o=>o.id);
+  const ids = activeOrders.map(o=>o.id);
   const { data } = await sb.from('commandes_en_ligne')
     .select('id,statut,order_ref').in('id', ids);
   if(data) {
@@ -2375,18 +2378,39 @@ async function chargerAnnoncesCommander() {
   if(!wrap) return;
   try {
     const annKey = restaurantId + ':annonces';
-    // 1. Essai Supabase
+    const annTsKey = 'kg_cmd_ann_ts_' + restaurantId;
+    const _ANN_TTL = 30 * 60 * 1000; // ✅ FIX v3 : cache annonces 30min (économie egress)
+
+    // 1. Cache localStorage valide ?
+    try {
+      const age = Date.now() - parseInt(localStorage.getItem(annTsKey) || '0');
+      if(age < _ANN_TTL) {
+        const cached = localStorage.getItem(annKey);
+        if(cached) {
+          console.log('[cache] ✅ Annonces depuis cache');
+          renderAnnoncesCommander(JSON.parse(cached));
+          return;
+        }
+      }
+    } catch(e) {}
+
+    // 2. Supabase si cache expiré
     if(sb) {
       try {
         const { data } = await sb.from('kg_sync').select('value').eq('key', annKey).maybeSingle();
         if(data?.value) {
           const arr = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+          // Sauvegarder dans cache
+          try {
+            localStorage.setItem(annKey, JSON.stringify(arr));
+            localStorage.setItem(annTsKey, Date.now().toString());
+          } catch(e) {}
           renderAnnoncesCommander(arr);
           return;
         }
       } catch(e) { /* fallback localStorage */ }
     }
-    // 2. Fallback localStorage (même domaine)
+    // 3. Fallback localStorage (même domaine, sans TTL)
     const local = localStorage.getItem(annKey);
     if(local) renderAnnoncesCommander(JSON.parse(local));
   } catch(e) {

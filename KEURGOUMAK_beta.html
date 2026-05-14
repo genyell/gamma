@@ -17934,11 +17934,11 @@ const KGSync = (() => {
     var ua = navigator.userAgent || '';
     var isAndroidWebView = /Android/.test(ua); // Tous les navigateurs Android concernés
     if(isAndroidWebView) {
-      // Sur Android : polling toutes les 15s (évite le DataCloneError Realtime)
-      console.log('KGSync: mode polling Android actif');
+      // Sur Android : polling toutes les 60s (économie egress — FIX v27)
+      console.log('KGSync: mode polling Android actif (60s)');
       _rtTimeout = setTimeout(function poll(){
         if(syncEnabled && client){ _pullAll().catch(()=>{}); }
-        if(syncEnabled) _rtTimeout = setTimeout(poll, 5000); // ✅ FIX v29 : était 8s → 5s
+        if(syncEnabled) _rtTimeout = setTimeout(poll, 60000); // ✅ FIX v27 : 5s → 60s (économie egress)
       }, 3000);
       return;
     }
@@ -17960,7 +17960,7 @@ const KGSync = (() => {
             // Fallback polling si realtime échoue
             _rtTimeout = setTimeout(function poll(){
               if(syncEnabled && client){ _pullAll().catch(function(){}); }
-              if(syncEnabled) _rtTimeout = setTimeout(poll, 5000); // ✅ FIX v29 : était 8s → 5s
+              if(syncEnabled) _rtTimeout = setTimeout(poll, 60000); // ✅ FIX v27 : 5s → 60s (économie egress)
             }, 3000);
           }
         });
@@ -17968,7 +17968,7 @@ const KGSync = (() => {
       console.warn('KGSync realtime indisponible — polling activé:', e.message || e);
       _rtTimeout = setTimeout(function poll(){
         if(syncEnabled && client){ _pullAll().catch(function(){}); }
-        if(syncEnabled) _rtTimeout = setTimeout(poll, 5000); // ✅ FIX v29 : était 8s → 5s
+        if(syncEnabled) _rtTimeout = setTimeout(poll, 60000); // ✅ FIX v27 : 5s → 60s (économie egress)
       }, 3000);
     }
   }
@@ -23947,28 +23947,41 @@ async function loadQRMenuItems() {
   } catch(e) {}
 }
 
-// ── Realtime ──────────────────────────────────────────────────
+// ── Polling QR (remplace Realtime — FIX v27 économie egress) ──
+let _qrPollInterval = null;
+let _qrLastOrderCount = 0;
+let _qrLastOrderIds = '';
 function startQRRealtime() {
-  if(_qrChannel) _qrChannel.unsubscribe();
-  _qrChannel = _qrSb.channel('kg-qr-' + _qrRid)
-    .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'commandes_en_ligne',
-      filter: 'restaurant_id=eq.' + _qrRid
-    }, async (payload) => {
+  // Arrêter l'ancien channel Realtime s'il existe
+  if(_qrChannel) { try { _qrChannel.unsubscribe(); } catch(e) {} _qrChannel = null; }
+  // Arrêter l'ancien polling s'il existe
+  if(_qrPollInterval) { clearInterval(_qrPollInterval); _qrPollInterval = null; }
+
+  console.log('KGSync QR: mode polling 30s actif (économie egress v27)');
+
+  _qrPollInterval = setInterval(async () => {
+    try {
+      const prevIds = _qrLastOrderIds;
       await loadQROrders();
+      // Détecter nouvelles commandes pour le bip sonore
+      const currIds = (_qrOrders || []).map(o => o.id).join(',');
+      if(prevIds && currIds !== prevIds) {
+        const prevSet = new Set(prevIds.split(','));
+        const hasNew = (_qrOrders || []).some(o => !prevSet.has(String(o.id)));
+        if(hasNew) _qrPlayBeep();
+      }
+      _qrLastOrderIds = currIds;
       renderQROrdersPanel();
       updateQRNavBadge();
-      // Notification sonore si nouvelle commande
-      if(payload.eventType === 'INSERT') _qrPlayBeep();
-    })
-    .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'menu_items', // ✅ FIX : INSERT+UPDATE+DELETE
-      filter: 'restaurant_id=eq.' + _qrRid
-    }, async () => {
-      await loadQRMenuItems();
-      if(document.getElementById('qrtab-ruptures').style.display !== 'none') renderQRRupturesPanel();
-    })
-    .subscribe();
+      // Rafraîchir le menu toutes les 5 polls (~2.5 min)
+      if(typeof _qrMenuPollCount === 'undefined') window._qrMenuPollCount = 0;
+      window._qrMenuPollCount++;
+      if(window._qrMenuPollCount % 5 === 0) {
+        await loadQRMenuItems();
+        if(document.getElementById('qrtab-ruptures')?.style.display !== 'none') renderQRRupturesPanel();
+      }
+    } catch(e) { console.warn('QR poll:', e); }
+  }, 30000); // toutes les 30 secondes
 }
 
 function _qrPlayBeep() {
