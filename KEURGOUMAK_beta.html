@@ -9883,31 +9883,13 @@ async function uploadPhotoRestaurant(input, type) {
   }
 
   try {
-    const sb  = KGSync.getClient();
+    const bucket = 'restaurant-photos'; // gardé pour référence
     const rid = window._KG_RESTAURANT_ID || 'default';
-    const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
-    const path = `restaurants/${rid}/${type}_${Date.now()}.${ext}`;
-    const bucket = 'restaurant-photos';
 
-    // Upload dans Supabase Storage
-    const { error: upErr } = await sb.storage.from(bucket).upload(path, file, {
-      cacheControl: '3600', upsert: true, contentType: file.type
-    });
-
-    if(upErr) {
-      // Si le bucket n'existe pas → essayer de le créer automatiquement
-      if(upErr.message?.includes('Bucket not found') || upErr.statusCode === 400) {
-        if(statusEl) statusEl.innerHTML = '⚠️ Bucket "restaurant-photos" introuvable.<br>Créez-le dans Supabase Storage (public).';
-        return;
-      }
-      throw upErr;
-    }
-
-    // Récupérer l'URL publique
-    const { data: urlData } = sb.storage.from(bucket).getPublicUrl(path);
-    const publicUrl = urlData?.publicUrl || '';
-
-    if(!publicUrl) throw new Error('URL publique introuvable');
+    // ✅ FIX v29 : Upload vers imgbb (zéro egress Supabase)
+    const maxPx = iscover ? 1200 : 400;
+    const publicUrl = await _uploadVersImgbb(file, maxPx);
+    console.log(`📷 ${type} uploadé sur imgbb:`, publicUrl);
 
     // Sauvegarder dans RESTAURANT_INFO
     if(iscover) {
@@ -25534,6 +25516,43 @@ async function supprimerAnnonce(i) {
 //  📷 GESTION PHOTO PLAT (upload → Supabase Storage, pas de base64)
 // ═══════════════════════════════════════════════════════════════
 
+// ✅ FIX v29 : Upload images vers imgbb (zéro egress Supabase)
+const _IMGBB_KEY = '6ad019362dac475a4fef027413052fe7';
+
+async function _compressToWebP(file, maxPx = 800, quality = 0.82) {
+  return new Promise(res => {
+    const img = new Image();
+    const objUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objUrl);
+      let { width: w, height: h } = img;
+      if(w > maxPx || h > maxPx) {
+        if(w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else       { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(blob => res(blob || file), 'image/webp', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(objUrl); res(file); };
+    img.src = objUrl;
+  });
+}
+
+async function _uploadVersImgbb(file, maxPx = 800) {
+  const compressed = await _compressToWebP(file, maxPx, 0.82);
+  console.log(`📷 imgbb upload: ${(file.size/1024).toFixed(0)}KB → ${(compressed.size/1024).toFixed(0)}KB`);
+  const formData = new FormData();
+  formData.append('image', compressed);
+  const res = await fetch(`https://api.imgbb.com/1/upload?key=${_IMGBB_KEY}`, {
+    method: 'POST', body: formData
+  });
+  const data = await res.json();
+  if(!data.success) throw new Error(data.error?.message || 'imgbb upload failed');
+  return data.data.url; // URL permanente, zéro egress Supabase ✅
+}
+
 async function _uploadImageToStorage(file, prefix) {
   // Prévisualisation locale immédiate
   const b64preview = await new Promise(res => {
@@ -25542,21 +25561,32 @@ async function _uploadImageToStorage(file, prefix) {
     r.readAsDataURL(file);
   });
 
-  if(!KGSync.isConnected) {
-    // Pas de Supabase connecté → on garde base64 en fallback (temporaire)
-    console.warn('Supabase non connecté, utilisation base64 temporaire');
+  try {
+    // ✅ FIX v29 : Upload vers imgbb (zéro egress Supabase)
+    const url = await _uploadVersImgbb(file, 800);
+    return { url, preview: b64preview };
+  } catch(e) {
+    console.error('imgbb upload error:', e);
+    // Fallback base64 si imgbb échoue
     return { url: b64preview, preview: b64preview };
   }
+}
 
+// (stub pour compatibilité — plus utilisé mais gardé pour éviter les erreurs)
+async function _uploadImageToStorage_supabase_unused(file, prefix) {
+  const b64preview = await new Promise(res => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.readAsDataURL(file);
+  });
+  if(!KGSync.isConnected) return { url: b64preview, preview: b64preview };
   try {
     const sb  = KGSync.getClient();
     const rid = window._KG_RESTAURANT_ID || 'default';
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `menu/${rid}/${prefix}_${Date.now()}.${ext}`;
     const bucket = 'restaurant-photos';
-
+    const path = `menu/${rid}/${prefix}_${Date.now()}.webp`;
     const { error: upErr } = await sb.storage.from(bucket).upload(path, file, {
-      cacheControl: '3600', upsert: true, contentType: file.type
+      cacheControl: '31536000', upsert: true, contentType: 'image/webp'
     });
 
     if(upErr) {
