@@ -11959,6 +11959,11 @@ function saveMenuItem() {
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
     KGSync.push.menu().catch(e => console.error('push.menu (saveMenuItem):', e));
   }
+  // Invalider le cache QR menu sur cet appareil
+  try {
+    const _rid = window._KG_RESTAURANT_ID;
+    if(_rid) { localStorage.removeItem('kg_qr_menu_' + _rid); localStorage.removeItem('kg_qr_menu_ts_' + _rid); }
+  } catch(e) {}
 }
 
 // ===== SUPPRIMER UN ARTICLE DU MENU =====
@@ -13437,7 +13442,7 @@ async function doLogin() {
     if(authError) throw authError;
 
     const { data: profile, error: profileError } = await sb
-      .from('users').select('*').eq('id', authData.user.id).single();
+      .from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('id', authData.user.id).single();
     if(profileError || !profile) throw new Error('Profil introuvable. Contactez le gérant.');
     if(profile.status !== 'actif') throw new Error('Compte suspendu. Contactez le gérant.');
 
@@ -13459,7 +13464,7 @@ async function doLogin() {
     window._KG_RESTAURANT_ID = profile.restaurant_id;
 
     // Charger users du restaurant
-    const { data: allUsers } = await sb.from('users').select('*').eq('restaurant_id', profile.restaurant_id);
+    const { data: allUsers } = await sb.from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('restaurant_id', profile.restaurant_id);
     if(allUsers) USERS = allUsers.map(u => ({ ...u, caisse: u.caisse_assignee || 'Toutes', login: u.email || u.id }));
 
     // ✅ Charger permissions personnalisées des rôles depuis Supabase
@@ -13467,7 +13472,7 @@ async function doLogin() {
     if(rolesData && rolesData.length) { rolesData.forEach(r => { if(ROLES_CONFIG[r.role_key]) ROLES_CONFIG[r.role_key].perms = r.perms; }); }
 
     // Charger infos restaurant
-    const { data: resto } = await sb.from('restaurants').select('*').eq('id', profile.restaurant_id).single();
+    const { data: resto } = await sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url').eq('id', profile.restaurant_id).single();
     if(resto) {
       RESTAURANT_INFO = { nom: resto.nom, ninea: resto.ninea||'', tel: resto.tel||'', email: resto.email||'', adresse: resto.adresse||'', devise: resto.devise||'FCFA', cover_url: resto.cover_url||'', logo_url: resto.logo_url||'', wave_payment_url: resto.wave_payment_url||resto.wave_numero||'', orange_payment_url: resto.orange_payment_url||resto.orange_numero||'' };
       // ✅ FIX: restaurer la config ticket depuis Supabase
@@ -13515,7 +13520,7 @@ async function doLogin() {
     }
 
     // Charger caisses
-    const { data: caissesSb } = await sb.from('caisses').select('*').eq('restaurant_id', profile.restaurant_id).order('name');
+    const { data: caissesSb } = await sb.from('caisses').select('id,restaurant_id,name,fonds_initial,cloturee,date_cloture').eq('restaurant_id', profile.restaurant_id).order('name');
     // ✅ FIX v15 FINAL : lire les clôtures Z du jour avant d'écraser les statuts
     const _loginToday = new Date().toISOString().split('T')[0];
     let _loginCloZ = [];
@@ -17012,17 +17017,32 @@ const KGSync = (() => {
   async function pushClients()        { await upsert('clients_data',         { items: CLIENTS }); }
   async function pushCommandesFourn() { await upsert('commandes_fourn_data', { items: COMMANDES_FOURNISSEURS, fournisseurs: FOURNISSEURS }); }
   async function pushClotures()       { await upsert('clotures_data',        { items: HISTORIQUE_CLOTURES }); }
-  async function pushMenu()           { await upsert('menu_data',            { items: MENU }); }
-  async function pushUsers()          { await upsert('users_data',           { items: USERS.map(u => ({...u})) }); }
-  async function pushRestaurantInfo() { await upsert('restaurant_info',      { info: RESTAURANT_INFO }); }
-  async function pushDepenses()        { await upsert('depenses_data',         { items: DEPENSES }); }
-  async function pushJournal()         { await upsert('journal_data',          { items: (JOURNAL||[]).slice(0,200) }); }
-  async function pushCategories()      { await upsert('categories_data',       { items: (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []) }); }
-  async function pushStockCategories() { await upsert('stock_categories_data', { items: (typeof STOCK_CATEGORIES !== 'undefined' ? STOCK_CATEGORIES : []) }); }
+  function _invalidateCache(...keys) {
+    try {
+      const _rid = window._KG_RESTAURANT_ID;
+      if(!_rid) return;
+      const _CACHE_KEY = 'kg_pull_cache_' + _rid;
+      let _cache = {};
+      try { _cache = JSON.parse(localStorage.getItem(_CACHE_KEY) || '{}'); } catch(e) {}
+      keys.forEach(k => {
+        const fullKey = _rid + ':' + k;
+        delete _cache[fullKey];
+        try { localStorage.removeItem('kg_val_' + fullKey); } catch(e) {}
+      });
+      localStorage.setItem(_CACHE_KEY, JSON.stringify(_cache));
+    } catch(e) {}
+  }
+  async function pushMenu()           { _invalidateCache('menu_data'); await upsert('menu_data', { items: MENU }); }
+  async function pushUsers()          { _invalidateCache('users_data'); await upsert('users_data', { items: USERS.map(u => ({...u})) }); }
+  async function pushRestaurantInfo() { _invalidateCache('restaurant_info'); await upsert('restaurant_info', { info: RESTAURANT_INFO }); }
+  async function pushDepenses()        { _invalidateCache('depenses_data'); await upsert('depenses_data', { items: DEPENSES }); }
+  async function pushJournal()         { _invalidateCache('journal_data'); await upsert('journal_data', { items: (JOURNAL||[]).slice(0,200) }); }
+  async function pushCategories()      { _invalidateCache('categories_data'); await upsert('categories_data', { items: (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []) }); }
+  async function pushStockCategories() { _invalidateCache('stock_categories_data'); await upsert('stock_categories_data', { items: (typeof STOCK_CATEGORIES !== 'undefined' ? STOCK_CATEGORIES : []) }); }
   // ✅ FIX v39 : Factures & RH via kg_sync (realtime sur tous les navigateurs)
-  async function pushFactures()  { await upsert('factures_data',  { items: (typeof FACTURES     !== 'undefined' ? FACTURES     : []) }); }
-  async function pushRH()        { await upsert('rh_data',        { employes: (typeof RH_EMPLOYES !== 'undefined' ? RH_EMPLOYES : []), paies: (typeof RH_PAIES !== 'undefined' ? RH_PAIES : []), conges: (typeof RH_CONGES !== 'undefined' ? RH_CONGES : []), avances: (typeof RH_AVANCES !== 'undefined' ? RH_AVANCES : []) }); }
-  async function pushInventaires() { await upsert('inventaires_data', { items: (typeof INVENTAIRES !== 'undefined' ? INVENTAIRES : []) }); } // ✅ FIX v39
+  async function pushFactures()  { _invalidateCache('factures_data'); await upsert('factures_data',  { items: (typeof FACTURES     !== 'undefined' ? FACTURES     : []) }); }
+  async function pushRH()        { _invalidateCache('rh_data'); await upsert('rh_data',        { employes: (typeof RH_EMPLOYES !== 'undefined' ? RH_EMPLOYES : []), paies: (typeof RH_PAIES !== 'undefined' ? RH_PAIES : []), conges: (typeof RH_CONGES !== 'undefined' ? RH_CONGES : []), avances: (typeof RH_AVANCES !== 'undefined' ? RH_AVANCES : []) }); }
+  async function pushInventaires() { _invalidateCache('inventaires_data'); await upsert('inventaires_data', { items: (typeof INVENTAIRES !== 'undefined' ? INVENTAIRES : []) }); } // ✅ FIX v39
   // ✅ FIX v40 RESERVATIONS : Synchroniser les réservations Terrain et Location
   async function pushTerrainReservations() {
     try {
@@ -17111,11 +17131,79 @@ const KGSync = (() => {
         return;
       }
       const _prefix = _rid + ':';
-      const { data: rows, error } = await client.from(TABLE)
-        .select('key, value, updated_at')
+      // ══════════════════════════════════════════════════════
+      // 🚀 CACHE EGRESS — ne fetcher que key+updated_at d'abord
+      // puis télécharger value uniquement si changement détecté
+      // ══════════════════════════════════════════════════════
+      const _CACHE_KEY = 'kg_pull_cache_' + _rid;
+      let _cache = {};
+      try { _cache = JSON.parse(localStorage.getItem(_CACHE_KEY) || '{}'); } catch(e) { _cache = {}; }
+
+      // Clés statiques qui changent rarement → cachées agressivement
+      const _STATIC_KEYS = ['menu_data', 'restaurant_info', 'categories_data', 'stock_categories_data', 'users_data', 'annonces_data'];
+
+      // Étape 1 : fetch uniquement key + updated_at (très léger)
+      const { data: metaRows, error: metaErr } = await client.from(TABLE)
+        .select('key, updated_at')
         .neq('key', '_ping')
         .like('key', _prefix + '%');
-      if(error) { console.warn('KGSync pullAll error:', error.message || error.hint || error.details || error.code || JSON.stringify(error)); return; }
+      if(metaErr) { console.warn('KGSync pullAll meta error:', metaErr.message || JSON.stringify(metaErr)); return; }
+      if(!metaRows || metaRows.length === 0) {
+        console.log('KGSync: aucune donnée distante — ventes locales conservées');
+        return;
+      }
+
+      // Étape 2 : identifier quelles clés ont changé depuis le cache
+      const _keysToFetch = [];
+      const _shortKey = k => k.replace(_prefix, '');
+      metaRows.forEach(r => {
+        const sk = _shortKey(r.key);
+        const isStatic = _STATIC_KEYS.includes(sk);
+        const cachedTs = _cache[r.key];
+        if(!cachedTs || cachedTs !== r.updated_at) {
+          _keysToFetch.push(r.key);
+        } else if(isStatic) {
+          console.log('[cache] ✅ Clé inchangée, skip fetch:', sk);
+        }
+      });
+
+      // Étape 3 : construire rows — depuis cache (statiques) + fetch (changées)
+      let rows = [];
+
+      // Ajouter depuis cache les clés statiques inchangées
+      metaRows.forEach(r => {
+        const sk = _shortKey(r.key);
+        const isStatic = _STATIC_KEYS.includes(sk);
+        if(isStatic && !_keysToFetch.includes(r.key)) {
+          const cachedVal = localStorage.getItem('kg_val_' + r.key);
+          if(cachedVal) rows.push({ key: r.key, value: cachedVal, updated_at: r.updated_at });
+        }
+      });
+
+      // Fetch uniquement les clés qui ont changé
+      if(_keysToFetch.length > 0) {
+        const { data: freshRows, error: fetchErr } = await client.from(TABLE)
+          .select('key, value, updated_at')
+          .in('key', _keysToFetch);
+        if(fetchErr) { console.warn('KGSync pullAll fetch error:', fetchErr.message || JSON.stringify(fetchErr)); return; }
+        if(freshRows) {
+          freshRows.forEach(r => {
+            rows.push(r);
+            // Mettre à jour le cache
+            _cache[r.key] = r.updated_at;
+            const sk = _shortKey(r.key);
+            if(_STATIC_KEYS.includes(sk)) {
+              try { localStorage.setItem('kg_val_' + r.key, r.value); } catch(e) {}
+            }
+          });
+          try { localStorage.setItem(_CACHE_KEY, JSON.stringify(_cache)); } catch(e) {}
+          console.log('[cache] 📡 Fetched', _keysToFetch.length, 'clé(s) modifiée(s), skip', metaRows.length - _keysToFetch.length);
+        }
+      } else {
+        console.log('[cache] ✅ Tout est en cache — 0 download Supabase');
+      }
+      // ══════════════════════════════════════════════════════
+
       if(!rows || rows.length === 0) {
         console.log('KGSync: aucune donnée distante — ventes locales conservées');
         return;
@@ -20288,7 +20376,7 @@ setTimeout(() => {
     if(!session) return; // pas de session active → écran login normal
 
     // Session active : recharger le profil
-    const { data: profile } = await sb.from('users').select('*').eq('id', session.user.id).single();
+    const { data: profile } = await sb.from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('id', session.user.id).single();
     if(!profile || profile.status !== 'actif') return;
 
     currentUser = {
@@ -20302,14 +20390,14 @@ setTimeout(() => {
     };
     window._KG_RESTAURANT_ID = profile.restaurant_id;
 
-    const { data: allUsers } = await sb.from('users').select('*').eq('restaurant_id', profile.restaurant_id);
+    const { data: allUsers } = await sb.from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('restaurant_id', profile.restaurant_id);
     if(allUsers) USERS = allUsers.map(u => ({ ...u, caisse: u.caisse_assignee || 'Toutes', login: u.email || u.id }));
 
     // ✅ Charger permissions personnalisées des rôles depuis Supabase
     const { data: rolesData } = await sb.from('roles_config').select('role_key, perms').eq('restaurant_id', profile.restaurant_id);
     if(rolesData && rolesData.length) { rolesData.forEach(r => { if(ROLES_CONFIG[r.role_key]) ROLES_CONFIG[r.role_key].perms = r.perms; }); }
 
-    const { data: resto } = await sb.from('restaurants').select('*').eq('id', profile.restaurant_id).single();
+    const { data: resto } = await sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url').eq('id', profile.restaurant_id).single();
     if(resto) {
       RESTAURANT_INFO = { nom: resto.nom, ninea: resto.ninea||'', tel: resto.tel||'', email: resto.email||'', adresse: resto.adresse||'', devise: resto.devise||'FCFA', cover_url: resto.cover_url||'', logo_url: resto.logo_url||'', wave_payment_url: resto.wave_payment_url||resto.wave_numero||'', orange_payment_url: resto.orange_payment_url||resto.orange_numero||'' };
       // ✅ FIX: restaurer la config ticket depuis Supabase
@@ -20320,7 +20408,7 @@ setTimeout(() => {
       }
     }
 
-    const { data: caissesSb } = await sb.from('caisses').select('*').eq('restaurant_id', profile.restaurant_id).order('name');
+    const { data: caissesSb } = await sb.from('caisses').select('id,restaurant_id,name,fonds_initial,cloturee,date_cloture').eq('restaurant_id', profile.restaurant_id).order('name');
 
     // ✅ FIX v15 FINAL — F5 : lire clôtures Z avant d'écraser les statuts caisses
     const _f5Today = new Date().toISOString().split('T')[0];
@@ -23814,21 +23902,21 @@ async function initQRCommandes() {
 
 // ── Chargement données ────────────────────────────────────────
 async function loadQRTables() {
-  const { data } = await _qrSb.from('qr_tables').select('*')
+  const { data } = await _qrSb.from('qr_tables').select('id,restaurant_id,label,type')
     .eq('restaurant_id', _qrRid).eq('actif', true).order('created_at');
   _qrTables = data || [];
 }
 
 async function loadQROrders() {
-  // Charger les commandes actives + les 7 derniers jours d'historique
-  const since7days = new Date();
-  since7days.setDate(since7days.getDate() - 7);
-  since7days.setHours(0,0,0,0);
-  const since7ISO = since7days.toISOString();
+  // Charger les commandes actives + les 2 derniers jours seulement (réduit egress)
+  const since2days = new Date();
+  since2days.setDate(since2days.getDate() - 2);
+  since2days.setHours(0,0,0,0);
+  const since2ISO = since2days.toISOString();
 
-  const { data } = await _qrSb.from('commandes_en_ligne').select('*')
+  const { data } = await _qrSb.from('commandes_en_ligne').select('id,restaurant_id,qr_table_id,lignes,statut,total,note,client_nom,pay_method,created_at,updated_at')
     .eq('restaurant_id', _qrRid)
-    .gte('created_at', since7ISO)
+    .gte('created_at', since2ISO)
     .order('created_at', { ascending: false });
   _qrOrders = data || [];
   updateQRNavBadge();
@@ -23836,9 +23924,27 @@ async function loadQROrders() {
 
 async function loadQRMenuItems() {
   if(!_qrRid) { _qrMenuItems = []; return; }
-  const { data } = await _qrSb.from('menu_items').select('*')
+  // Cache menu côté QR commander (change rarement)
+  const _cacheKey = 'kg_qr_menu_' + _qrRid;
+  const _cacheTsKey = 'kg_qr_menu_ts_' + _qrRid;
+  const _cacheAge = Date.now() - parseInt(localStorage.getItem(_cacheTsKey) || '0');
+  if(_cacheAge < 5 * 60 * 1000) { // 5 minutes
+    try {
+      const _cached = JSON.parse(localStorage.getItem(_cacheKey) || 'null');
+      if(_cached && _cached.length > 0) {
+        _qrMenuItems = _cached;
+        console.log('[QR cache] ✅ Menu depuis cache local');
+        return;
+      }
+    } catch(e) {}
+  }
+  const { data } = await _qrSb.from('menu_items').select('id,restaurant_id,name,category,price_ttc,description,icon,image_url,tag,actif,sort_order,promo_pct')
     .eq('restaurant_id', _qrRid).neq('actif', false).order('sort_order');
   _qrMenuItems = (data || []).filter(i => i.restaurant_id === _qrRid);
+  try {
+    localStorage.setItem(_cacheKey, JSON.stringify(_qrMenuItems));
+    localStorage.setItem(_cacheTsKey, Date.now().toString());
+  } catch(e) {}
 }
 
 // ── Realtime ──────────────────────────────────────────────────

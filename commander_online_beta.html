@@ -982,14 +982,68 @@ window.addEventListener('DOMContentLoaded', async () => {
       ? sb.from('qr_tables').select('*').eq('id',tableId).eq('restaurant_id',restaurantId).eq('actif',true).single()
       : Promise.resolve({ data:{ label:'Commande en ligne', type:'livraison' } });
 
+    // ══════════════════════════════════════════════════════
+    // 🚀 CACHE EGRESS CLIENT — logo, cover, menu mis en cache
+    // localStorage pour éviter re-téléchargement Supabase
+    // ══════════════════════════════════════════════════════
+    const _CACHE_TTL   = 5 * 60 * 1000; // 5 minutes
+    const _cMenuKey    = 'kg_cmd_menu_'  + restaurantId;
+    const _cMenuTs     = 'kg_cmd_menu_ts_'  + restaurantId;
+    const _cRestoKey   = 'kg_cmd_resto_' + restaurantId;
+    const _cRestoTs    = 'kg_cmd_resto_ts_' + restaurantId;
+    const _cInfoKey    = 'kg_cmd_info_'  + restaurantId;
+    const _cInfoTs     = 'kg_cmd_info_ts_'  + restaurantId;
+
+    function _cacheGet(key, tsKey) {
+      try {
+        const age = Date.now() - parseInt(localStorage.getItem(tsKey) || '0');
+        if(age < _CACHE_TTL) {
+          const v = localStorage.getItem(key);
+          if(v) return JSON.parse(v);
+        }
+      } catch(e) {}
+      return null;
+    }
+    function _cacheSet(key, tsKey, val) {
+      try {
+        localStorage.setItem(key, JSON.stringify(val));
+        localStorage.setItem(tsKey, Date.now().toString());
+      } catch(e) {}
+    }
+
+    // Vérifier cache menu et resto
+    const _cachedMenu  = _cacheGet(_cMenuKey, _cMenuTs);
+    const _cachedResto = _cacheGet(_cRestoKey, _cRestoTs);
+    const _cachedInfo  = _cacheGet(_cInfoKey, _cInfoTs);
+
+    // Fetch seulement ce qui n'est pas en cache
+    const _menuProm  = _cachedMenu  ? Promise.resolve({ data: _cachedMenu })
+      : sb.from('menu_items').select('id,restaurant_id,name,category,price_ttc,description,icon,image_url,tag,actif,sort_order,promo_pct,en_rupture').eq('restaurant_id',restaurantId).eq('actif',true).order('sort_order');
+    const _restoProm = _cachedResto ? Promise.resolve({ data: _cachedResto })
+      : sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url').eq('id',restaurantId).single();
+    const _infoProm  = _cachedInfo  ? Promise.resolve({ data: { value: JSON.stringify(_cachedInfo) } })
+      : sb.from('kg_sync').select('value').eq('key', restaurantId+':restaurant_info').maybeSingle();
+
+    if(_cachedMenu)  console.log('[cache] ✅ Menu client depuis cache');
+    if(_cachedResto) console.log('[cache] ✅ Resto depuis cache');
+    if(_cachedInfo)  console.log('[cache] ✅ Info depuis cache');
+
     const [tblR, menuR, restoR, settR, infoR, menuKgR] = await Promise.all([
       tblProm,
-      sb.from('menu_items').select('*').eq('restaurant_id',restaurantId).eq('actif',true).order('sort_order'),
-      sb.from('restaurants').select('*').eq('id',restaurantId).single(),
+      _menuProm,
+      _restoProm,
       sb.from('kg_sync').select('value').eq('key', restaurantId+':commandes_ouvertes').maybeSingle(),
-      sb.from('kg_sync').select('value').eq('key', restaurantId+':restaurant_info').maybeSingle(),
-      sb.from('kg_sync').select('value').eq('key', restaurantId+':menu_data').maybeSingle(),
+      _infoProm,
+      _cachedMenu ? Promise.resolve({ data: null }) : sb.from('kg_sync').select('value').eq('key', restaurantId+':menu_data').maybeSingle(),
     ]);
+
+    // Sauvegarder dans cache si fraîchement fetchés
+    if(!_cachedMenu  && menuR.data)  _cacheSet(_cMenuKey,  _cMenuTs,  menuR.data);
+    if(!_cachedResto && restoR.data) _cacheSet(_cRestoKey, _cRestoTs, restoR.data);
+    if(!_cachedInfo  && infoR.data?.value) {
+      try { _cacheSet(_cInfoKey, _cInfoTs, JSON.parse(infoR.data.value)); } catch(e) {}
+    }
+    // ══════════════════════════════════════════════════════
 
     tableInfo = tblR.data || { label:'Commande en ligne', type:'livraison' };
 
@@ -1648,6 +1702,11 @@ async function validerCommande() {
 async function _enregistrerCommande({ nom, tel, adr, note, total, lignes, ref, ok, payLabel, payKey, payOnline, skipSuccessPopup = false }) {
   const btn = document.getElementById('btn-valider');
   btn.disabled = true; btn.textContent = '⏳ Envoi en cours…';
+  // Invalider cache menu au cas où des articles seraient en rupture après commande
+  try {
+    localStorage.removeItem('kg_cmd_menu_' + restaurantId);
+    localStorage.removeItem('kg_cmd_menu_ts_' + restaurantId);
+  } catch(e) {}
   try {
     const {data: newOrder, error} = await sb.from('commandes_en_ligne').insert({
       restaurant_id: restaurantId,
