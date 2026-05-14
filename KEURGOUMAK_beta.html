@@ -7129,6 +7129,15 @@ Revenez nous voir bient&#244;t.</textarea>
             <button type="button" class="btn btn-ghost" style="font-size:11px;padding:5px 10px;color:var(--text2);" onclick="clearItemImage()">✕ Supprimer</button>
           </div>
         </div>
+        <!-- ✅ FIX v29 : URL visible + saisie manuelle -->
+        <div style="margin-top:8px;">
+          <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">🔗 URL image (auto après upload ou coller un lien)</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="text" id="item-icon-url-display" placeholder="https://i.ibb.co/..." style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:6px 10px;font-size:11px;color:var(--text);font-family:monospace;" oninput="applyItemIconUrl(this.value)">
+            <button type="button" onclick="copyItemIconUrl()" title="Copier" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;">📋</button>
+          </div>
+          <div id="item-upload-status" style="font-size:11px;color:var(--text2);margin-top:4px;"></div>
+        </div>
       </div>
     </div>
     <div class="form-row">
@@ -11823,6 +11832,9 @@ function openEditMenuItem(menuIdx) {
   } else {
     imgPrev.style.display = 'none'; imgPrev.src = ''; emojiDisp.style.display = 'block'; emojiDisp.textContent = iconVal;
   }
+  // ✅ FIX v29 : Remplir le champ URL visible
+  const urlField = document.getElementById('item-icon-url-display');
+  if(urlField) urlField.value = iconVal.startsWith('http') ? iconVal : '';
   document.getElementById('item-img-file').value = '';
   populateItemCatSelect(item.cat);
   document.getElementById('item-price').value = item.price;
@@ -25517,7 +25529,7 @@ async function supprimerAnnonce(i) {
 // ═══════════════════════════════════════════════════════════════
 
 // ✅ FIX v29 : Upload images vers imgbb (zéro egress Supabase)
-const _IMGBB_KEY = '6ad019362dac475a4fef027413052fe7';
+const _IMGBB_KEY = '0299382cd6b11c0ab18242fb5ba97148'; // ✅ MàJ clé imgbb
 
 async function _compressToWebP(file, maxPx = 800, quality = 0.82) {
   return new Promise(res => {
@@ -25629,10 +25641,13 @@ async function handleItemImageUpload(input) {
   const { url, preview } = await _uploadImageToStorage(file, 'item');
   document.getElementById('item-icon').value = url;
   prev.src = preview; prev.style.display = 'block'; emoji.style.display = 'none';
+  // ✅ FIX v29 : Afficher l'URL dans le champ visible
+  const urlField = document.getElementById('item-icon-url-display');
+  if(urlField) urlField.value = url.startsWith('http') ? url : '';
 
   if(statusEl) {
-    statusEl.innerHTML = url.startsWith('http') ? '✅ Photo uploadée !' : '⚠️ Mode hors-ligne (base64)';
-    setTimeout(() => { if(statusEl) statusEl.innerHTML = ''; }, 3000);
+    statusEl.innerHTML = url.startsWith('http') ? '✅ Photo uploadée sur imgbb !' : '⚠️ Mode hors-ligne (base64)';
+    setTimeout(() => { if(statusEl) statusEl.innerHTML = ''; }, 4000);
   }
 }
 
@@ -25643,6 +25658,8 @@ function clearItemImage() {
   document.getElementById('item-img-emoji-display').style.display = 'block';
   document.getElementById('item-img-emoji-display').textContent = '🍽️';
   document.getElementById('item-img-file').value = '';
+  const urlField = document.getElementById('item-icon-url-display');
+  if(urlField) urlField.value = '';
   const statusEl = document.getElementById('item-upload-status');
   if(statusEl) statusEl.innerHTML = '';
 }
@@ -25688,4 +25705,26 @@ function clearEmiImage() {
 //  FIN MODULE PHOTO PLAT
 // ═══════════════════════════════════════════════════════════════
 
+</script><script>
+// ✅ FIX v29 : Fonctions URL visible photo plat
+function applyItemIconUrl(url) {
+  if(!url) return;
+  const icon = document.getElementById('item-icon');
+  const prev = document.getElementById('item-img-preview');
+  const emoji = document.getElementById('item-img-emoji-display');
+  if(icon) icon.value = url;
+  if(url.startsWith('http')) {
+    if(prev) { prev.src = url; prev.style.display = 'block'; }
+    if(emoji) emoji.style.display = 'none';
+  }
+}
+
+function copyItemIconUrl() {
+  const urlField = document.getElementById('item-icon-url-display');
+  const url = urlField?.value || document.getElementById('item-icon')?.value || '';
+  if(!url || !url.startsWith('http')) { showNotif('⚠️ Aucune URL à copier'); return; }
+  navigator.clipboard.writeText(url).then(() => showNotif('📋 URL copiée !')).catch(() => {
+    urlField.select(); document.execCommand('copy'); showNotif('📋 URL copiée !');
+  });
+}
 </script>
