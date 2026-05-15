@@ -5460,6 +5460,10 @@ function _syncSportVentes()       { return []; }
                     <input type="file" id="input-cover-photo" accept="image/*" style="display:none;" onchange="uploadPhotoRestaurant(this,'cover')">
                     <span class="btn btn-ghost" style="font-size:12px;display:inline-block;">📷 Choisir photo</span>
                   </label>
+                  <div style="display:flex;gap:6px;align-items:center;margin-top:6px;">
+                    <input id="cover-url-input" type="text" placeholder="🔗 Coller URL image directe…" style="flex:1;font-size:11px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'JetBrains Mono',monospace;" oninput="applyCoverUrlInput(this.value)">
+                    <button onclick="applyCoverUrlInput(document.getElementById('cover-url-input').value,true)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;">✅</button>
+                  </div>
                   <div id="cover-upload-status" style="font-size:11px;color:var(--text2);margin-top:4px;"></div>
                 </div>
               </div>
@@ -5478,12 +5482,16 @@ function _syncSportVentes()       { return []; }
                     <input type="file" id="input-logo-photo" accept="image/*" style="display:none;" onchange="uploadPhotoRestaurant(this,'logo')">
                     <span class="btn btn-ghost" style="font-size:12px;display:inline-block;">📷 Choisir photo</span>
                   </label>
+                  <div style="display:flex;gap:6px;align-items:center;margin-top:6px;">
+                    <input id="logo-url-input" type="text" placeholder="🔗 Coller URL image directe…" style="flex:1;font-size:11px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'JetBrains Mono',monospace;" oninput="applyLogoUrlInput(this.value)">
+                    <button onclick="applyLogoUrlInput(document.getElementById('logo-url-input').value,true)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--accent);background:var(--surface2);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;">✅</button>
+                  </div>
                   <div id="logo-upload-status" style="font-size:11px;color:var(--text2);margin-top:4px;"></div>
                 </div>
               </div>
             </div>
 
-            <div style="font-size:11px;color:var(--text2);">📡 Les photos sont uploadées sur Supabase Storage et s'affichent automatiquement sur le site de commande de vos clients.</div>
+            <div style="font-size:11px;color:var(--text2);">📡 Les photos sont uploadées sur imgbb et s'affichent automatiquement sur le site de commande de vos clients. Vous pouvez aussi coller directement une URL image.</div>
           </div>
 
           <!-- Paiement mobile — Liens marchands -->
@@ -9924,6 +9932,51 @@ async function uploadPhotoRestaurant(input, type) {
   }
 }
 
+// ── Appliquer URL directe cover/logo (champ texte) ──
+async function applyCoverUrlInput(url, save=false) {
+  url = (url||'').trim();
+  const coverImg  = document.getElementById('cover-preview-img');
+  const coverIcon = document.getElementById('cover-preview-icon');
+  const statusEl  = document.getElementById('cover-upload-status');
+  if(!url.startsWith('http')) return;
+  if(coverImg)  { coverImg.src = url; coverImg.style.display = 'block'; }
+  if(coverIcon) coverIcon.style.display = 'none';
+  if(!save) return;
+  RESTAURANT_INFO.cover_url = url;
+  if(statusEl) statusEl.innerHTML = '⏳ Sauvegarde…';
+  try {
+    const sb  = KGSync.getClient();
+    const rid = window._KG_RESTAURANT_ID;
+    if(sb && rid) await sb.from('restaurants').update({ cover_url: url }).eq('id', rid);
+    await KGSync.push.restaurantInfo().catch(()=>{});
+    try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+    if(statusEl) statusEl.innerHTML = '✅ Couverture enregistrée !';
+    setTimeout(() => { if(statusEl) statusEl.innerHTML = ''; }, 3000);
+  } catch(e) { if(statusEl) statusEl.innerHTML = '❌ Erreur sauvegarde'; }
+}
+
+async function applyLogoUrlInput(url, save=false) {
+  url = (url||'').trim();
+  const logoImg   = document.getElementById('logo-preview-img');
+  const logoIcon  = document.getElementById('logo-preview-icon');
+  const statusEl  = document.getElementById('logo-upload-status');
+  if(!url.startsWith('http')) return;
+  if(logoImg)  { logoImg.src = url; logoImg.style.display = 'block'; }
+  if(logoIcon) logoIcon.style.display = 'none';
+  if(!save) return;
+  RESTAURANT_INFO.logo_url = url;
+  if(statusEl) statusEl.innerHTML = '⏳ Sauvegarde…';
+  try {
+    const sb  = KGSync.getClient();
+    const rid = window._KG_RESTAURANT_ID;
+    if(sb && rid) await sb.from('restaurants').update({ logo_url: url }).eq('id', rid);
+    await KGSync.push.restaurantInfo().catch(()=>{});
+    try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+    if(statusEl) statusEl.innerHTML = '✅ Logo enregistré !';
+    setTimeout(() => { if(statusEl) statusEl.innerHTML = ''; }, 3000);
+  } catch(e) { if(statusEl) statusEl.innerHTML = '❌ Erreur sauvegarde'; }
+}
+
 function _initPhotosPreviews() {
   // Charger les prévisualisations depuis RESTAURANT_INFO au chargement de l'onglet settings
   const cover = RESTAURANT_INFO?.cover_url || '';
@@ -9934,6 +9987,11 @@ function _initPhotosPreviews() {
   const logoIcon  = document.getElementById('logo-preview-icon');
   if(cover && coverImg)  { coverImg.src = cover; coverImg.style.display = 'block'; if(coverIcon) coverIcon.style.display = 'none'; }
   if(logo  && logoImg)   { logoImg.src  = logo;  logoImg.style.display  = 'block'; if(logoIcon)  logoIcon.style.display  = 'none'; }
+  // Pré-remplir les champs URL si déjà définis
+  const coverInput = document.getElementById('cover-url-input');
+  const logoInput  = document.getElementById('logo-url-input');
+  if(coverInput && cover.startsWith('http')) coverInput.value = cover;
+  if(logoInput  && logo.startsWith('http'))  logoInput.value  = logo;
 }
 // ══════════════════════════════════════════════════════
 
