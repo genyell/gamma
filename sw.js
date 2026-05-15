@@ -1,6 +1,6 @@
-const CACHE_NAME = 'kgm-commander-v1';
+const CACHE_NAME = 'kgm-commander-v2';
 const ASSETS = [
-  '/commander.html',
+  '/commander_online_beta.html',
   '/manifest.json'
 ];
 

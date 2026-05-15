@@ -1,5 +1,16 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/KEURGOUMAK_beta.html" }
+    {
+      "source": "/commander",
+      "destination": "/commander_online_beta.html"
+    },
+    {
+      "source": "/commander_online_beta.html",
+      "destination": "/commander_online_beta.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/KEURGOUMAK_beta.html"
+    }
   ]
 }
