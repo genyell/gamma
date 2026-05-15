@@ -992,7 +992,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     // 🚀 CACHE EGRESS CLIENT — logo, cover, menu mis en cache
     // localStorage pour éviter re-téléchargement Supabase
     // ══════════════════════════════════════════════════════
-    const _CACHE_TTL   = 30 * 60 * 1000; // ✅ FIX v3 : 5min → 30min (économie egress)
+    const _CACHE_TTL   = 5 * 60 * 1000; // ✅ FIX : 5min — équilibre entre egress et fraîcheur menu
     const _cMenuKey    = 'kg_cmd_menu_'  + restaurantId;
     const _cMenuTs     = 'kg_cmd_menu_ts_'  + restaurantId;
     const _cRestoKey   = 'kg_cmd_resto_' + restaurantId;
@@ -1044,7 +1044,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     ]);
 
     // Sauvegarder dans cache si fraîchement fetchés
-    if(!_cachedMenu  && menuR.data)  _cacheSet(_cMenuKey,  _cMenuTs,  menuR.data);
+    // ✅ Ne pas cacher menu_items brut — cacher après fusion avec kg_sync (fait plus bas)
     if(!_cachedResto && restoR.data) _cacheSet(_cRestoKey, _cRestoTs, restoR.data);
     if(!_cachedInfo  && infoR.data?.value) {
       try { _cacheSet(_cInfoKey, _cInfoTs, JSON.parse(infoR.data.value)); } catch(e) {}
@@ -1061,39 +1061,83 @@ window.addEventListener('DOMContentLoaded', async () => {
       if(kgItems.length > 0) {
         if(rawMenu.length === 0) {
           // Aucun article dans menu_items → utiliser kg_sync comme source complète
-          rawMenu = kgItems.map(k => ({
-            id: k.sbId || k.id || ('local_' + Math.random()),
-            restaurant_id: restaurantId,
-            name: k.name || k.nom || 'Sans nom',
-            icon: k.icon || k.emoji || '\u{1F37D}\uFE0F',
-            category: k.cat || k.category || 'Autres',
-            price_ttc: k.price || k.prix || 0,
-            description: k.desc || k.description || '',
-            en_rupture: k.en_rupture || false,
-            actif: true,
-            promo_pct: k.promo_pct || 0,
-          }));
+          rawMenu = kgItems.map(k => {
+            const iconVal = k.icon || k.emoji || '';
+            const iconIsUrl = iconVal && (iconVal.startsWith('http') || iconVal.startsWith('data:') || iconVal.includes('ibb.co'));
+            return {
+              id: k.sbId || k.id || ('local_' + Math.random()),
+              restaurant_id: restaurantId,
+              name: k.name || k.nom || 'Sans nom',
+              icon: iconIsUrl ? '🍽️' : (iconVal || '🍽️'),
+              image_url: k.image_url || (iconIsUrl ? iconVal : null),
+              category: k.cat || k.category || 'Autres',
+              price_ttc: k.price || k.prix || 0,
+              description: k.desc || k.description || '',
+              en_rupture: k.en_rupture || false,
+              actif: true,
+              promo_pct: k.promo_pct || 0,
+              sort_order: k.sort_order || 999,
+            };
+          });
           console.log('[Commander v21] fallback kg_sync:', rawMenu.length, 'articles');
         } else {
-          // Fusionner promo_pct ET en_rupture depuis kg_sync
+          // ✅ FIX : fusionner kg_sync → menu_items
+          // 1. Mettre à jour les items existants (promo, rupture, image_url)
+          const mergedIds = new Set();
           rawMenu = rawMenu.map(item => {
             const match = kgItems.find(k =>
               k.sbId === item.id || k.id === item.id ||
               (k.name || '').toLowerCase() === (item.name || item.nom || '').toLowerCase()
             );
+            if(match) mergedIds.add(match.sbId || match.id || match.name);
             if(!match) return item;
+            const kgIconVal = match.icon || match.emoji || '';
+            const kgIconIsUrl = kgIconVal && (kgIconVal.startsWith('http') || kgIconVal.startsWith('data:') || kgIconVal.includes('ibb.co'));
             return {
               ...item,
               promo_pct: (item.promo_pct || 0) > 0 ? item.promo_pct : (match.promo_pct || 0),
-              // FIX : propager en_rupture depuis kg_sync si Supabase menu_items n'est pas à jour
               en_rupture: item.en_rupture || match.en_rupture || false,
+              // ✅ Récupérer image_url depuis kg_sync si absent dans menu_items
+              image_url: item.image_url || match.image_url || (kgIconIsUrl ? kgIconVal : null),
             };
           });
+          // 2. ✅ Ajouter les nouveaux plats de kg_sync absents de menu_items
+          const newItems = kgItems.filter(k => {
+            const kId = k.sbId || k.id || '';
+            const kName = (k.name || k.nom || '').toLowerCase();
+            return !mergedIds.has(kId) && !mergedIds.has(k.name) &&
+              !rawMenu.some(r => r.id === kId || (r.name||'').toLowerCase() === kName);
+          });
+          if(newItems.length > 0) {
+            console.log('[Commander] Nouveaux plats kg_sync:', newItems.map(k=>k.name));
+            newItems.forEach(k => {
+              const iconVal = k.icon || k.emoji || '';
+              const iconIsUrl = iconVal && (iconVal.startsWith('http') || iconVal.startsWith('data:') || iconVal.includes('ibb.co'));
+              rawMenu.push({
+                id: k.sbId || k.id || ('local_' + Math.random()),
+                restaurant_id: restaurantId,
+                name: k.name || k.nom || 'Sans nom',
+                icon: iconIsUrl ? '🍽️' : (iconVal || '🍽️'),
+                image_url: k.image_url || (iconIsUrl ? iconVal : null),
+                category: k.cat || k.category || 'Autres',
+                price_ttc: k.price || k.prix || 0,
+                description: k.desc || k.description || '',
+                en_rupture: k.en_rupture || false,
+                actif: true,
+                promo_pct: k.promo_pct || 0,
+                sort_order: k.sort_order || 999,
+              });
+            });
+            // Retrier par sort_order
+            rawMenu.sort((a,b) => (a.sort_order||999) - (b.sort_order||999));
+          }
         }
       }
     } catch(e) { console.warn('[menu] merge kg_sync échoué:', e); }
 
     menuItems = normalizeItems(rawMenu);
+    // ✅ Cacher le menu fusionné (menu_items + kg_sync) pour économiser l'egress
+    try { _cacheSet(_cMenuKey, _cMenuTs, rawMenu); } catch(e) {}
     restoData  = restoR.data || {};
 
     // Logo + liens Wave/Orange depuis kg_sync — plusieurs structures possibles

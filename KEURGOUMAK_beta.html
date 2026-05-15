@@ -5517,6 +5517,12 @@ function _syncSportVentes()       { return []; }
             <button class="btn btn-primary" onclick="saveRestaurantSettings()">💾 Sauvegarder</button>
             <span id="settings-save-status" style="font-size:12px;color:var(--text2);"></span>
           </div>
+          <div style="margin-top:12px;padding:12px;background:rgba(245,158,42,0.08);border:1px solid rgba(245,158,42,0.25);border-radius:10px;">
+            <div style="font-size:12px;color:var(--accent);font-weight:700;margin-bottom:6px;">🔄 SYNCHRONISATION PHOTOS → SITE CLIENT</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">Si les photos n'apparaissent pas sur le site de commande, cliquez ici pour les synchroniser.</div>
+            <button onclick="migrateIconsToImageUrl()" style="background:linear-gradient(135deg,#f59e2a,#e84520);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">📸 Synchroniser les photos</button>
+            <span id="migrate-status" style="font-size:11px;color:var(--text2);margin-left:8px;"></span>
+          </div>
 
         </div>
         <div class="card">
@@ -9826,6 +9832,42 @@ function removeLoginLogo() {
   }
   _applyLoginLogo();
   showNotif('🗑️ Logo de connexion supprimé');
+}
+
+async function migrateIconsToImageUrl() {
+  const statusEl = document.getElementById('migrate-status');
+  if(statusEl) statusEl.textContent = '⏳ En cours…';
+  if(!KGSync.isConnected) { if(statusEl) statusEl.textContent = '❌ Non connecté'; return; }
+  const sb = KGSync.getClient();
+  const rid = window._KG_RESTAURANT_ID;
+  if(!sb || !rid) { if(statusEl) statusEl.textContent = '❌ Erreur connexion'; return; }
+  try {
+    // Charger tous les items du menu
+    const { data: items, error } = await sb.from('menu_items')
+      .select('id, icon, image_url')
+      .eq('restaurant_id', rid);
+    if(error) throw error;
+    // Filtrer ceux qui ont une URL dans icon mais pas dans image_url
+    const toFix = (items || []).filter(i =>
+      i.icon && (i.icon.startsWith('http') || i.icon.startsWith('data:') || i.icon.includes('ibb.co')) && !i.image_url
+    );
+    if(toFix.length === 0) { if(statusEl) statusEl.textContent = '✅ Déjà synchronisé !'; return; }
+    let ok = 0;
+    for(const item of toFix) {
+      const { error: err } = await sb.from('menu_items')
+        .update({ image_url: item.icon, icon: '🍽️' })
+        .eq('id', item.id);
+      if(!err) ok++;
+    }
+    if(statusEl) statusEl.textContent = `✅ ${ok} photo(s) synchronisée(s) !`;
+    showNotif(`✅ ${ok} photo(s) synchronisée(s) sur le site client`);
+    // Invalider cache QR
+    try { localStorage.removeItem('kg_qr_menu_' + rid); localStorage.removeItem('kg_qr_menu_ts_' + rid); } catch(e) {}
+    if(typeof loadQRMenuItems === 'function') loadQRMenuItems().then(() => { if(typeof renderQRRupturesPanel === 'function') renderQRRupturesPanel(); });
+  } catch(e) {
+    console.error('migrateIconsToImageUrl:', e);
+    if(statusEl) statusEl.textContent = '❌ ' + (e.message || 'Erreur');
+  }
 }
 
 async function saveRestaurantSettings() {
