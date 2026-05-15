@@ -7119,7 +7119,8 @@ Revenez nous voir bient&#244;t.</textarea>
         <label class="form-label">Photo du plat</label>
         <input type="hidden" id="item-icon" value="🍽️">
         <div style="display:flex;align-items:center;gap:10px;">
-          <div id="item-img-preview-box" style="width:64px;height:64px;border-radius:10px;overflow:hidden;background:rgba(255,255,255,0.07);border:2px dashed rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:28px;">
+          <input type="file" id="item-img-file" accept="image/*" style="display:none" onchange="handleItemImageUpload(this)">
+            <div id="item-img-preview-box" style="width:64px;height:64px;border-radius:10px;overflow:hidden;background:rgba(255,255,255,0.07);border:2px dashed rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:28px;">
             <span id="item-img-emoji-display">🍽️</span>
             <img id="item-img-preview" style="display:none;width:100%;height:100%;object-fit:cover;" alt="">
           </div>
@@ -8939,9 +8940,11 @@ function filterPOS(cat, el) {
   document.getElementById('pos-items-grid').innerHTML = items.map((item, idx) => {
     // Utiliser l'index global dans MENU pour éviter les problèmes avec les UUIDs dans onclick
     const menuIdx = MENU.indexOf(item);
-    const iconVal = item.icon || '🍽️';
-    const iconHtml = (iconVal.startsWith('data:') || iconVal.startsWith('http'))
-      ? `<img src="${iconVal}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;margin-bottom:6px;" alt="">`
+    const iconVal = item.image_url || item.icon || '🍽️';
+    const _iconIsImg = iconVal.startsWith('data:') || iconVal.startsWith('http') || iconVal.startsWith('//') || iconVal.includes('ibb.co') || iconVal.includes('imgbb');
+    const _iconSrc = (_iconIsImg && !iconVal.startsWith('http') && !iconVal.startsWith('data:') && !iconVal.startsWith('//')) ? 'https://' + iconVal : iconVal;
+    const iconHtml = _iconIsImg
+      ? `<img src="${_iconSrc}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;margin-bottom:6px;" alt="" onerror="this.style.display=&apos;none&apos;">`
       : `<div class="pos-item-icon">${iconVal}</div>`;
     return `<div class="pos-item" onclick="addToCart(${menuIdx})">
       ${iconHtml}
@@ -8957,9 +8960,9 @@ function addToCart(menuIdx) {
   if(!item) return;
   const existing = cart.find(c => c.id === item.id);
   if(existing) { existing.qty++; }
-  else { cart.push({ id: item.id, sbId: item.sbId, name: item.name, icon: item.icon || '🍽️', price: item.price, cat: item.cat, qty: 1 }); }
+  else { cart.push({ id: item.id, sbId: item.sbId, name: item.name, image_url: item.image_url || item._displayIcon || ((item.icon && (item.icon.startsWith('http')||item.icon.startsWith('data:')||item.icon.startsWith('//')||item.icon.includes('ibb.co'))) ? item.icon : null), icon: _safeIconText(item.icon), price: item.price, cat: item.cat, qty: 1 }); }
   renderCart();
-  showNotif(`➕ ${item.icon || ''} ${item.name} ajouté`);
+  showNotif(`➕ ${_safeIconText(item.icon)} ${item.name} ajouté`);
 }
 
 function changeQty(cartIdx, delta) {
@@ -8986,7 +8989,7 @@ function renderCart() {
     const prixFinal = hasPromo ? Math.round(prixOriginal * (1 - item.discount / 100)) : item.price;
     return `
     <div class="cart-item" style="position:relative;">
-      <div class="cart-item-icon">${(item.icon||'').startsWith('data:')||(item.icon||'').startsWith('http') ? `<img src="${item.icon}" style="width:32px;height:32px;object-fit:cover;border-radius:6px;">` : (item.icon||'🍽️')}</div>
+      <div class="cart-item-icon">${_iconHtml(item.icon, item.image_url, '32px')}</div>
       <div class="cart-item-info" style="flex:1;">
         <div class="cart-item-name">${item.name}${hasPromo ? ` <span style="background:var(--red);color:white;border-radius:4px;font-size:10px;font-weight:700;padding:1px 5px;">-${item.discount}%</span>` : ''}</div>
         <div class="cart-item-price" style="display:flex;gap:6px;align-items:center;">
@@ -9468,7 +9471,7 @@ function openConfirmTicket() {
       const prixU = item.discount > 0 ? Math.round((item.priceOriginal||item.price)*(1-item.discount/100)) : item.price;
       const promoTag = item.discount > 0 ? ` <span style="color:var(--red);font-size:10px;">-${item.discount}%</span>` : '';
       return `<div class="ticket-line">
-        <span>${item.icon} ${item.name} x${item.qty}${promoTag}</span>
+        <span>${_safeIconText(item.icon)} ${item.name} x${item.qty}${promoTag}</span>
         <span>${(prixU * item.qty).toLocaleString()} F TTC</span>
       </div>`;
     }).join('')}
@@ -9703,6 +9706,25 @@ let TICKET_CONFIG = {
   accentColor:'#f5a623',
 };
 
+
+// ✅ FIX GLOBAL : Convertir icon URL → emoji pour l'affichage texte
+function _safeIconText(icon, fallback) {
+  fallback = fallback || '🍽️';
+  if(!icon) return fallback;
+  if(icon.startsWith('http') || icon.startsWith('data:') || icon.startsWith('//') || icon.includes('ibb.co')) return fallback;
+  return icon;
+}
+// ✅ FIX GLOBAL : Rendu HTML d'une icône (img ou emoji)
+function _iconHtml(icon, imageUrl, size) {
+  size = size || '20px';
+  const src = imageUrl || icon || '';
+  if(src.startsWith('http') || src.startsWith('data:') || src.startsWith('//') || src.includes('ibb.co')) {
+    const url = (src.startsWith('http') || src.startsWith('data:') || src.startsWith('//')) ? src : 'https://' + src;
+    return '<img src="' + url + '" style="width:' + size + ';height:' + size + ';object-fit:cover;border-radius:4px;vertical-align:middle;" alt="" onerror="this.style.display=&apos;none&apos;">';
+  }
+  return src || '🍽️';
+}
+
 function loadRestaurantSettings() {
   // ✅ FIX v15 LOGO : charger restaurant_info ET ticket_config depuis localStorage
   try {
@@ -9819,7 +9841,7 @@ async function saveRestaurantSettings() {
 
   const waveUrl   = (document.getElementById('settings-wave-url')?.value   || '').trim();
   const orangeUrl = (document.getElementById('settings-orange-url')?.value || '').trim();
-  RESTAURANT_INFO = { nom, ninea, tel, email, adresse, devise, wave_payment_url: waveUrl, orange_payment_url: orangeUrl };
+  RESTAURANT_INFO = { ...RESTAURANT_INFO, nom, ninea, tel, email, adresse, devise, wave_payment_url: waveUrl, orange_payment_url: orangeUrl };
 
   // Sauvegarder localement (double persistance localStorage + session)
   try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
@@ -9898,7 +9920,7 @@ async function uploadPhotoRestaurant(input, type) {
       RESTAURANT_INFO.logo_url = publicUrl;
     }
 
-    // Sauvegarder dans restaurants table (pour commander.html)
+    // Sauvegarder dans restaurants table (pour commander_online_beta.html)
     const col = iscover ? 'cover_url' : 'logo_url';
     await sb.from('restaurants').update({ [col]: publicUrl }).eq('id', rid);
 
@@ -10462,7 +10484,7 @@ function printTicket(vente, caisse) {
 <div class="article-item">
   <div class="article-qty-badge">${item.qty}</div>
   <div class="article-details">
-    <div class="article-name">${((item.icon||'').startsWith('data:')||(item.icon||'').startsWith('http'))?`<img src="${item.icon}" style="width:20px;height:20px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:4px;" alt="">`:((item.icon&&!item.icon.startsWith('data:'))?item.icon+' ':'')}${item.name}${promoTag}</div>
+    <div class="article-name">${((_ic=>((_ic.startsWith('http')||_ic.startsWith('data:')||_ic.includes('ibb.co'))?'<img src="'+(_ic.startsWith('http')||_ic.startsWith('data:')?_ic:'https://'+_ic)+'" style="width:18px;height:18px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:3px;" alt="">':(_ic&&!_ic.startsWith('http')&&!_ic.includes('ibb.co')?_ic+' ':''))))(item.image_url||item.icon||'')} ${item.name}${promoTag}</div>
     <div class="article-unit-price">${prixUnit} F / unité${item.discount>0?` · base : ${prixOrig.toLocaleString()} F`:''}</div>
   </div>
   <div class="article-total">${sousTotal} F</div>
@@ -10660,7 +10682,7 @@ function renderCmdProductGrid(items) {
   document.getElementById('cmd-product-grid').innerHTML = list.map(item => {
     const menuIdx = MENU.indexOf(item);
     return `<div class="cmd-product-btn" onclick="addCmdItem(${menuIdx})">
-      <div class="icon">${((item.icon||'')).startsWith('data:') || ((item.icon||'')).startsWith('http') ? `<img src="${item.icon}" style="width:36px;height:36px;object-fit:cover;border-radius:8px;" alt="">` : `<span>${item.icon||'🍽️'}</span>`}</div>
+      <div class="icon">${((_s=item.image_url||item.icon||'')&&(_s.startsWith('http')||_s.startsWith('data:')||_s.includes('ibb.co')))?'<img src="'+(_s.startsWith('http')||_s.startsWith('data:')?_s:'https://'+_s)+'" style="width:36px;height:36px;object-fit:cover;border-radius:8px;" alt="">':'<span>'+(_s&&!_s.startsWith('http')&&!_s.includes('ibb.co')?_s:'🍽️')+'</span>'}</div>
       <div class="name">${item.name}</div>
       <div class="price">${(item.price||0).toLocaleString()} F</div>
     </div>`;
@@ -10693,7 +10715,7 @@ function renderCmdItems() {
   } else {
     el.innerHTML = cmdCart.map((item, cIdx) => `
       <div class="cmd-item-row">
-        <div class="cmd-item-icon">${item.icon||'🍽️'}</div>
+        <div class="cmd-item-icon">${((_s=item.image_url||item.icon||'')&&(_s.startsWith('http')||_s.startsWith('data:')||_s.includes('ibb.co')))?'<img src="'+(_s.startsWith('http')||_s.startsWith('data:')?_s:'https://'+_s)+'" style="width:24px;height:24px;object-fit:cover;border-radius:4px;" alt="">':(_s&&!_s.startsWith('http')?_s:'🍽️')}</div>
         <div class="cmd-item-name">${item.name}</div>
         <div class="cmd-item-price">${((item.price||0)*item.qty).toLocaleString()} F</div>
         <div class="cmd-qty-ctrl">
@@ -10855,6 +10877,7 @@ function renderMenu(cat) {
   const isManager = currentUser && (currentUser.role === 'gerant' || currentUser.role === 'superviseur' || currentUser.role === 'administrateur');
   document.getElementById('menu-grid').innerHTML = items.map(item => {
     const menuIdx = MENU.indexOf(item); // index sûr, pas d'UUID dans onclick
+    const menuItemId = item.sbId || item.id || '';
     // ── Stock lié à l'article (via recette)
     const hasLinkedStock = item.recette && item.recette.length > 0;
     const linkedStockOk  = hasLinkedStock && item.recette.some(r => {
@@ -10871,10 +10894,10 @@ function renderMenu(cat) {
     <div class="menu-card">
       <div class="menu-img" style="background:${item.color||'#8B4513'}22;position:relative;">
         <div class="menu-img-bg" style="background:${item.color||'#8B4513'};"></div>
-        ${((item.icon||'')).startsWith('data:') || ((item.icon||'')).startsWith('http') ? `<img src="${item.icon}" style="width:80px;height:80px;object-fit:cover;border-radius:12px;position:relative;z-index:1;" alt="">` : `<span style="font-size:52px;position:relative;z-index:1;">${item.icon||'🍽️'}</span>`}
+        ${(_menuImgSrc => { const _isImg = _menuImgSrc && (_menuImgSrc.startsWith('data:') || _menuImgSrc.startsWith('http') || _menuImgSrc.startsWith('//') || _menuImgSrc.includes('ibb.co')); const _finalSrc = (_isImg && !_menuImgSrc.startsWith('http') && !_menuImgSrc.startsWith('data:') && !_menuImgSrc.startsWith('//')) ? 'https://' + _menuImgSrc : _menuImgSrc; return _isImg ? '<img src="' + _finalSrc + '" style="width:80px;height:80px;object-fit:cover;border-radius:12px;position:relative;z-index:1;" alt="" onerror="this.style.display=\'none\'">' : '<span style="font-size:52px;position:relative;z-index:1;">' + (_menuImgSrc || '🍽️') + '</span>'; })(item.image_url || item.icon || '')}
         ${item.tag ? `<div class="menu-tag">${item.tag}</div>` : ''}
         ${stockBadge}
-        ${isManager ? `<button onclick="openEditMenuItem(${menuIdx})" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:white;font-size:12px;padding:3px 8px;cursor:pointer;z-index:2;" title="Modifier le produit">✏️</button>` : ''}
+        ${isManager ? `<button onclick="event.stopPropagation();openEditMenuItemById('${menuItemId}'||${menuIdx})" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:white;font-size:12px;padding:3px 8px;cursor:pointer;z-index:2;" title="Modifier le produit">✏️</button>` : ''}
       </div>
       <div class="menu-body">
         <div class="menu-name">${item.name}</div>
@@ -10895,7 +10918,7 @@ function renderMenu(cat) {
           </div>
           <div style="display:flex;gap:6px;align-items:center;">
             ${isManager ? `
-              <button onclick="event.stopPropagation();openEditMenuItem(${menuIdx})" title="Modifier l'article"
+              <button onclick="event.stopPropagation();openEditMenuItemById('${menuItemId}'||${menuIdx})" title="Modifier l'article"
                 style="width:28px;height:28px;border-radius:50%;background:rgba(245,166,35,0.15);border:1px solid rgba(245,166,35,0.4);color:var(--accent);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;"
                 onmouseover="this.style.background='rgba(245,166,35,0.3)'" onmouseout="this.style.background='rgba(245,166,35,0.15)'">✏️</button>
               <button onclick="event.stopPropagation();deleteMenuItem(${menuIdx})" title="Supprimer l'article"
@@ -10925,7 +10948,7 @@ function renderOrders(status) {
     allOrders = VENTES_PAR_CAISSE[caisse].map(v => ({
       id: v.orderNum,
       client: v.client,
-      items: (v.items||[]).map(i => `${i.icon||''} ${i.name||''} x${i.qty||1}`).join(', '),
+      items: (v.items||[]).map(i => `${_safeIconText(i.icon)} ${i.name||''} x${i.qty||1}`).join(', '),
       price: v.total,
       time: v.time,
       status: 'done',
@@ -10938,7 +10961,7 @@ function renderOrders(status) {
       ventes.forEach(v => {
         allOrders.push({
           id: v.orderNum, client: v.client,
-          items: (v.items||[]).map(i => `${i.icon||''} ${i.name||''} x${i.qty||1}`).join(', '),
+          items: (v.items||[]).map(i => `${_safeIconText(i.icon)} ${i.name||''} x${i.qty||1}`).join(', '),
           price: v.total, time: v.time, status: 'done',
           payLabel: v.payLabel, caisse: v.caisse || '', vente: v
         });
@@ -11825,7 +11848,7 @@ function openAddMenuItem() {
   document.getElementById('item-img-preview').src = '';
   document.getElementById('item-img-emoji-display').style.display = 'block';
   document.getElementById('item-img-emoji-display').textContent = '🍽️';
-  document.getElementById('item-img-file').value = '';
+  const _imgFileEl = document.getElementById('item-img-file'); if(_imgFileEl) _imgFileEl.value = '';
   populateItemCatSelect('');
   document.getElementById('item-price').value = '';
   document.getElementById('item-desc').value = '';
@@ -11857,9 +11880,28 @@ function updatePromoPreview() {
   }
 }
 
+
+// ✅ FIX : Ouvrir l'édition par ID ou index (robuste même après pullAll)
+function openEditMenuItemById(idOrIdx) {
+  // D'abord chercher par id/sbId
+  let idx = -1;
+  if(typeof idOrIdx === 'string' && idOrIdx && idOrIdx !== 'undefined') {
+    idx = MENU.findIndex(m => (m.sbId === idOrIdx || m.id === idOrIdx));
+  }
+  // Fallback: utiliser comme index numérique
+  if(idx === -1) idx = parseInt(idOrIdx) || 0;
+  openEditMenuItem(idx);
+}
 function openEditMenuItem(menuIdx) {
-  const item = MENU[menuIdx];
-  if(!item) return;
+  try {
+  // Re-search by current MENU state (index may have shifted after pullAll)
+  let item = MENU[menuIdx];
+  // Fallback: if MENU was reloaded and indices shifted, search by position
+  if(!item && MENU.length > 0) {
+    console.warn('[openEditMenuItem] index', menuIdx, 'shifted, using closest');
+    item = MENU[Math.min(menuIdx, MENU.length - 1)];
+  }
+  if(!item) { showNotif('⚠️ Produit introuvable — actualisez la page'); return; }
   document.getElementById('addItemTitle').textContent = `✏️ Modifier — ${item.name}`;
   document.getElementById('item-edit-id').value = menuIdx;
   document.getElementById('item-nom').value = item.name;
@@ -11876,7 +11918,7 @@ function openEditMenuItem(menuIdx) {
   // ✅ FIX v29 : Remplir le champ URL visible
   const urlField = document.getElementById('item-icon-url-display');
   if(urlField) urlField.value = iconVal.startsWith('http') ? iconVal : '';
-  document.getElementById('item-img-file').value = '';
+  const _imgFileEl = document.getElementById('item-img-file'); if(_imgFileEl) _imgFileEl.value = '';
   populateItemCatSelect(item.cat);
   document.getElementById('item-price').value = item.price;
   document.getElementById('item-desc').value = item.desc || '';
@@ -11891,6 +11933,7 @@ function openEditMenuItem(menuIdx) {
   document.getElementById('item-error').style.display = 'none';
   renderRecetteLines(item.recette || []);
   showModal('addItem');
+  } catch(e) { console.error('[openEditMenuItem] error:', e); showNotif('⚠️ Erreur ouverture: ' + e.message); }
 }
 
 function saveMenuItem() {
@@ -11927,7 +11970,7 @@ function saveMenuItem() {
       if(_sbClient && _rid) {
         const payload = {
           restaurant_id: _rid,
-          // ✅ FIX v41 : séparer emoji (icon) et photo (image_url) pour commander.html
+          // ✅ FIX v41 : séparer emoji (icon) et photo (image_url) pour commander_online_beta.html
           icon: (item.icon||'').startsWith('data:') || (item.icon||'').startsWith('http') ? '🍽️' : (item.icon||'🍽️'),
           image_url: (item.icon||'').startsWith('data:') || (item.icon||'').startsWith('http') ? item.icon : null,
           name: item.name, category: item.cat,
@@ -11965,7 +12008,7 @@ function saveMenuItem() {
       if(_sbClient && _rid) {
         const payload = {
           restaurant_id: _rid,
-          // ✅ FIX v41 : séparer emoji (icon) et photo (image_url) pour commander.html
+          // ✅ FIX v41 : séparer emoji (icon) et photo (image_url) pour commander_online_beta.html
           icon: (newItem.icon||'').startsWith('data:') || (newItem.icon||'').startsWith('http') ? '🍽️' : (newItem.icon||'🍽️'),
           image_url: (newItem.icon||'').startsWith('data:') || (newItem.icon||'').startsWith('http') ? newItem.icon : null,
           name: newItem.name, category: newItem.cat,
@@ -12590,7 +12633,7 @@ function renderStats() {
       tb.innerHTML = tops.map(p => {
         const pct = totalCA > 0 ? Math.round(p.total/totalCA*100) : 0;
         return `<tr>
-          <td><strong>${p.icon} ${p.name}</strong></td>
+          <td><strong>${_safeIconText(p.icon)} ${p.name}</strong></td>
           <td><span class="badge badge-pending">${catBadge[p.cat]||p.cat}</span></td>
           <td style="font-family:'Space Mono';text-align:center;">${p.qty}</td>
           <td style="font-family:'Space Mono';color:var(--accent)">${p.total.toLocaleString()} F</td>
@@ -12851,7 +12894,7 @@ function renderRapportX() {
   if(topEl) {
     const prodMap = {};
     allVentes.forEach(v => (v.items||[]).forEach(i => {
-      if(!prodMap[i.name]) prodMap[i.name] = { icon:i.icon, name:i.name, qty:0, ca:0 };
+      if(!prodMap[i.name]) prodMap[i.name] = { icon:_safeIconText(i.icon), name:i.name, qty:0, ca:0 };
       prodMap[i.name].qty += i.qty;
       prodMap[i.name].ca += i.price * i.qty;
     }));
@@ -12907,7 +12950,7 @@ function printRapportX() {
     prodMap[i.name].ca  += (i.price||0) * (i.qty||0);
   }));
   const topRows = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).slice(0,8)
-    .map((p,i) => `<tr><td>#${i+1}</td><td>${p.icon} ${p.name}</td>
+    .map((p,i) => `<tr><td>#${i+1}</td><td>${_safeIconText(p.icon)} ${p.name}</td>
       <td style="text-align:right">${p.qty}</td>
       <td style="text-align:right;color:#f5a623">${p.ca.toLocaleString()} F</td></tr>`).join('')
     || '<tr><td colspan="4" style="text-align:center;color:#888">Aucune vente</td></tr>';
@@ -13507,9 +13550,9 @@ async function doLogin() {
     if(rolesData && rolesData.length) { rolesData.forEach(r => { if(ROLES_CONFIG[r.role_key]) ROLES_CONFIG[r.role_key].perms = r.perms; }); }
 
     // Charger infos restaurant
-    const { data: resto } = await sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url').eq('id', profile.restaurant_id).single();
+    const { data: resto } = await sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url,ticket_config').eq('id', profile.restaurant_id).single();
     if(resto) {
-      RESTAURANT_INFO = { nom: resto.nom, ninea: resto.ninea||'', tel: resto.tel||'', email: resto.email||'', adresse: resto.adresse||'', devise: resto.devise||'FCFA', cover_url: resto.cover_url||'', logo_url: resto.logo_url||'', wave_payment_url: resto.wave_payment_url||resto.wave_numero||'', orange_payment_url: resto.orange_payment_url||resto.orange_numero||'' };
+      RESTAURANT_INFO = { ...RESTAURANT_INFO, nom: resto.nom, ninea: resto.ninea||'', tel: resto.tel||'', email: resto.email||'', adresse: resto.adresse||'', devise: resto.devise||'FCFA', cover_url: resto.cover_url||'', logo_url: resto.logo_url||'', wave_payment_url: resto.wave_payment_url||resto.wave_numero||'', orange_payment_url: resto.orange_payment_url||resto.orange_numero||'' };
       // ✅ FIX: restaurer la config ticket depuis Supabase
       if(resto.ticket_config && typeof resto.ticket_config === 'object') {
         RESTAURANT_INFO.ticketConfig = resto.ticket_config;
@@ -14301,7 +14344,7 @@ function refreshDashboard() {
           <div class="order-num">${v.orderNum}</div>
           <div class="order-info">
             <div class="order-name">${v.client}</div>
-            <div class="order-items-list">${v.items.map(i=>`${i.icon}${i.name}×${i.qty}`).join(', ')}</div>
+            <div class="order-items-list">${v.items.map(i=>`${_safeIconText(i.icon)}${i.name}×${i.qty}`).join(', ')}</div>
           </div>
           <div class="order-time">${v.time}</div>
           <div class="order-price">${v.total.toLocaleString()} F</div>
@@ -14430,7 +14473,7 @@ function refreshDashboard() {
   if(topEl) {
     const prodMap = {};
     ventes.forEach(v => (v.items||[]).forEach(i => {
-      if(!prodMap[i.id]) prodMap[i.id] = { icon:i.icon, name:i.name, qty:0, total:0 };
+      if(!prodMap[i.id]) prodMap[i.id] = { icon:_safeIconText(i.icon), name:i.name, qty:0, total:0 };
       prodMap[i.id].qty += i.qty;
       prodMap[i.id].total += i.price * i.qty;
     }));
@@ -16667,7 +16710,12 @@ TICKETS_ARCHIVES = [];
 
     // ✅ FIX: restaurer MENU si présent (désactivé uniquement si Supabase va écraser)
     if(Array.isArray(data.MENU) && data.MENU.length && typeof MENU !== 'undefined') {
-      MENU = data.MENU;
+      MENU = data.MENU.map(item => {
+        if(!item.image_url && item.icon && (item.icon.startsWith('http')||item.icon.startsWith('data:')||item.icon.includes('ibb.co'))) {
+          item.image_url = item.icon;
+        }
+        return item;
+      });
     }
 
     applySession();
@@ -17623,8 +17671,19 @@ const KGSync = (() => {
           if(typeof refreshDashboard === 'function') try { refreshDashboard(); } catch(e) {}
           console.log('[pullAll] ✅ Clôtures sync:', HISTORIQUE_CLOTURES.length, 'clôture(s)');
         } else if(key === 'menu_data' && data.items) {
-          // ✅ FIX : Normaliser cat/category (Supabase retourne "category", le filtre cherche "cat")
-          MENU = data.items.map(item => { if(!item.cat && item.category) item.cat = item.category; return item; });
+          // ✅ FIX : Normaliser cat/category + image_url → icon si icon est un emoji
+          MENU = data.items.map(item => {
+            if(!item.cat && item.category) item.cat = item.category;
+            // Si image_url existe et icon est un emoji (pas une URL), utiliser image_url
+            if(item.image_url && item.icon && !item.icon.startsWith('http') && !item.icon.startsWith('data:')) {
+              item._displayIcon = item.image_url;
+            }
+            // Also: if icon is a URL but image_url is missing, populate image_url
+            if(!item.image_url && item.icon && (item.icon.startsWith('http')||item.icon.startsWith('data:')||item.icon.includes('ibb.co'))) {
+              item.image_url = item.icon;
+            }
+            return item;
+          });
         } else if(key === 'users_data' && data.items) {
           const myId = currentUser?.id;
           USERS = data.items;
@@ -17636,6 +17695,12 @@ const KGSync = (() => {
           if(typeof applyRestaurantSettingsToUI === 'function') applyRestaurantSettingsToUI();
           // Aussi charger le logo ticket si présent dans Supabase
           if(data.info.loginLogo && typeof _applyLoginLogo === 'function') _applyLoginLogo();
+          // ✅ FIX TICKET_CONFIG : restaurer la personnalisation ticket depuis Supabase
+          if(data.info.ticketConfig && typeof TICKET_CONFIG !== 'undefined') {
+            Object.assign(TICKET_CONFIG, data.info.ticketConfig);
+            try { localStorage.setItem('kg-ticket-config', JSON.stringify(TICKET_CONFIG)); } catch(e) {}
+            if(typeof loadTicketConfig === 'function') loadTicketConfig();
+          }
         } else if(key === 'depenses_data' && data.items) {
           if(typeof DEPENSES !== 'undefined') {
             // ✅ FIX v40 DÉPENSES : Fusion intelligente — ne jamais écraser cloturee:true local
@@ -18515,7 +18580,14 @@ function saveTicketSettings() {
   if(typeof RESTAURANT_INFO !== 'undefined') {
     RESTAURANT_INFO.ticketConfig = {...TICKET_CONFIG};
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      // Double persistance : kg_sync + colonne ticket_config dans restaurants
       KGSync.push.restaurantInfo().catch(e => console.error('push.restaurantInfo (ticket):', e));
+      const _rid = window._KG_RESTAURANT_ID;
+      const _sb  = KGSync.getClient();
+      if(_rid && _sb) {
+        _sb.from('restaurants').update({ ticket_config: TICKET_CONFIG }).eq('id', _rid)
+          .catch(e => console.warn('update ticket_config:', e));
+      }
     }
   }
   showNotif('\u2705 Personnalisation du ticket sauvegard\u00e9e !');
@@ -20523,9 +20595,9 @@ setTimeout(() => {
     const { data: rolesData } = await sb.from('roles_config').select('role_key, perms').eq('restaurant_id', profile.restaurant_id);
     if(rolesData && rolesData.length) { rolesData.forEach(r => { if(ROLES_CONFIG[r.role_key]) ROLES_CONFIG[r.role_key].perms = r.perms; }); }
 
-    const { data: resto } = await sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url').eq('id', profile.restaurant_id).single();
+    const { data: resto } = await sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url,ticket_config').eq('id', profile.restaurant_id).single();
     if(resto) {
-      RESTAURANT_INFO = { nom: resto.nom, ninea: resto.ninea||'', tel: resto.tel||'', email: resto.email||'', adresse: resto.adresse||'', devise: resto.devise||'FCFA', cover_url: resto.cover_url||'', logo_url: resto.logo_url||'', wave_payment_url: resto.wave_payment_url||resto.wave_numero||'', orange_payment_url: resto.orange_payment_url||resto.orange_numero||'' };
+      RESTAURANT_INFO = { ...RESTAURANT_INFO, nom: resto.nom, ninea: resto.ninea||'', tel: resto.tel||'', email: resto.email||'', adresse: resto.adresse||'', devise: resto.devise||'FCFA', cover_url: resto.cover_url||'', logo_url: resto.logo_url||'', wave_payment_url: resto.wave_payment_url||resto.wave_numero||'', orange_payment_url: resto.orange_payment_url||resto.orange_numero||'' };
       // ✅ FIX: restaurer la config ticket depuis Supabase
       if(resto.ticket_config && typeof resto.ticket_config === 'object') {
         RESTAURANT_INFO.ticketConfig = resto.ticket_config;
@@ -24006,7 +24078,7 @@ async function initQRCommandes() {
     return;
   }
 
-  _qrClientBase = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + 'commander.html';
+  _qrClientBase = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + 'commander_online_beta.html';
   const baseDisplay = document.getElementById('qr-base-url-display');
   if(baseDisplay) baseDisplay.textContent = _qrClientBase + '?r=' + _qrSlug;
 
@@ -24528,7 +24600,7 @@ function _buildRecuHTML(o) {
   }));
 
   const artRows = items.map(i =>
-    `<tr><td>${i.icon} ${i.name}</td><td style="text-align:center;">${i.qty}</td><td style="text-align:right;font-weight:600;">${(i.price*i.qty).toLocaleString()} F</td></tr>`
+    `<tr><td>${_safeIconText(i.icon)} ${i.name}</td><td style="text-align:center;">${i.qty}</td><td style="text-align:right;font-weight:600;">${(i.price*i.qty).toLocaleString()} F</td></tr>`
   ).join('');
 
   const metaRows = ''
@@ -24690,7 +24762,7 @@ function partagerRecu_Email(orderId) {
                : (Array.isArray(o.lignes) && o.lignes.length) ? o.lignes : [];
   const items  = rawSrc.map(it => ({ name: it.name||it.nom||'Article', icon: it.icon||'', qty: it.qty||1, price: it.price||it.prix||0 }));
   let lignes = '';
-  items.forEach(i => { lignes += `${i.icon} ${i.name} x${i.qty} : ${(i.price*i.qty).toLocaleString()} F\n`; });
+  items.forEach(i => { lignes += `${_safeIconText(i.icon)} ${i.name} x${i.qty} : ${(i.price*i.qty).toLocaleString()} F\n`; });
 
   const corps = `Bonjour ${rec.nomClient},\n\nVoici votre reçu pour la commande #${String(rec.numero).replace('#','').padStart(3,'0')} passée le ${rec.dateStr} à ${rec.heureStr}.\n\n--- Détail ---\n${lignes}\nTOTAL : ${rec.total.toLocaleString()} FCFA\n\nMerci pour votre commande !\n${rec.restaurant}\n${rec.adresse ? rec.adresse + '\n' : ''}${rec.tel ? 'Tél : ' + rec.tel : ''}`;
 
@@ -25789,7 +25861,7 @@ function clearItemImage() {
   document.getElementById('item-img-preview').src = '';
   document.getElementById('item-img-emoji-display').style.display = 'block';
   document.getElementById('item-img-emoji-display').textContent = '🍽️';
-  document.getElementById('item-img-file').value = '';
+  const _imgFileEl = document.getElementById('item-img-file'); if(_imgFileEl) _imgFileEl.value = '';
   const urlField = document.getElementById('item-icon-url-display');
   if(urlField) urlField.value = '';
   const statusEl = document.getElementById('item-upload-status');
