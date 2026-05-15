@@ -1337,39 +1337,56 @@ async function checkIfOpenAgain() {
 
 // ── REALTIME ─────────────────────────────────────────
 function startRealtime() {
-  // Ruptures menu
+  // Ruptures menu — ✅ OPT EGRESS : debounce + mise à jour item par item sans refetch complet
+  let _menuDebounceTimer = null;
   sb.channel('cmd-menu-'+restaurantId)
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'menu_items',
-      filter:'restaurant_id=eq.'+restaurantId}, async () => {
-      const [{data: rawItems}, kgMenuR] = await Promise.all([
-        sb.from('menu_items').select('*').eq('restaurant_id',restaurantId).eq('actif',true).order('sort_order'),
-        sb.from('kg_sync').select('value').eq('key', restaurantId+':menu_data').maybeSingle(),
-      ]);
-      let rawMenu = rawItems || [];
-      try {
-        const kgMenuVal = kgMenuR?.data?.value;
-        const kgItems = (typeof kgMenuVal === 'string' ? JSON.parse(kgMenuVal) : kgMenuVal)?.items || [];
-        if(kgItems.length > 0) {
-          rawMenu = rawMenu.map(item => {
-            const match = kgItems.find(k =>
-              k.sbId === item.id || k.id === item.id ||
-              (k.name || '').toLowerCase() === (item.name || item.nom || '').toLowerCase()
-            );
-            if(!match) return item;
-            return {
-              ...item,
-              promo_pct: (item.promo_pct || 0) > 0 ? item.promo_pct : (match.promo_pct || 0),
-              // FIX : propager en_rupture depuis kg_sync
-              en_rupture: item.en_rupture || match.en_rupture || false,
-            };
-          });
+      filter:'restaurant_id=eq.'+restaurantId}, async (payload) => {
+      clearTimeout(_menuDebounceTimer);
+      _menuDebounceTimer = setTimeout(async () => {
+        // Mise à jour ciblée depuis payload si item déjà chargé localement
+        const changedItem = payload?.new;
+        if(changedItem && menuItems.length > 0) {
+          const norm = normalizeItems([changedItem]);
+          const idx = menuItems.findIndex(i => i.id === changedItem.id || i.sbId === changedItem.id);
+          if(idx !== -1 && norm.length > 0) {
+            menuItems[idx] = { ...menuItems[idx], ...norm[0] };
+            let chg = false;
+            menuItems.forEach(i => { if(i.rupture && cart[i.id]) { delete cart[i.id]; chg=true; showToast(`⚠️ "${i.nom}" épuisé — retiré`); }});
+            if(chg) updateCartUI();
+            renderMenu();
+            return;
+          }
         }
-      } catch(e) {}
-      menuItems = normalizeItems(rawMenu);
-      let chg = false;
-      menuItems.forEach(i => { if(i.rupture && cart[i.id]) { delete cart[i.id]; chg=true; showToast(`⚠️ "${i.nom}" épuisé — retiré`); }});
-      if(chg) updateCartUI();
-      renderMenu();
+        // Fallback refetch complet si item non trouvé localement
+        const [{data: rawItems}, kgMenuR] = await Promise.all([
+          sb.from('menu_items').select('*').eq('restaurant_id',restaurantId).eq('actif',true).order('sort_order'),
+          sb.from('kg_sync').select('value').eq('key', restaurantId+':menu_data').maybeSingle(),
+        ]);
+        let rawMenu = rawItems || [];
+        try {
+          const kgMenuVal = kgMenuR?.data?.value;
+          const kgItems = (typeof kgMenuVal === 'string' ? JSON.parse(kgMenuVal) : kgMenuVal)?.items || [];
+          if(kgItems.length > 0) {
+            rawMenu = rawMenu.map(item => {
+              const match = kgItems.find(k =>
+                k.sbId === item.id || k.id === item.id ||
+                (k.name || '').toLowerCase() === (item.name || item.nom || '').toLowerCase()
+              );
+              if(!match) return item;
+              return { ...item,
+                promo_pct: (item.promo_pct || 0) > 0 ? item.promo_pct : (match.promo_pct || 0),
+                en_rupture: item.en_rupture || match.en_rupture || false,
+              };
+            });
+          }
+        } catch(e) {}
+        menuItems = normalizeItems(rawMenu);
+        let chg = false;
+        menuItems.forEach(i => { if(i.rupture && cart[i.id]) { delete cart[i.id]; chg=true; showToast(`⚠️ "${i.nom}" épuisé — retiré`); }});
+        if(chg) updateCartUI();
+        renderMenu();
+      }, 1000);
     }).subscribe();
 
   // Ouverture/fermeture — filtre JS (le filtre Supabase sur kg_sync est peu fiable)

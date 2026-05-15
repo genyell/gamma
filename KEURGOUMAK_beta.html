@@ -5456,11 +5456,7 @@ function _syncSportVentes()       { return []; }
                   <span id="cover-preview-icon">🖼️</span>
                 </div>
                 <div style="flex:1;min-width:140px;">
-                  <label style="display:inline-block;cursor:pointer;margin-bottom:6px;">
-                    <input type="file" id="input-cover-photo" accept="image/*" style="display:none;" onchange="uploadPhotoRestaurant(this,'cover')">
-                    <span class="btn btn-ghost" style="font-size:12px;display:inline-block;">📷 Choisir photo</span>
-                  </label>
-                  <div style="display:flex;gap:6px;align-items:center;margin-top:6px;">
+                  <div style="display:flex;gap:6px;align-items:center;">
                     <input id="cover-url-input" type="text" placeholder="🔗 Coller URL image directe…" style="flex:1;font-size:11px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'JetBrains Mono',monospace;" oninput="applyCoverUrlInput(this.value)">
                     <button onclick="applyCoverUrlInput(document.getElementById('cover-url-input').value,true)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;">✅</button>
                   </div>
@@ -5478,11 +5474,7 @@ function _syncSportVentes()       { return []; }
                   <span id="logo-preview-icon">🍽️</span>
                 </div>
                 <div style="flex:1;min-width:140px;">
-                  <label style="display:inline-block;cursor:pointer;margin-bottom:6px;">
-                    <input type="file" id="input-logo-photo" accept="image/*" style="display:none;" onchange="uploadPhotoRestaurant(this,'logo')">
-                    <span class="btn btn-ghost" style="font-size:12px;display:inline-block;">📷 Choisir photo</span>
-                  </label>
-                  <div style="display:flex;gap:6px;align-items:center;margin-top:6px;">
+                  <div style="display:flex;gap:6px;align-items:center;">
                     <input id="logo-url-input" type="text" placeholder="🔗 Coller URL image directe…" style="flex:1;font-size:11px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'JetBrains Mono',monospace;" oninput="applyLogoUrlInput(this.value)">
                     <button onclick="applyLogoUrlInput(document.getElementById('logo-url-input').value,true)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--accent);background:var(--surface2);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;">✅</button>
                   </div>
@@ -5564,11 +5556,11 @@ function _syncSportVentes()       { return []; }
                   &#127869;
                 </div>
                 <div style="flex:1;min-width:140px;">
-                  <label style="display:inline-block;cursor:pointer;">
-                    <input type="file" id="ticket-logo-input" accept="image/*" style="display:none;" onchange="handleLogoUpload(this)">
-                    <span class="btn btn-ghost" style="font-size:12px;display:inline-block;">&#128247; Choisir une image</span>
-                  </label>
-                  <button class="btn btn-ghost" style="font-size:12px;margin-top:6px;display:block;" onclick="removeLogo()">&#10005; Supprimer</button>
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <input id="ticket-logo-url-input" type="text" placeholder="&#128279; Coller URL image directe..." style="flex:1;font-size:11px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);" oninput="previewTicketLogoUrl(this.value)">
+                    <button onclick="applyTicketLogoUrl(document.getElementById('ticket-logo-url-input').value)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--accent);background:var(--surface2);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;">&#10003;</button>
+                  </div>
+                  <button onclick="removeLogo()" style="margin-top:6px;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--red,#e74c3c);font-size:11px;cursor:pointer;">&#10005; Supprimer le logo</button>
                 </div>
               </div>
             </div>
@@ -7131,15 +7123,11 @@ Revenez nous voir bient&#244;t.</textarea>
             <span id="item-img-emoji-display">🍽️</span>
             <img id="item-img-preview" style="display:none;width:100%;height:100%;object-fit:cover;" alt="">
           </div>
-          <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
-            <label for="item-img-file" class="btn btn-ghost" style="cursor:pointer;font-size:12px;padding:7px 14px;text-align:center;border:1px solid rgba(255,255,255,0.18);">📷 Choisir une photo</label>
-            <input type="file" id="item-img-file" accept="image/*" style="display:none;" onchange="handleItemImageUpload(this)">
-            <button type="button" class="btn btn-ghost" style="font-size:11px;padding:5px 10px;color:var(--text2);" onclick="clearItemImage()">✕ Supprimer</button>
-          </div>
+          <div style="flex:1;"></div>
         </div>
         <!-- ✅ FIX v29 : URL visible + saisie manuelle -->
         <div style="margin-top:8px;">
-          <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">🔗 URL image (auto après upload ou coller un lien)</label>
+          <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px;">🔗 URL image (coller un lien directe)</label>
           <div style="display:flex;gap:6px;align-items:center;">
             <input type="text" id="item-icon-url-display" placeholder="https://i.ibb.co/..." style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:6px 10px;font-size:11px;color:var(--text);font-family:monospace;" oninput="applyItemIconUrl(this.value)">
             <button type="button" onclick="copyItemIconUrl()" title="Copier" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;">📋</button>
@@ -7786,12 +7774,7 @@ Revenez nous voir bient&#244;t.</textarea>
           <span id="ann-img-icon">🖼️</span>
         </div>
         <div style="flex:1;">
-          <label style="cursor:pointer;">
-            <input type="file" id="ann-img-file" accept="image/*" style="display:none;" onchange="previewAnnonce(this)">
-            <span class="btn btn-ghost" style="font-size:12px;display:inline-block;margin-bottom:6px;">📷 Choisir une image</span>
-          </label>
-          <div style="margin-bottom:6px;font-size:11px;color:var(--text2);">ou coller une URL :</div>
-          <input class="form-input" id="ann-img-url" placeholder="https://..." style="font-size:12px;" oninput="previewAnnonceUrl(this.value)">
+          <input class="form-input" id="ann-img-url" placeholder="https://i.ibb.co/..." style="font-size:12px;" oninput="previewAnnonceUrl(this.value)">
           <div id="ann-img-status" style="font-size:11px;color:var(--text2);margin-top:4px;"></div>
         </div>
       </div>
@@ -10479,7 +10462,7 @@ function printTicket(vente, caisse) {
 <div class="article-item">
   <div class="article-qty-badge">${item.qty}</div>
   <div class="article-details">
-    <div class="article-name">${item.icon||''} ${item.name}${promoTag}</div>
+    <div class="article-name">${((item.icon||'').startsWith('data:')||(item.icon||'').startsWith('http'))?`<img src="${item.icon}" style="width:20px;height:20px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:4px;" alt="">`:((item.icon&&!item.icon.startsWith('data:'))?item.icon+' ':'')}${item.name}${promoTag}</div>
     <div class="article-unit-price">${prixUnit} F / unité${item.discount>0?` · base : ${prixOrig.toLocaleString()} F`:''}</div>
   </div>
   <div class="article-total">${sousTotal} F</div>
@@ -16787,7 +16770,7 @@ setInterval(() => {
     }
     saveSession();
   }
-}, 5000);
+}, 30000); // ✅ OPT EGRESS : 5s → 30s (économie ~80% writes localStorage)
 
 // Sauvegarder avant fermeture/actualisation
 window.addEventListener('beforeunload', () => { if(currentUser) saveSession(); });
@@ -16851,7 +16834,7 @@ window.addEventListener('beforeunload', () => { if(currentUser) saveSession(); }
   if(typeof _origShowApp === 'function') {
     window.showApp = function() { _origShowApp.apply(this, arguments); setTimeout(_checkMobile, 500); };
   }
-  setInterval(_checkMobile, 3000);
+  setInterval(_checkMobile, 30000); // ✅ OPT EGRESS : 3s → 30s
 
   // Pull-to-refresh gestuel (swipe vers le bas depuis le haut de l'écran)
   let _touchStartY = 0;
@@ -17010,7 +16993,11 @@ const KGSync = (() => {
   }
 
   // ── Push ──────────────────────────────────────────────────────
+  let _pushVentesTimer = null;
   async function pushVentes() {
+    // ✅ OPT EGRESS : debounce 2s pour éviter les pushes répétés en rafale
+    if(_pushVentesTimer) return;
+    _pushVentesTimer = setTimeout(() => { _pushVentesTimer = null; }, 2000);
     // ✅ FIX v31 : resync TOUS les modules avant push — source de vérité locale
     if(typeof _syncTerrainVentes === 'function') _syncTerrainVentes();
     if(typeof _syncPiscineVentes === 'function') _syncPiscineVentes();
@@ -17990,7 +17977,7 @@ const KGSync = (() => {
       console.log('KGSync: mode polling Android actif (60s)');
       _rtTimeout = setTimeout(function poll(){
         if(syncEnabled && client){ _pullAll().catch(()=>{}); }
-        if(syncEnabled) _rtTimeout = setTimeout(poll, 60000); // ✅ FIX v27 : 5s → 60s (économie egress)
+        if(syncEnabled) _rtTimeout = setTimeout(poll, 300000); // ✅ OPT EGRESS v2 : 120s → 300s
       }, 3000);
       return;
     }
@@ -18012,7 +17999,7 @@ const KGSync = (() => {
             // Fallback polling si realtime échoue
             _rtTimeout = setTimeout(function poll(){
               if(syncEnabled && client){ _pullAll().catch(function(){}); }
-              if(syncEnabled) _rtTimeout = setTimeout(poll, 60000); // ✅ FIX v27 : 5s → 60s (économie egress)
+              if(syncEnabled) _rtTimeout = setTimeout(poll, 300000); // ✅ OPT EGRESS v2 : 120s → 300s
             }, 3000);
           }
         });
@@ -18020,7 +18007,7 @@ const KGSync = (() => {
       console.warn('KGSync realtime indisponible — polling activé:', e.message || e);
       _rtTimeout = setTimeout(function poll(){
         if(syncEnabled && client){ _pullAll().catch(function(){}); }
-        if(syncEnabled) _rtTimeout = setTimeout(poll, 60000); // ✅ FIX v27 : 5s → 60s (économie egress)
+        if(syncEnabled) _rtTimeout = setTimeout(poll, 300000); // ✅ OPT EGRESS v2 : 120s → 300s
       }, 3000);
     }
   }
@@ -18122,6 +18109,23 @@ const KGSync = (() => {
     },
   };
 })();
+
+// ✅ OPT EGRESS v1 : Couper le temps réel quand l'app est inactive
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) {
+    // App en arrière-plan ou onglet fermé → couper le temps réel
+    if (typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      KGSync._stopRealtime();
+      console.log('⏸️ KGSync realtime coupé (app inactive)');
+    }
+  } else {
+    // App de nouveau active → relancer le temps réel
+    if (typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      KGSync._startRealtime();
+      console.log('▶️ KGSync realtime relancé (app active)');
+    }
+  }
+});
 
 // Compat : anciens appels KGSync.push.caisse(obj) etc.
 const _kgPushOrig = KGSync.push;
@@ -18307,8 +18311,78 @@ function handleLogoUpload(input) {
   reader.readAsDataURL(file);
 }
 
+function previewTicketLogoUrl(url) {
+  url = (url || '').trim();
+  if(!url.startsWith('http')) return;
+  var prev = document.getElementById('ticket-logo-preview');
+  if(!prev) return;
+  var img = document.createElement('img');
+  img.src = url;
+  img.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:8px;';
+  prev.innerHTML = '';
+  prev.appendChild(img);
+}
+
+async function applyTicketLogoUrl(url) {
+  url = (url || '').trim();
+  if(!url.startsWith('http')) { showNotif('URL invalide - commence par https://'); return; }
+  TICKET_CONFIG.logo = url;
+  RESTAURANT_INFO.loginLogo = url;
+  previewTicketLogoUrl(url);
+  if(typeof _applyLoginLogo === 'function') _applyLoginLogo();
+  updateTicketPreview();
+  try { localStorage.setItem('kg-ticket-config', JSON.stringify(Object.assign({}, TICKET_CONFIG, {logo: url}))); } catch(e) {}
+  try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    await KGSync.push.restaurantInfo().catch(function(){});
+  }
+  showNotif('Logo mis a jour !');
+}
+
+async function applyCoverUrlInput(url, save) {
+  url = (url || '').trim();
+  if(!url.startsWith('http')) return;
+  var coverImg = document.getElementById('cover-preview-img');
+  var coverIcon = document.getElementById('cover-preview-icon');
+  if(coverImg) { coverImg.src = url; coverImg.style.display = 'block'; }
+  if(coverIcon) coverIcon.style.display = 'none';
+  if(!save) return;
+  RESTAURANT_INFO.cover_url = url;
+  var statusEl = document.getElementById('cover-upload-status');
+  if(statusEl) statusEl.innerHTML = 'Sauvegarde...';
+  try {
+    var sb = KGSync.getClient();
+    var rid = window._KG_RESTAURANT_ID;
+    if(sb && rid) await sb.from('restaurants').update({ cover_url: url }).eq('id', rid);
+    await KGSync.push.restaurantInfo().catch(function(){});
+    try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+    if(statusEl) { statusEl.innerHTML = 'Couverture enregistree !'; setTimeout(function(){ statusEl.innerHTML = ''; }, 3000); }
+  } catch(e) { if(statusEl) statusEl.innerHTML = 'Erreur sauvegarde'; }
+}
+
+async function applyLogoUrlInput(url, save) {
+  url = (url || '').trim();
+  if(!url.startsWith('http')) return;
+  var logoImg = document.getElementById('logo-preview-img');
+  var logoIcon = document.getElementById('logo-preview-icon');
+  if(logoImg) { logoImg.src = url; logoImg.style.display = 'block'; }
+  if(logoIcon) logoIcon.style.display = 'none';
+  if(!save) return;
+  RESTAURANT_INFO.logo_url = url;
+  var statusEl = document.getElementById('logo-upload-status');
+  if(statusEl) statusEl.innerHTML = 'Sauvegarde...';
+  try {
+    var sb = KGSync.getClient();
+    var rid = window._KG_RESTAURANT_ID;
+    if(sb && rid) await sb.from('restaurants').update({ logo_url: url }).eq('id', rid);
+    await KGSync.push.restaurantInfo().catch(function(){});
+    try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+    if(statusEl) { statusEl.innerHTML = 'Logo enregistre !'; setTimeout(function(){ statusEl.innerHTML = ''; }, 3000); }
+  } catch(e) { if(statusEl) statusEl.innerHTML = 'Erreur sauvegarde'; }
+}
+
 function removeLogo() {
-  // ✅ Supprimer le logo partout : ticket + sidebar + connexion
+  // Supprimer le logo partout : ticket + sidebar + connexion
   TICKET_CONFIG.logo = null;
   RESTAURANT_INFO.loginLogo = null;
   const prev = document.getElementById('ticket-logo-preview');
