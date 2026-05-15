@@ -9980,8 +9980,19 @@ async function uploadPhotoRestaurant(input, type) {
 }
 
 // ── Appliquer URL directe cover/logo (champ texte) ──
+function _extractImageUrl(raw) {
+  raw = (raw||'').trim();
+  const imgMatch = raw.match(/src=["']([^"']+)["']/i);
+  if(imgMatch) return imgMatch[1];
+  const hrefMatch = raw.match(/href=["']([^"']+)["']/i);
+  if(hrefMatch) return hrefMatch[1];
+  return raw;
+}
+
 async function applyCoverUrlInput(url, save=false) {
-  url = (url||'').trim();
+  url = _extractImageUrl(url);
+  const inp = document.getElementById('cover-url-input');
+  if(inp && url !== (inp.value||'').trim()) inp.value = url;
   const coverImg  = document.getElementById('cover-preview-img');
   const coverIcon = document.getElementById('cover-preview-icon');
   const statusEl  = document.getElementById('cover-upload-status');
@@ -10003,7 +10014,9 @@ async function applyCoverUrlInput(url, save=false) {
 }
 
 async function applyLogoUrlInput(url, save=false) {
-  url = (url||'').trim();
+  url = _extractImageUrl(url);
+  const inp = document.getElementById('logo-url-input');
+  if(inp && url !== (inp.value||'').trim()) inp.value = url;
   const logoImg   = document.getElementById('logo-preview-img');
   const logoIcon  = document.getElementById('logo-preview-icon');
   const statusEl  = document.getElementById('logo-upload-status');
@@ -24174,7 +24187,7 @@ async function loadQROrders() {
   since2days.setHours(0,0,0,0);
   const since2ISO = since2days.toISOString();
 
-  const { data } = await _qrSb.from('commandes_en_ligne').select('id,restaurant_id,qr_table_id,lignes,statut,total,note,client_nom,client_tel,client_adresse,pay_method,created_at,updated_at')
+  const { data } = await _qrSb.from('commandes_en_ligne').select('id,restaurant_id,qr_table_id,lignes,statut,total,note,client_nom,pay_method,created_at,updated_at')
     .eq('restaurant_id', _qrRid)
     .gte('created_at', since2ISO)
     .order('created_at', { ascending: false });
@@ -24198,7 +24211,7 @@ async function loadQRMenuItems() {
       }
     } catch(e) {}
   }
-  const { data } = await _qrSb.from('menu_items').select('id,restaurant_id,name,category,price_ttc,description,icon,image_url,tag,actif,sort_order,promo_pct')
+  const { data } = await _qrSb.from('menu_items').select('id,restaurant_id,name,category,price_ttc,description,icon,image_url,tag,actif,sort_order,promo_pct,en_rupture')
     .eq('restaurant_id', _qrRid).neq('actif', false).order('sort_order');
   _qrMenuItems = (data || []).filter(i => i.restaurant_id === _qrRid);
   try {

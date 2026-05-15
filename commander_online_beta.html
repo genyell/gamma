@@ -1096,7 +1096,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             return {
               ...item,
               promo_pct: (item.promo_pct || 0) > 0 ? item.promo_pct : (match.promo_pct || 0),
-              en_rupture: item.en_rupture || match.en_rupture || false,
+              en_rupture: item.en_rupture === true ? true : (match.en_rupture || false),
               // ✅ Récupérer image_url depuis kg_sync si absent dans menu_items
               image_url: item.image_url || match.image_url || (kgIconIsUrl ? kgIconVal : null),
             };
@@ -1433,7 +1433,7 @@ function startRealtime() {
               if(!match) return item;
               return { ...item,
                 promo_pct: (item.promo_pct || 0) > 0 ? item.promo_pct : (match.promo_pct || 0),
-                en_rupture: item.en_rupture || match.en_rupture || false,
+                en_rupture: item.en_rupture === true ? true : (match.en_rupture || false),
               };
             });
           }
