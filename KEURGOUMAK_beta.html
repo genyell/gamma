@@ -25498,9 +25498,11 @@ async function deleteQRMenuItem(itemId, itemName) {
 
 async function setQRMenuRupture(itemId, en_rupture) {
   const isLocalId = !itemId || String(itemId).startsWith('local_');
-  // ✅ FIX : la colonne en_rupture n'existe pas dans menu_items
-  // On stocke l'état rupture uniquement dans kg_sync (menu_data)
-  // Pas de update direct sur menu_items
+  // ✅ UPDATE direct sur menu_items (colonne en_rupture existe maintenant)
+  if(!isLocalId && _qrSb) {
+    const { error } = await _qrSb.from('menu_items').update({ en_rupture }).eq('id', itemId);
+    if(error) { _qrToast('❌ ' + error.message); return; }
+  }
   const item = _qrMenuItems.find(m => m.id === itemId);
   if(item) item.en_rupture = en_rupture;
   let nom = item?.nom || item?.name;

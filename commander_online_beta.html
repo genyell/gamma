@@ -1024,7 +1024,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // Fetch seulement ce qui n'est pas en cache
     const _menuProm  = _cachedMenu  ? Promise.resolve({ data: _cachedMenu })
-      : sb.from('menu_items').select('id,restaurant_id,name,category,price_ttc,description,icon,image_url,tag,actif,sort_order,promo_pct').eq('restaurant_id',restaurantId).eq('actif',true).order('sort_order');
+      : sb.from('menu_items').select('id,restaurant_id,name,category,price_ttc,description,icon,image_url,tag,actif,sort_order,promo_pct,en_rupture').eq('restaurant_id',restaurantId).eq('actif',true).order('sort_order');
     const _restoProm = _cachedResto ? Promise.resolve({ data: _cachedResto })
       : sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url').eq('id',restaurantId).single();
     const _infoProm  = _cachedInfo  ? Promise.resolve({ data: { value: JSON.stringify(_cachedInfo) } })
@@ -1143,17 +1143,20 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Logo + liens Wave/Orange depuis kg_sync — plusieurs structures possibles
     const infoVal = infoR?.data?.value;
     console.log('[Logo] infoR:', JSON.stringify(infoVal||{}).slice(0,400));
-    const loginLogo = infoVal?.info?.loginLogo
-                   || infoVal?.loginLogo
-                   || infoVal?.logo
-                   || (infoVal?.RESTAURANT_INFO?.loginLogo)
+    const _kgInfoRaw = infoVal?.info || infoVal || {};
+    const loginLogo = _kgInfoRaw.loginLogo
+                   || _kgInfoRaw.logo
+                   || _kgInfoRaw.logo_url
+                   || infoVal?.RESTAURANT_INFO?.loginLogo
                    || null;
+    // ✅ FIX : extraire aussi cover_url et logo depuis kg_sync
+    const kgCoverUrl = _kgInfoRaw.cover_url || _kgInfoRaw.coverUrl || _kgInfoRaw.banner_url || null;
 
     // ✅ FIX v18 : injecter wave_payment_url / orange_payment_url depuis kg_sync
     // La caisse sauvegarde dans kg_sync:restaurant_info ET dans restaurants.
     // Si la colonne restaurants.wave_payment_url n'existe pas (ou update raté),
     // on récupère les liens depuis kg_sync qui lui est toujours à jour.
-    const _kgInfo = infoVal?.info || infoVal || {};
+    const _kgInfo = _kgInfoRaw; // ✅ already computed above
     if(!restoData.wave_payment_url && (_kgInfo.wave_payment_url || _kgInfo.wave_numero)) {
       restoData.wave_payment_url = _kgInfo.wave_payment_url || _kgInfo.wave_numero || '';
       console.log('[Wave] URL injectée depuis kg_sync:', restoData.wave_payment_url);
@@ -1163,6 +1166,10 @@ window.addEventListener('DOMContentLoaded', async () => {
       console.log('[Orange] URL injectée depuis kg_sync:', restoData.orange_payment_url);
     }
 
+    if(kgCoverUrl && !restoData.cover_url) {
+      restoData.cover_url = kgCoverUrl;
+      console.log('[Cover] injecté depuis kg_sync:', kgCoverUrl.slice(0,60));
+    }
     if(loginLogo && !restoData.logo_url) {
       restoData.logo_url = loginLogo;
       console.log('[Logo] injecté depuis kg_sync, longueur:', loginLogo.length);
@@ -1780,8 +1787,8 @@ async function _enregistrerCommande({ nom, tel, adr, note, total, lignes, ref, o
       ...(ok ? {qr_table_id: tableId} : {}),
       table_label: tableInfo?.label||'Commande en ligne',
       lignes, total, statut: payOnline ? 'en_attente_paiement' : 'en_attente',
-      order_ref: ref, client_nom: nom, client_tel: tel,
-      note: (adr ? ('Adresse: '+adr+(note?(' | '+note):'')) : (note||null)),
+      order_ref: ref, client_nom: nom, client_tel: tel, client_adresse: adr,
+      note: note||null,
       mode_paiement: payKey || payLabel,
       paiement_en_ligne: payOnline,
     }).select().single();
@@ -1808,8 +1815,8 @@ async function _enregistrerEtRedirigerWave({ nom, tel, adr, note, total, lignes,
       ...(ok ? {qr_table_id: tableId} : {}),
       table_label: tableInfo?.label||'Commande en ligne',
       lignes, total, statut: 'en_attente_paiement',
-      order_ref: ref, client_nom: nom, client_tel: tel,
-      note: (adr ? ('Adresse: '+adr+(note?(' | '+note):'')) : (note||null)),
+      order_ref: ref, client_nom: nom, client_tel: tel, client_adresse: adr,
+      note: note||null,
       mode_paiement: payKey || payLabel,
       paiement_en_ligne: true,
     }).select().single();
