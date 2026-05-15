@@ -24174,7 +24174,7 @@ async function loadQROrders() {
   since2days.setHours(0,0,0,0);
   const since2ISO = since2days.toISOString();
 
-  const { data } = await _qrSb.from('commandes_en_ligne').select('id,restaurant_id,qr_table_id,lignes,statut,total,note,client_nom,pay_method,created_at,updated_at')
+  const { data } = await _qrSb.from('commandes_en_ligne').select('id,restaurant_id,qr_table_id,lignes,statut,total,note,client_nom,client_tel,client_adresse,pay_method,created_at,updated_at')
     .eq('restaurant_id', _qrRid)
     .gte('created_at', since2ISO)
     .order('created_at', { ascending: false });
