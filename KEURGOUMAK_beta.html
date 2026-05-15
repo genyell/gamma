@@ -4121,8 +4121,8 @@ function _syncSportVentes()       { return []; }
       <div class="login-error" id="login-error" style="display:none;"></div>
 
       <!-- Config Supabase -->
-      <input type="hidden" id="login-sb-url" value="https://rfgbisrffysqkuzaonfm.supabase.co">
-      <input type="hidden" id="login-sb-key" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZ2Jpc3JmZnlzcWt1emFvbmZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MzQ3NDUsImV4cCI6MjA5MDIxMDc0NX0._RLCrr9yZQSnb2gXpqKeJjz5LWD35IowPIh-6mHMPa0">
+      <input type="hidden" id="login-sb-url" value="https://sxxndsakpauaumrxcshv.supabase.co">
+      <input type="hidden" id="login-sb-key" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4eG5kc2FrcGF1YXVtcnhjc2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NzEzODgsImV4cCI6MjA5NDI0NzM4OH0.U8NLECYF9fkaInEIrO7oDuLTKsSnsxGdBg9pM4z0_r8">
 
       <!-- Formulaire -->
       <form class="login-form" id="login-form" onsubmit="doLogin();return false;" action="javascript:void(0)" method="post" autocomplete="on">
@@ -13455,8 +13455,8 @@ function _updatePosOverlay() {
 async function loginConnectSupabase() {
   // Connexion automatique avec les credentials intégrés
   return KGSync.connect(
-    'https://rfgbisrffysqkuzaonfm.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZ2Jpc3JmZnlzcWt1emFvbmZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MzQ3NDUsImV4cCI6MjA5MDIxMDc0NX0._RLCrr9yZQSnb2gXpqKeJjz5LWD35IowPIh-6mHMPa0'
+    'https://sxxndsakpauaumrxcshv.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4eG5kc2FrcGF1YXVtcnhjc2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NzEzODgsImV4cCI6MjA5NDI0NzM4OH0.U8NLECYF9fkaInEIrO7oDuLTKsSnsxGdBg9pM4z0_r8'
   );
 }
 
@@ -18177,8 +18177,8 @@ const KGSync = (() => {
 
   // ── Auto-connect au démarrage ──────────────────────────────────
   (function _autoConnect() {
-    const HC_URL = 'https://rfgbisrffysqkuzaonfm.supabase.co';
-    const HC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZ2Jpc3JmZnlzcWt1emFvbmZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MzQ3NDUsImV4cCI6MjA5MDIxMDc0NX0._RLCrr9yZQSnb2gXpqKeJjz5LWD35IowPIh-6mHMPa0';
+    const HC_URL = 'https://sxxndsakpauaumrxcshv.supabase.co';
+    const HC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4eG5kc2FrcGF1YXVtcnhjc2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NzEzODgsImV4cCI6MjA5NDI0NzM4OH0.U8NLECYF9fkaInEIrO7oDuLTKsSnsxGdBg9pM4z0_r8';
     saveConfig(HC_URL, HC_KEY);
     connect(HC_URL, HC_KEY).then(ok => {
       const disc = document.getElementById('sb-disconnect-btn');
@@ -21671,11 +21671,11 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.kg_sync;
     <!-- Champs de connexion -->
     <div class="form-group" style="margin-bottom:10px;">
       <label class="form-label">URL du projet Supabase *</label>
-      <input type="hidden" id="sb-url" value="https://rfgbisrffysqkuzaonfm.supabase.co">
+      <input type="hidden" id="sb-url" value="https://sxxndsakpauaumrxcshv.supabase.co">
     </div>
     <div class="form-group" style="margin-bottom:14px;">
       <label class="form-label">Clé anon (public) *</label>
-      <input type="hidden" id="sb-key" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZ2Jpc3JmZnlzcWt1emFvbmZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MzQ3NDUsImV4cCI6MjA5MDIxMDc0NX0._RLCrr9yZQSnb2gXpqKeJjz5LWD35IowPIh-6mHMPa0">
+      <input type="hidden" id="sb-key" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4eG5kc2FrcGF1YXVtcnhjc2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NzEzODgsImV4cCI6MjA5NDI0NzM4OH0.U8NLECYF9fkaInEIrO7oDuLTKsSnsxGdBg9pM4z0_r8">
       <div style="font-size:11px;color:var(--text2);margin-top:4px;">Trouvez-la dans : Project Settings → API → anon public</div>
     </div>
 
