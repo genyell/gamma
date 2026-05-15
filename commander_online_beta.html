@@ -930,15 +930,21 @@ function buildPaymentModes(methods, restoData) {
 }
 
 function normalizeItems(items) {
-  return (items || []).map(i => ({
-    ...i,
-    nom:       i.nom       || i.name      || 'Sans nom',
-    prix:      i.prix      || i.price_ttc  || i.price || 0,
-    icon:      i.icon      || i.emoji      || '🍽️',
-    categorie: i.categorie || i.category   || 'Autres',
-    rupture:   i.en_rupture === true || i.rupture === true || i.disponible === false,
-    promo_pct: i.promo_pct || 0,
-  }));
+  return (items || []).map(i => {
+    const _iconVal = i.icon || i.emoji || '';
+    const _iconIsUrl = _iconVal && (_iconVal.startsWith('http') || _iconVal.startsWith('data:') || _iconVal.includes('ibb.co'));
+    return {
+      ...i,
+      nom:       i.nom       || i.name      || 'Sans nom',
+      prix:      i.prix      || i.price_ttc  || i.price || 0,
+      icon:      _iconIsUrl ? '🍽️' : (_iconVal || '🍽️'),
+      // ✅ FIX : si icon est une URL et image_url est vide, utiliser icon comme image_url
+      image_url: i.image_url || (_iconIsUrl ? _iconVal : null),
+      categorie: i.categorie || i.category   || 'Autres',
+      rupture:   i.en_rupture === true || i.rupture === true || i.disponible === false,
+      promo_pct: i.promo_pct || 0,
+    };
+  });
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -1018,7 +1024,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // Fetch seulement ce qui n'est pas en cache
     const _menuProm  = _cachedMenu  ? Promise.resolve({ data: _cachedMenu })
-      : sb.from('menu_items').select('id,restaurant_id,name,category,price_ttc,description,icon,image_url,tag,actif,sort_order,promo_pct,en_rupture').eq('restaurant_id',restaurantId).eq('actif',true).order('sort_order');
+      : sb.from('menu_items').select('id,restaurant_id,name,category,price_ttc,description,icon,image_url,tag,actif,sort_order,promo_pct').eq('restaurant_id',restaurantId).eq('actif',true).order('sort_order');
     const _restoProm = _cachedResto ? Promise.resolve({ data: _cachedResto })
       : sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url').eq('id',restaurantId).single();
     const _infoProm  = _cachedInfo  ? Promise.resolve({ data: { value: JSON.stringify(_cachedInfo) } })
