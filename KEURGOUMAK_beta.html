@@ -9151,6 +9151,27 @@ function _getNextOrderNum(caisse) {
 // ✅ FIX v37 TICKETS UNIQUES — numéro global atomic via Supabase RPC
 // Garantit qu'aucune caisse ne reçoit le même numéro de ticket
 // ✅ PERSISTANCE VENTES — écriture immédiate dans ventes_caisse Supabase
+// ✅ FIX v8 : Vider la table ventes_caisse dans Supabase après clôture
+// Sans ça, le pullAll restaure les ventes depuis ventes_caisse après chaque clôture
+async function _clearVentesCaisseSupabase(caisse) {
+  try {
+    if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
+    const sb  = KGSync.getClient();
+    const rid = window._KG_RESTAURANT_ID;
+    if(!sb || !rid) return;
+    const today = new Date().toISOString().split('T')[0];
+    const { error } = await sb.from('ventes_caisse')
+      .delete()
+      .eq('restaurant_id', rid)
+      .eq('caisse', caisse)
+      .eq('session_date', today);
+    if(error) console.warn('[ventes_caisse] Erreur clear:', error);
+    else console.log('[ventes_caisse] ✅ Ventes supprimées de Supabase après clôture :', caisse);
+  } catch(e) {
+    console.warn('[ventes_caisse] Erreur clear:', e);
+  }
+}
+
 async function _saveVenteSupabase(caisse, vente) {
   try {
     if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
@@ -15446,6 +15467,14 @@ function initFermetureSelect() {
     const _caissesPOS = ['Caisse 1', 'Caisse 2', 'Caisse 3'];
     for(const _cn of _caissesPOS) {
       if((VENTES_PAR_CAISSE[_cn]||[]).length === 0) {
+        // Ne pas charger si la caisse est déjà clôturée aujourd'hui
+        let _cloZFZ = [];
+        try {
+          const _sFZ = JSON.parse(localStorage.getItem('kg-session') || '{}');
+          const _tFZ = new Date().toISOString().split('T')[0];
+          _cloZFZ = (_sFZ._caissesClotureesAujourdhui || []).filter(x => x.date === _tFZ).map(x => x.caisse);
+        } catch(e) {}
+        if(_cloZFZ.includes(_cn)) { console.log('[initFermetureSelect] ⛔ Clôturée — skip load :', _cn); continue; }
         await _loadVentesSupabase(_cn);
         if((VENTES_PAR_CAISSE[_cn]||[]).length > 0) {
           // Ventes trouvées → rafraîchir l'affichage
@@ -15920,6 +15949,9 @@ async function cloturerCaisse() {
       try {
         // ✅ FIX v8 : Wrapper avec timeout 8s pour éviter le blocage infini si Supabase est lent
         const _withTimeout = (p, ms) => Promise.race([p, new Promise((_,r) => setTimeout(() => r(new Error('timeout')), ms))]);
+        // ✅ FIX v8 CRITIQUE : Vider ventes_caisse dans Supabase AVANT les autres push
+        // Sans ça, le setTimeout de pullAll restaure les ventes depuis ventes_caisse
+        await _withTimeout(_clearVentesCaisseSupabase(caisse), 6000);
         // Push clôtures, ventes vides, caisses — dans cet ordre
         await _withTimeout(KGSync.push.clotures(), 8000);
         await _withTimeout(KGSync.push.ventes(), 8000);   // push VENTES_PAR_CAISSE[caisse]=[] → Supabase stocke []
@@ -18258,12 +18290,27 @@ const KGSync = (() => {
       if(typeof _refreshAllViews === 'function') _refreshAllViews();
       if(typeof applyRestaurantSettingsToUI === 'function') applyRestaurantSettingsToUI();
       console.log('✅ KGSync v35 pullAll terminé');
-      // ✅ RESTAURATION VENTES depuis ventes_caisse Supabase après chaque pullAll
-      // Garantit que les ventes ne disparaissent jamais même si un autre navigateur se déconnecte
+      // ✅ FIX v8 RESTAURATION VENTES : recharger C1/C2/C3 depuis ventes_caisse SAUF si clôturée aujourd'hui
       setTimeout(async () => {
-        // ✅ Toujours recharger C1/C2/C3 depuis ventes_caisse — peu importe le statut
         const _caisses = ['Caisse 1', 'Caisse 2', 'Caisse 3'];
+        // Lire les caisses clôturées aujourd'hui pour ne pas les restaurer
+        let _cloZRestore = [];
+        try {
+          const _sR = JSON.parse(localStorage.getItem('kg-session') || '{}');
+          const _todayR = new Date().toISOString().split('T')[0];
+          _cloZRestore = (_sR._caissesClotureesAujourdhui || [])
+            .filter(x => x.date === _todayR).map(x => x.caisse);
+        } catch(e) {}
         for(const _c of _caisses) {
+          if(_cloZRestore.includes(_c)) {
+            // ✅ Caisse clôturée : forcer à vide au lieu de restaurer
+            VENTES_PAR_CAISSE[_c] = [];
+            const _cObj = CAISSES.find(c => c.name === _c);
+            if(_cObj) { _cObj.ca = 0; _cObj.orders = 0; }
+            console.log('[pullAll restore] ⛔ Caisse clôturée — restauration bloquée :', _c);
+            continue;
+          }
+          // Caisse non clôturée : charger normalement
           await _loadVentesSupabase(_c);
         }
         if(typeof refreshDashboard === 'function') try { refreshDashboard(); } catch(e) {}
