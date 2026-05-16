@@ -9186,23 +9186,26 @@ async function _loadVentesSupabase(caisse) {
       .eq('caisse', caisse)
       .eq('session_date', today)
       .order('created_at', { ascending: true });
-    if(error || !data || data.length === 0) return;
-    if(!VENTES_PAR_CAISSE[caisse]) VENTES_PAR_CAISSE[caisse] = [];
-    data.forEach(row => {
-      if(!VENTES_PAR_CAISSE[caisse].find(v => v.orderNum === row.order_num)) {
-        VENTES_PAR_CAISSE[caisse].push({
-          orderNum:  row.order_num,
-          items:     row.lignes || [],
-          total:     parseFloat(row.total) || 0,
-          payMethod: row.pay_mode || 'cash',
-          payLabel:  row.pay_mode === 'wave' ? 'Wave' : row.pay_mode === 'orange' ? 'Orange Money' : '💵 Espèces',
-          cashier:   row.cashier || '',
-          note:      row.note || '',
-          date:      row.session_date,
-          time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
-        });
-      }
-    });
+    if(error) { console.warn('[ventes_caisse] Erreur load:', error); return; }
+    if(!data) return;
+    // ✅ Remplacer COMPLÈTEMENT les ventes locales par celles de Supabase (source de vérité)
+    VENTES_PAR_CAISSE[caisse] = data.map(row => ({
+      orderNum:  row.order_num,
+      items:     row.lignes || [],
+      total:     parseFloat(row.total) || 0,
+      payMethod: row.pay_mode || 'cash',
+      payLabel:  row.pay_mode === 'wave' ? 'Wave' : row.pay_mode === 'orange' ? 'Orange Money' : '💵 Espèces',
+      cashier:   row.cashier || '',
+      note:      row.note || '',
+      date:      row.session_date,
+      time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
+    }));
+    // Mettre à jour les KPIs
+    const cObj = typeof CAISSES !== 'undefined' ? CAISSES.find(c => c.name === caisse) : null;
+    if(cObj) {
+      cObj.ca = VENTES_PAR_CAISSE[caisse].reduce((a,v) => a + (v.total||0), 0);
+      cObj.orders = VENTES_PAR_CAISSE[caisse].length;
+    }
     console.log('[ventes_caisse] ✅ Chargé', data.length, 'ventes pour', caisse);
   } catch(e) {
     console.warn('[ventes_caisse] Erreur load:', e);
@@ -18217,12 +18220,10 @@ const KGSync = (() => {
       // ✅ RESTAURATION VENTES depuis ventes_caisse Supabase après chaque pullAll
       // Garantit que les ventes ne disparaissent jamais même si un autre navigateur se déconnecte
       setTimeout(async () => {
+        // ✅ Toujours recharger C1/C2/C3 depuis ventes_caisse — peu importe le statut
         const _caisses = ['Caisse 1', 'Caisse 2', 'Caisse 3'];
         for(const _c of _caisses) {
-          const _cObj = typeof CAISSES !== 'undefined' ? CAISSES.find(c => c.name === _c) : null;
-          if(_cObj && _cObj.status === 'open') {
-            await _loadVentesSupabase(_c);
-          }
+          await _loadVentesSupabase(_c);
         }
         if(typeof refreshDashboard === 'function') try { refreshDashboard(); } catch(e) {}
         if(typeof renderCaisses === 'function') try { renderCaisses(); } catch(e) {}
