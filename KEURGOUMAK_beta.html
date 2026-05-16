@@ -9150,6 +9150,65 @@ function _getNextOrderNum(caisse) {
 
 // ✅ FIX v37 TICKETS UNIQUES — numéro global atomic via Supabase RPC
 // Garantit qu'aucune caisse ne reçoit le même numéro de ticket
+// ✅ PERSISTANCE VENTES — écriture immédiate dans ventes_caisse Supabase
+async function _saveVenteSupabase(caisse, vente) {
+  try {
+    if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
+    const sb  = KGSync.getClient();
+    const rid = window._KG_RESTAURANT_ID;
+    if(!sb || !rid) return;
+    await sb.from('ventes_caisse').upsert({
+      restaurant_id: rid,
+      caisse:        caisse,
+      order_num:     vente.orderNum,
+      cashier:       vente.cashier || null,
+      total:         vente.total   || 0,
+      lignes:        vente.items   || [],
+      note:          vente.note    || null,
+      pay_mode:      vente.payMethod || null,
+      session_date:  (vente.date || new Date().toISOString()).split('T')[0]
+    }, { onConflict: 'restaurant_id,order_num' });
+  } catch(e) {
+    console.warn('[ventes_caisse] Erreur save:', e);
+  }
+}
+
+async function _loadVentesSupabase(caisse) {
+  try {
+    if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
+    const sb  = KGSync.getClient();
+    const rid = window._KG_RESTAURANT_ID;
+    if(!sb || !rid) return;
+    const today = new Date().toISOString().split('T')[0];
+    const { data, error } = await sb.from('ventes_caisse')
+      .select('*')
+      .eq('restaurant_id', rid)
+      .eq('caisse', caisse)
+      .eq('session_date', today)
+      .order('created_at', { ascending: true });
+    if(error || !data || data.length === 0) return;
+    if(!VENTES_PAR_CAISSE[caisse]) VENTES_PAR_CAISSE[caisse] = [];
+    data.forEach(row => {
+      if(!VENTES_PAR_CAISSE[caisse].find(v => v.orderNum === row.order_num)) {
+        VENTES_PAR_CAISSE[caisse].push({
+          orderNum:  row.order_num,
+          items:     row.lignes || [],
+          total:     parseFloat(row.total) || 0,
+          payMethod: row.pay_mode || 'cash',
+          payLabel:  row.pay_mode === 'wave' ? 'Wave' : row.pay_mode === 'orange' ? 'Orange Money' : '💵 Espèces',
+          cashier:   row.cashier || '',
+          note:      row.note || '',
+          date:      row.session_date,
+          time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
+        });
+      }
+    });
+    console.log('[ventes_caisse] ✅ Chargé', data.length, 'ventes pour', caisse);
+  } catch(e) {
+    console.warn('[ventes_caisse] Erreur load:', e);
+  }
+}
+
 async function _getNextOrderNumGlobal(caisse) {
   try {
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
@@ -9649,6 +9708,10 @@ async function validateOrder() {
   }));
 
   if(!VENTES_PAR_CAISSE[caisse]) VENTES_PAR_CAISSE[caisse] = [];
+  // ✅ Charger les ventes du jour depuis Supabase au premier accès
+  if(VENTES_PAR_CAISSE[caisse].length === 0) {
+    await _loadVentesSupabase(caisse);
+  }
 
   // ✅ FIX v42 : Calcul payMethods si mode mixte
   let payMethodsData = null;
@@ -9677,6 +9740,7 @@ async function validateOrder() {
     cashier, client
   };
   VENTES_PAR_CAISSE[caisse].push(venteSaved);
+  _saveVenteSupabase(caisse, venteSaved); // ✅ Persistance immédiate Supabase
 
   // Deduire les ingredients du stock (recette)
   deduireStockVente(itemsSaved);
@@ -17598,17 +17662,18 @@ const KGSync = (() => {
           const _localesN   = (VENTES_PAR_CAISSE[caisse] || []).slice();
           const _sessActiveIci = sessionCaisseActive && sessionCaisseActive.caisse === caisse;
 
-          // ✅ FIX ANTI-PERTE DÉFINITIF : toujours fusionner, jamais écraser
-          // Même sans session active, on ne vide JAMAIS les ventes locales
-          const _mergedN = [..._localesN];
-          _distantesN.forEach(vd => {
-            if(!_mergedN.find(vl => (vl.orderNum || vl.id) === (vd.orderNum || vd.id))) _mergedN.push(vd);
-          });
-          if(_mergedN.length > 0) {
+          if(_sessActiveIci && _localesN.length > 0) {
+            // Session ouverte sur CE navigateur → fusionner (ne jamais perdre les ventes locales)
+            const _mergedN = [..._localesN];
+            _distantesN.forEach(vd => {
+              if(!_mergedN.find(vl => (vl.orderNum || vl.id) === (vd.orderNum || vd.id))) _mergedN.push(vd);
+            });
             VENTES_PAR_CAISSE[caisse] = _mergedN;
-            console.log('[pullAll] ✅ C1-C3 fusion locale+distante :', caisse, _mergedN.length, 'ventes');
+            console.log('[pullAll] ✅ C1-C3 session locale active — fusion :', caisse, _mergedN.length, 'ventes');
           } else {
-            VENTES_PAR_CAISSE[caisse] = [];
+            // Pas de session locale → les ventes distantes font foi (un autre navigateur a vendu)
+            VENTES_PAR_CAISSE[caisse] = _distantesN;
+            console.log('[pullAll] ✅ C1-C3 sans session locale — chargement distant :', caisse, _distantesN.length, 'ventes');
           }
 
           if(data.orderCounter && data.orderCounter > orderCounter) {
@@ -25649,6 +25714,7 @@ async function updateQRStatut(orderId, newStatut) {
 
       // ① Injecter dans Caisse 3
       VENTES_PAR_CAISSE[caisse].push(venteSaved);
+      _saveVenteSupabase(caisse, venteSaved); // ✅ Persistance immédiate Supabase
 
       // ② Mettre à jour les KPIs de la caisse + AUTO-OUVRIR Caisse 3 si fermée
       const caisseObj = CAISSES ? CAISSES.find(c => c.name === caisse) : null;
