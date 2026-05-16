@@ -717,6 +717,7 @@ body {
     <div class="sp-title">Commande envoyée !</div>
     <div class="sp-sub">Votre commande a bien été reçue.<br>Nous la préparons dès que possible.</div>
     <div class="sp-ref" id="popup-order-num">#0000</div>
+    <div id="popup-client-info" style="background:#F7F7F9;border-radius:10px;padding:8px 14px;margin:0 0 10px;font-size:13px;color:#555;display:none;text-align:left;"></div>
     <div class="sp-hint">Suivez votre commande via le bouton 📡 en haut</div>
     <button class="sp-btn" onclick="closeSuccessPopup()">🛒 Continuer à commander</button>
   </div>
@@ -1594,6 +1595,14 @@ function renderMenu() {
   }
   const groups = {};
   filtered.forEach(i => { const c=i.categorie||'Autres'; if(!groups[c]) groups[c]=[]; groups[c].push(i); });
+  // ✅ FIX : Articles en rupture toujours repoussés en bas de chaque catégorie
+  Object.keys(groups).forEach(cat => {
+    groups[cat].sort((a, b) => {
+      if(a.rupture && !b.rupture) return 1;
+      if(!a.rupture && b.rupture) return -1;
+      return 0;
+    });
+  });
 
   let html = '';
   const showHeaders = activeCat === 'all';
@@ -2047,10 +2056,14 @@ function renderTrackDrawer() {
       </div>`;
     }).join('');
     return `<div style="background:#f9f6ff;border-radius:14px;padding:14px;border:1.5px solid ${done?'#e0e0e0':'#d4b8ff'};">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <span style="font-size:16px;font-weight:800;color:#6c2bd9;">${o.ref}</span>
         <span style="background:${st.color};color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">${st.icon} ${st.label}</span>
       </div>
+      ${(o.clientNom||o.clientTel) ? `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;background:#fff;border-radius:8px;padding:7px 10px;border:1px solid #ebe5ff;">
+        ${o.clientNom ? `<span style="font-size:12px;color:#444;font-weight:600;">&#x1F64B; ${o.clientNom}</span>` : ''}
+        ${o.clientTel ? `<a href="tel:${o.clientTel}" style="font-size:12px;color:#6c2bd9;font-weight:700;text-decoration:none;margin-left:auto;">&#x1F4DE; ${o.clientTel}</a>` : ''}
+      </div>` : '<div style="margin-bottom:10px;"></div>'}
       ${o.statut==='annulee'
         ? `<div style="text-align:center;color:#e74c3c;font-size:13px;padding:6px 0;">😔 Commande annulée par le restaurant</div>`
         : o.statut==='en_attente_paiement'
@@ -2468,8 +2481,23 @@ function telechargerRecu(orderId) {
 // ── Popup auto-close après 4s ──
 function showSuccessPopup(ref) {
   document.getElementById('popup-order-num').textContent = ref;
+  // ✅ FIX : afficher le nom et téléphone du client dans la popup de confirmation
+  const nom = (document.getElementById('client-nom')?.value || '').trim();
+  const tel = (document.getElementById('client-tel')?.value || '').trim();
+  const infoEl = document.getElementById('popup-client-info');
+  if(infoEl) {
+    if(nom || tel) {
+      let html = '';
+      if(nom) html += `<div>🙋 <strong>${nom}</strong></div>`;
+      if(tel) html += `<div>📞 <a href="tel:${tel}" style="color:var(--brand);font-weight:700;text-decoration:none;">${tel}</a></div>`;
+      infoEl.innerHTML = html;
+      infoEl.style.display = 'block';
+    } else {
+      infoEl.style.display = 'none';
+    }
+  }
   document.getElementById('success-popup').style.display = 'flex';
-  setTimeout(closeSuccessPopup, 4000);
+  setTimeout(closeSuccessPopup, 6000);
 }
 
 // ── UTILS ─────────────────────────────────────────────
