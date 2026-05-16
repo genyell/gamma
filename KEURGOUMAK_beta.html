@@ -9188,8 +9188,9 @@ async function _loadVentesSupabase(caisse) {
       .order('created_at', { ascending: true });
     if(error) { console.warn('[ventes_caisse] Erreur load:', error); return; }
     if(!data) return;
-    // ✅ Remplacer COMPLÈTEMENT les ventes locales par celles de Supabase (source de vérité)
-    VENTES_PAR_CAISSE[caisse] = data.map(row => ({
+    // ✅ FIX v8 : FUSION intelligente — ne jamais écraser les ventes locales non encore pushées
+    // On construit d'abord la liste distante, puis on ajoute les ventes locales absentes de Supabase
+    const _remoteVentes = data.map(row => ({
       orderNum:  row.order_num,
       items:     row.lignes || [],
       total:     parseFloat(row.total) || 0,
@@ -9200,6 +9201,12 @@ async function _loadVentesSupabase(caisse) {
       date:      row.session_date,
       time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
     }));
+    // Ventes locales présentes en mémoire mais pas encore pushées vers Supabase (pas dans _remoteVentes)
+    const _localOnly = (VENTES_PAR_CAISSE[caisse] || []).filter(
+      lv => !_remoteVentes.find(rv => rv.orderNum === lv.orderNum)
+    );
+    VENTES_PAR_CAISSE[caisse] = [..._remoteVentes, ..._localOnly];
+    if(_localOnly.length > 0) console.log('[ventes_caisse] ⚡ ' + _localOnly.length + ' ventes locales conservées (non encore pushées)');
     // Mettre à jour les KPIs
     const cObj = typeof CAISSES !== 'undefined' ? CAISSES.find(c => c.name === caisse) : null;
     if(cObj) {
@@ -15549,13 +15556,17 @@ async function cloturerCaisse() {
   _CLOTURE_EN_COURS = true;
   _CLOTURE_TIMESTAMP = Date.now();
   try {
-    // 1. Trouver la caisse
+    // 1. Trouver la caisse — FIX v8 : fallback robuste même sans sessionCaisseActive
     let caisse = _currentFCaisse
       || (sessionCaisseActive && sessionCaisseActive.caisse)
       || (currentUser && currentUser.caisse !== 'Toutes' ? currentUser.caisse : null);
     if(!caisse) {
-      const c = CAISSES.find(x => x.status === 'open') || CAISSES[0];
-      caisse = c ? c.name : 'Caisse 1';
+      // Priorité : caisse ouverte avec ventes > caisse ouverte > première caisse
+      const _caisseAvecVentes = CAISSES.find(c => c.status === 'open' && (VENTES_PAR_CAISSE[c.name]||[]).length > 0);
+      const _caisseOuverte    = CAISSES.find(c => c.status === 'open');
+      const _fallback         = _caisseAvecVentes || _caisseOuverte || CAISSES[0];
+      caisse = _fallback ? _fallback.name : 'Caisse 1';
+      console.warn('[cloturerCaisse] sessionCaisseActive absent — caisse détectée par fallback :', caisse);
     }
 
     // 2. Données de base
@@ -15881,11 +15892,13 @@ async function cloturerCaisse() {
     // Push Supabase v35 — système clé/valeur simple comme le v11
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
       try {
+        // ✅ FIX v8 : Wrapper avec timeout 8s pour éviter le blocage infini si Supabase est lent
+        const _withTimeout = (p, ms) => Promise.race([p, new Promise((_,r) => setTimeout(() => r(new Error('timeout')), ms))]);
         // Push clôtures, ventes vides, caisses — dans cet ordre
-        await KGSync.push.clotures();
-        await KGSync.push.ventes();   // push VENTES_PAR_CAISSE[caisse]=[] → Supabase stocke []
-        await KGSync.push.caisses();  // push statut closed
-        console.log('✅ Clôture v35 sauvegardée (clé/valeur)');
+        await _withTimeout(KGSync.push.clotures(), 8000);
+        await _withTimeout(KGSync.push.ventes(), 8000);   // push VENTES_PAR_CAISSE[caisse]=[] → Supabase stocke []
+        await _withTimeout(KGSync.push.caisses(), 8000);  // push statut closed
+        console.log('✅ Clôture v8 sauvegardée (clé/valeur)');
       } catch(ePush) {
         console.warn('push clôture v35 erreur:', ePush);
         setTimeout(async () => {
@@ -16005,11 +16018,13 @@ async function cloturerCaisse() {
     }
 
   } catch(err) {
-    _CLOTURE_EN_COURS = false;
     console.error('Erreur cloturerCaisse:', err);
-    showNotif('❌ Erreur clôture : ' + err.message);
-    // ✅ FIX v41 : Ping même en cas d'erreur pour débloquer les autres appareils
+    showNotif('❌ Erreur clôture : ' + (err.message || err));
+    // FIX v41 : Ping même en cas d'erreur pour débloquer les autres appareils
     try { await KGSync.push.pingCloture(); } catch(_pe) {}
+  } finally {
+    // ✅ FIX v8 : TOUJOURS libérer le verrou, succès OU erreur — évite le blocage permanent
+    _CLOTURE_EN_COURS = false;
   }
 }
 
