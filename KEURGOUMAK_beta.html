@@ -14518,7 +14518,7 @@ function refreshDashboard() {
         <div class="order-item" style="cursor:default;">
           <div class="order-num">${v.orderNum}</div>
           <div class="order-info">
-            <div class="order-name">${v.client}</div>
+            <div class="order-name">${v.client || v.cashier || "Client"}</div>
             <div class="order-items-list">${v.items.map(i=>`${_safeIconText(i.icon)}${i.name}×${i.qty}`).join(', ')}</div>
           </div>
           <div class="order-time">${v.time}</div>
@@ -15440,6 +15440,26 @@ function initFermetureSelect() {
   const el = document.getElementById('fermeture-select');
   if(!el) return;
 
+  // ✅ FIX v8 : Charger les ventes Supabase pour C1/C2/C3 si elles sont vides en mémoire
+  // Cas typique : rechargement de page → VENTES_PAR_CAISSE est vide mais Supabase a les ventes
+  (async function _preloadVentesFermeture() {
+    const _caissesPOS = ['Caisse 1', 'Caisse 2', 'Caisse 3'];
+    for(const _cn of _caissesPOS) {
+      if((VENTES_PAR_CAISSE[_cn]||[]).length === 0) {
+        await _loadVentesSupabase(_cn);
+        if((VENTES_PAR_CAISSE[_cn]||[]).length > 0) {
+          // Ventes trouvées → rafraîchir l'affichage
+          const _cObj = CAISSES.find(c => c.name === _cn);
+          if(_cObj) { _cObj.status = 'open'; _cObj.ca = VENTES_PAR_CAISSE[_cn].reduce((a,v)=>a+v.total,0); _cObj.orders = VENTES_PAR_CAISSE[_cn].length; }
+          console.log('[initFermetureSelect] ✅ Ventes rechargées depuis Supabase pour', _cn, ':', VENTES_PAR_CAISSE[_cn].length, 'ventes');
+          // Re-initialiser après chargement
+          initFermetureSelect();
+          return;
+        }
+      }
+    }
+  })();
+
   // ✅ FIX v32 FERMETURE Z : synchroniser TOUS les modules AVANT affichage
   // Sans ça, Caisses 5 et 7 ont dot gris → on ne peut pas les clôturer
   const _kma = (() => { try { return JSON.parse(localStorage.getItem('kg-modules-active')||'{}'); } catch(e) { return {}; } })();
@@ -15575,8 +15595,14 @@ async function cloturerCaisse() {
       || (currentUser ? currentUser.prenom + ' ' + currentUser.nom : 'Caissier');
     const now      = new Date();
 
-    // ✅ FIX CA=0 : Si VENTES_PAR_CAISSE est vide (ex: après rechargement de page),
-    // récupérer les ventes non clôturées créées APRÈS l'ouverture de la session.
+    // ✅ FIX v8 : Essayer d'abord _loadVentesSupabase (table ventes_caisse) — plus fiable pour C1/C2/C3
+    if(ventes.length === 0) {
+      await _loadVentesSupabase(caisse);
+      ventes = (VENTES_PAR_CAISSE[caisse] || []);
+      if(ventes.length > 0) console.log('[cloturerCaisse] ✅ ' + ventes.length + ' ventes rechargées via ventes_caisse avant clôture');
+    }
+
+    // ✅ FIX CA=0 : Si toujours vide, chercher dans la table 'ventes' (ancienne table)
     if(ventes.length === 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
       try {
         const _sbClient = KGSync.getClient();
