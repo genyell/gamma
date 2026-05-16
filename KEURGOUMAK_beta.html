@@ -4288,6 +4288,9 @@ function _syncSportVentes()       { return []; }
     <div class="nav-item" onclick="showView('inventaire', this)">
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span> Inventaire
     </div>
+    <div class="nav-item" onclick="showView('preparation', this)">
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg></span> Préparation
+    </div>
     <div class="nav-item" onclick="showView('clients', this)">
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Clients
     </div>
@@ -4792,6 +4795,47 @@ function _syncSportVentes()       { return []; }
               Validez un inventaire pour voir le rapport d'écarts.
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRÉPARATION -->
+    <div id="view-preparation" class="view fade-in">
+      <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
+        <button class="cat-btn active" id="prep-tab-recettes" onclick="switchPrepTab('recettes',this)">📋 Fiches recettes</button>
+        <button class="cat-btn" id="prep-tab-journal" onclick="switchPrepTab('journal',this)">📅 Journal</button>
+        <button class="btn btn-primary" style="margin-left:auto;" onclick="openAddPreparation()">+ Nouvelle recette</button>
+      </div>
+
+      <!-- FICHES RECETTES -->
+      <div id="prep-tab-content-recettes">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+          <div class="card" style="padding:18px;">
+            <div class="card-title" style="margin-bottom:14px;">
+              📋 Mes recettes
+              <span id="prep-nb-recettes" style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text2);font-weight:400;">0 recette(s)</span>
+            </div>
+            <input class="search-input" type="text" id="prep-search" placeholder="🔍 Rechercher..." oninput="renderPrepRecettes()" style="width:100%;margin-bottom:12px;">
+            <div id="prep-recettes-list" style="display:flex;flex-direction:column;gap:10px;max-height:65vh;overflow-y:auto;padding-right:4px;"></div>
+          </div>
+          <div class="card" style="padding:18px;">
+            <div class="card-title" style="margin-bottom:14px;">⚡ Lancer une préparation rapide</div>
+            <div style="color:var(--text2);font-size:13px;text-align:center;padding:30px 20px;">
+              <div style="font-size:36px;margin-bottom:10px;">🍳</div>
+              Sélectionnez une recette dans la liste<br>et cliquez sur <strong style="color:var(--accent);">🔥 Préparer</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- JOURNAL -->
+      <div id="prep-tab-content-journal" style="display:none;">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:16px;">
+            📅 Journal des préparations
+            <span id="prep-nb-journal" style="font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text2);font-weight:400;">0 entrée(s)</span>
+          </div>
+          <div id="prep-journal-list"></div>
         </div>
       </div>
     </div>
@@ -7970,7 +8014,7 @@ function showView(id, el, pushState) {
     const navMatch = document.querySelector(`.nav-item[onclick*="showView('${id}'"]`);
     if(navMatch) navMatch.classList.add('active');
   }
-  const titles = { dashboard:'Tableau de bord', caisse:'Caisse POS', commandes:'Commandes', qrcommandes:'📱 Commandes en ligne — QR Code', menu:'Menu & Carte', stock:'Stocks', inventaire:'Inventaire', clients:'Clients', fournisseurs:'Fournisseurs', stats:'Statistiques', settings:'Paramètres', caisses:'Gestion des Caisses', rapportx:'Rapport X — Consultation en cours', shift:'Gestion des Shifts', fermeture:'Fermeture de Caisse (Z)', reconciliation:'Réconciliation Mensuelle', historique:'Historique des Clôtures', utilisateurs:'Utilisateurs', depenses:'Module Dépenses', rh:'RH & Gestion des Salaires', compta:'Comptabilité — Résultats & Bilan', factures:'Factures — Clients & Fournisseurs', banque:'Banque — Suivi des comptes', materiel:'Matériel & Amortissements', annonces:'📢 Annonces & Publicités', 'location-salle':'🏛️ Location de Salle', 'manege':'🎠 Manège Enfants', terrain:'⚽ Terrain de Football', 'salle-sport':'💪 Salle de Sport', piscine:'🏊 Piscine', caisse3commandes:'🖥️ Caisse 3 — Commandes Clients' };
+  const titles = { dashboard:'Tableau de bord', caisse:'Caisse POS', commandes:'Commandes', qrcommandes:'📱 Commandes en ligne — QR Code', menu:'Menu & Carte', stock:'Stocks', inventaire:'Inventaire', preparation:'🧑‍🍳 Préparation', clients:'Clients', fournisseurs:'Fournisseurs', stats:'Statistiques', settings:'Paramètres', caisses:'Gestion des Caisses', rapportx:'Rapport X — Consultation en cours', shift:'Gestion des Shifts', fermeture:'Fermeture de Caisse (Z)', reconciliation:'Réconciliation Mensuelle', historique:'Historique des Clôtures', utilisateurs:'Utilisateurs', depenses:'Module Dépenses', rh:'RH & Gestion des Salaires', compta:'Comptabilité — Résultats & Bilan', factures:'Factures — Clients & Fournisseurs', banque:'Banque — Suivi des comptes', materiel:'Matériel & Amortissements', annonces:'📢 Annonces & Publicités', 'location-salle':'🏛️ Location de Salle', 'manege':'🎠 Manège Enfants', terrain:'⚽ Terrain de Football', 'salle-sport':'💪 Salle de Sport', piscine:'🏊 Piscine', caisse3commandes:'🖥️ Caisse 3 — Commandes Clients' };
   document.getElementById('page-title').textContent = titles[id] || id;
 
   // ===== HISTORY API : desactive en file:// pour eviter "Unsafe attempt" ===
@@ -8006,6 +8050,7 @@ function showView(id, el, pushState) {
   if(id === 'livreurs') afficherListeLivreurs();
   if(id === 'stock') { switchStockTab('liste', document.getElementById('stock-tab-liste')); renderStock(); }
   if(id === 'inventaire') { initInvDate(); renderInvSaisie(); }
+  if(id === 'preparation') { renderPreparation(); }
   if(id === 'clients') renderClients();
   if(id === 'fournisseurs') renderFournisseurs();
   if(id === 'stats') renderStats();
@@ -21695,6 +21740,73 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.kg_sync;
 </div>
 
 <!-- ================================================================ -->
+<!-- ================================================================ -->
+<!-- MODALS PRÉPARATION                                               -->
+<!-- ================================================================ -->
+
+<!-- MODAL : CRÉER / MODIFIER UNE RECETTE -->
+<div class="modal-overlay" id="modal-addPreparation">
+  <div class="modal" style="width:560px;max-height:92vh;overflow-y:auto;">
+    <div class="modal-title" id="prep-modal-title">🧑‍🍳 Nouvelle fiche de préparation</div>
+    <input type="hidden" id="prep-edit-id" value="">
+
+    <div class="form-row">
+      <div class="form-group" style="flex:3;">
+        <label class="form-label">Nom de la recette *</label>
+        <input class="form-input" id="prep-nom" placeholder="Ex: Sauce Yassa, Base Thiéboudienne…">
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">Icône</label>
+        <input class="form-input" id="prep-icon" placeholder="🍲" style="font-size:22px;text-align:center;" maxlength="2" value="🍲">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description / Notes</label>
+      <input class="form-input" id="prep-desc" placeholder="Optionnel — instructions, quantité produite…">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" style="margin-bottom:10px;">Ingrédients consommés (déduits du stock à chaque préparation)</label>
+      <div id="prep-ingredients-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+      <button class="btn btn-ghost" onclick="addPrepIngredientLine()" style="width:100%;font-size:12px;">+ Ajouter un ingrédient</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addPreparation')">Annuler</button>
+      <button class="btn btn-primary" onclick="savePreparation()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL : LANCER UNE PRÉPARATION -->
+<div class="modal-overlay" id="modal-lancerPreparation">
+  <div class="modal" style="width:500px;">
+    <div class="modal-title">🔥 Lancer une préparation</div>
+    <input type="hidden" id="lancer-prep-id" value="">
+
+    <div id="lancer-prep-recap" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;"></div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nombre de lots / portions *</label>
+        <input class="form-input" type="number" id="lancer-prep-qty" value="1" min="0.1" step="0.1" oninput="updateLancerRecap()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Responsable (cuisinier)</label>
+        <input class="form-input" id="lancer-prep-resp" placeholder="Nom du cuisinier">
+      </div>
+    </div>
+
+    <div id="lancer-prep-warn" style="display:none;background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--red);margin-bottom:12px;line-height:1.7;"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('lancerPreparation')">Annuler</button>
+      <button class="btn btn-primary" id="lancer-prep-btn" onclick="confirmerPreparation()">✅ Confirmer & déduire le stock</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CONFIRMATION RÉINITIALISATION                              -->
 <!-- ================================================================ -->
 <div class="modal-overlay" id="modal-resetConfirm">
@@ -21714,6 +21826,315 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.kg_sync;
     </div>
   </div>
 </div>
+
+<script>
+// ================================================================
+// MODULE PRÉPARATION — Fiches recettes + déduction stock auto
+// ================================================================
+
+let PREPARATIONS = [];
+let PREP_JOURNAL = [];
+let _prepIngLines = [];
+
+// ── Rendu principal ─────────────────────────────────────────────
+function renderPreparation() {
+  renderPrepRecettes();
+  renderPrepJournal();
+}
+
+function switchPrepTab(tab, el) {
+  ['recettes','journal'].forEach(t => {
+    document.getElementById('prep-tab-' + t)?.classList.toggle('active', t === tab);
+    const c = document.getElementById('prep-tab-content-' + t);
+    if (c) c.style.display = t === tab ? '' : 'none';
+  });
+  renderPreparation();
+}
+
+// ── Fiches recettes ──────────────────────────────────────────────
+function renderPrepRecettes() {
+  const search = (document.getElementById('prep-search')?.value || '').toLowerCase();
+  const list = PREPARATIONS.filter(p =>
+    p.nom.toLowerCase().includes(search) || (p.desc||'').toLowerCase().includes(search)
+  );
+  const nbEl = document.getElementById('prep-nb-recettes');
+  if (nbEl) nbEl.textContent = PREPARATIONS.length + ' recette(s)';
+  const el = document.getElementById('prep-recettes-list');
+  if (!el) return;
+
+  if (list.length === 0) {
+    el.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text2);">
+      <div style="font-size:36px;margin-bottom:10px;">📋</div>
+      Aucune recette — cliquez sur <strong style="color:var(--accent);">+ Nouvelle recette</strong>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = list.map(p => {
+    const allOk = p.ingredients.every(ing => {
+      const s = STOCK_DATA.find(x => x.id === ing.stockId || x.sbId === ing.stockId);
+      return s && s.qty >= ing.qty;
+    });
+    const ingBadges = p.ingredients.map(ing => {
+      const s = STOCK_DATA.find(x => x.id === ing.stockId || x.sbId === ing.stockId);
+      const ok = s && s.qty >= ing.qty;
+      return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface);border:1px solid ${ok ? 'var(--border)' : 'rgba(231,76,60,0.4)'};color:${ok ? 'var(--text2)' : 'var(--red)'};margin:2px;">
+        ${s ? s.icon : '📦'} ${ing.stockNom} <span style="font-family:'Space Mono',monospace;">${ing.qty}${s ? ' ' + s.unit : ''}</span>
+        ${s ? `<span style="color:${ok ? 'var(--green)' : 'var(--red)'};">(${s.qty})</span>` : ''}
+      </span>`;
+    }).join('');
+
+    return `<div style="background:var(--surface2);border:1px solid ${allOk ? 'var(--border)' : 'rgba(231,76,60,0.25)'};border-radius:var(--radius-sm);padding:14px;transition:border-color 0.2s;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <span style="font-size:26px;">${p.icon}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:14px;">${p.nom}</div>
+          ${p.desc ? `<div style="font-size:11px;color:var(--text2);margin-top:1px;">${p.desc}</div>` : ''}
+        </div>
+        <span style="flex-shrink:0;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;${allOk ? 'background:rgba(46,204,113,0.12);color:var(--green);border:1px solid rgba(46,204,113,0.3);' : 'background:rgba(231,76,60,0.1);color:var(--red);border:1px solid rgba(231,76,60,0.3);'}">
+          ${allOk ? '✅ Stock OK' : '⚠️ Insuffisant'}
+        </span>
+      </div>
+      ${p.ingredients.length > 0 ? `<div style="flex-wrap:wrap;display:flex;gap:2px;margin-bottom:10px;">${ingBadges}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-primary" style="flex:1;font-size:12px;padding:8px;" onclick="openLancerPreparation(${p.id})">🔥 Préparer</button>
+        <button class="btn btn-ghost" style="font-size:12px;padding:8px 12px;" onclick="openEditPreparation(${p.id})">✏️</button>
+        <button class="btn btn-ghost" style="font-size:12px;padding:8px 12px;color:var(--red);border-color:rgba(231,76,60,0.3);" onclick="deletePreparation(${p.id})">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Journal ──────────────────────────────────────────────────────
+function renderPrepJournal() {
+  const nbEl = document.getElementById('prep-nb-journal');
+  if (nbEl) nbEl.textContent = PREP_JOURNAL.length + ' entrée(s)';
+  const el = document.getElementById('prep-journal-list');
+  if (!el) return;
+
+  if (PREP_JOURNAL.length === 0) {
+    el.innerHTML = `<div style="text-align:center;padding:50px 20px;color:var(--text2);">
+      <div style="font-size:40px;margin-bottom:12px;">📅</div>
+      Aucune préparation enregistrée pour le moment.
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = [...PREP_JOURNAL].reverse().map(j => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <span style="font-size:22px;">${j.icon}</span>
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:13px;">${j.nom} <span style="font-family:'Space Mono',monospace;color:var(--accent);">×${j.lots}</span></div>
+          <div style="font-size:11px;color:var(--text2);">📅 ${j.date}${j.responsable ? ' · 👤 ' + j.responsable : ''}</div>
+        </div>
+        <span style="font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(46,204,113,0.1);color:var(--green);border:1px solid rgba(46,204,113,0.3);font-weight:600;">✅ Effectuée</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2);display:flex;flex-wrap:wrap;gap:6px;">
+        ${j.deductions.map(d => `<span style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 8px;">📦 ${d.nom} −${d.qty} ${d.unit}</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Ouvrir / sauvegarder recette ─────────────────────────────────
+function openAddPreparation() {
+  document.getElementById('prep-edit-id').value = '';
+  document.getElementById('prep-modal-title').textContent = '🧑‍🍳 Nouvelle fiche de préparation';
+  document.getElementById('prep-nom').value = '';
+  document.getElementById('prep-icon').value = '🍲';
+  document.getElementById('prep-desc').value = '';
+  _prepIngLines = [];
+  addPrepIngredientLine();
+  showModal('addPreparation');
+}
+
+function openEditPreparation(id) {
+  const p = PREPARATIONS.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('prep-edit-id').value = p.id;
+  document.getElementById('prep-modal-title').textContent = '✏️ Modifier la recette';
+  document.getElementById('prep-nom').value = p.nom;
+  document.getElementById('prep-icon').value = p.icon;
+  document.getElementById('prep-desc').value = p.desc || '';
+  _prepIngLines = p.ingredients.map(i => ({ ...i }));
+  _drawPrepIngLines();
+  showModal('addPreparation');
+}
+
+function addPrepIngredientLine() {
+  _prepIngLines.push({ stockId: null, stockNom: '', qty: 1 });
+  _drawPrepIngLines();
+}
+
+function _drawPrepIngLines() {
+  const el = document.getElementById('prep-ingredients-list');
+  if (!el) return;
+  el.innerHTML = _prepIngLines.map((line, i) => `
+    <div style="display:grid;grid-template-columns:1fr 100px 28px;gap:8px;align-items:center;">
+      <select class="form-input" style="font-size:12px;" onchange="
+        _prepIngLines[${i}].stockId = this.value || null;
+        _prepIngLines[${i}].stockNom = this.options[this.selectedIndex].dataset.nom || '';
+      ">
+        <option value="">— Choisir un article stock —</option>
+        ${STOCK_DATA.map(s => `<option value="${s.id}" data-nom="${s.name}" ${(line.stockId == s.id || line.stockId == s.sbId) ? 'selected' : ''}>${s.icon||'📦'} ${s.name} (dispo: ${s.qty} ${s.unit})</option>`).join('')}
+      </select>
+      <input class="form-input" type="number" placeholder="Qté" min="0" step="0.01" value="${line.qty}"
+        style="font-size:12px;text-align:center;"
+        oninput="_prepIngLines[${i}].qty = parseFloat(this.value)||0">
+      <button onclick="_prepIngLines.splice(${i},1);_drawPrepIngLines();"
+        style="background:none;border:none;color:var(--red);cursor:pointer;font-size:20px;line-height:1;">×</button>
+    </div>
+  `).join('');
+}
+
+function savePreparation() {
+  const nom = document.getElementById('prep-nom').value.trim();
+  if (!nom) { showNotif('⚠️ Nom requis'); return; }
+  const ingredients = _prepIngLines.filter(l => l.stockId && l.qty > 0);
+  if (!ingredients.length) { showNotif('⚠️ Ajoutez au moins un ingrédient'); return; }
+
+  // Enrichir avec nom du stock
+  ingredients.forEach(ing => {
+    const s = STOCK_DATA.find(x => x.id == ing.stockId || x.sbId == ing.stockId);
+    if (s) { ing.stockNom = s.name; ing.unit = s.unit; }
+  });
+
+  const editId = parseInt(document.getElementById('prep-edit-id').value);
+  const data = {
+    nom,
+    icon: document.getElementById('prep-icon').value.trim() || '🍲',
+    desc: document.getElementById('prep-desc').value.trim(),
+    ingredients
+  };
+
+  if (editId) {
+    const p = PREPARATIONS.find(x => x.id === editId);
+    if (p) Object.assign(p, data);
+    showNotif(`✅ Recette "${nom}" modifiée`);
+  } else {
+    PREPARATIONS.push({ id: Date.now(), ...data });
+    showNotif(`✅ Recette "${nom}" créée`);
+  }
+
+  closeModal('addPreparation');
+  renderPreparation();
+  if (typeof saveSession === 'function') saveSession();
+}
+
+function deletePreparation(id) {
+  const p = PREPARATIONS.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm(`Supprimer la recette "${p.nom}" ?`)) return;
+  PREPARATIONS = PREPARATIONS.filter(x => x.id !== id);
+  renderPreparation();
+  showNotif(`🗑️ Recette "${p.nom}" supprimée`);
+}
+
+// ── Lancer une préparation ───────────────────────────────────────
+function openLancerPreparation(id) {
+  const p = PREPARATIONS.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('lancer-prep-id').value = id;
+  document.getElementById('lancer-prep-qty').value = 1;
+  // Pré-remplir avec l'utilisateur connecté
+  const u = typeof currentUser !== 'undefined' && currentUser ? currentUser.prenom || currentUser.name || '' : '';
+  document.getElementById('lancer-prep-resp').value = u;
+  updateLancerRecap();
+  showModal('lancerPreparation');
+}
+
+function updateLancerRecap() {
+  const id = parseInt(document.getElementById('lancer-prep-id').value);
+  const lots = parseFloat(document.getElementById('lancer-prep-qty').value) || 1;
+  const p = PREPARATIONS.find(x => x.id === id);
+  if (!p) return;
+
+  let warns = [];
+  const rows = p.ingredients.map(ing => {
+    const s = STOCK_DATA.find(x => x.id == ing.stockId || x.sbId == ing.stockId);
+    const needed = Math.round(ing.qty * lots * 1000) / 1000;
+    const dispo = s ? s.qty : 0;
+    const ok = s && dispo >= needed;
+    if (!ok) warns.push(`⚠️ <strong>${ing.stockNom}</strong> : besoin <strong>${needed} ${ing.unit||''}</strong>, disponible <strong>${dispo}</strong>`);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">
+      <span>${s ? s.icon : '📦'} ${ing.stockNom}</span>
+      <span style="font-family:'Space Mono',monospace;color:${ok ? 'var(--text)' : 'var(--red)'};">
+        −${needed} ${ing.unit||s?.unit||''}
+        <span style="color:${ok ? 'var(--green)' : 'var(--red)'};">(reste ${ok ? Math.round((dispo - needed)*1000)/1000 : '⚡ INSUFFISANT'})</span>
+      </span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('lancer-prep-recap').innerHTML = `
+    <div style="font-weight:700;margin-bottom:8px;">${p.icon} ${p.nom} — <span style="color:var(--accent);">${lots} lot(s)</span></div>
+    ${rows || '<div style="color:var(--text2);font-size:12px;">Aucun ingrédient défini</div>'}
+  `;
+
+  const warnEl = document.getElementById('lancer-prep-warn');
+  const btn = document.getElementById('lancer-prep-btn');
+  if (warns.length) {
+    warnEl.style.display = '';
+    warnEl.innerHTML = warns.join('<br>');
+    btn.disabled = true;
+    btn.style.opacity = '0.45';
+    btn.style.cursor = 'not-allowed';
+  } else {
+    warnEl.style.display = 'none';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  }
+}
+
+async function confirmerPreparation() {
+  const id = parseInt(document.getElementById('lancer-prep-id').value);
+  const lots = parseFloat(document.getElementById('lancer-prep-qty').value) || 1;
+  const responsable = document.getElementById('lancer-prep-resp').value.trim();
+  const p = PREPARATIONS.find(x => x.id === id);
+  if (!p) return;
+
+  const deductions = [];
+  p.ingredients.forEach(ing => {
+    const s = STOCK_DATA.find(x => x.id == ing.stockId || x.sbId == ing.stockId);
+    if (s) {
+      const consumed = Math.round(ing.qty * lots * 1000) / 1000;
+      s.qty = Math.max(0, Math.round((s.qty - consumed) * 1000) / 1000);
+      deductions.push({ nom: ing.stockNom, qty: consumed, unit: ing.unit || s.unit });
+    }
+  });
+
+  const now = new Date();
+  PREP_JOURNAL.push({
+    id: Date.now(),
+    prepId: id,
+    icon: p.icon,
+    nom: p.nom,
+    lots,
+    responsable,
+    date: now.toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }),
+    deductions
+  });
+
+  closeModal('lancerPreparation');
+  renderPreparation();
+
+  // Rafraîchir l'affichage stock si la vue est active
+  if (typeof renderStock === 'function') renderStock();
+
+  // Sync Supabase
+  if (typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    try { KGSync.push.stock && KGSync.push.stock(); } catch(e) {}
+  }
+  if (typeof saveSession === 'function') saveSession();
+
+  showNotif(`✅ "${p.nom}" ×${lots} préparé — stock déduit`);
+}
+
+// ================================================================
+// FIN MODULE PRÉPARATION
+// ================================================================
+</script>
 
 <script>
 let _resetType = '';
@@ -24254,7 +24675,7 @@ function startQRRealtime() {
         if(document.getElementById('qrtab-ruptures')?.style.display !== 'none') renderQRRupturesPanel();
       }
     } catch(e) { console.warn('QR poll:', e); }
-  }, 30000); // toutes les 30 secondes
+  }, 120000); // toutes les 2 minutes (économie Realtime)
 }
 
 function _qrPlayBeep() {
@@ -25518,6 +25939,11 @@ async function setQRMenuRupture(itemId, en_rupture) {
   }
   const item = _qrMenuItems.find(m => m.id === itemId);
   if(item) item.en_rupture = en_rupture;
+  // ✅ Mettre à jour le cache localStorage pour que la navigation ne réinitialise pas l'état
+  try {
+    const _cacheKey = 'kg_qr_menu_' + _qrRid;
+    localStorage.setItem(_cacheKey, JSON.stringify(_qrMenuItems));
+  } catch(e) {}
   let nom = item?.nom || item?.name;
   if(typeof MENU !== 'undefined') {
     const menuItem = MENU.find(m => m.sbId === itemId || m.id === itemId);

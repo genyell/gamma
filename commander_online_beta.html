@@ -1166,12 +1166,12 @@ window.addEventListener('DOMContentLoaded', async () => {
       console.log('[Orange] URL injectée depuis kg_sync:', restoData.orange_payment_url);
     }
 
-    if(kgCoverUrl && !restoData.cover_url) {
-      restoData.cover_url = kgCoverUrl;
+    if(kgCoverUrl) {
+      restoData.cover_url = kgCoverUrl; // kg_sync toujours prioritaire (plus récent)
       console.log('[Cover] injecté depuis kg_sync:', kgCoverUrl.slice(0,60));
     }
-    if(loginLogo && !restoData.logo_url) {
-      restoData.logo_url = loginLogo;
+    if(loginLogo) {
+      restoData.logo_url = loginLogo; // kg_sync toujours prioritaire (plus récent)
       console.log('[Logo] injecté depuis kg_sync, longueur:', loginLogo.length);
     } else if(!restoData.logo_url) {
       // Tentative directe : table restaurant_info
@@ -1393,10 +1393,41 @@ async function checkIfOpenAgain() {
 }
 
 // ── REALTIME ─────────────────────────────────────────
+// ✅ OPT : fermer les canaux après 30min d'inactivité pour économiser les messages Realtime
+let _realtimeChannels = [];
+let _realtimeInactivityTimer = null;
+const _REALTIME_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+
+function _resetRealtimeInactivity() {
+  clearTimeout(_realtimeInactivityTimer);
+  _realtimeInactivityTimer = setTimeout(() => {
+    // Fermer tous les canaux si page inactive 30min
+    _realtimeChannels.forEach(ch => { try { ch.unsubscribe(); } catch(e) {} });
+    _realtimeChannels = [];
+    console.log('[Realtime] Canaux fermés après 30min inactivité');
+  }, _REALTIME_TIMEOUT);
+}
+
+let _realtimeRestartPending = false;
+// Réactiver sur interaction utilisateur
+['click','touchstart','scroll','keydown'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    // Si canaux fermés → rouvrir avec délai pour éviter les appels multiples
+    if(_realtimeChannels.length === 0 && !_realtimeRestartPending && typeof sb !== 'undefined') {
+      _realtimeRestartPending = true;
+      setTimeout(() => {
+        if(_realtimeChannels.length === 0) startRealtime();
+        _realtimeRestartPending = false;
+      }, 500);
+    }
+    _resetRealtimeInactivity();
+  }, { passive: true });
+});
+
 function startRealtime() {
   // Ruptures menu — ✅ OPT EGRESS : debounce + mise à jour item par item sans refetch complet
   let _menuDebounceTimer = null;
-  sb.channel('cmd-menu-'+restaurantId)
+  const _chMenu = sb.channel('cmd-menu-' + restaurantId + '-' + Date.now())
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'menu_items',
       filter:'restaurant_id=eq.'+restaurantId}, async (payload) => {
       clearTimeout(_menuDebounceTimer);
@@ -1445,9 +1476,10 @@ function startRealtime() {
         renderMenu();
       }, 1000);
     }).subscribe();
+  _realtimeChannels.push(_chMenu);
 
   // Ouverture/fermeture — filtre JS (le filtre Supabase sur kg_sync est peu fiable)
-  sb.channel('cmd-open-'+restaurantId)
+  const _chOpen = sb.channel('cmd-open-' + restaurantId + '-' + Date.now())
     .on('postgres_changes',{event:'*',schema:'public',table:'kg_sync'}, async payload => {
       const k = payload?.new?.key || payload?.old?.key || '';
       if(k !== restaurantId+':commandes_ouvertes') return;
@@ -1472,6 +1504,8 @@ function startRealtime() {
       }
       updateOpenStatus();
     }).subscribe();
+  _realtimeChannels.push(_chOpen);
+  _resetRealtimeInactivity(); // Démarrer le timer d'inactivité
 
   // ── Polling de secours toutes les 60s — STRICT, ne passe jamais ouvert si fermé ──
   setInterval(async () => {
@@ -1496,7 +1530,7 @@ function startRealtime() {
         updateOpenStatus();
       }
     } catch(_){}
-  }, 60000); // vérif toutes les 60s seulement — le realtime gère le reste
+  }, 300000); // vérif toutes les 5min — le realtime gère le reste
 }
 
 // ── CATÉGORIES ────────────────────────────────────────
@@ -1733,22 +1767,10 @@ async function validerCommande() {
     icon:item.icon||'🍽️', qty, sous_total:getPrixEffectif(item)*qty
   }));
 
-  // ── Numéro de ticket synchronisé avec la caisse (même RPC Supabase) ──
-  let ref;
-  try {
-    const { data: ticketData, error: ticketErr } = await sb
-      .rpc('get_next_ticket_number_caisse', {
-        p_restaurant_id: restaurantId,
-        p_caisse_key: 'global'
-      });
-    if(!ticketErr && ticketData) {
-      ref = '#' + String(parseInt(ticketData)).padStart(3, '0');
-    } else {
-      ref = '#' + String(Date.now()).slice(-4);
-    }
-  } catch(e) {
-    ref = '#' + String(Date.now()).slice(-4);
-  }
+  // ── Numéro de ticket C3 — préfixe unique, zéro RPC Supabase ──
+  const _c3Ts = Date.now();
+  const _c3Num = String(_c3Ts).slice(-5); // 5 derniers chiffres du timestamp → quasi unique
+  let ref = 'C3-' + _c3Num;
 
   const ok=tableId&&!String(tableId).startsWith('local_');
 
