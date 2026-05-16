@@ -5564,7 +5564,7 @@ function _syncSportVentes()       { return []; }
           <div style="margin-top:12px;padding:12px;background:rgba(245,158,42,0.08);border:1px solid rgba(245,158,42,0.25);border-radius:10px;">
             <div style="font-size:12px;color:var(--accent);font-weight:700;margin-bottom:6px;">🔄 SYNCHRONISATION PHOTOS → SITE CLIENT</div>
             <div style="font-size:11px;color:var(--text2);margin-bottom:10px;">Si les photos n'apparaissent pas sur le site de commande, cliquez ici pour les synchroniser.</div>
-            <button onclick="migrateIconsToImageUrl()" style="background:linear-gradient(135deg,#f59e2a,#e84520);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">📸 Synchroniser les photos</button>
+            <button onclick="syncRestaurantPhotos()" style="background:linear-gradient(135deg,#f59e2a,#e84520);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">📸 Synchroniser les photos</button>
             <span id="migrate-status" style="font-size:11px;color:var(--text2);margin-left:8px;"></span>
           </div>
 
@@ -9877,6 +9877,36 @@ function removeLoginLogo() {
   }
   _applyLoginLogo();
   showNotif('🗑️ Logo de connexion supprimé');
+}
+
+async function syncRestaurantPhotos() {
+  const statusEl = document.getElementById('migrate-status');
+  if(statusEl) statusEl.textContent = '⏳ Synchronisation…';
+  if(!KGSync.isConnected) { if(statusEl) statusEl.textContent = '❌ Non connecté'; return; }
+  const sb  = KGSync.getClient();
+  const rid = window._KG_RESTAURANT_ID;
+  if(!sb || !rid) { if(statusEl) statusEl.textContent = '❌ Erreur connexion'; return; }
+  try {
+    const cover = RESTAURANT_INFO.cover_url || '';
+    const logo  = RESTAURANT_INFO.logo_url  || '';
+    // 1. Mettre à jour restaurants table
+    await sb.from('restaurants').update({ cover_url: cover, logo_url: logo }).eq('id', rid);
+    // 2. Forcer mise à jour kg_sync avec timestamp pour invalider cache client
+    RESTAURANT_INFO._photo_ts = Date.now();
+    await KGSync.push.restaurantInfo();
+    // 3. Invalider le cache localStorage côté client (si même navigateur)
+    try {
+      localStorage.removeItem('kg_cmd_info_' + rid);
+      localStorage.removeItem('kg_cmd_info_ts_' + rid);
+      localStorage.removeItem('kg_cmd_resto_' + rid);
+      localStorage.removeItem('kg_cmd_resto_ts_' + rid);
+    } catch(e) {}
+    if(statusEl) statusEl.textContent = '✅ Photos synchronisées !';
+    showNotif('✅ Photos synchronisées — le site client affichera les nouvelles photos dans 1 min');
+    setTimeout(() => { if(statusEl) statusEl.textContent = ''; }, 4000);
+  } catch(e) {
+    if(statusEl) statusEl.textContent = '❌ ' + (e.message || 'Erreur');
+  }
 }
 
 async function migrateIconsToImageUrl() {
@@ -24675,7 +24705,7 @@ function startQRRealtime() {
         if(document.getElementById('qrtab-ruptures')?.style.display !== 'none') renderQRRupturesPanel();
       }
     } catch(e) { console.warn('QR poll:', e); }
-  }, 120000); // toutes les 2 minutes (économie Realtime)
+  }, 30000); // toutes les 30 secondes
 }
 
 function _qrPlayBeep() {

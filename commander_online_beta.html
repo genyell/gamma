@@ -1152,6 +1152,21 @@ window.addEventListener('DOMContentLoaded', async () => {
     // ✅ FIX : extraire aussi cover_url et logo depuis kg_sync
     const kgCoverUrl = _kgInfoRaw.cover_url || _kgInfoRaw.coverUrl || _kgInfoRaw.banner_url || null;
 
+    // ✅ Invalider le cache info si _photo_ts a changé (bouton sync KEURGOUMAK)
+    const _newPhotoTs = _kgInfoRaw._photo_ts || 0;
+    let _cachedPhotoTs = 0;
+    try { _cachedPhotoTs = parseInt(localStorage.getItem('kg_photo_ts_' + restaurantId) || '0'); } catch(e) {}
+    if(_newPhotoTs && _newPhotoTs !== _cachedPhotoTs) {
+      try {
+        localStorage.removeItem('kg_cmd_info_' + restaurantId);
+        localStorage.removeItem('kg_cmd_info_ts_' + restaurantId);
+        localStorage.removeItem('kg_cmd_resto_' + restaurantId);
+        localStorage.removeItem('kg_cmd_resto_ts_' + restaurantId);
+        localStorage.setItem('kg_photo_ts_' + restaurantId, String(_newPhotoTs));
+      } catch(e) {}
+      console.log('[Photo] Cache invalidé suite au changement de photo');
+    }
+
     // ✅ FIX v18 : injecter wave_payment_url / orange_payment_url depuis kg_sync
     // La caisse sauvegarde dans kg_sync:restaurant_info ET dans restaurants.
     // Si la colonne restaurants.wave_payment_url n'existe pas (ou update raté),
