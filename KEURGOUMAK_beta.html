@@ -17511,6 +17511,13 @@ const KGSync = (() => {
         if(key.startsWith('ventes_') && data.caisse && data.ventes) {
           const caisse = data.caisse;
 
+          // ✅ NOUVEAU : ventes_caisse Supabase est la source de vérité pour C1/C2/C3
+          // On ignore kg_sync pour les ventes — _loadVentesSupabase s'en charge après pullAll
+          if(caisse === 'Caisse 1' || caisse === 'Caisse 2' || caisse === 'Caisse 3') {
+            console.log('[pullAll] ⏭️ ' + caisse + ' — ventes gérées par ventes_caisse Supabase, kg_sync ignoré');
+            return; // continuer forEach sans écraser
+          }
+
           // ══════════════════════════════════════════════════════════════
           // RÈGLE DÉFINITIVE v31 — UNE SEULE RÈGLE POUR TOUTES LES CAISSES
           // ══════════════════════════════════════════════════════════════
