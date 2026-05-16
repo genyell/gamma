@@ -1141,8 +1141,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     restoData  = restoR.data || {};
 
     // Logo + liens Wave/Orange depuis kg_sync — plusieurs structures possibles
-    const infoVal = infoR?.data?.value;
-    console.log('[Logo] infoR:', JSON.stringify(infoVal||{}).slice(0,400));
+    // ✅ FIX : kg_sync.value peut être une string JSON ou un objet — parser les deux cas
+    let infoVal = infoR?.data?.value;
+    if(typeof infoVal === 'string') { try { infoVal = JSON.parse(infoVal); } catch(e) {} }
+    console.log('[Logo] infoR parsed:', JSON.stringify(infoVal||{}).slice(0,400));
     const _kgInfoRaw = infoVal?.info || infoVal || {};
     const loginLogo = _kgInfoRaw.loginLogo
                    || _kgInfoRaw.logo
