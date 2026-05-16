@@ -18207,6 +18207,19 @@ const KGSync = (() => {
       if(typeof _refreshAllViews === 'function') _refreshAllViews();
       if(typeof applyRestaurantSettingsToUI === 'function') applyRestaurantSettingsToUI();
       console.log('✅ KGSync v35 pullAll terminé');
+      // ✅ RESTAURATION VENTES depuis ventes_caisse Supabase après chaque pullAll
+      // Garantit que les ventes ne disparaissent jamais même si un autre navigateur se déconnecte
+      setTimeout(async () => {
+        const _caisses = ['Caisse 1', 'Caisse 2', 'Caisse 3'];
+        for(const _c of _caisses) {
+          const _cObj = typeof CAISSES !== 'undefined' ? CAISSES.find(c => c.name === _c) : null;
+          if(_cObj && _cObj.status === 'open') {
+            await _loadVentesSupabase(_c);
+          }
+        }
+        if(typeof refreshDashboard === 'function') try { refreshDashboard(); } catch(e) {}
+        if(typeof renderCaisses === 'function') try { renderCaisses(); } catch(e) {}
+      }, 500);
     } catch(e) {
       console.warn('KGSync pullAll exception:', e && (e.message || e.hint || e.code || JSON.stringify(e)));
     }
