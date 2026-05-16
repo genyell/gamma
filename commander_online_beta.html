@@ -1137,6 +1137,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     } catch(e) { console.warn('[menu] merge kg_sync échoué:', e); }
 
     menuItems = normalizeItems(rawMenu);
+    // ✅ Tri : épuisés toujours en bas par catégorie
+    menuItems.sort((a,b) => { if(a.rupture&&!b.rupture)return 1; if(!a.rupture&&b.rupture)return -1; return 0; });
     // ✅ Cacher le menu fusionné (menu_items + kg_sync) pour économiser l'egress
     try { _cacheSet(_cMenuKey, _cMenuTs, rawMenu); } catch(e) {}
     restoData  = restoR.data || {};
@@ -1488,6 +1490,7 @@ function startRealtime() {
           }
         } catch(e) {}
         menuItems = normalizeItems(rawMenu);
+        menuItems.sort((a,b) => { if(a.rupture&&!b.rupture)return 1; if(!a.rupture&&b.rupture)return -1; return 0; });
         let chg = false;
         menuItems.forEach(i => { if(i.rupture && cart[i.id]) { delete cart[i.id]; chg=true; showToast(`⚠️ "${i.nom}" épuisé — retiré`); }});
         if(chg) updateCartUI();
