@@ -9188,7 +9188,7 @@ async function _saveVenteSupabase(caisse, vente) {
       note:          vente.note    || null,
       pay_mode:      vente.payMethod || null,
       session_date:  (vente.date || new Date().toISOString()).split('T')[0]
-    }, { onConflict: 'restaurant_id,order_num' });
+    }, { onConflict: 'restaurant_id,caisse,order_num' });
   } catch(e) {
     console.warn('[ventes_caisse] Erreur save:', e);
   }
@@ -21883,6 +21883,61 @@ CREATE TABLE IF NOT EXISTS public.kg_sync (
 ALTER TABLE public.kg_sync ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "allow_all" ON public.kg_sync FOR ALL USING (true) WITH CHECK (true);
 ALTER PUBLICATION supabase_realtime ADD TABLE public.kg_sync;
+
+-- ============================================================
+-- TABLE ventes_caisse — contrainte UNIQUE par caisse
+-- Empêche qu'une vente Caisse 2 écrase une vente Caisse 1
+-- avec le même numéro de ticket
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.ventes_caisse (
+  id BIGSERIAL PRIMARY KEY,
+  restaurant_id TEXT NOT NULL,
+  caisse TEXT NOT NULL,
+  order_num TEXT NOT NULL,
+  cashier TEXT,
+  total NUMERIC DEFAULT 0,
+  lignes JSONB DEFAULT '[]',
+  note TEXT,
+  pay_mode TEXT,
+  session_date DATE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  CONSTRAINT ventes_caisse_unique UNIQUE (restaurant_id, caisse, order_num)
+);
+ALTER TABLE public.ventes_caisse ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_vc" ON public.ventes_caisse FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================================
+-- TABLE kg_ticket_counters — compteur atomique global
+-- Caisse 1, 2 et 3 partagent la même séquence → jamais de doublons
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.kg_ticket_counters (
+  restaurant_id TEXT NOT NULL,
+  caisse_key TEXT NOT NULL,
+  current_num INTEGER DEFAULT 0,
+  PRIMARY KEY (restaurant_id, caisse_key)
+);
+ALTER TABLE public.kg_ticket_counters ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_tc" ON public.kg_ticket_counters FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================================
+-- RPC get_next_ticket_number_caisse — incrément atomique
+-- Même si Caisse 1 et Caisse 2 appellent en même temps :
+-- l'une obtient #007, l'autre #008 — jamais le même numéro
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.get_next_ticket_number_caisse(
+  p_restaurant_id TEXT,
+  p_caisse_key TEXT
+) RETURNS INTEGER AS $$
+DECLARE v_num INTEGER;
+BEGIN
+  INSERT INTO public.kg_ticket_counters (restaurant_id, caisse_key, current_num)
+  VALUES (p_restaurant_id, p_caisse_key, 1)
+  ON CONFLICT (restaurant_id, caisse_key)
+  DO UPDATE SET current_num = kg_ticket_counters.current_num + 1
+  RETURNING current_num INTO v_num;
+  RETURN v_num;
+END;
+$$ LANGUAGE plpgsql;
 </pre>
     </div>
 
