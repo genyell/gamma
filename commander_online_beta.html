@@ -612,11 +612,49 @@ body {
 </div>
 
 <!-- ECRAN FERME NUIT -->
-<div id="screen-ferme-nuit" style="display:none;position:fixed;inset:0;background:linear-gradient(160deg,#0f0c29,#302b63,#24243e);z-index:9999;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;">
-  <div style="font-size:72px;margin-bottom:16px;">🌙</div>
-  <div style="font-size:24px;font-weight:800;color:#fff;margin-bottom:10px;">Nous sommes fermés</div>
-  <div style="font-size:15px;color:rgba(255,255,255,0.7);line-height:1.7;margin-bottom:28px;">Les commandes sont disponibles<br><strong style="color:#FFD700;font-size:18px;">de 18h00 à 23h59</strong></div>
-  <div id="ferme-countdown" style="background:rgba(255,255,255,0.1);border-radius:16px;padding:16px 28px;color:#fff;font-size:14px;font-weight:600;"></div>
+<div id="screen-ferme-nuit" style="display:none;position:fixed;inset:0;z-index:9999;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:#0d0d1a;">
+  <!-- Étoiles animées -->
+  <div style="position:absolute;inset:0;overflow:hidden;">
+    <div style="position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;top:10%;left:15%;opacity:.7;animation:twinkle 3s infinite;"></div>
+    <div style="position:absolute;width:1px;height:1px;background:#fff;border-radius:50%;top:20%;left:70%;opacity:.5;animation:twinkle 2s infinite .5s;"></div>
+    <div style="position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;top:35%;left:85%;opacity:.8;animation:twinkle 4s infinite 1s;"></div>
+    <div style="position:absolute;width:1px;height:1px;background:#fff;border-radius:50%;top:60%;left:8%;opacity:.6;animation:twinkle 2.5s infinite .3s;"></div>
+    <div style="position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;top:75%;left:55%;opacity:.4;animation:twinkle 3.5s infinite .8s;"></div>
+    <div style="position:absolute;width:1px;height:1px;background:#fff;border-radius:50%;top:85%;left:30%;opacity:.7;animation:twinkle 2s infinite 1.2s;"></div>
+    <div style="position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;top:45%;left:45%;opacity:.3;animation:twinkle 4s infinite .2s;"></div>
+    <div style="position:absolute;width:1px;height:1px;background:#fff;border-radius:50%;top:5%;left:90%;opacity:.9;animation:twinkle 3s infinite .7s;"></div>
+    <div style="position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;top:90%;left:75%;opacity:.5;animation:twinkle 2.5s infinite 1.5s;"></div>
+  </div>
+  <!-- Dégradé bas -->
+  <div style="position:absolute;bottom:0;left:0;right:0;height:200px;background:linear-gradient(to top,rgba(91,47,212,0.3),transparent);"></div>
+  <!-- Logo SVG générique -->
+  <div style="position:relative;z-index:2;margin-bottom:28px;">
+    <div style="width:110px;height:110px;border-radius:50%;background:linear-gradient(135deg,#5B2FD4,#FF6B35);display:flex;align-items:center;justify-content:center;box-shadow:0 0 40px rgba(91,47,212,0.6),0 0 80px rgba(91,47,212,0.2);margin:0 auto 0;">
+      <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+        <!-- Assiette -->
+        <circle cx="28" cy="32" r="18" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+        <circle cx="28" cy="32" r="12" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+        <!-- Fourchette -->
+        <line x1="18" y1="10" x2="18" y2="22" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <line x1="16" y1="10" x2="16" y2="16" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="20" y1="10" x2="20" y2="16" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <!-- Couteau -->
+        <line x1="38" y1="10" x2="38" y2="22" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <path d="M38 10 Q41 14 38 18" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+  <!-- Lune -->
+  <div style="position:relative;z-index:2;font-size:36px;margin-bottom:16px;">🌙</div>
+  <!-- Texte -->
+  <div style="position:relative;z-index:2;text-align:center;padding:0 32px;">
+    <div style="font-size:28px;font-weight:800;color:#fff;margin-bottom:8px;letter-spacing:-.01em;">Nous sommes fermés</div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.65);line-height:1.8;margin-bottom:24px;">Les commandes sont disponibles<br><strong style="color:#FFD700;font-size:16px;">de 18h00 à 23h59</strong></div>
+    <div id="ferme-countdown" style="display:inline-block;background:linear-gradient(135deg,rgba(91,47,212,0.4),rgba(255,107,53,0.3));border:1px solid rgba(255,255,255,0.2);border-radius:24px;padding:14px 32px;color:#fff;font-size:16px;font-weight:800;letter-spacing:.04em;"></div>
+  </div>
+  <style>
+    @keyframes twinkle { 0%,100%{opacity:.2} 50%{opacity:1} }
+  </style>
 </div>
 <!-- BANNIÈRE FERMÉ (comme Yassir "Fermé ! Ouvre à...") -->
 <div id="closed-banner">
@@ -986,7 +1024,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     const loader = document.getElementById('loader');
     if(loader) loader.style.display = 'none';
     if(el) el.style.display = 'flex';
-    // Countdown jusqu'à 18h
+    // Countdown jusqu'à 18h — zéro Supabase
     function _updateCountdown() {
       const now = new Date();
       const ouverture = new Date();
@@ -1002,7 +1040,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     _updateCountdown();
     setInterval(() => {
       _updateCountdown();
-      // Recharger automatiquement à 18h
       if(_checkHoraires()) window.location.reload();
     }, 1000);
   }
