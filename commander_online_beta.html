@@ -602,7 +602,22 @@ body {
   <div style="font-size:18px;font-weight:800;color:#e74c3c;">Oups !</div>
   <div id="error-msg" style="color:#888;font-size:14px;line-height:1.6;"></div>
 </div>
+  <div style="font-size:24px;font-weight:800;color:#fff;margin-bottom:10px;">Nous sommes fermés</div>
+  <div style="font-size:15px;color:rgba(255,255,255,0.7);line-height:1.7;margin-bottom:28px;">Les commandes sont disponibles<br><strong style="color:#FFD700;font-size:18px;">de 18h00 à 23h59</strong></div>
+  <div id="ferme-countdown" style="background:rgba(255,255,255,0.1);border-radius:16px;padding:16px 28px;color:#fff;font-size:14px;font-weight:600;"></div>
+</div>
+  <div style="font-size:24px;font-weight:800;color:#fff;margin-bottom:10px;">Nous sommes fermes</div>
+  <div style="font-size:15px;color:rgba(255,255,255,0.7);line-height:1.7;margin-bottom:28px;">Les commandes sont disponibles<br><strong style="color:#FFD700;font-size:18px;">de 18h00 a 23h59</strong></div>
+  <div id="ferme-countdown" style="background:rgba(255,255,255,0.1);border-radius:16px;padding:16px 28px;color:#fff;font-size:14px;font-weight:600;"></div>
+</div>
 
+<!-- ECRAN FERME NUIT -->
+<div id="screen-ferme-nuit" style="display:none;position:fixed;inset:0;background:linear-gradient(160deg,#0f0c29,#302b63,#24243e);z-index:9999;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;">
+  <div style="font-size:72px;margin-bottom:16px;">🌙</div>
+  <div style="font-size:24px;font-weight:800;color:#fff;margin-bottom:10px;">Nous sommes fermés</div>
+  <div style="font-size:15px;color:rgba(255,255,255,0.7);line-height:1.7;margin-bottom:28px;">Les commandes sont disponibles<br><strong style="color:#FFD700;font-size:18px;">de 18h00 à 23h59</strong></div>
+  <div id="ferme-countdown" style="background:rgba(255,255,255,0.1);border-radius:16px;padding:16px 28px;color:#fff;font-size:14px;font-weight:600;"></div>
+</div>
 <!-- BANNIÈRE FERMÉ (comme Yassir "Fermé ! Ouvre à...") -->
 <div id="closed-banner">
   🔒 <span id="closed-msg">Fermé ! Les commandes ne sont pas acceptées pour le moment.</span>
@@ -961,6 +976,38 @@ function normalizeItems(items) {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  // ✅ BLOCAGE HORAIRE : site fermé hors 18h-23h59
+  function _checkHoraires() {
+    const h = new Date().getHours();
+    return h >= 18 && h < 24;
+  }
+  function _showFermeNuit() {
+    const el = document.getElementById('screen-ferme-nuit');
+    const loader = document.getElementById('loader');
+    if(loader) loader.style.display = 'none';
+    if(el) el.style.display = 'flex';
+    // Countdown jusqu'à 18h
+    function _updateCountdown() {
+      const now = new Date();
+      const ouverture = new Date();
+      ouverture.setHours(18, 0, 0, 0);
+      if(now >= ouverture) ouverture.setDate(ouverture.getDate() + 1);
+      const diff = ouverture - now;
+      const hh = Math.floor(diff / 3600000);
+      const mm = Math.floor((diff % 3600000) / 60000);
+      const ss = Math.floor((diff % 60000) / 1000);
+      const el2 = document.getElementById('ferme-countdown');
+      if(el2) el2.textContent = 'Ouverture dans ' + String(hh).padStart(2,'0') + 'h ' + String(mm).padStart(2,'0') + 'min ' + String(ss).padStart(2,'0') + 's';
+    }
+    _updateCountdown();
+    setInterval(() => {
+      _updateCountdown();
+      // Recharger automatiquement à 18h
+      if(_checkHoraires()) window.location.reload();
+    }, 1000);
+  }
+  if(!_checkHoraires()) { _showFermeNuit(); return; }
+
   try {
     const p = new URLSearchParams(window.location.search);
     let restaurantParam = p.get('r') || 'a1b2c3d4-0000-0000-0000-000000000001';
@@ -1456,7 +1503,19 @@ let _realtimeRestartPending = false;
   }, { passive: true });
 });
 
+function _isRestaurantHours() {
+  const h = new Date().getHours();
+  return h >= 18 && h < 24; // ✅ Actif uniquement 18h-23h59
+}
+
 function startRealtime() {
+  // ✅ FIX EGRESS : bloquer hors horaires restaurant (18h-23h59)
+  if(!_isRestaurantHours()) {
+    console.log('Hors horaires — realtime desactive jusqu a 18h');
+    // Revérifier toutes les 30min si on est dans les horaires
+    setTimeout(() => { if(_isRestaurantHours()) startRealtime(); }, 1800000);
+    return;
+  }
   // Ruptures menu — ✅ OPT EGRESS : debounce + mise à jour item par item sans refetch complet
   let _menuDebounceTimer = null;
   const _chMenu = sb.channel('cmd-menu-' + restaurantId + '-' + Date.now())
@@ -1540,8 +1599,9 @@ function startRealtime() {
   _realtimeChannels.push(_chOpen);
   _resetRealtimeInactivity(); // Démarrer le timer d'inactivité
 
-  // ── Polling de secours toutes les 60s — STRICT, ne passe jamais ouvert si fermé ──
+  // ── Polling de secours — STRICT, ne passe jamais ouvert si fermé ──
   setInterval(async () => {
+    if(!_isRestaurantHours()) return; // ✅ Bloquer hors 18h-23h
     try {
       const {data} = await sb.from('kg_sync').select('value')
         .eq('key', restaurantId+':commandes_ouvertes').maybeSingle();
