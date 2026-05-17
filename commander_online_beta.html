@@ -812,7 +812,7 @@ function _buildMobilePayUrl(type, montant, restoData) {
   if(!digits) return null; // Non configuré
 
   if(type === 'wave') {
-    return 'wave://send?phone=' + intlNum + '&amount=' + montant;
+    return 'wave://send?phone=' + intlNum + '&amount=' + montant; // deep link universel
   } else {
     return 'orangemoney://pay?msisdn=' + intlNum + '&amount=' + montant;
   }
@@ -871,11 +871,23 @@ async function _redirectMobilePay(type, montant, restoData, ref) {
   }
 
   if(type === 'wave') {
+    // ✅ FIX : Essayer d'abord le lien universel Wave, puis intent Android, puis fallback web
+    // wave:// deep link (iOS + Android natif)
+    const waveDeepLink = 'wave://send?phone=' + intlNum + '&amount=' + Math.round(montant);
+    // intent Android avec les deux packages Wave (ancien + nouveau)
     const intentUrl = 'intent://send?phone=' + intlNum + '&amount=' + Math.round(montant)
-      + '#Intent;scheme=wave;package=com.wave.app'
-      + ';S.browser_fallback_url=' + encodeURIComponent('https://play.google.com/store/apps/details?id=com.wave.app')
+      + '#Intent;scheme=wave'
+      + ';package=com.wave.senegalmobile'
+      + ';S.browser_fallback_url=' + encodeURIComponent('https://wave.com/fr/')
       + ';end';
-    window.location.href = intentUrl;
+    // Tenter deep link wave:// d'abord (fonctionne si app installée)
+    const _waveTimer = setTimeout(() => {
+      // Si pas redirigé après 1.5s → intent Android
+      window.location.href = intentUrl;
+    }, 1500);
+    window.location.href = waveDeepLink;
+    // Si la page reste visible (app non installée) → annuler et rediriger vers web
+    window.addEventListener('blur', () => clearTimeout(_waveTimer), { once: true });
   } else {
     const intentUrl = 'intent://pay?msisdn=' + intlNum + '&amount=' + Math.round(montant)
       + '#Intent;scheme=orangemoney;package=com.orange.orangemoney.sn'

@@ -12000,10 +12000,12 @@ function saveEntreeStock() {
       fournisseur: fourn?.nom || '—', prixUnit: prix,
       total: qty * prix, ref
     });
+    // ✅ Limiter à 500 entrées max pour éviter dépassement Supabase
+    if(STOCK_ENTREES.length > 500) STOCK_ENTREES = STOCK_ENTREES.slice(0, 500);
 
     closeModal('entreeStock');
     renderStock();
-    if(KGSync.isConnected) KGSync.push.stock().catch(()=>{});
+    if(KGSync.isConnected) KGSync.push.stock().catch(console.warn);
     showNotif('📥 +' + qty + ' ' + unit + ' de ' + s.name + ' — Stock : ' + ancienQty + ' → ' + s.qty + ' ' + unit);
 
   } catch(err) {
@@ -17334,7 +17336,7 @@ const KGSync = (() => {
       await upsert('ventes_' + caisse.replace(/\s+/g,'_'), { caisse, ventes, orderCounter, caisseStatus: _caisseStatus, moduleActive: _moduleActive });
     }
   }
-  async function pushStock()          { await upsert('stock_data',           { items: STOCK_DATA, entries: STOCK_ENTREES }); }
+  async function pushStock()          { _invalidateCache('stock_data'); await upsert('stock_data', { items: STOCK_DATA, entries: STOCK_ENTREES }); }
   async function pushCaisses()        { await upsert('caisses_data',         { items: CAISSES, sessionActive: sessionCaisseActive }); }
 
   // ✅ FIX v31 MULTI-NAVIGATEURS : synchroniser les états complets des modules (C4-C8) vers Supabase
