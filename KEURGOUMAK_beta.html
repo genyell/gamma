@@ -20873,6 +20873,10 @@ function imprimerBilan() {
 initTheme();
 initDashboard();
 renderQuickUsers();
+// ✅ FIX DÉFINITIF : purger immédiatement les dépenses clôturées de la mémoire
+// puis recharger depuis Supabase (source de vérité)
+// ✅ Charger dépenses depuis Supabase au démarrage (après déclaration de la fonction)
+setTimeout(() => { if(typeof loadDepensesFromSupabase === 'function') loadDepensesFromSupabase().catch(()=>{}); }, 500);
 
 // Supabase connecté automatiquement au démarrage
 
@@ -21172,16 +21176,14 @@ function copySbSql() {
   navigator.clipboard.writeText(txt).then(() => showNotif('📋 SQL copié !'));
 }
 
-let DEPENSES = (() => {
-  try {
-    const sess = JSON.parse(localStorage.getItem('kg-session') || 'null');
-    // ✅ FIX : filtrer les dépenses clôturées dès le chargement localStorage
-    const raw = (sess && Array.isArray(sess.DEPENSES)) ? sess.DEPENSES :
-                (Array.isArray(JSON.parse(localStorage.getItem('kg_depenses')||'null')) ?
-                 JSON.parse(localStorage.getItem('kg_depenses')) : []);
-    return raw.filter(d => !d.cloturee);
-  } catch(e) { return []; }
-})();
+// ✅ FIX DÉFINITIF : vider localStorage dépenses AVANT déclaration
+// Supabase est la source de vérité — loadDepensesFromSupabase() rechargera tout
+try {
+  localStorage.removeItem('kg_depenses');
+  const _sTmp = JSON.parse(localStorage.getItem('kg-session')||'{}');
+  if(_sTmp.DEPENSES) { delete _sTmp.DEPENSES; localStorage.setItem('kg-session', JSON.stringify(_sTmp)); }
+} catch(e) {}
+let DEPENSES = [];
 
 function saveDepensesLocal() {
   localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES));
