@@ -21161,9 +21161,11 @@ function copySbSql() {
 let DEPENSES = (() => {
   try {
     const sess = JSON.parse(localStorage.getItem('kg-session') || 'null');
-    if(sess && Array.isArray(sess.DEPENSES)) return sess.DEPENSES;
-    const d = JSON.parse(localStorage.getItem('kg_depenses') || 'null');
-    return Array.isArray(d) ? d : [];
+    // ✅ FIX : filtrer les dépenses clôturées dès le chargement localStorage
+    const raw = (sess && Array.isArray(sess.DEPENSES)) ? sess.DEPENSES :
+                (Array.isArray(JSON.parse(localStorage.getItem('kg_depenses')||'null')) ?
+                 JSON.parse(localStorage.getItem('kg_depenses')) : []);
+    return raw.filter(d => !d.cloturee);
   } catch(e) { return []; }
 })();
 
