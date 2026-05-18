@@ -8056,7 +8056,10 @@ function showView(id, el, pushState) {
   if(id === 'stats') renderStats();
   if(id === 'utilisateurs') { switchUTab('liste'); }
   if(id === 'caisses') renderCaisses();
-  if(id === 'rapportx') renderRapportX();
+  if(id === 'rapportx') {
+    // ✅ FIX : recharger dépenses depuis Supabase avant rapport X
+    loadDepensesFromSupabase().then(() => renderRapportX()).catch(() => renderRapportX());
+  }
   if(id === 'shift') renderShifts();
   if(id === 'reconciliation') renderReconciliation();
   if(id === 'banque') initBanqueView();
@@ -8068,7 +8071,16 @@ function showView(id, el, pushState) {
   if(id === 'piscine') initPiscineView();
   if(id === 'location-salle') initLocationView();
   if(id === 'manege') initManegeView();
-  if(id === 'fermeture') { initFermetureSelect(); calcTotal(); }
+  if(id === 'fermeture') {
+    // ✅ FIX : recharger dépenses depuis Supabase avant affichage clôture
+    loadDepensesFromSupabase().then(() => {
+      initFermetureSelect();
+      calcTotal();
+    }).catch(() => {
+      initFermetureSelect();
+      calcTotal();
+    });
+  }
   if(id === 'historique') {
     // ✅ FIX SYNTHÈSE : réinitialiser les filtres de date à chaque ouverture
     // pour éviter qu'un filtre résiduel masque les nouvelles clôtures
