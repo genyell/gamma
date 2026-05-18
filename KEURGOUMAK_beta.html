@@ -9200,12 +9200,13 @@ async function _loadVentesSupabase(caisse) {
     const sb  = KGSync.getClient();
     const rid = window._KG_RESTAURANT_ID;
     if(!sb || !rid) return;
-    const today = new Date().toISOString().split('T')[0];
+    // ✅ FIX : charger les ventes des 2 derniers jours (session peut démarrer la veille)
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
     const { data, error } = await sb.from('ventes_caisse')
       .select('*')
       .eq('restaurant_id', rid)
       .eq('caisse', caisse)
-      .eq('session_date', today)
+      .gte('session_date', yesterday)
       .order('created_at', { ascending: true });
     if(error) { console.warn('[ventes_caisse] Erreur load:', error); return; }
     if(!data) return;
@@ -14342,7 +14343,50 @@ function deleteUser(id) {
   overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
 }
 
-function initDashboard() {
+async function initDashboard() {
+  // ✅ FIX : charger les ventes de toutes les caisses depuis Supabase au démarrage
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected && window._KG_RESTAURANT_ID) {
+    try {
+      const sb = KGSync.getClient();
+      const rid = window._KG_RESTAURANT_ID;
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      const { data } = await sb.from('ventes_caisse')
+        .select('*')
+        .eq('restaurant_id', rid)
+        .gte('session_date', yesterday)
+        .order('created_at', { ascending: true });
+      if(data && data.length > 0) {
+        // Regrouper par caisse
+        data.forEach(row => {
+          const caisse = row.caisse;
+          if(!VENTES_PAR_CAISSE[caisse]) VENTES_PAR_CAISSE[caisse] = [];
+          // Éviter les doublons
+          if(!VENTES_PAR_CAISSE[caisse].find(v => v.orderNum === row.order_num)) {
+            VENTES_PAR_CAISSE[caisse].push({
+              orderNum:  row.order_num,
+              items:     row.lignes || [],
+              total:     parseFloat(row.total) || 0,
+              payMethod: row.pay_mode || 'cash',
+              payLabel:  row.pay_mode === 'wave' ? 'Wave' : row.pay_mode === 'orange' ? 'Orange Money' : '💵 Espèces',
+              cashier:   row.cashier || '',
+              note:      row.note || '',
+              date:      row.session_date,
+              time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
+            });
+          }
+        });
+        // Mettre à jour les KPIs des caisses
+        if(typeof CAISSES !== 'undefined') {
+          CAISSES.forEach(c => {
+            const ventes = VENTES_PAR_CAISSE[c.name] || [];
+            c.ca = ventes.reduce((a,v) => a + (v.total||0), 0);
+            c.orders = ventes.length;
+          });
+        }
+        console.log('[Dashboard] ✅ Chargé', data.length, 'ventes depuis Supabase');
+      }
+    } catch(e) { console.warn('[Dashboard] Erreur chargement ventes:', e); }
+  }
   _updateChart7Jours();
   refreshDashboard();
 }
@@ -17972,22 +18016,27 @@ const KGSync = (() => {
           }
         } else if(key === 'depenses_data' && data.items) {
           if(typeof DEPENSES !== 'undefined') {
-            // ✅ FIX v40 DÉPENSES : Fusion intelligente — ne jamais écraser cloturee:true local
-            // Si Supabase retourne une dépense avec cloturee:false mais qu'on l'a marquée true localement,
-            // conserver le statut local (évite que les dépenses clôturées réapparaissent)
+            // ✅ FIX DOUBLON : fusionner kg_sync avec DEPENSES existants sans écraser
+            // On n'ajoute que les dépenses de kg_sync absentes de DEPENSES (par ID)
             const remoteItems = data.items || [];
-            const localMap = {};
-            (DEPENSES || []).forEach(d => { if(d.id || d.sbId) localMap[d.id || d.sbId] = d; });
-            DEPENSES = remoteItems.map(rd => {
-              const lid = rd.id || rd.sbId;
-              const local = lid ? localMap[lid] : null;
-              // Si la dépense existe localement et est déjà clôturée → garder cloturee:true
+            const existingIds = new Set((DEPENSES || []).map(d => String(d.id || d.sbId || '')).filter(Boolean));
+            let added = 0;
+            remoteItems.forEach(rd => {
+              const rid = String(rd.id || rd.sbId || '');
+              if(rid && existingIds.has(rid)) return; // déjà présent → ignorer
+              // Préserver cloturee:true depuis localStorage
+              const local = (DEPENSES || []).find(d => String(d.id||d.sbId||'') === rid);
               if(local && local.cloturee && !rd.cloturee) {
-                return Object.assign({}, rd, { cloturee: true, dateCloture: local.dateCloture });
+                rd = Object.assign({}, rd, { cloturee: true, dateCloture: local.dateCloture });
               }
-              return rd;
+              DEPENSES.push(rd);
+              existingIds.add(rid);
+              added++;
             });
-            try { localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES)); } catch(e) {}
+            if(added > 0) {
+              DEPENSES.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+              try { localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES)); } catch(e) {}
+            }
           }
         } else if(key === 'categories_data' && data.items) {
           if(Array.isArray(data.items) && data.items.length > 0) {
@@ -20796,6 +20845,8 @@ function imprimerBilan() {
 initTheme();
 initDashboard();
 renderQuickUsers();
+// ✅ Charger les dépenses depuis Supabase au démarrage (anti-doublon)
+setTimeout(() => { loadDepensesFromSupabase().catch(()=>{}); }, 2000);
 
 // Supabase connecté automatiquement au démarrage
 
@@ -21190,10 +21241,11 @@ async function saveDepense() {
     const { data: inserted, error } = await KGSync.getClient().from('depenses').insert(payload).select().single();
     if(error) throw error;
     const dep = { id: inserted.id, sbId: inserted.id, libelle, montant, date, categorie: payload.categorie, mode: payload.mode_paiement, caisse, source: payload.source, cloturee: false };
-    DEPENSES.unshift(dep);
-    saveDepensesLocal();
-    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
-      KGSync.push.depenses().catch(()=>{});
+    // ✅ FIX DOUBLON : ne pas pousser vers kg_sync — la table depenses Supabase est la source unique
+    // Vérifier que la dépense n'est pas déjà dans DEPENSES (anti-doublon)
+    if(!DEPENSES.find(d => (d.id || d.sbId) === inserted.id)) {
+      DEPENSES.unshift(dep);
+      saveDepensesLocal();
     }
     closeModal('addDepense');
     document.getElementById('dep-libelle').value = '';
@@ -21272,6 +21324,38 @@ async function cloturerDepensesFondsPropres() {
   renderDepenses();
   if(typeof refreshDashboard === 'function') refreshDashboard();
   showNotif(`✅ ${depsFP.length} dépense(s) fonds propres clôturées — ${total.toLocaleString()} F`);
+}
+
+// ✅ FIX DOUBLON : Charger les dépenses depuis la table Supabase (source unique)
+async function loadDepensesFromSupabase() {
+  try {
+    if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
+    const sb = KGSync.getClient();
+    const rid = window._KG_RESTAURANT_ID;
+    if(!sb || !rid) return;
+    const { data, error } = await sb.from('depenses')
+      .select('*')
+      .eq('restaurant_id', rid)
+      .order('date_depense', { ascending: false });
+    if(error || !data) return;
+    // Reconstruire DEPENSES depuis Supabase — source unique vérité
+    DEPENSES = data.map(d => ({
+      id:       d.id,
+      sbId:     d.id,
+      libelle:  d.libelle || '',
+      montant:  parseFloat(d.montant) || 0,
+      date:     d.date_depense || d.date || '',
+      categorie: d.categorie || 'Divers',
+      mode:     d.mode_paiement || 'Espèces',
+      caisse:   d.caisse_source || d.caisse || 'Fonds propres',
+      source:   d.source || 'fonds_propres',
+      cloturee: d.cloturee || false,
+      dateCloture: d.date_cloture || ''
+    }));
+    try { localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES)); } catch(e) {}
+    if(typeof renderDepenses === 'function') renderDepenses();
+    console.log('[Dépenses] ✅ Chargé', data.length, 'dépenses depuis Supabase');
+  } catch(e) { console.warn('[Dépenses] Erreur chargement:', e); }
 }
 
 function renderDepenses() {
