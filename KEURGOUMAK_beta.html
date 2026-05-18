@@ -8057,8 +8057,10 @@ function showView(id, el, pushState) {
   if(id === 'utilisateurs') { switchUTab('liste'); }
   if(id === 'caisses') renderCaisses();
   if(id === 'rapportx') {
-    // ✅ FIX : recharger dépenses depuis Supabase avant rapport X
-    loadDepensesFromSupabase().then(() => renderRapportX()).catch(() => renderRapportX());
+    // Afficher immédiatement avec données locales
+    renderRapportX();
+    // ✅ Mettre à jour en arrière-plan depuis Supabase
+    loadDepensesFromSupabase().then(() => renderRapportX()).catch(()=>{});
   }
   if(id === 'shift') renderShifts();
   if(id === 'reconciliation') renderReconciliation();
@@ -8072,14 +8074,14 @@ function showView(id, el, pushState) {
   if(id === 'location-salle') initLocationView();
   if(id === 'manege') initManegeView();
   if(id === 'fermeture') {
-    // ✅ FIX : recharger dépenses depuis Supabase avant affichage clôture
+    // Afficher immédiatement avec données locales
+    initFermetureSelect();
+    calcTotal();
+    // ✅ Mettre à jour en arrière-plan depuis Supabase
     loadDepensesFromSupabase().then(() => {
       initFermetureSelect();
       calcTotal();
-    }).catch(() => {
-      initFermetureSelect();
-      calcTotal();
-    });
+    }).catch(()=>{});
   }
   if(id === 'historique') {
     // ✅ FIX SYNTHÈSE : réinitialiser les filtres de date à chaque ouverture
