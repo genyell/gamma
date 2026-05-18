@@ -13028,8 +13028,12 @@ function renderRapportX() {
         const car = ventes.reduce((a,v)=>{ if(v.payMethod==='card') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.card||0); return a; },0);
         const col = colors[idx % colors.length];
         const c = CAISSES.find(x=>x.name===name);
+        // ✅ FIX : filtrer dépenses par session en cours (après dernière clôture)
+        const _lastClo = (HISTORIQUE_CLOTURES||[])
+          .filter(h => h.caisse === name)
+          .map(h => h.date || '').sort().pop() || '';
         const depCaisse = (typeof DEPENSES !== 'undefined' ? DEPENSES : [])
-          .filter(d => d.caisse === name && !d.cloturee)
+          .filter(d => d.caisse === name && !d.cloturee && (!_lastClo || (d.date||'') >= _lastClo))
           .reduce((a,d) => a + (d.montant||0), 0);
         const soldeNet = ca - depCaisse;
         return `<div class="card" style="border-top:3px solid ${col};">
@@ -15346,8 +15350,12 @@ function _refreshRecapFermeture(c) {
   const moy       = nbCmd > 0 ? Math.round(totalTTC / nbCmd) : 0;
 
   // Dépenses imputées à cette caisse
+  // ✅ FIX : dépenses de la session en cours uniquement
+  const _lastClo2 = (HISTORIQUE_CLOTURES||[])
+    .filter(h => h.caisse === c.name)
+    .map(h => h.date || '').sort().pop() || '';
   const depCaisse = (typeof DEPENSES !== 'undefined' ? DEPENSES : [])
-    .filter(d => d.caisse === c.name && !d.cloturee)
+    .filter(d => d.caisse === c.name && !d.cloturee && (!_lastClo2 || (d.date||'') >= _lastClo2))
     .reduce((a, d) => a + (d.montant || 0), 0);
   const soldeNet = totalTTC - depCaisse;
 
