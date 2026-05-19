@@ -11598,8 +11598,22 @@ function confirmerReception() {
   c.dateReception = new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'2-digit'});
 
   if(KGSync.isConnected) {
-    KGSync.push.commandesFourn().catch(()=>{});  // ✅ FIX v38 : était commandeFourn (inexistant)
-    if(stockMajCount > 0) KGSync.push.stock().catch(()=>{});
+    KGSync.push.commandesFourn().catch(()=>{});
+    if(stockMajCount > 0) {
+      KGSync.push.stock().catch(()=>{});
+      // ✅ Mettre à jour stock_items Supabase après réception commande
+      try {
+        const _sb = KGSync.getClient(); const _rid = window._KG_RESTAURANT_ID;
+        if(_sb && _rid) {
+          STOCK_DATA.forEach(s => {
+            if(s.sbId) {
+              _sb.from('stock_items').update({qty: s.qty, updated_at: new Date().toISOString()})
+                .eq('id', s.sbId).catch(()=>{});
+            }
+          });
+        }
+      } catch(e) {}
+    }
   }
   saveSession();
   closeModal('receptionCommande');
@@ -12497,7 +12511,30 @@ function validerInventaire() {
   // Sync Supabase si dispo
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
     try { KGSync.push.stock(); } catch(e) {}
-    try { KGSync.push.inventaires(); } catch(e) {} // ✅ FIX v39 : pousse TOUT l'historique
+    try { KGSync.push.inventaires(); } catch(e) {}
+    // ✅ FIX : mettre à jour stock_items Supabase avec les nouvelles quantités
+    try {
+      const _sb = KGSync.getClient();
+      const _rid = window._KG_RESTAURANT_ID;
+      if(_sb && _rid) {
+        const _itemsToUpdate = STOCK_DATA.filter(s => s.sbId && _invSaisie[s.id] !== undefined);
+        _itemsToUpdate.forEach(s => {
+          _sb.from('stock_items').update({ qty: s.qty, updated_at: new Date().toISOString() })
+            .eq('id', s.sbId).catch(()=>{});
+        });
+        // Insérer les articles sans sbId
+        const _itemsToInsert = STOCK_DATA.filter(s => !s.sbId && _invSaisie[s.id] !== undefined);
+        _itemsToInsert.forEach(s => {
+          _sb.from('stock_items').insert({
+            restaurant_id: _rid, name: s.name, icon: s.icon||'📦',
+            qty: s.qty||0, max_qty: s.max||100, seuil_alerte: s.seuil||10,
+            unit: s.unit||'pcs', categorie: s.stockCatId||''
+          }).select().then(({data}) => {
+            if(data?.[0]?.id) s.sbId = data[0].id;
+          }).catch(()=>{});
+        });
+      }
+    } catch(e) {}
   }
   if(typeof saveSession === 'function') saveSession();
 
@@ -21281,16 +21318,36 @@ async function loadDepensesFromSupabase() {
     const { data, error } = await sb.from('depenses')
       .select('*').eq('restaurant_id', rid).order('date_depense', {ascending:false});
     if(error || !data || data.length === 0) return; // Ne pas ecraser si vide
-    DEPENSES = data.filter(d => !d.cloturee).map(d => ({
-      id: d.id, sbId: d.id, libelle: d.libelle || '',
-      montant: parseFloat(d.montant) || 0,
-      date: d.date_depense || d.date || '',
-      categorie: d.categorie || 'Divers',
-      mode: d.mode_paiement || 'Especes',
-      caisse: d.caisse_source || d.caisse || 'Fonds propres',
-      source: d.source || 'fonds_propres',
-      cloturee: false, dateCloture: d.date_cloture || ''
-    }));
+
+    // ✅ FIX BUG DISPARITION : Sauvegarder les dépenses locales non encore confirmées par Supabase
+    // (ajoutées < 30s et sans sbId dans Supabase = pas encore synchro)
+    const remoteIds = new Set(data.map(d => d.id));
+    const localMap = {};
+    (DEPENSES || []).forEach(d => { if(d.id || d.sbId) localMap[d.id || d.sbId] = d; });
+    const localOnly = (DEPENSES || []).filter(d => d.sbId && !remoteIds.has(d.sbId) && !d.cloturee);
+
+    DEPENSES = data.filter(d => !d.cloturee).map(d => {
+      const local = localMap[d.id];
+      return {
+        id: d.id, sbId: d.id, libelle: d.libelle || '',
+        montant: parseFloat(d.montant) || 0,
+        date: d.date_depense || d.date || '',
+        categorie: d.categorie || 'Divers',
+        mode: d.mode_paiement || 'Especes',
+        caisse: d.caisse_source || d.caisse || 'Fonds propres',
+        source: d.source || 'fonds_propres',
+        // ✅ Si la dépense est marquée clôturée localement, conserver ce statut
+        cloturee: (local && local.cloturee) ? true : false,
+        dateCloture: d.date_cloture || (local ? local.dateCloture : '') || ''
+      };
+    });
+
+    // ✅ Réinjecter les dépenses locales non encore reçues par Supabase (évite disparition)
+    if(localOnly.length > 0) {
+      console.log('[Depenses] Réinjection', localOnly.length, 'dépense(s) locale(s) non encore confirmée(s)');
+      DEPENSES = [...localOnly, ...DEPENSES];
+    }
+
     try {
       localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES));
       const _s = JSON.parse(localStorage.getItem('kg-session')||'{}');
@@ -21298,7 +21355,7 @@ async function loadDepensesFromSupabase() {
     } catch(e) {}
     if(typeof renderDepenses === 'function') renderDepenses();
     if(typeof renderRapportX === 'function') renderRapportX();
-    console.log('[Depenses] Charge', data.length, 'depuis Supabase');
+    console.log('[Depenses] Chargé', data.length, 'depuis Supabase (+', localOnly.length, 'local(es) conservée(s))');
   } catch(e) { console.warn('[Depenses] Erreur:', e); }
 }
 
