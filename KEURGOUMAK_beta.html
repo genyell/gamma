@@ -5405,7 +5405,7 @@ function _syncSportVentes()       { return []; }
           <option value="cloturee">🔒 Clôturées</option>
         </select>
         <button class="btn btn-ghost" onclick="['dep-filtre-statut','dep-filtre-cat','dep-filtre-caisse','dep-filtre-debut','dep-filtre-fin'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});renderDepenses();" style="font-size:12px;" title="Réinitialiser les filtres">🔄 Reset filtres</button>
-        <button class="btn btn-primary" style="margin-left:auto;" onclick="openAddDepense()">+ Ajouter dépense</button>
+        <button class="btn btn-primary" style="margin-left:auto;" onclick="(function(){ document.getElementById('dep-libelle').value=''; document.getElementById('dep-montant').value=''; document.getElementById('dep-date').value=new Date().toISOString().split('T')[0]; document.getElementById('dep-source-info').style.display='none'; showModal('addDepense'); })()">+ Ajouter dépense</button>
         <button class="btn btn-ghost" onclick="exportDepensesCSV()" style="font-size:12px;">📥 Export CSV</button>
         <button class="btn btn-ghost" onclick="cloturerDepensesFondsPropres()" style="font-size:12px;border-color:var(--orange,#f39c12);color:var(--orange,#f39c12);" title="Clôturer les dépenses fonds propres du mois">🔒 Clôturer fonds propres</button>
       </div>
