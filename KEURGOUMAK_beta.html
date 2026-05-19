@@ -650,6 +650,7 @@ async function _pushClotureeSupabase(localKey, dataArray) {
 
   /* MENU */
   .menu-cats { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+  .cat-btn > * { pointer-events: none; } /* ✅ FIX PC click */
   .cat-btn {
     padding: 8px 18px; border-radius: 30px; border: 1px solid var(--border);
     background: var(--surface2); color: var(--text2); font-size: 13px; font-weight: 500;
@@ -704,6 +705,7 @@ async function _pushClotureeSupabase(localKey, dataArray) {
     position: sticky; top: 0;
   }
   .pos-cats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .cat-btn * { pointer-events: none; } /* ✅ FIX PC : éviter clic sur enfant du bouton */
   .pos-items-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   .pos-item {
     background: var(--surface2);
@@ -8993,14 +8995,16 @@ window.addEventListener('popstate', function(e) {
 function renderPOS() {
   const catsEl = document.getElementById('pos-cats');
   catsEl.innerHTML = CATS.map(c =>
-    `<button class="cat-btn ${c.id==='all'?'active':''}" onclick="filterPOS('${c.id}',this)">${c.label}</button>`
+    `<button class="cat-btn ${c.id==='all'?'active':''}" data-cat="${c.id}" onclick="filterPOS('${c.id}',event)">${c.label}</button>`
   ).join('');
-  filterPOS('all', catsEl.children[0]);
+  filterPOS('all', {currentTarget: catsEl.children[0]});
 }
 
-function filterPOS(cat, el) {
+function filterPOS(cat, ev) {
+  // ✅ FIX PC : utiliser currentTarget ou closest pour éviter le bug de clic sur enfant
+  const el = ev && ev.currentTarget ? ev.currentTarget : (ev && ev.target ? ev.target.closest('.cat-btn') : null);
   document.querySelectorAll('#pos-cats .cat-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
+  if(el) el.classList.add('active');
   const items = cat === 'all' ? MENU : MENU.filter(m => (m.cat || m.category) === cat);
   document.getElementById('pos-items-grid').innerHTML = items.map((item, idx) => {
     // Utiliser l'index global dans MENU pour éviter les problèmes avec les UUIDs dans onclick
@@ -18402,8 +18406,19 @@ const KGSync = (() => {
 
   // ── Realtime ───────────────────────────────────────────────────
   let _rtChannel = null;
+  function _isHeureActive() {
+    const h = new Date().getHours();
+    return h >= 18 && h < 24; // ✅ Actif 18h-23h59 seulement
+  }
   function _startRealtime() {
     if(!client || !syncEnabled) return;
+    // ✅ FIX EGRESS : bloquer hors 18h-23h59
+    if(!_isHeureActive()) {
+      console.log('⛔ KGSync bloqué — hors horaires');
+      clearTimeout(_rtTimeout);
+      _rtTimeout = setTimeout(() => { if(_isHeureActive()) _startRealtime(); }, 1800000);
+      return;
+    }
     _stopRealtime();
     // Détecter Android (WebView, Samsung Browser, tout navigateur Android)
     // Tous causent le DataCloneError avec les WebSockets Supabase Realtime
@@ -18413,8 +18428,15 @@ const KGSync = (() => {
       // Sur Android : polling toutes les 60s (économie egress — FIX v27)
       console.log('KGSync: mode polling Android actif (60s)');
       _rtTimeout = setTimeout(function poll(){
+        const _h = new Date().getHours();
+        if(_h < 18 || _h >= 24) { // ✅ Hors horaires → arrêter
+          console.log('⛔ KGSync polling arrêté — hors horaires');
+          // Relancer à 18h
+          _rtTimeout = setTimeout(() => { if(_isHeureActive()) _startRealtime(); }, 1800000);
+          return;
+        }
         if(syncEnabled && client){ _pullAll().catch(()=>{}); }
-        if(syncEnabled) _rtTimeout = setTimeout(poll, 300000); // ✅ OPT EGRESS v2 : 120s → 300s
+        if(syncEnabled) _rtTimeout = setTimeout(poll, 300000);
       }, 3000);
       return;
     }
@@ -18556,10 +18578,13 @@ document.addEventListener('visibilitychange', function() {
       console.log('⏸️ KGSync realtime coupé (app inactive)');
     }
   } else {
-    // App de nouveau active → relancer le temps réel
-    if (typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    // App de nouveau active → relancer seulement si dans les horaires
+    const _hNow = new Date().getHours();
+    if (typeof KGSync !== 'undefined' && KGSync.isConnected && _hNow >= 18 && _hNow < 24) {
       KGSync._startRealtime();
       console.log('▶️ KGSync realtime relancé (app active)');
+    } else {
+      console.log('⛔ KGSync — hors horaires, realtime non relancé');
     }
   }
 });
@@ -20873,6 +20898,38 @@ function imprimerBilan() {
 initTheme();
 initDashboard();
 renderQuickUsers();
+
+// ✅ AUTO-DÉCONNEXION après 15min d'inactivité → zéro egress
+(function _initInactivityWatcher() {
+  const INACTIVITY_MS = 15 * 60 * 1000; // 15 minutes
+  let _inactivityTimer = null;
+
+  function _resetTimer() {
+    clearTimeout(_inactivityTimer);
+    // Si déconnecté → reconnecter si dans les horaires
+    if(typeof KGSync !== 'undefined' && !KGSync.isConnected) {
+      const h = new Date().getHours();
+      if(h >= 18 && h < 24 && typeof connectSupabase === 'function') {
+        connectSupabase().catch(()=>{});
+      }
+    }
+    _inactivityTimer = setTimeout(() => {
+      if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+        KGSync._stopRealtime();
+        console.log('⏱️ Auto-déconnexion Supabase — 15min inactif');
+        // Afficher toast
+        if(typeof showToast === 'function') showToast('💤 Connexion mise en veille — 15min inactif');
+      }
+    }, INACTIVITY_MS);
+  }
+
+  // Écouter toute activité utilisateur
+  ['mousemove','mousedown','keydown','touchstart','scroll','click'].forEach(evt => {
+    document.addEventListener(evt, _resetTimer, { passive: true });
+  });
+
+  _resetTimer(); // Démarrer le timer au chargement
+})();
 // ✅ FIX DÉFINITIF : purger immédiatement les dépenses clôturées de la mémoire
 // puis recharger depuis Supabase (source de vérité)
 // ✅ Charger dépenses depuis Supabase au démarrage (après déclaration de la fonction)
