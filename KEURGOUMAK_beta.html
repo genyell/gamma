@@ -11948,7 +11948,24 @@ function saveStockArticle() {
   }
   closeModal('addStock');
   renderStock();
-  if(KGSync.isConnected) KGSync.push.stock().catch(()=>{});
+  if(KGSync.isConnected) {
+    KGSync.push.stock().catch(()=>{});
+    try {
+      const _sb2 = KGSync.getClient();
+      const _rid2 = window._KG_RESTAURANT_ID;
+      if(_sb2 && _rid2) {
+        const _art = editIdx >= 0 ? STOCK_DATA[editIdx] : STOCK_DATA[STOCK_DATA.length-1];
+        if(_art) {
+          _sb2.from('stock_items').upsert({
+            restaurant_id: _rid2, name: _art.name, icon: _art.icon || '\u00f0\u009f\u0093\u00a6',
+            qty: _art.qty || 0, max_qty: _art.max || 100,
+            seuil_alerte: _art.seuil || 10, unit: _art.unit || 'pcs',
+            categorie: _art.stockCatId || ''
+          }).catch(()=>{});
+        }
+      }
+    } catch(e) {}
+  }
 }
 
 function populateEntreeStockModal() {
@@ -20933,7 +20950,10 @@ renderQuickUsers();
 // ✅ FIX DÉFINITIF : purger immédiatement les dépenses clôturées de la mémoire
 // puis recharger depuis Supabase (source de vérité)
 // ✅ Charger dépenses depuis Supabase au démarrage (après déclaration de la fonction)
-setTimeout(() => { if(typeof loadDepensesFromSupabase === 'function') loadDepensesFromSupabase().catch(()=>{}); }, 500);
+setTimeout(() => {
+  if(typeof loadDepensesFromSupabase === 'function') loadDepensesFromSupabase().catch(()=>{});
+  if(typeof loadStockFromSupabase === 'function') loadStockFromSupabase().catch(()=>{});
+}, 1000);
 
 // Supabase connecté automatiquement au démarrage
 
@@ -21240,58 +21260,81 @@ try {
   const _sTmp = JSON.parse(localStorage.getItem('kg-session')||'{}');
   if(_sTmp.DEPENSES) { delete _sTmp.DEPENSES; localStorage.setItem('kg-session', JSON.stringify(_sTmp)); }
 } catch(e) {}
-let DEPENSES = [];
-
-function saveDepensesLocal() {
-  localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES));
+// FIX: charger DEPENSES depuis localStorage mais filtrer les cloturees
+let DEPENSES = (() => {
   try {
-    const _sess = JSON.parse(localStorage.getItem('kg-session') || '{}');
-    _sess.DEPENSES = DEPENSES;
-    localStorage.setItem('kg-session', JSON.stringify(_sess));
-  } catch(e) {}
-  // ✅ FIX v39 : Pousser vers kg_sync pour synchronisation temps réel
-  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
-    KGSync.push.depenses().catch(e => console.warn('push.depenses:', e));
-  }
+    const _s = JSON.parse(localStorage.getItem('kg-session')||'null');
+    const _d = (_s && Array.isArray(_s.DEPENSES)) ? _s.DEPENSES :
+               (Array.isArray(JSON.parse(localStorage.getItem('kg_depenses')||'null')) ?
+                JSON.parse(localStorage.getItem('kg_depenses')) : []);
+    return _d.filter(d => !d.cloturee);
+  } catch(e) { return []; }
+})();
+
+// ✅ Charger dépenses depuis table depenses Supabase
+async function loadDepensesFromSupabase() {
+  try {
+    if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
+    const sb = KGSync.getClient();
+    const rid = window._KG_RESTAURANT_ID;
+    if(!sb || !rid) return;
+    const { data, error } = await sb.from('depenses')
+      .select('*').eq('restaurant_id', rid).order('date_depense', {ascending:false});
+    if(error || !data || data.length === 0) return; // Ne pas ecraser si vide
+    DEPENSES = data.filter(d => !d.cloturee).map(d => ({
+      id: d.id, sbId: d.id, libelle: d.libelle || '',
+      montant: parseFloat(d.montant) || 0,
+      date: d.date_depense || d.date || '',
+      categorie: d.categorie || 'Divers',
+      mode: d.mode_paiement || 'Especes',
+      caisse: d.caisse_source || d.caisse || 'Fonds propres',
+      source: d.source || 'fonds_propres',
+      cloturee: false, dateCloture: d.date_cloture || ''
+    }));
+    try {
+      localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES));
+      const _s = JSON.parse(localStorage.getItem('kg-session')||'{}');
+      _s.DEPENSES = DEPENSES; localStorage.setItem('kg-session', JSON.stringify(_s));
+    } catch(e) {}
+    if(typeof renderDepenses === 'function') renderDepenses();
+    if(typeof renderRapportX === 'function') renderRapportX();
+    console.log('[Depenses] Charge', data.length, 'depuis Supabase');
+  } catch(e) { console.warn('[Depenses] Erreur:', e); }
 }
 
-// Affiche l'info CA disponible quand on choisit une caisse comme source
-function updateDepSourceInfo() {
-  const sel = document.getElementById('dep-caisse');
-  const info = document.getElementById('dep-source-info');
-  if (!sel || !info) return;
-  const val = sel.value;
-  if (val === 'Fonds propres') {
-    info.style.display = 'none';
-    return;
-  }
-  // C'est une caisse — afficher le CA disponible
-  const ventes = (VENTES_PAR_CAISSE && VENTES_PAR_CAISSE[val]) ? VENTES_PAR_CAISSE[val] : [];
-  const ca = ventes.reduce((s, v) => s + (v.total || 0), 0);
-  const depCaisse = DEPENSES.filter(d => d.caisse === val && !d.cloturee).reduce((s, d) => s + d.montant, 0);
-  const solde = ca - depCaisse;
-  info.style.display = 'block';
-  info.innerHTML = `🖥️ ${val} — CA encaissé : <strong style="color:var(--green)">${ca.toLocaleString()} F</strong> | Dép. déjà sorties : <strong style="color:var(--red)">${depCaisse.toLocaleString()} F</strong> | Solde disponible : <strong style="color:${solde>=0?'var(--teal)':'var(--red)'}">${solde.toLocaleString()} F</strong>`;
+// ✅ Charger stock depuis stock_items Supabase
+async function loadStockFromSupabase() {
+  try {
+    if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
+    const sb = KGSync.getClient();
+    const rid = window._KG_RESTAURANT_ID;
+    if(!sb || !rid) return;
+    const { data, error } = await sb.from('stock_items')
+      .select('*').eq('restaurant_id', rid).order('name');
+    if(error || !data || data.length === 0) return;
+    const existingIds = new Set(STOCK_DATA.map(s => s.sbId).filter(Boolean));
+    const existingNames = new Set(STOCK_DATA.map(s => s.name.toLowerCase()));
+    data.forEach(d => {
+      if(existingIds.has(d.id)) {
+        // Mettre à jour l'existant
+        const idx = STOCK_DATA.findIndex(s => s.sbId === d.id);
+        if(idx >= 0) { STOCK_DATA[idx].qty = parseFloat(d.qty)||0; STOCK_DATA[idx].sbId = d.id; }
+      } else if(!existingNames.has(d.name.toLowerCase())) {
+        STOCK_DATA.push({
+          id: 'sb_'+d.id, sbId: d.id, icon: d.icon||'📦', name: d.name,
+          qty: parseFloat(d.qty)||0, max: parseFloat(d.max_qty)||100,
+          seuil: parseFloat(d.seuil_alerte)||10, unit: d.unit||'pcs',
+          stockCatId: d.categorie||'', cat: d.categorie||''
+        });
+        existingNames.add(d.name.toLowerCase());
+      }
+    });
+    if(typeof renderStock === 'function') renderStock();
+    console.log('[Stock] Charge', data.length, 'articles depuis stock_items');
+  } catch(e) { console.warn('[Stock] Erreur:', e); }
 }
 
-function openAddDepense() {
-  // Pré-remplir la date du jour
-  const dateEl = document.getElementById('dep-date');
-  if(dateEl && !dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
-
-  // Auto-sélectionner la caisse active de la session en cours
-  const sel = document.getElementById('dep-caisse');
-  if(sel && sessionCaisseActive && sessionCaisseActive.caisse) {
-    sel.value = sessionCaisseActive.caisse;
-  } else if(sel && currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') {
-    sel.value = currentUser.caisse;
-  } else if(sel) {
-    sel.value = 'Fonds propres';
-  }
-  updateDepSourceInfo();
-  showModal('addDepense');
-}
-
+// Charger depenses depuis Supabase
 async function saveDepense() {
   if(!KGSync.isConnected) { showNotif('❌ Connexion Supabase requise pour enregistrer une dépense.'); return; }
   const libelle = document.getElementById('dep-libelle').value.trim();
