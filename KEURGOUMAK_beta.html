@@ -21290,21 +21290,16 @@ function copySbSql() {
   navigator.clipboard.writeText(txt).then(() => showNotif('📋 SQL copié !'));
 }
 
-// ✅ FIX DÉFINITIF : vider localStorage dépenses AVANT déclaration
+// ✅ FIX : charger TOUTES les dépenses depuis localStorage (clôturées ET en cours)
 // Supabase est la source de vérité — loadDepensesFromSupabase() rechargera tout
-try {
-  localStorage.removeItem('kg_depenses');
-  const _sTmp = JSON.parse(localStorage.getItem('kg-session')||'{}');
-  if(_sTmp.DEPENSES) { delete _sTmp.DEPENSES; localStorage.setItem('kg-session', JSON.stringify(_sTmp)); }
-} catch(e) {}
-// FIX: charger DEPENSES depuis localStorage mais filtrer les cloturees
+// FIX: charger DEPENSES depuis localStorage SANS filtrer les cloturees
 let DEPENSES = (() => {
   try {
     const _s = JSON.parse(localStorage.getItem('kg-session')||'null');
     const _d = (_s && Array.isArray(_s.DEPENSES)) ? _s.DEPENSES :
                (Array.isArray(JSON.parse(localStorage.getItem('kg_depenses')||'null')) ?
                 JSON.parse(localStorage.getItem('kg_depenses')) : []);
-    return _d.filter(d => !d.cloturee);
+    return Array.isArray(_d) ? _d : [];
   } catch(e) { return []; }
 })();
 
@@ -21336,7 +21331,8 @@ async function loadDepensesFromSupabase() {
     (DEPENSES || []).forEach(d => { if(d.id || d.sbId) localMap[d.id || d.sbId] = d; });
     const localOnly = (DEPENSES || []).filter(d => d.sbId && !remoteIds.has(d.sbId) && !d.cloturee);
 
-    DEPENSES = data.filter(d => !d.cloturee).map(d => {
+    // ✅ FIX : charger TOUTES les dépenses (clôturées ET en cours)
+    DEPENSES = data.map(d => {
       const local = localMap[d.id];
       return {
         id: d.id, sbId: d.id, libelle: d.libelle || '',
@@ -21346,8 +21342,7 @@ async function loadDepensesFromSupabase() {
         mode: d.mode_paiement || 'Especes',
         caisse: d.caisse_source || d.caisse || 'Fonds propres',
         source: d.source || 'fonds_propres',
-        // ✅ Si la dépense est marquée clôturée localement, conserver ce statut
-        cloturee: (local && local.cloturee) ? true : false,
+        cloturee: d.cloturee === true || (local && local.cloturee === true),
         dateCloture: d.date_cloture || (local ? local.dateCloture : '') || ''
       };
     });
