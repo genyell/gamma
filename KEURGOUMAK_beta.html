@@ -18105,24 +18105,10 @@ const KGSync = (() => {
             try { localStorage.setItem('kg-ticket-config', JSON.stringify(TICKET_CONFIG)); } catch(e) {}
             if(typeof loadTicketConfig === 'function') loadTicketConfig();
           }
-        } else if(key === 'depenses_data' && data.items) {
-          if(typeof DEPENSES !== 'undefined') {
-            // ✅ FIX v40 DÉPENSES : Fusion intelligente — ne jamais écraser cloturee:true local
-            // Si Supabase retourne une dépense avec cloturee:false mais qu'on l'a marquée true localement,
-            // conserver le statut local (évite que les dépenses clôturées réapparaissent)
-            const remoteItems = data.items || [];
-            const localMap = {};
-            (DEPENSES || []).forEach(d => { if(d.id || d.sbId) localMap[d.id || d.sbId] = d; });
-            DEPENSES = remoteItems.map(rd => {
-              const lid = rd.id || rd.sbId;
-              const local = lid ? localMap[lid] : null;
-              // Si la dépense existe localement et est déjà clôturée → garder cloturee:true
-              if(local && local.cloturee && !rd.cloturee) {
-                return Object.assign({}, rd, { cloturee: true, dateCloture: local.dateCloture });
-              }
-              return rd;
-            });
-            try { localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES)); } catch(e) {}
+        } else if(key === 'depenses_data') {
+          // FIX : Recharger depuis la table depenses directement (inclut cloturees ET en cours)
+          if(typeof loadDepensesFromSupabase === 'function') {
+            loadDepensesFromSupabase().catch(e => console.warn('[sync depenses]', e));
           }
         } else if(key === 'categories_data' && data.items) {
           if(Array.isArray(data.items) && data.items.length > 0) {
@@ -21574,9 +21560,7 @@ function renderDepenses() {
       ? `<span style="background:rgba(46,204,113,0.12);color:var(--green);border-radius:12px;padding:3px 8px;font-size:11px;white-space:nowrap;">🔒 Clôturée</span>`
       : `<span style="background:rgba(245,166,35,0.12);color:var(--accent);border-radius:12px;padding:3px 8px;font-size:11px;white-space:nowrap;">🟡 En cours</span>`;
     // ✅ Bouton supprimer désactivé pour les dépenses clôturées (pièces comptables)
-    const actionBtn = d.cloturee
-      ? `<span title="Pièce comptable — non modifiable" style="font-size:14px;color:var(--text2);cursor:default;">🔐</span>`
-      : `<button onclick="deleteDepense(${d.id})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;" title="Supprimer">🗑️</button>`;
+    const actionBtn = `<button onclick="deleteDepense('${d.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;" title="Supprimer">🗑️</button>`;
     // Ligne légèrement atténuée pour les dépenses clôturées
     const rowOpacity = d.cloturee ? 'opacity:0.75;' : '';
     return `
