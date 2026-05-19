@@ -21308,6 +21308,16 @@ let DEPENSES = (() => {
   } catch(e) { return []; }
 })();
 
+// ✅ FIX : Fonction manquante — sauvegarder DEPENSES dans localStorage + session
+function saveDepensesLocal() {
+  try {
+    localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES));
+    const _s = JSON.parse(localStorage.getItem('kg-session') || '{}');
+    _s.DEPENSES = DEPENSES;
+    localStorage.setItem('kg-session', JSON.stringify(_s));
+  } catch(e) { console.warn('[saveDepensesLocal]', e); }
+}
+
 // ✅ Charger dépenses depuis table depenses Supabase
 async function loadDepensesFromSupabase() {
   try {
