@@ -13104,8 +13104,11 @@ function renderRapportX() {
         const _lastClo = (HISTORIQUE_CLOTURES||[])
           .filter(h => h.caisse === name)
           .map(h => h.date || '').sort().pop() || '';
+        // ✅ FIX DATE : normaliser pour comparer
+        const _normD = d => { if(!d) return ''; if(d.includes('-')&&d.length===10) return d; const p=d.split('/'); return p.length===3?'20'+p[2]+'-'+p[1]+'-'+p[0]:d; };
+        const _lastCloN = _normD(_lastClo);
         const depCaisse = (typeof DEPENSES !== 'undefined' ? DEPENSES : [])
-          .filter(d => d.caisse === name && !d.cloturee && (!_lastClo || (d.date||'') >= _lastClo))
+          .filter(d => d.caisse === name && !d.cloturee && (!_lastCloN || _normD(d.date||'') >= _lastCloN))
           .reduce((a,d) => a + (d.montant||0), 0);
         const soldeNet = ca - depCaisse;
         return `<div class="card" style="border-top:3px solid ${col};">
@@ -15426,8 +15429,17 @@ function _refreshRecapFermeture(c) {
   const _lastClo2 = (HISTORIQUE_CLOTURES||[])
     .filter(h => h.caisse === c.name)
     .map(h => h.date || '').sort().pop() || '';
+  // ✅ FIX DATE : normaliser pour comparer (format FR dd/mm/yy vs ISO yyyy-mm-dd)
+  function _normDate(d) {
+    if(!d) return '';
+    if(d.includes('-') && d.length === 10) return d; // ISO
+    const parts = d.split('/');
+    if(parts.length === 3) return '20'+parts[2]+'-'+parts[1]+'-'+parts[0]; // FR→ISO
+    return d;
+  }
+  const _lastCloNorm = _normDate(_lastClo2);
   const depCaisse = (typeof DEPENSES !== 'undefined' ? DEPENSES : [])
-    .filter(d => d.caisse === c.name && !d.cloturee && (!_lastClo2 || (d.date||'') >= _lastClo2))
+    .filter(d => d.caisse === c.name && !d.cloturee && (!_lastCloNorm || _normDate(d.date||'') >= _lastCloNorm))
     .reduce((a, d) => a + (d.montant || 0), 0);
   const soldeNet = totalTTC - depCaisse;
 
