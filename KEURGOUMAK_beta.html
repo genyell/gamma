@@ -113,18 +113,34 @@ async function _pushClotureeSupabase(localKey, dataArray) {
     --bg: #f2f4f8;
     --surface: #ffffff;
     --surface2: #eaecf4;
+    --surface3: #dde1ef;
     --border: #c8cfe0;
+    --border2: #b4bcd4;
     --text: #0d1117;
     --text2: #40495c;
+    --text3: #1a2030;
     --green: #16a34a;
+    --green2: #15803d;
     --red: #b91c1c;
     --accent: #c97f00;
     --accent2: #b83306;
+    --accent3: #d4550a;
     --teal: #0e7a72;
+    --teal2: #0a6460;
     --purple: #6c28d4;
+    --purple2: #5b21b6;
     --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
     --shadow-md: 0 8px 24px rgba(0,0,0,0.1);
     --shadow-lg: 0 20px 48px rgba(0,0,0,0.12);
+    --shadow-xl: 0 32px 64px rgba(0,0,0,0.14);
+    --glow-accent: 0 0 20px rgba(201,127,0,0.2);
+    --glow-green: 0 0 16px rgba(22,163,74,0.2);
+    --glow-teal: 0 0 16px rgba(14,122,114,0.2);
+    --glow-purple: 0 0 16px rgba(108,40,212,0.2);
+    --gradient-accent: linear-gradient(135deg, #c97f00 0%, #b83306 100%);
+    --gradient-accent-soft: linear-gradient(135deg, rgba(201,127,0,0.12), rgba(184,51,6,0.06));
+    --gradient-surface: linear-gradient(160deg, #ffffff 0%, #f2f4f8 100%);
+    --gradient-sidebar: linear-gradient(180deg, #1e293b 0%, #1a2436 100%);
   }
 
   /* ── Corps & fond ── */
@@ -138,7 +154,12 @@ async function _pushClotureeSupabase(localKey, dataArray) {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }
-  [data-theme="light"] .topbar-title { color: #111827; }
+  [data-theme="light"] .topbar-title {
+    color: #111827;
+    background: none;
+    -webkit-background-clip: unset;
+    -webkit-text-fill-color: #111827;
+  }
 
   /* ── Sidebar ── */
   [data-theme="light"] .sidebar {
@@ -302,6 +323,245 @@ async function _pushClotureeSupabase(localKey, dataArray) {
   [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
 
   /* ── Surface2 explicite ── */
+  [data-theme="light"] .surface2,
+  [data-theme="light"] [style*="background:var(--surface2)"],
+  [data-theme="light"] [style*="background: var(--surface2)"] {
+    background: #e8ecf2 !important;
+    color: #111827 !important;
+  }
+
+  /* ═══════════════════════════════════════════════════
+     CORRECTIONS VISIBILITÉ THÈME CLAIR — COMPLÉMENTAIRES
+     ═══════════════════════════════════════════════════ */
+
+  /* Titres de cards avec gradient transparent sur fond clair */
+  [data-theme="light"] .card-title {
+    color: #111827 !important;
+    font-weight: 700;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    -webkit-text-fill-color: #111827 !important;
+  }
+  [data-theme="light"] .card-sub { color: #374151 !important; }
+
+  /* Textes généraux */
+  [data-theme="light"] p,
+  [data-theme="light"] span:not(.badge):not(.dot):not(.nav-badge),
+  [data-theme="light"] div { color: inherit; }
+
+  /* Badge statuts — textes visibles sur fond clair */
+  [data-theme="light"] .badge-pending { background: rgba(201,127,0,0.12); color: #8a5500; }
+  [data-theme="light"] .badge-cooking { background: rgba(184,51,6,0.12); color: #922800; }
+  [data-theme="light"] .badge-ready   { background: rgba(14,122,114,0.12); color: #0a6460; }
+  [data-theme="light"] .badge-done    { background: rgba(22,163,74,0.12); color: #15803d; }
+
+  /* Menu cards */
+  [data-theme="light"] .menu-card { background: #ffffff; border-color: #c8cfe0; }
+  [data-theme="light"] .menu-name { color: #111827 !important; }
+  [data-theme="light"] .menu-desc { color: #4b5563 !important; }
+  [data-theme="light"] .menu-price { color: #c97f00 !important; }
+  [data-theme="light"] .menu-tag {
+    background: rgba(0,0,0,0.55);
+    color: #ffffff !important;
+  }
+
+  /* Commandes */
+  [data-theme="light"] .order-name { color: #111827 !important; }
+  [data-theme="light"] .order-items-list { color: #4b5563 !important; }
+  [data-theme="light"] .order-time { color: #4b5563 !important; }
+  [data-theme="light"] .order-num { color: #c97f00 !important; }
+  [data-theme="light"] .order-price { color: #c97f00 !important; }
+
+  /* Cart */
+  [data-theme="light"] .cart-title { color: #111827 !important; }
+  [data-theme="light"] .cart-item-name { color: #111827 !important; }
+  [data-theme="light"] .cart-item-price { color: #4b5563 !important; }
+  [data-theme="light"] .cart-total-row { color: #374151 !important; }
+  [data-theme="light"] .qty-btn {
+    background: #f0f2f5;
+    border-color: #c8cfe0;
+    color: #111827;
+  }
+  [data-theme="light"] .qty-num { color: #111827 !important; }
+
+  /* Boutons paiement */
+  [data-theme="light"] .pay-btn {
+    background: #f0f2f5;
+    border-color: #c8cfe0;
+    color: #374151;
+  }
+  [data-theme="light"] .pay-btn.selected { border-color: #c97f00; color: #c97f00; background: rgba(201,127,0,0.07); }
+  [data-theme="light"] .pay-confirm-btn {
+    background: #f0f2f5;
+    border-color: #c8cfe0;
+    color: #374151;
+  }
+  [data-theme="light"] .pay-confirm-btn.selected { border-color: #c97f00; color: #c97f00; }
+
+  /* Caisse cards — infos internes */
+  [data-theme="light"] .caisse-num { color: #111827 !important; }
+  [data-theme="light"] .caisse-info-item { background: #f0f2f5; }
+  [data-theme="light"] .caisse-info-label { color: #4b5563 !important; }
+  [data-theme="light"] .caisse-info-val { color: #111827 !important; }
+  [data-theme="light"] .caisse-btn { background: #f0f2f5; border-color: #c8cfe0; color: #374151; }
+  [data-theme="light"] .caisse-btn:hover { border-color: #c97f00; color: #c97f00; }
+  [data-theme="light"] .caisse-btn.danger:hover { border-color: #b91c1c; color: #b91c1c; }
+  [data-theme="light"] .cashier-name { color: #111827 !important; }
+  [data-theme="light"] .cashier-since { color: #4b5563 !important; }
+
+  /* Fermeture caisse */
+  [data-theme="light"] .step-title { color: #111827 !important; }
+  [data-theme="light"] .step-desc { color: #4b5563 !important; }
+  [data-theme="light"] .step-num { background: #1e293b; color: #ffffff; }
+  [data-theme="light"] .denom-item { background: #f8fafc; border-color: #c8cfe0; }
+  [data-theme="light"] .denom-val { color: #c97f00 !important; font-weight: 600; }
+  [data-theme="light"] .recap-row { border-bottom-color: #c8cfe0; color: #111827 !important; }
+
+  /* Ticket preview */
+  [data-theme="light"] .ticket-preview { background: #f8fafc; border-color: #c8cfe0; color: #111827; }
+  [data-theme="light"] .ticket-total { color: #c97f00 !important; }
+
+  /* Session caissier */
+  [data-theme="light"] .session-card { background: #f8fafc; border-color: #c8cfe0; }
+  [data-theme="light"] .session-name { color: #111827 !important; }
+  [data-theme="light"] .session-meta { color: #4b5563 !important; }
+  [data-theme="light"] .session-tab { background: #f0f2f5; border-color: #c8cfe0; color: #374151; }
+  [data-theme="light"] .session-tab.active { border-color: #c97f00; color: #c97f00; }
+
+  /* Modales */
+  [data-theme="light"] .modal-overlay { background: rgba(0,0,0,0.5); }
+  [data-theme="light"] .modal { color: #111827; background: #ffffff; }
+  [data-theme="light"] .modal-title { color: #111827 !important; }
+  [data-theme="light"] .form-label { color: #111827 !important; font-weight: 600; }
+  [data-theme="light"] select.form-input { background: #ffffff; color: #111827; }
+  [data-theme="light"] select option { background: #ffffff; color: #111827; }
+
+  /* Boutons ghost */
+  [data-theme="light"] .btn-ghost {
+    background: #ffffff;
+    color: #111827;
+    border: 1.5px solid #c8cfe0;
+  }
+  [data-theme="light"] .btn-ghost:hover { color: #111827; border-color: #d4890a; background: #fef9f0; }
+
+  /* Inputs focus */
+  [data-theme="light"] .form-input::placeholder,
+  [data-theme="light"] .search-input::placeholder,
+  [data-theme="light"] .login-input::placeholder { color: #6b7280; }
+  [data-theme="light"] .form-input:focus,
+  [data-theme="light"] .search-input:focus,
+  [data-theme="light"] .login-input:focus {
+    border-color: #d4890a;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(212,137,10,0.15);
+    outline: none;
+  }
+
+  /* Cmd search & modal produits */
+  [data-theme="light"] .cmd-search { background: #f0f2f5; border-color: #c8cfe0; color: #111827; }
+  [data-theme="light"] .cmd-item-name { color: #111827 !important; }
+  [data-theme="light"] .cmd-item-price { color: #c97f00 !important; }
+  [data-theme="light"] .cmd-product-btn { background: #f0f2f5; border-color: #c8cfe0; color: #111827; }
+  [data-theme="light"] .cmd-product-btn .name { color: #111827 !important; }
+  [data-theme="light"] .cmd-product-btn .price { color: #c97f00 !important; }
+  [data-theme="light"] .cmd-qty-btn { background: #e8ecf2; border-color: #c8cfe0; color: #111827; }
+
+  /* OC modal */
+  [data-theme="light"] .oc-caisse-btn { background: #f0f2f5; border-color: #c8cfe0; }
+  [data-theme="light"] .oc-caisse-name { color: #111827 !important; }
+  [data-theme="light"] .oc-caisse-loc { color: #4b5563 !important; }
+  [data-theme="light"] .fonds-chip { background: #f0f2f5; border-color: #c8cfe0; color: #374151; }
+  [data-theme="light"] .oc-summary-row { color: #111827 !important; border-bottom-color: #c8cfe0; }
+
+  /* Tables */
+  [data-theme="light"] table thead th {
+    background: #e8ecf2;
+    color: #111827;
+    font-weight: 700;
+    border-bottom: 2px solid #c8cfe0;
+  }
+  [data-theme="light"] table tbody td { color: #111827; }
+  [data-theme="light"] table tbody tr:hover td { background: #f0f4fa; }
+  [data-theme="light"] .table-wrap { border: 1.5px solid var(--border); border-radius: 8px; }
+
+  /* Topbar user */
+  [data-theme="light"] .topbar-user { background: #f0f2f5; border-color: #c8cfe0; color: #111827; }
+  [data-theme="light"] .topbar-user-name { color: #111827; }
+  [data-theme="light"] .topbar-user-role { color: #374151; }
+
+  /* Catégories POS */
+  [data-theme="light"] .cat-btn { background: #ffffff; border: 1.5px solid #c8cfe0; color: #374151; font-weight: 600; }
+  [data-theme="light"] .cat-btn.active { background: #d4890a; color: #ffffff; border-color: #d4890a; }
+  [data-theme="light"] .cat-btn:hover:not(.active) { border-color: #d4890a; color: #d4890a; }
+
+  /* Historique */
+  [data-theme="light"] .history-caisse { color: #111827 !important; }
+  [data-theme="light"] .history-date { color: #374151 !important; }
+  [data-theme="light"] .history-cashier { color: #4b5563 !important; }
+  [data-theme="light"] .history-total { color: #c97f00 !important; }
+
+  /* Login */
+  [data-theme="light"] .login-split { background: #f0f2f5; }
+  [data-theme="light"] .login-left { background: linear-gradient(145deg,#1e293b,#2d1a0e); }
+
+  /* Notif */
+  [data-theme="light"] .notif { color: #111827; background: #ffffff; border: 1px solid var(--border); }
+
+  /* User card sidebar */
+  [data-theme="light"] .user-card:hover {
+    background: rgba(0,0,0,0.04);
+    border-color: rgba(0,0,0,0.06);
+  }
+  [data-theme="light"] .user-name { color: rgba(255,255,255,0.9); }
+  [data-theme="light"] .user-role { color: rgba(255,255,255,0.4); }
+
+  /* Textes colorés — garder accent lisible */
+  [data-theme="light"] .text-accent { color: #d4890a !important; }
+  [data-theme="light"] [style*="color:var(--text2)"] { color: #374151 !important; }
+  [data-theme="light"] [style*="color: var(--text2)"] { color: #374151 !important; }
+  [data-theme="light"] [style*="color:var(--text3)"] { color: #1a2030 !important; }
+  [data-theme="light"] [style*="color: var(--text3)"] { color: #1a2030 !important; }
+
+  /* Bars graphiques tooltip */
+  [data-theme="light"] .bar:hover::after {
+    background: #ffffff;
+    border-color: #c8cfe0;
+    color: #111827;
+  }
+
+  /* Fournisseurs & clients */
+  [data-theme="light"] .fournisseur-card,
+  [data-theme="light"] .client-card { color: #111827 !important; }
+
+  /* Éléments avec style inline background sombre */
+  [data-theme="light"] [style*="background:var(--surface)"],
+  [data-theme="light"] [style*="background: var(--surface)"] {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+  [data-theme="light"] [style*="background:var(--surface3)"],
+  [data-theme="light"] [style*="background: var(--surface3)"] {
+    background: #dde1ef !important;
+    color: #111827 !important;
+  }
+  [data-theme="light"] [style*="color:var(--text)"],
+  [data-theme="light"] [style*="color: var(--text)"] { color: #0d1117 !important; }
+
+  /* Toggle thème */
+  [data-theme="light"] .theme-toggle { background: #e8ecf2; border-color: #c8cfe0; }
+  [data-theme="light"] .theme-btn:not(.active) { color: #374151; }
+  [data-theme="light"] .theme-btn.active { background: linear-gradient(135deg, #d4890a, #c43a08); }
+  [data-theme="light"] .theme-btn:hover:not(.active) {
+    color: rgba(0,0,0,0.65);
+    background: rgba(0,0,0,0.05);
+  }
+
+  /* Scrollbar */
+  [data-theme="light"] ::-webkit-scrollbar-track { background: #e8ecf2; }
+  [data-theme="light"] ::-webkit-scrollbar-thumb { background: #c8cfe0; border-radius: 4px; }
+  [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+  /* Surface2 explicite */
   [data-theme="light"] .surface2,
   [data-theme="light"] [style*="background:var(--surface2)"],
   [data-theme="light"] [style*="background: var(--surface2)"] {
@@ -3641,31 +3901,56 @@ async function _pushClotureeSupabase(localKey, dataArray) {
     .content { padding: 12px; }
 
     /* POS */
-    .pos-layout { grid-template-columns: 1fr; gap: 12px; }
+    /* ✅ POS Mobile layout */
+    .pos-layout {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px;
+    }
     .pos-right {
       position: static;
       height: auto;
-      max-height: 56vh;
+      max-height: 42vh;
       overflow-y: auto;
-      order: -1;
+      order: 1;
       border-radius: 16px;
+      flex-shrink: 0;
     }
-    .pos-left { order: 1; }
-    .pos-items-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
+    .pos-left {
+      order: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    /* Catégories — barre scrollable horizontalement */
+    .pos-cats {
+      order: 1;
+      display: flex !important;
+      flex-direction: row !important;
+      flex-wrap: nowrap !important;
+      overflow-x: auto !important;
+      overflow-y: visible !important;
+      gap: 8px !important;
+      padding: 6px 2px 8px !important;
+      min-height: 48px;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      background: var(--bg, #13131a);
+    }
+    .pos-cats::-webkit-scrollbar { display: none; }
+    .pos-cats .cat-btn {
+      white-space: nowrap !important;
+      flex-shrink: 0 !important;
+      flex-grow: 0 !important;
+      display: inline-flex !important;
+      align-items: center;
+      font-size: 12px;
+      padding: 7px 14px !important;
+    }
+    .pos-items-grid { order: 2; grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
     .pos-item { padding: 12px 8px; border-radius: 12px; }
     .pos-item-icon { font-size: 28px; }
     .pos-item-name { font-size: 11px; }
-
-    /* Catégories horizontales scroll */
-    .pos-cats {
-      gap: 6px;
-      overflow-x: auto;
-      flex-wrap: nowrap;
-      padding-bottom: 4px;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-    .pos-cats::-webkit-scrollbar { display: none; }
     .cat-btn { white-space: nowrap; flex-shrink: 0; }
 
     /* Inputs 16px pour éviter zoom iOS */
@@ -3999,6 +4284,117 @@ async function _pushClotureeSupabase(localKey, dataArray) {
   [data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, rgba(212,137,10,0.55), rgba(196,58,8,0.4)) !important;
   }
+
+  /* ═══════════════════════════════════════════════════
+     ✅ CORRECTIFS FINAUX THÈME CLAIR — LISIBILITÉ TOTALE
+     Bloc de surcharge final — priorité maximale
+     ═══════════════════════════════════════════════════ */
+
+  /* Titres de section (card-title) — sombre sur fond blanc */
+  [data-theme="light"] .card-title,
+  [data-theme="light"] .card-title span { color: #1a2030 !important; }
+  [data-theme="light"] .card-title > span { color: #4b5563 !important; }
+
+  /* Stat label lisible */
+  [data-theme="light"] .stat-label { color: #4b5563 !important; }
+  [data-theme="light"] .stat-change.up { color: #16a34a !important; }
+  [data-theme="light"] .stat-change.down { color: #b91c1c !important; }
+
+  /* Topbar title — gradient sombre visible sur fond blanc */
+  [data-theme="light"] .topbar-title {
+    background: linear-gradient(120deg, #1a2540 0%, #c97f00 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+  }
+
+  /* Order items */
+  [data-theme="light"] .order-name { color: #111827 !important; }
+  [data-theme="light"] .order-items-list { color: #4b5563 !important; }
+  [data-theme="light"] .order-time { color: #4b5563 !important; }
+  [data-theme="light"] .order-num,
+  [data-theme="light"] .order-price { color: #c97f00 !important; }
+
+  /* Cart */
+  [data-theme="light"] .cart-title { color: #111827 !important; }
+  [data-theme="light"] .cart-item-name { color: #111827 !important; }
+  [data-theme="light"] .cart-item-price { color: #4b5563 !important; }
+  [data-theme="light"] .cart-total-row { color: #374151 !important; }
+  [data-theme="light"] .cart-grand-total .amount { color: #c97f00 !important; }
+  [data-theme="light"] .qty-num { color: #111827 !important; }
+
+  /* POS items */
+  [data-theme="light"] .pos-item-name { color: #111827 !important; }
+  [data-theme="light"] .pos-item-price { color: #c97f00 !important; }
+
+  /* Badges */
+  [data-theme="light"] .badge-cooking { color: #92310a !important; background: rgba(184,51,6,0.12) !important; }
+
+  /* Menu cards */
+  [data-theme="light"] .menu-card { background: #ffffff !important; border-color: #c8cfe0 !important; }
+  [data-theme="light"] .menu-name { color: #111827 !important; }
+  [data-theme="light"] .menu-desc { color: #4b5563 !important; }
+  [data-theme="light"] .menu-price { color: #c97f00 !important; }
+
+  /* Fermeture / clôture */
+  [data-theme="light"] .step-title { color: #111827 !important; }
+  [data-theme="light"] .step-desc { color: #4b5563 !important; }
+  [data-theme="light"] .denom-val { color: #c97f00 !important; }
+
+  /* Caisse */
+  [data-theme="light"] .caisse-info-val { color: #111827 !important; }
+  [data-theme="light"] .cashier-name { color: #111827 !important; }
+  [data-theme="light"] .cashier-since { color: #4b5563 !important; }
+
+  /* Fournisseurs, clients, stock */
+  [data-theme="light"] .fournisseur-card *:not(button):not(.badge),
+  [data-theme="light"] .client-card *:not(button):not(.badge) { color: inherit; }
+
+  /* Textes secondaires généraux */
+  [data-theme="light"] .text-sm,
+  [data-theme="light"] small { color: #4b5563 !important; }
+
+  /* Éléments avec style inline color blanc */
+  [data-theme="light"] [style*="color: #f0ece6"],
+  [data-theme="light"] [style*="color:#f0ece6"],
+  [data-theme="light"] [style*="color: white"],
+  [data-theme="light"] [style*="color:white"] {
+    /* Garder blanc seulement sur fonds sombres (boutons, badges) */
+  }
+
+  /* Assure héritage couleur correcte sur tout le contenu */
+  [data-theme="light"] .content,
+  [data-theme="light"] .view { color: #111827; }
+
+  /* Caisse btn */
+  [data-theme="light"] .caisse-btn { color: #374151 !important; }
+
+  /* Texte de charts/graphiques */
+  [data-theme="light"] .bar-label { color: #4b5563 !important; }
+  [data-theme="light"] .chart-label { color: #374151 !important; }
+
+  /* Session / caissier */
+  [data-theme="light"] .session-name { color: #111827 !important; }
+  [data-theme="light"] .session-meta { color: #4b5563 !important; }
+  [data-theme="light"] .session-tab { color: #374151 !important; }
+  [data-theme="light"] .session-tab.active { color: #c97f00 !important; }
+
+  /* Notif — texte noir sur blanc */
+  [data-theme="light"] .notif { color: #111827 !important; }
+
+  /* Toggle thème — icônes visibles */
+  [data-theme="light"] .theme-btn:not(.active) { color: #374151 !important; }
+
+  /* Hamburger visible en clair */
+  [data-theme="light"] #hamburger-btn { color: #1a2030 !important; border-color: rgba(0,0,0,0.12) !important; }
+
+  /* Éléments dynamiques créés par JS */
+  [data-theme="light"] .pos-session-bar { background: #f0f2f5 !important; border-color: #c8cfe0 !important; color: #111827 !important; }
+  [data-theme="light"] .history-card { background: #f8fafc !important; border-color: #c8cfe0 !important; color: #111827 !important; }
+  [data-theme="light"] .history-caisse { color: #111827 !important; }
+  [data-theme="light"] .history-date { color: #4b5563 !important; }
+  [data-theme="light"] .history-cashier { color: #4b5563 !important; }
+  [data-theme="light"] .history-total { color: #c97f00 !important; }
 
 </style>
 </head>
@@ -6930,9 +7326,35 @@ Revenez nous voir bient&#244;t.</textarea>
         <option value="Caisse 1">🖥️ Caisse 1</option>
         <option value="Caisse 2">🖥️ Caisse 2</option>
         <option value="Caisse 3">🖥️ Caisse 3</option>
-
       </select>
       <div id="dep-source-info" style="margin-top:6px;font-size:12px;color:var(--text2);padding:6px 10px;background:var(--surface2);border-radius:6px;display:none;"></div>
+    </div>
+    <!-- ✅ v12 : Champ TVA déductible sur dépenses -->
+    <div style="padding:10px 14px;background:rgba(155,124,244,0.08);border:1px solid rgba(155,124,244,0.25);border-radius:10px;margin-top:4px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:13px;color:var(--text);">
+          <input type="checkbox" id="dep-avec-tva" onchange="toggleDepTVA()" style="width:16px;height:16px;accent-color:var(--purple);cursor:pointer;">
+          Dépense avec TVA (18%)
+        </label>
+        <span style="font-size:11px;color:var(--text2);">Fournisseur assujetti à la TVA</span>
+      </div>
+      <div id="dep-tva-detail" style="display:none;margin-top:10px;display:none;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;">
+          <div style="background:var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;">
+            <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Montant HT</div>
+            <div id="dep-ht-display" style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--text);margin-top:2px;">0 F</div>
+          </div>
+          <div style="background:rgba(155,124,244,0.1);border-radius:8px;padding:8px 10px;text-align:center;">
+            <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">TVA 18%</div>
+            <div id="dep-tva-display" style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--purple);margin-top:2px;">0 F</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;">
+            <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Montant TTC</div>
+            <div id="dep-ttc-display" style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--accent);margin-top:2px;">0 F</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--purple);margin-top:6px;">✅ La TVA sera déduite de votre déclaration mensuelle</div>
+      </div>
     </div>
     <div class="modal-actions" style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
       <button class="btn btn-ghost" onclick="closeModal('addDepense')">Annuler</button>
@@ -12232,15 +12654,23 @@ icon:  (()=>{ const _v = document.getElementById('item-icon').value || '🍽️'
           _sbClient.from('menu_items').update(payload).eq('id', item.sbId)
             .then(({ error }) => {
               if(error) console.error('update menu_item:', error);
-              // ✅ FIX : Recharger Ruptures Menu après mise à jour
+              // ✅ FIX DOUBLON : invalider cache QR + forcer refresh depuis menu_items uniquement
+              const _cKey = 'kg_qr_menu_' + _rid;
+              const _cTsKey = 'kg_qr_menu_ts_' + _rid;
+              try { localStorage.removeItem(_cKey); localStorage.removeItem(_cTsKey); } catch(e) {}
               if(typeof loadQRMenuItems === 'function') loadQRMenuItems().then(() => { if(typeof renderQRRupturesPanel === 'function') renderQRRupturesPanel(); });
             })
             .catch(e => console.error('update menu_item:', e));
         } else {
+          // Nouvel article sans sbId — insérer ET supprimer le doublon local éventuel de menu_items
           _sbClient.from('menu_items').insert(payload).select().single()
             .then(({ data: row, error }) => {
               if(error) { console.error('insert menu_item:', error); return; }
-              if(row) { item.sbId = item.id = row.id; }
+              if(row) {
+                item.sbId = item.id = row.id;
+                // ✅ FIX DOUBLON : invalider cache QR
+                try { localStorage.removeItem('kg_qr_menu_'+_rid); localStorage.removeItem('kg_qr_menu_ts_'+_rid); } catch(e) {}
+              }
             }).catch(e => console.error('insert menu_item:', e));
         }
       }
@@ -12281,9 +12711,26 @@ icon:  (()=>{ const _v = document.getElementById('item-icon').value || '🍽️'
     document.querySelector('#menu-cats .cat-btn.active').getAttribute('onclick').match(/'([^']+)'/)?.[1] || 'all' : 'all');
   renderPOS();
 
-  // ✅ FIX v38 : Synchroniser kg_sync (menu_data) après chaque ajout/modif
-  // Sans ça, pullAll() écrase le menu local avec l'ancienne version de kg_sync
+  // ✅ FIX v38 + ANTI-DOUBLON : Synchroniser kg_sync après modif
+  // Dédupliquer MENU par sbId avant push (évite doublon local+supabase)
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    // Dédupliquer : si un article a un sbId, supprimer les doublons locaux avec même nom
+    const _seenSbIds = new Set();
+    const _seenNames = new Set();
+    MENU = MENU.filter(m => {
+      if(m.sbId) {
+        if(_seenSbIds.has(m.sbId)) return false;
+        _seenSbIds.add(m.sbId);
+        _seenNames.add((m.name||'').toLowerCase());
+        return true;
+      } else {
+        // Article local sans sbId : garder seulement si nom unique
+        const _n = (m.name||'').toLowerCase();
+        if(_seenNames.has(_n)) return false;
+        _seenNames.add(_n);
+        return true;
+      }
+    });
     KGSync.push.menu().catch(e => console.error('push.menu (saveMenuItem):', e));
   }
   // Invalider le cache QR menu sur cet appareil
@@ -15987,9 +16434,25 @@ async function cloturerCaisse() {
         _sess.DEPENSES = DEPENSES;
         localStorage.setItem('kg-session', JSON.stringify(_sess));
       } catch(e) {}
-      // ✅ FIX v40 : Pousser immédiatement vers Supabase AVANT que pullAll ne réécrase
+      // ✅ FIX : Mettre à jour table depenses Supabase directement (source de vérité)
       if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
-        try { await KGSync.push.depenses(); console.log('✅ Dépenses clôturées pushées vers Supabase'); } catch(ep) { console.warn('push depenses après clôture:', ep); }
+        try {
+          const _sb = KGSync.getClient();
+          const _rid = window._KG_RESTAURANT_ID;
+          if(_sb && _rid) {
+            // Récupérer les IDs des dépenses clôturées de cette caisse
+            const _depIds = DEPENSES
+              .filter(d => d.caisse === caisse && d.cloturee && (d.sbId || d.id))
+              .map(d => d.sbId || d.id).filter(Boolean);
+            if(_depIds.length > 0) {
+              await _sb.from('depenses')
+                .update({ cloturee: true, date_cloture: now.toISOString() })
+                .in('id', _depIds);
+              console.log('✅ Dépenses clôturées dans Supabase:', _depIds.length);
+            }
+          }
+          await KGSync.push.depenses().catch(()=>{});
+        } catch(ep) { console.warn('Clôture depenses Supabase:', ep); }
       }
     }
 
@@ -20237,10 +20700,31 @@ function getComptaPeriode() {
 }
 
 function inPeriode(dateStr) {
-  // ✅ FIX v15 COMPTA : date null = non daté = exclure (évite ventes fantômes dans toutes périodes)
+  // ✅ FIX v12 COMPTA : date null = non daté = exclure
   if(!dateStr) return false;
   const { debut, fin } = getComptaPeriode();
-  const d = new Date(dateStr);
+
+  // ✅ FIX v12 : Parser tous les formats de date possibles
+  // Formats rencontrés : "19/05/26", "19/05/2026", "2026-05-19", "2026-05-19T..."
+  let d;
+  if(typeof dateStr === 'string') {
+    if(/^\d{2}\/\d{2}\/\d{2}$/.test(dateStr)) {
+      // Format "dd/mm/yy" → convertir en 20xx
+      const [dd, mm, yy] = dateStr.split('/');
+      d = new Date(`20${yy}-${mm}-${dd}`);
+    } else if(/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+      // Format "dd/mm/yyyy"
+      const [dd, mm, yyyy] = dateStr.split('/');
+      d = new Date(`${yyyy}-${mm}-${dd}`);
+    } else {
+      // ISO ou autre → laisser faire le navigateur
+      d = new Date(dateStr);
+    }
+  } else {
+    d = new Date(dateStr);
+  }
+
+  if(isNaN(d.getTime())) return false;
   return d >= debut && d <= fin;
 }
 
@@ -20332,10 +20816,22 @@ function calcDepenses() {
 }
 
 function calcAchats() {
-  // ✅ FIX v15 COMPTA : filtrer par période (dateCmd ou dateReception)
+  // ✅ v12 : Inclure livree ET livree_partielle, fallback date amélioré
   return (typeof COMMANDES_FOURNISSEURS !== 'undefined' ? COMMANDES_FOURNISSEURS : [])
-    .filter(c => c.statut === 'livree' && inPeriode(c.dateReception || c.dateCmd || null))
-    .reduce((s, c) => s + (c.total || 0), 0);
+    .filter(c => {
+      const statut = c.statut || '';
+      const estLivree = statut === 'livree' || statut === 'livree_partielle';
+      const dateRef = c.dateReception || c.dateCmd || c.date || c.created_at || null;
+      return estLivree && inPeriode(dateRef);
+    })
+    .reduce((s, c) => s + (c.total || c.montant || 0), 0);
+}
+
+// ✅ v12 : TVA déductible sur dépenses (dépenses avec avec_tva=true)
+function calcTVADeductibleDepenses() {
+  return (typeof DEPENSES !== 'undefined' ? DEPENSES : [])
+    .filter(d => d.avec_tva && inPeriode(d.date))
+    .reduce((s, d) => s + (d.montant_tva || Math.round((d.montant || 0) - (d.montant || 0) / 1.18)), 0);
 }
 
 function calcMasseSalariale() {
@@ -20826,7 +21322,23 @@ function renderTVA() {
   const ca  = calcCA();
   const tva = calcTVACollectee();
   const ht  = ca - tva;
-  const tvaDeductible = calcAchats() * 0.18; // TVA sur achats fournisseurs livrés
+
+  // ✅ v12 : TVA déductible = fournisseurs livrés + dépenses avec TVA
+  const achatsHT           = calcAchats();
+  const tvaFournisseurs    = Math.round(achatsHT * 0.18);
+  const tvaDepenses        = calcTVADeductibleDepenses();
+  const tvaDeductible      = tvaFournisseurs + tvaDepenses;
+  const tvaNette           = tva - tvaDeductible;
+
+  // Compter les dépenses avec TVA pour l'info
+  const nbDepTVA = (typeof DEPENSES !== 'undefined' ? DEPENSES : [])
+    .filter(d => d.avec_tva && inPeriode(d.date)).length;
+
+  // Calcul prochain dépôt (15 du mois suivant)
+  const now = new Date();
+  const prochainDepot = new Date(now.getFullYear(), now.getMonth() + 1, 15);
+  const moisDeclare   = new Date(now.getFullYear(), now.getMonth(), 1)
+    .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 
   const el = document.getElementById('compta-tva-content');
   if(!el) return;
@@ -20840,17 +21352,24 @@ function renderTVA() {
       <div style="background:var(--surface2);border-radius:10px;padding:16px;border-left:3px solid var(--purple);">
         <div style="font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">TVA déductible (sur achats)</div>
         <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--purple);">${fmtF(tvaDeductible)}</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:4px;">Commandes fournisseurs livrées × 18%</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:6px;display:flex;flex-direction:column;gap:3px;">
+          <span>🏭 Fournisseurs livrés : <strong>${fmtF(tvaFournisseurs)}</strong> (achats ${fmtF(achatsHT)} × 18%)</span>
+          <span>💸 Dépenses avec TVA : <strong>${fmtF(tvaDepenses)}</strong> (${nbDepTVA} dépense${nbDepTVA>1?'s':''})</span>
+        </div>
       </div>
     </div>
-    <div style="background:${tva-tvaDeductible>=0?'rgba(46,204,113,0.1)':'rgba(231,76,60,0.1)'};border:1px solid ${tva-tvaDeductible>=0?'var(--green)':'var(--red)'};border-radius:12px;padding:20px;text-align:center;">
+    <div style="background:${tvaNette>=0?'rgba(46,204,113,0.1)':'rgba(231,76,60,0.1)'};border:1px solid ${tvaNette>=0?'var(--green)':'var(--red)'};border-radius:12px;padding:20px;text-align:center;">
       <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">TVA NETTE À REVERSER À L'ÉTAT</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;color:${tva-tvaDeductible>=0?'var(--green)':'var(--red)'};">${fmtF(tva - tvaDeductible)}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;color:${tvaNette>=0?'var(--green)':'var(--red)'};">${fmtF(tvaNette)}</div>
       <div style="font-size:11px;color:var(--text2);margin-top:6px;">TVA collectée ${fmtF(tva)} − TVA déductible ${fmtF(tvaDeductible)}</div>
     </div>
-    <div style="margin-top:16px;padding:12px;background:var(--surface2);border-radius:8px;">
+    <div style="margin-top:12px;padding:12px 14px;background:rgba(155,124,244,0.07);border:1px solid rgba(155,124,244,0.2);border-radius:10px;font-size:12px;color:var(--text2);">
+      <strong style="color:var(--purple);">💡 Comment augmenter la TVA déductible ?</strong><br>
+      <span>① Réceptionnez vos commandes fournisseurs (statut "Livrée") · ② Cochez "Avec TVA" lors de l'ajout de dépenses fournisseurs assujettis à la TVA</span>
+    </div>
+    <div style="margin-top:12px;padding:12px;background:var(--surface2);border-radius:8px;">
       <div style="font-weight:700;margin-bottom:8px;">📅 Calendrier déclaration TVA (mensuelle)</div>
-      <div style="font-size:12px;color:var(--text2);">Prochain dépôt : <strong>15 mai 2026</strong> — Déclaration avril 2026</div>
+      <div style="font-size:12px;color:var(--text2);">Prochain dépôt : <strong>${prochainDepot.toLocaleDateString('fr-FR', {day:'numeric',month:'long',year:'numeric'})}</strong> — Déclaration ${moisDeclare}</div>
       <div style="font-size:12px;color:var(--text2);margin-top:4px;">Régime : <strong>Réel normal — TVA 18%</strong> (Sénégal DGID)</div>
     </div>`;
 }
@@ -21395,6 +21914,35 @@ async function loadStockFromSupabase() {
 }
 
 // Charger depenses depuis Supabase
+// ✅ v12 : Toggle affichage détail TVA sur dépenses
+function toggleDepTVA() {
+  const checked = document.getElementById('dep-avec-tva')?.checked;
+  const detail = document.getElementById('dep-tva-detail');
+  if(detail) detail.style.display = checked ? 'block' : 'none';
+  _updateDepTVADisplay();
+}
+
+function _updateDepTVADisplay() {
+  const montant = parseInt(document.getElementById('dep-montant')?.value) || 0;
+  const checked = document.getElementById('dep-avec-tva')?.checked;
+  if(!checked) return;
+  // Le montant saisi est TTC → décomposer
+  const ht  = Math.round(montant / 1.18);
+  const tva = montant - ht;
+  const htEl  = document.getElementById('dep-ht-display');
+  const tvaEl = document.getElementById('dep-tva-display');
+  const ttcEl = document.getElementById('dep-ttc-display');
+  if(htEl)  htEl.textContent  = ht.toLocaleString('fr-FR') + ' F';
+  if(tvaEl) tvaEl.textContent = tva.toLocaleString('fr-FR') + ' F';
+  if(ttcEl) ttcEl.textContent = montant.toLocaleString('fr-FR') + ' F';
+}
+
+// Écouter le changement de montant pour recalculer
+document.addEventListener('DOMContentLoaded', () => {
+  const depMontant = document.getElementById('dep-montant');
+  if(depMontant) depMontant.addEventListener('input', _updateDepTVADisplay);
+});
+
 async function saveDepense() {
   if(!KGSync.isConnected) { showNotif('❌ Connexion Supabase requise pour enregistrer une dépense.'); return; }
   const libelle = document.getElementById('dep-libelle').value.trim();
@@ -21405,6 +21953,11 @@ async function saveDepense() {
   if (!date) { showNotif('⚠️ Veuillez sélectionner une date.'); return; }
   const caisse = document.getElementById('dep-caisse').value;
   const isCaisse = caisse !== 'Fonds propres';
+
+  // ✅ v12 : Récupérer le flag TVA
+  const avecTVA = document.getElementById('dep-avec-tva')?.checked || false;
+  const montantHT  = avecTVA ? Math.round(montant / 1.18) : montant;
+  const montantTVA = avecTVA ? (montant - montantHT) : 0;
 
   // Vérification solde caisse si source = caisse
   if (isCaisse) {
@@ -21425,12 +21978,20 @@ async function saveDepense() {
     caisse_source: caisse,
     source: isCaisse ? 'caisse' : 'fonds_propres',
     cloturee: false,
+    avec_tva: avecTVA,
+    montant_ht: montantHT,
+    montant_tva: montantTVA,
   };
 
   try {
     const { data: inserted, error } = await KGSync.getClient().from('depenses').insert(payload).select().single();
     if(error) throw error;
-    const dep = { id: inserted.id, sbId: inserted.id, libelle, montant, date, categorie: payload.categorie, mode: payload.mode_paiement, caisse, source: payload.source, cloturee: false };
+    const dep = {
+      id: inserted.id, sbId: inserted.id, libelle, montant, date,
+      categorie: payload.categorie, mode: payload.mode_paiement, caisse,
+      source: payload.source, cloturee: false,
+      avec_tva: avecTVA, montant_ht: montantHT, montant_tva: montantTVA,
+    };
     DEPENSES.unshift(dep);
     saveDepensesLocal();
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
@@ -21440,11 +22001,13 @@ async function saveDepense() {
     document.getElementById('dep-libelle').value = '';
     document.getElementById('dep-montant').value = '';
     document.getElementById('dep-source-info').style.display = 'none';
+    // Reset TVA checkbox
+    const cbTVA = document.getElementById('dep-avec-tva');
+    if(cbTVA) { cbTVA.checked = false; toggleDepTVA(); }
     renderDepenses();
     // ✅ FIX v41 : Si dépense sur caisse active → rafraîchir session POS et dashboard
     if(isCaisse && sessionCaisseActive?.caisse === caisse) {
       if(typeof refreshDashboard === 'function') refreshDashboard();
-      // Mettre à jour l'indicateur de solde dans la barre POS
       const posLabel = document.getElementById('pos-session-label');
       if(posLabel) {
         const ventes = (VENTES_PAR_CAISSE[caisse] || []).reduce((a,v) => a+(v.total||0), 0);
@@ -21456,7 +22019,8 @@ async function saveDepense() {
         }, 4000);
       }
     }
-    showNotif(isCaisse ? `💸 ${montant.toLocaleString()} F déduits de ${caisse}` : '💼 Dépense sur fonds propres enregistrée');
+    const tvaInfo = avecTVA ? ` (TVA: ${montantTVA.toLocaleString()} F déductible)` : '';
+    showNotif(isCaisse ? `💸 ${montant.toLocaleString()} F déduits de ${caisse}${tvaInfo}` : `💼 Dépense enregistrée${tvaInfo}`);
   } catch(err) {
     showNotif('❌ Erreur Supabase : ' + (err.message || err));
   }
@@ -21508,7 +22072,21 @@ async function cloturerDepensesFondsPropres() {
 
   saveDepensesLocal();
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
-    await KGSync.push.depenses().catch(()=>{});
+    try {
+      const _sb = KGSync.getClient();
+      const _rid = window._KG_RESTAURANT_ID;
+      if(_sb && _rid) {
+        // ✅ FIX : mettre à jour table depenses Supabase pour fonds propres
+        const _fpIds = depsFP.map(d => d.sbId || d.id).filter(Boolean);
+        if(_fpIds.length > 0) {
+          await _sb.from('depenses')
+            .update({ cloturee: true, date_cloture: nowISO })
+            .in('id', _fpIds);
+          console.log('✅ Dépenses fonds propres clôturées dans Supabase:', _fpIds.length);
+        }
+      }
+      await KGSync.push.depenses().catch(()=>{});
+    } catch(e) { console.warn('Clôture fonds propres Supabase:', e); }
   }
   renderDepenses();
   if(typeof refreshDashboard === 'function') refreshDashboard();

@@ -10,8 +10,6 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Syne:wght@700;800&display=swap');
 
-
-
 :root {
   --brand:   #5B2FD4;
   --brand2:  #7C4FF0;
@@ -25,6 +23,7 @@
   --radius:  16px;
   --shadow:  0 2px 16px rgba(91,47,212,.10);
 }
+
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 html, body { height:100%; }
 body {
@@ -1191,12 +1190,16 @@ window.addEventListener('DOMContentLoaded', async () => {
               image_url: item.image_url || match.image_url || (kgIconIsUrl ? kgIconVal : null),
             };
           });
-          // 2. ✅ Ajouter les nouveaux plats de kg_sync absents de menu_items
+          // 2. ✅ ANTI-DOUBLON : Ajouter les nouveaux plats de kg_sync absents de menu_items
+          // Ne jamais ajouter si le nom existe déjà dans menu_items (évite doublon après modif)
+          const _menuNamesSet = new Set(rawMenu.map(r => (r.name||'').toLowerCase().trim()));
           const newItems = kgItems.filter(k => {
             const kId = k.sbId || k.id || '';
-            const kName = (k.name || k.nom || '').toLowerCase();
+            const kName = (k.name || k.nom || '').toLowerCase().trim();
+            // Exclure si : déjà fusionné, ou nom déjà dans menu_items, ou id déjà dans rawMenu
             return !mergedIds.has(kId) && !mergedIds.has(k.name) &&
-              !rawMenu.some(r => r.id === kId || (r.name||'').toLowerCase() === kName);
+              !_menuNamesSet.has(kName) &&
+              !rawMenu.some(r => r.id === kId);
           });
           if(newItems.length > 0) {
             console.log('[Commander] Nouveaux plats kg_sync:', newItems.map(k=>k.name));
