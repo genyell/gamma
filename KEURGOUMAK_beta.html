@@ -7297,8 +7297,9 @@ Revenez nous voir bient&#244;t.</textarea>
     <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="form-group">
         <label class="form-label">Catégorie</label>
-        <select class="form-input" id="dep-categorie">
+        <select class="form-input" id="dep-categorie" onchange="onDepCategorieChange()">
           <option value="Divers">Divers</option>
+          <option value="Divers TVA">Divers TVA (facture 18%)</option>
           <option value="Approvisionnement">Approvisionnement</option>
           <option value="Salaires">Salaires</option>
           <option value="Loyer">Loyer</option>
@@ -9624,6 +9625,7 @@ async function _saveVenteSupabase(caisse, vente) {
       caisse:        caisse,
       order_num:     vente.orderNum,
       cashier:       vente.cashier || null,
+      client:        vente.client && vente.client !== 'undefined' ? vente.client : 'Client', // ✅ FIX v12
       total:         vente.total   || 0,
       lignes:        vente.items   || [],
       note:          vente.note    || null,
@@ -9658,8 +9660,9 @@ async function _loadVentesSupabase(caisse) {
       items:     row.lignes || [],
       total:     parseFloat(row.total) || 0,
       payMethod: row.pay_mode || 'cash',
-      payLabel:  row.pay_mode === 'wave' ? 'Wave' : row.pay_mode === 'orange' ? 'Orange Money' : '💵 Espèces',
+      payLabel:  row.pay_mode === 'wave' ? 'Wave' : row.pay_mode === 'orange' ? 'Orange Money' : row.pay_mode === 'card' ? 'Carte bancaire' : '💵 Espèces',
       cashier:   row.cashier || '',
+      client:    row.client && row.client !== 'undefined' ? row.client : 'Client', // ✅ FIX v12
       note:      row.note || '',
       date:      row.session_date,
       time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
@@ -11584,8 +11587,8 @@ function renderOrders(status) {
   if(caisse && VENTES_PAR_CAISSE[caisse]) {
     allOrders = VENTES_PAR_CAISSE[caisse].map(v => ({
       id: v.orderNum,
-      client: v.client,
-      items: (v.items||[]).map(i => `${_safeIconText(i.icon)} ${i.name||''} x${i.qty||1}`).join(', '),
+      client: v.client && v.client !== 'undefined' ? v.client : 'Client',
+      items: (v.items||[]).map(i => `${_safeIconText(i.icon)} ${i.name||i.nom||''} x${i.qty||1}`).join(', '),
       price: v.total,
       time: v.time,
       status: 'done',
@@ -11597,8 +11600,9 @@ function renderOrders(status) {
     Object.values(VENTES_PAR_CAISSE).forEach(ventes => {
       ventes.forEach(v => {
         allOrders.push({
-          id: v.orderNum, client: v.client,
-          items: (v.items||[]).map(i => `${_safeIconText(i.icon)} ${i.name||''} x${i.qty||1}`).join(', '),
+          id: v.orderNum,
+          client: v.client && v.client !== 'undefined' ? v.client : 'Client',
+          items: (v.items||[]).map(i => `${_safeIconText(i.icon)} ${i.name||i.nom||''} x${i.qty||1}`).join(', '),
           price: v.total, time: v.time, status: 'done',
           payLabel: v.payLabel, caisse: v.caisse || '', vente: v
         });
@@ -14378,6 +14382,23 @@ async function doLogin() {
       console.warn('[login] pullAll échoué, retry dans 3s…', _e1);
       setTimeout(() => KGSync.pullAll().catch(e => console.warn('[login] pullAll retry:', e)), 3000);
     }
+    // ✅ FIX v12 : Recharger immédiatement les ventes C1/C2/C3 depuis Supabase
+    // AVANT que saveSession() ou openModalOuverture() ne puisse les écraser
+    try {
+      const _caisses123 = ['Caisse 1', 'Caisse 2', 'Caisse 3'];
+      const _loginT2 = new Date().toISOString().split('T')[0];
+      let _cloZLogin = [];
+      try {
+        const _sL = JSON.parse(localStorage.getItem('kg-session') || '{}');
+        _cloZLogin = (_sL._caissesClotureesAujourdhui || []).filter(x => x.date === _loginT2).map(x => x.caisse);
+      } catch(e) {}
+      for(const _c of _caisses123) {
+        if(!_cloZLogin.includes(_c)) {
+          await _loadVentesSupabase(_c);
+          console.log('[login] ✅ Ventes rechargées pour', _c, ':', (VENTES_PAR_CAISSE[_c]||[]).length, 'ventes');
+        }
+      }
+    } catch(_eLoad) { console.warn('[login] Erreur rechargement ventes:', _eLoad); }
     if(typeof checkOnlineStatus === 'function') checkOnlineStatus();
     // ✅ REALTIME : activer la synchronisation multi-appareils après connexion
     KGSync.startRealtime();
@@ -21860,7 +21881,11 @@ async function loadDepensesFromSupabase() {
         caisse: d.caisse_source || d.caisse || 'Fonds propres',
         source: d.source || 'fonds_propres',
         cloturee: d.cloturee === true || (local && local.cloturee === true),
-        dateCloture: d.date_cloture || (local ? local.dateCloture : '') || ''
+        dateCloture: d.date_cloture || (local ? local.dateCloture : '') || '',
+        // ✅ v12 FIX : champs TVA déductible
+        avec_tva:    d.avec_tva    === true,
+        montant_ht:  parseFloat(d.montant_ht)  || 0,
+        montant_tva: parseFloat(d.montant_tva) || 0,
       };
     });
 
@@ -21914,6 +21939,17 @@ async function loadStockFromSupabase() {
 }
 
 // Charger depenses depuis Supabase
+// ✅ v12 : Auto-cocher TVA selon catégorie
+function onDepCategorieChange() {
+  const cat = document.getElementById('dep-categorie')?.value;
+  const cb  = document.getElementById('dep-avec-tva');
+  if(!cb) return;
+  // Catégories avec TVA automatique
+  const avecTVA = ['Divers TVA', 'Electricité', 'Eau', 'Entretien', 'Loyer'];
+  cb.checked = avecTVA.includes(cat);
+  toggleDepTVA();
+}
+
 // ✅ v12 : Toggle affichage détail TVA sur dépenses
 function toggleDepTVA() {
   const checked = document.getElementById('dep-avec-tva')?.checked;
@@ -22114,13 +22150,14 @@ function renderDepenses() {
     return true;
   });
 
-  // Synthèse basée uniquement sur les dépenses EN COURS (non clôturées) pour le solde caisse live
+  // Synthèse — dépenses EN COURS (non clôturées) pour le solde caisse live
   const encours = filtered.filter(d => !d.cloturee);
   const total = filtered.reduce((s, d) => s + d.montant, 0);
-  const totalCaisse = encours.filter(d => d.source === 'caisse' || (d.caisse && d.caisse !== 'Fonds propres' && d.caisse !== 'Général')).reduce((s, d) => s + d.montant, 0);
-  const totalFP = encours.filter(d => d.source === 'fonds_propres' || d.caisse === 'Fonds propres').reduce((s, d) => s + d.montant, 0);
 
-  // CA total toutes caisses
+  const totalCaisse = encours.filter(d => d.source === 'caisse' || (d.caisse && d.caisse !== 'Fonds propres' && d.caisse !== 'Général')).reduce((s, d) => s + d.montant, 0);
+  const totalFP = encours.filter(d => d.source === 'fonds_propres' || d.caisse === 'Fonds propres' || d.caisse === 'Général').reduce((s, d) => s + d.montant, 0);
+
+  // CA total — uniquement ventes session en cours (pas l'historique clôturé)
   const caTotal = VENTES_PAR_CAISSE
     ? Object.values(VENTES_PAR_CAISSE).flat().reduce((s, v) => s + (v.total || 0), 0)
     : 0;
