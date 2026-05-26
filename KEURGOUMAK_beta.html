@@ -9657,12 +9657,15 @@ async function _loadVentesSupabase(caisse) {
     // On construit d'abord la liste distante, puis on ajoute les ventes locales absentes de Supabase
     const _remoteVentes = data.map(row => ({
       orderNum:  row.order_num,
-      items:     row.lignes || [],
+      items:     (row.lignes || []).map(i => {
+        const m = (typeof MENU !== 'undefined' ? MENU : []).find(m => m.name === (i.name||i.nom) || m.id === i.id);
+        return { ...i, image_url: i.image_url || (i.icon&&i.icon.startsWith('http')?i.icon:null) || m?.image_url || (m?.icon&&m.icon.startsWith('http')?m.icon:null) };
+      }),
       total:     parseFloat(row.total) || 0,
       payMethod: row.pay_mode || 'cash',
       payLabel:  row.pay_mode === 'wave' ? 'Wave' : row.pay_mode === 'orange' ? 'Orange Money' : row.pay_mode === 'card' ? 'Carte bancaire' : '💵 Espèces',
       cashier:   row.cashier || '',
-      client:    row.client && row.client !== 'undefined' ? row.client : 'Client', // ✅ FIX v12
+      client:    row.client && row.client !== 'undefined' ? row.client : 'Client',
       note:      row.note || '',
       date:      row.session_date,
       time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
@@ -11730,6 +11733,7 @@ function renderFournisseurs() {
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           ${c.statut === 'en_cours' || c.statut === 'livree_partielle' ? `<button class="ticket-btn" style="font-size:11px;" onclick="ouvrirReception(${cIdx})">📥 Réceptionner</button>` : ''}
           ${c.statut === 'en_cours' ? `<button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;color:var(--red);border-color:var(--red);" onclick="annulerCommandeFourn(${cIdx})">🚫 Annuler</button>` : ''}
+          <button class="caisse-btn" style="font-size:11px;padding:5px 10px;" onclick="printFactureFourn(${cIdx})">🖨️ Imprimer</button>
           <button class="caisse-btn danger" onclick="deleteCommandeFourn(${cIdx})" style="font-size:11px;padding:5px;">🗑</button>
         </div>
       </div>
@@ -11742,13 +11746,154 @@ function renderFournisseurs() {
     histTable.innerHTML = COMMANDES_FOURNISSEURS.filter(c => c.statut === 'livree').map(c => `
       <tr>
         <td style="font-family:'Space Mono';font-size:11px;">${c.dateCmd}</td>
-        <td><strong>${c.fournisseur}</strong></td>
-        <td style="font-size:12px;color:var(--text2);">${c.articles.map(a=>a.nom).join(', ')}</td>
-        <td style="font-family:'Space Mono';color:var(--accent);">${c.total.toLocaleString()} F</td>
-        <td style="font-size:11px;color:var(--text2);">${c.ref}</td>
-        <td><span class="badge badge-done">✅ Livrée</span></td>
+          <td><strong>${c.fournisseur}</strong></td>
+          <td style="font-size:12px;color:var(--text2);">${c.articles.map(a=>a.nom).join(', ')}</td>
+          <td style="font-family:'Space Mono';color:var(--accent);">${c.total.toLocaleString()} F</td>
+          <td style="font-size:11px;color:var(--text2);">${c.ref}</td>
+          <td><span class="badge badge-done">✅ Livrée</span></td>
+          <td><button class="caisse-btn" style="font-size:11px;padding:4px 10px;" onclick="printFactureFourn(${COMMANDES_FOURNISSEURS.indexOf(c)})">🖨️</button></td>
       </tr>
     `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:20px;">Aucune livraison reçue</td></tr>';
+  }
+}
+
+// ✅ v12 : Impression facture fournisseur
+function printFactureFourn(idx) {
+  const c = COMMANDES_FOURNISSEURS[idx];
+  if(!c) return;
+  const resto = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO) || {};
+  const statutLabels = { en_cours:'En cours', livree:'Livrée', livree_partielle:'Reçue (partielle)', annulee:'Annulée' };
+  const now = new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'});
+
+  const lignes = (c.articles||[]).map((a, i) => `
+    <tr style="border-bottom:1px solid #eee;">
+      <td style="padding:8px 6px;font-size:13px;">${i+1}</td>
+      <td style="padding:8px 6px;font-weight:600;">${a.nom}</td>
+      <td style="padding:8px 6px;text-align:center;">${a.qty} ${a.unit}</td>
+      <td style="padding:8px 6px;text-align:right;">${(a.prix||0).toLocaleString('fr-FR')} F</td>
+      <td style="padding:8px 6px;text-align:right;font-weight:700;color:#c97f00;">${((a.prix||0)*(a.qty||1)).toLocaleString('fr-FR')} F</td>
+    </tr>`).join('');
+
+  const tvaAmount = Math.round(c.total / 1.18 * 0.18);
+  const htAmount  = c.total - tvaAmount;
+
+  const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8">
+<title>Bon de commande ${c.ref}</title>
+<style>
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { font-family:'Segoe UI',Arial,sans-serif;color:#1a1a2e;background:#fff;padding:30px;max-width:800px;margin:0 auto; }
+  .header { display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:20px;border-bottom:3px solid #c97f00; }
+  .logo-bloc h1 { font-size:26px;font-weight:800;color:#c97f00; }
+  .logo-bloc p { font-size:12px;color:#666;margin-top:3px; }
+  .doc-infos { text-align:right; }
+  .doc-infos .ref { font-size:20px;font-weight:800;color:#1a1a2e; }
+  .doc-infos .date { font-size:12px;color:#666;margin-top:4px; }
+  .statut-badge { display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;margin-top:8px;
+    background:${c.statut==='livree'?'#d1fae5':c.statut==='en_cours'?'#fef3c7':'#fee2e2'};
+    color:${c.statut==='livree'?'#065f46':c.statut==='en_cours'?'#92400e':'#991b1b'}; }
+  .parties { display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px; }
+  .partie-bloc { background:#f8fafc;border-radius:10px;padding:16px;border-left:3px solid #c97f00; }
+  .partie-bloc h3 { font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px; }
+  .partie-bloc .nom { font-size:15px;font-weight:700;margin-bottom:4px; }
+  .partie-bloc .info { font-size:12px;color:#555;line-height:1.6; }
+  table { width:100%;border-collapse:collapse;margin-bottom:24px; }
+  thead tr { background:#1a1a2e;color:#fff; }
+  thead th { padding:10px 6px;font-size:12px;font-weight:600;text-align:left; }
+  thead th:last-child,thead th:nth-child(4) { text-align:right; }
+  thead th:nth-child(3) { text-align:center; }
+  tbody tr:hover { background:#fafafa; }
+  .totaux { display:flex;justify-content:flex-end;margin-bottom:24px; }
+  .totaux-bloc { width:260px; }
+  .tot-row { display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px solid #eee; }
+  .tot-row.grand { border-top:2px solid #1a1a2e;border-bottom:none;margin-top:4px;padding-top:10px;font-size:16px;font-weight:800;color:#c97f00; }
+  .paiement-bloc { background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center; }
+  .paiement-bloc .label { font-size:12px;color:#166534; }
+  .paiement-bloc .amount { font-size:15px;font-weight:800;color:#166534; }
+  .notes-bloc { background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:24px;font-size:12px;color:#92400e; }
+  .footer { text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:16px;margin-top:24px; }
+  @media print { body{padding:15px;} .no-print{display:none;} }
+</style>
+</head><body>
+
+<div class="no-print" style="margin-bottom:20px;display:flex;gap:10px;">
+  <button onclick="window.print()" style="background:#c97f00;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ Imprimer</button>
+  <button onclick="window.close()" style="background:#f0f0f0;color:#333;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">✕ Fermer</button>
+</div>
+
+<div class="header">
+  <div class="logo-bloc">
+    <h1>${resto.nom || 'KEURGOUMAK'}</h1>
+    <p>${resto.adresse || ''}</p>
+    <p>${resto.tel ? '📞 ' + resto.tel : ''}</p>
+  </div>
+  <div class="doc-infos">
+    <div class="ref">${c.ref || '—'}</div>
+    <div class="date">Émis le ${now}</div>
+    <div class="date">Commande du ${c.dateCmd || '—'}</div>
+    ${c.dateLivraison ? `<div class="date">Livraison prévue : ${c.dateLivraison}</div>` : ''}
+    <div><span class="statut-badge">${statutLabels[c.statut]||c.statut}</span></div>
+  </div>
+</div>
+
+<div class="parties">
+  <div class="partie-bloc">
+    <h3>🏪 Acheteur</h3>
+    <div class="nom">${resto.nom || 'KEURGOUMAK'}</div>
+    <div class="info">${resto.adresse || '—'}<br>${resto.tel ? '📞 '+resto.tel : ''}</div>
+  </div>
+  <div class="partie-bloc">
+    <h3>🏭 Fournisseur</h3>
+    <div class="nom">${c.fournisseur || '—'}</div>
+    <div class="info">
+      ${(FOURNISSEURS.find(f=>f.nom===c.fournisseur)||{}).contact ? '👤 '+(FOURNISSEURS.find(f=>f.nom===c.fournisseur)||{}).contact+'<br>' : ''}
+      ${(FOURNISSEURS.find(f=>f.nom===c.fournisseur)||{}).tel ? '📞 '+(FOURNISSEURS.find(f=>f.nom===c.fournisseur)||{}).tel : ''}
+    </div>
+  </div>
+</div>
+
+<table>
+  <thead><tr>
+    <th>#</th><th>Désignation</th><th style="text-align:center;">Qté / Unité</th>
+    <th style="text-align:right;">P.U.</th><th style="text-align:right;">Montant</th>
+  </tr></thead>
+  <tbody>${lignes}</tbody>
+</table>
+
+<div class="totaux">
+  <div class="totaux-bloc">
+    <div class="tot-row"><span>Sous-total HT</span><span>${htAmount.toLocaleString('fr-FR')} F</span></div>
+    <div class="tot-row"><span>TVA (18%)</span><span>${tvaAmount.toLocaleString('fr-FR')} F</span></div>
+    <div class="tot-row grand"><span>TOTAL TTC</span><span>${(c.total||0).toLocaleString('fr-FR')} F</span></div>
+  </div>
+</div>
+
+${(c.avance||0)>0 || (c.soldeRestant||0)>0 ? `
+<div class="paiement-bloc">
+  <div>
+    <div class="label">💰 Avance versée</div>
+    <div class="amount">${(c.avance||0).toLocaleString('fr-FR')} F</div>
+  </div>
+  ${(c.soldeRestant||0)>0 ? `<div>
+    <div class="label">⏳ Solde restant</div>
+    <div class="amount" style="color:#b91c1c;">${(c.soldeRestant||0).toLocaleString('fr-FR')} F</div>
+  </div>` : '<div><div class="label" style="color:#166534;">✅ Soldé</div></div>'}
+</div>` : ''}
+
+${c.notes ? `<div class="notes-bloc">📝 <strong>Notes :</strong> ${c.notes}</div>` : ''}
+
+<div class="footer">
+  Document généré par <strong>${resto.nom||'KEURGOUMAK'}</strong> · ${now} · Réf. ${c.ref||'—'}
+</div>
+
+</body></html>`;
+
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if(win) {
+    win.document.write(html);
+    win.document.close();
+  } else {
+    showNotif('⚠️ Autorisez les popups pour imprimer');
   }
 }
 
@@ -13624,7 +13769,11 @@ function renderRapportX() {
   if(topEl) {
     const prodMap = {};
     allVentes.forEach(v => (v.items||[]).forEach(i => {
-      if(!prodMap[i.name]) prodMap[i.name] = { icon:_safeIconText(i.icon), name:i.name, qty:0, ca:0 };
+      if(!prodMap[i.name]) prodMap[i.name] = {
+        icon: i.icon || '🍽️',
+        image_url: i.image_url || (i.icon && i.icon.startsWith('http') ? i.icon : null),
+        name: i.name, qty:0, ca:0
+      };
       prodMap[i.name].qty += i.qty;
       prodMap[i.name].ca += i.price * i.qty;
     }));
@@ -13634,7 +13783,7 @@ function renderRapportX() {
       : tops.map((t,i) => `
         <div style="display:flex;align-items:center;gap:12px;padding:9px 12px;background:var(--surface2);border-radius:8px;">
           <span style="font-family:'Space Mono';font-size:12px;color:var(--text2);width:18px;">#${i+1}</span>
-          <span style="font-size:22px;">${t.icon}</span>
+          <span style="font-size:22px;width:28px;text-align:center;">${_iconHtml(t.icon, t.image_url, '26px')}</span>
           <span style="font-size:13px;font-weight:600;flex:1;">${t.name}</span>
           <span style="font-size:12px;color:var(--text2);">${t.qty} vendus</span>
           <span style="font-family:'Space Mono';font-size:13px;color:var(--accent);">${t.ca.toLocaleString()} F</span>
@@ -13675,14 +13824,22 @@ function printRapportX() {
   // Top produits
   const prodMap = {};
   allVentes.forEach(v => (v.items||[]).forEach(i => {
-    if(!prodMap[i.name]) prodMap[i.name] = {icon:i.icon||'',name:i.name,qty:0,ca:0};
+    if(!prodMap[i.name]) prodMap[i.name] = {
+      icon: i.icon||'', image_url: i.image_url||(i.icon&&i.icon.startsWith('http')?i.icon:null),
+      name:i.name, qty:0, ca:0
+    };
     prodMap[i.name].qty += i.qty;
     prodMap[i.name].ca  += (i.price||0) * (i.qty||0);
   }));
   const topRows = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).slice(0,8)
-    .map((p,i) => `<tr><td>#${i+1}</td><td>${_safeIconText(p.icon)} ${p.name}</td>
-      <td style="text-align:right">${p.qty}</td>
-      <td style="text-align:right;color:#f5a623">${p.ca.toLocaleString()} F</td></tr>`).join('')
+    .map((p,i) => {
+      const imgHtml = (p.image_url || (p.icon&&p.icon.startsWith('http')))
+        ? `<img src="${p.image_url||p.icon}" style="width:18px;height:18px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:4px;" onerror="this.style.display='none'">`
+        : `<span>${p.icon||'🍽️'}</span>`;
+      return `<tr><td>#${i+1}</td><td>${imgHtml} ${p.name}</td>
+        <td style="text-align:right">${p.qty}</td>
+        <td style="text-align:right;color:#f5a623">${p.ca.toLocaleString()} F</td></tr>`;
+    }).join('')
     || '<tr><td colspan="4" style="text-align:center;color:#888">Aucune vente</td></tr>';
 
   const totalDep  = (DEPENSES||[]).filter(d=>!d.cloturee).reduce((a,d)=>a+(d.montant||0),0);
@@ -14271,9 +14428,12 @@ async function doLogin() {
     };
     window._KG_RESTAURANT_ID = profile.restaurant_id;
 
+    // ✅ v12 : Mettre à jour last_login dans Supabase
+    sb.from('users').update({ last_login: new Date().toISOString() }).eq('id', profile.id).then(() => {}).catch(() => {});
+
     // Charger users du restaurant
     const { data: allUsers } = await sb.from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('restaurant_id', profile.restaurant_id);
-    if(allUsers) USERS = allUsers.map(u => ({ ...u, caisse: u.caisse_assignee || 'Toutes', login: u.email || u.id }));
+    if(allUsers) USERS = allUsers.map(u => ({ ...u, caisse: u.caisse_assignee || 'Toutes', login: u.email || u.id, tel: u.tel || '—', lastLogin: '—' }));
 
     // ✅ Charger permissions personnalisées des rôles depuis Supabase
     const { data: rolesData } = await sb.from('roles_config').select('role_key, perms').eq('restaurant_id', profile.restaurant_id);
@@ -14339,12 +14499,15 @@ async function doLogin() {
     } catch(e) {}
     if(caissesSb) {
       caissesSb.forEach(cs => {
-        const local = CAISSES.find(c => c.name === cs.name);
+        const local = CAISSES.find(c => c.name === cs.name || c.sbId === cs.id);
         if(local) {
-          local.sbId = cs.id;
+          local.sbId  = cs.id;
           local.fonds = cs.fonds_depart || 0;
-          // ✅ Si vraie clôture Z locale → forcer closed, sinon prendre le status Supabase
-          if(_loginCloZ.includes(cs.name)) {
+          // ✅ v12 : lire loc et color depuis Supabase si disponibles
+          if(cs.loc || cs.emplacement)   local.loc   = cs.loc || cs.emplacement || local.loc;
+          if(cs.color)                   local.color = cs.color || local.color;
+          if(cs.display_name || cs.name) local.name  = cs.display_name || cs.name || local.name;
+          if(_loginCloZ.includes(local.name)) {
             local.status = 'closed';
           } else {
             local.status = cs.status || 'closed';
@@ -14549,9 +14712,9 @@ function renderUsersGrid() {
         <span class="badge ${u.status==='actif'?'badge-done':u.status==='suspendu'?'badge-pending':'badge-cooking'}">${u.status==='actif'?'✅ Actif':u.status==='suspendu'?'⚠️ Suspendu':'⛔ Inactif'}</span>
       </div>
       <div style="font-size:12px;color:var(--text2);display:flex;flex-direction:column;gap:4px;margin-bottom:14px;">
-        <div>📱 ${u.tel}</div>
-        <div>🖥️ ${u.caisse}</div>
-        <div>🕐 Dernière connexion : ${u.lastLogin}</div>
+        <div>📱 ${u.tel && u.tel !== 'undefined' ? u.tel : '—'}</div>
+        <div>🖥️ ${u.caisse || 'Toutes'}</div>
+        <div>🕐 Dernière connexion : ${u.lastLogin && u.lastLogin !== 'undefined' ? u.lastLogin : '—'}</div>
         <div>🔐 ${getUserPerms(u).length} permissions</div>
       </div>
       <div style="display:flex;gap:8px;">
@@ -14564,9 +14727,9 @@ function renderUsersGrid() {
           var canToggle = isG && !isSelf && !tIsG;
           var canDel = isG && !isSelf && !tIsG;
           var b = '';
-          if(canEdit) b += '<button class="caisse-btn" style="flex:1;" onclick="openEditUser('+u.id+')">✏️ Modifier</button>';
-          if(canToggle) b += '<button class="caisse-btn" style="flex:1;" onclick="toggleUserStatus('+u.id+')">'+(u.status==='actif'?'⛔ Désactiver':'✅ Activer')+'</button>';
-          if(canDel) b += '<button class="caisse-btn danger" onclick="deleteUser('+u.id+')">🗑</button>';
+          if(canEdit) b += '<button class="caisse-btn" style="flex:1;" onclick="openEditUser(\''+u.id+'\')">✏️ Modifier</button>';
+          if(canToggle) b += '<button class="caisse-btn" style="flex:1;" onclick="toggleUserStatus(\''+u.id+'\')">'+(u.status==='actif'?'⛔ Désactiver':'✅ Activer')+'</button>';
+          if(canDel) b += '<button class="caisse-btn danger" onclick="deleteUser(\''+u.id+'\')">🗑</button>';
           if(!b) b = '<span style="font-size:11px;color:var(--text2);padding:8px;">🔒 Lecture seule</span>';
           return b;
         })()}
@@ -14922,11 +15085,15 @@ async function initDashboard() {
           if(!VENTES_PAR_CAISSE[caisse].find(v => v.orderNum === row.order_num)) {
             VENTES_PAR_CAISSE[caisse].push({
               orderNum:  row.order_num,
-              items:     row.lignes || [],
+              items:     (row.lignes || []).map(i => {
+                const m = (typeof MENU !== 'undefined' ? MENU : []).find(m => m.name === (i.name||i.nom) || m.id === i.id);
+                return { ...i, image_url: i.image_url || (i.icon&&i.icon.startsWith('http')?i.icon:null) || m?.image_url || (m?.icon&&m.icon.startsWith('http')?m.icon:null) };
+              }),
               total:     parseFloat(row.total) || 0,
               payMethod: row.pay_mode || 'cash',
               payLabel:  row.pay_mode === 'wave' ? 'Wave' : row.pay_mode === 'orange' ? 'Orange Money' : '💵 Espèces',
               cashier:   row.cashier || '',
+              client:    row.client && row.client !== 'undefined' ? row.client : 'Client',
               note:      row.note || '',
               date:      row.session_date,
               time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
@@ -15144,7 +15311,7 @@ function refreshDashboard() {
           <div class="order-num">${v.orderNum}</div>
           <div class="order-info">
             <div class="order-name">${v.client || v.cashier || "Client"}</div>
-            <div class="order-items-list">${v.items.map(i=>`${_safeIconText(i.icon)}${i.name}×${i.qty}`).join(', ')}</div>
+            <div class="order-items-list">${v.items.map(i=>`${_iconHtml(i.icon, i.image_url, '16px')}${i.name||i.nom}×${i.qty}`).join(', ')}</div>
           </div>
           <div class="order-time">${v.time}</div>
           <div class="order-price">${v.total.toLocaleString()} F</div>
@@ -15268,15 +15435,50 @@ function refreshDashboard() {
     }
   }
 
-  // Top produits
+  // Top produits — ✅ v12 FIX : inclure HISTORIQUE_CLOTURES du mois en cours
   const topEl = document.getElementById('top-items');
   if(topEl) {
     const prodMap = {};
+    // 1. Ventes session active
     ventes.forEach(v => (v.items||[]).forEach(i => {
-      if(!prodMap[i.id]) prodMap[i.id] = { icon:_safeIconText(i.icon), name:i.name, qty:0, total:0 };
-      prodMap[i.id].qty += i.qty;
-      prodMap[i.id].total += i.price * i.qty;
+      const key = i.id || i.name;
+      const menuItem = (typeof MENU !== 'undefined' ? MENU : []).find(m => m.name === (i.name||i.nom) || m.id === i.id);
+      const imgUrl = i.image_url || (i.icon&&i.icon.startsWith('http')?i.icon:null)
+                  || menuItem?.image_url || (menuItem?.icon&&menuItem.icon.startsWith('http')?menuItem.icon:null);
+      if(!prodMap[key]) prodMap[key] = { icon: i.icon||'🍽️', image_url: imgUrl, name:i.name||i.nom||'', qty:0, total:0 };
+      else if(!prodMap[key].image_url && imgUrl) prodMap[key].image_url = imgUrl;
+      prodMap[key].qty += (i.qty||1);
+      prodMap[key].total += (i.price||i.prix||0) * (i.qty||1);
     }));
+    // 2. ✅ FIX : Ventes des clôtures du mois en cours
+    const _now = new Date();
+    const _moisDebut = new Date(_now.getFullYear(), _now.getMonth(), 1).toISOString().slice(0,10);
+    (HISTORIQUE_CLOTURES || []).forEach(h => {
+      // Parser date clôture (dd/mm/yy ou yyyy-mm-dd)
+      let hDate = '';
+      if(h.date) {
+        if(h.date.includes('-')) { hDate = h.date.slice(0,10); }
+        else {
+          const p = h.date.split('/');
+          if(p.length === 3) hDate = `20${p[2].length===2?p[2]:p[2].slice(-2)}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+        }
+      }
+      if(hDate < _moisDebut) return; // pas ce mois
+      // Parcourir les tickets de la clôture
+      (h.tickets || h.ventes || h.items || []).forEach(v => {
+        (v.items||[]).forEach(i => {
+          const key = i.id || i.nom || i.name;
+          // ✅ Enrichir image_url depuis MENU si manquant dans la clôture
+          const menuItem = (typeof MENU !== 'undefined' ? MENU : []).find(m => m.name === (i.nom||i.name) || m.id === i.id);
+          const imgUrl = i.image_url || (i.icon&&i.icon.startsWith('http')?i.icon:null)
+                      || menuItem?.image_url || (menuItem?.icon&&menuItem.icon.startsWith('http')?menuItem.icon:null);
+          if(!prodMap[key]) prodMap[key] = { icon: i.icon||'🍽️', image_url: imgUrl, name:i.nom||i.name||'', qty:0, total:0 };
+          else if(!prodMap[key].image_url && imgUrl) prodMap[key].image_url = imgUrl;
+          prodMap[key].qty += (i.qty||1);
+          prodMap[key].total += (i.prix||i.price||0) * (i.qty||1);
+        });
+      });
+    });
     const tops = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).slice(0, 5);
     if(tops.length === 0) {
       topEl.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text2);font-size:11px;">Aucune vente enregistrée</div>';
@@ -15285,7 +15487,7 @@ function refreshDashboard() {
       topEl.innerHTML = tops.map((t, i) => `
         <div class="top-item">
           <div class="top-rank">#${i+1}</div>
-          <div style="font-size:18px;">${t.icon}</div>
+          <div style="font-size:18px;width:28px;text-align:center;">${_iconHtml(t.icon, t.image_url, '28px') || '🍽️'}</div>
           <div class="top-info">
             <div class="top-name">${t.name}</div>
             <div class="top-count">${t.qty} vendu(s)</div>
@@ -15749,7 +15951,7 @@ function selectCaisseColor(color, el) {
   el.style.border = '3px solid white';
 }
 
-function saveEditCaisse() {
+async function saveEditCaisse() {
   const id  = parseInt(document.getElementById('edit-caisse-id').value);
   const nom = document.getElementById('edit-caisse-nom').value.trim();
   const loc = document.getElementById('edit-caisse-loc').value.trim();
@@ -15769,11 +15971,38 @@ function saveEditCaisse() {
   closeEditCaisse();
   saveCaisses();
   renderCaisses();
-  // ✅ FIX : pousser vers Supabase pour que les modifs persistent au prochain sync
+  // ✅ v12 FIX : Sauvegarder directement dans Supabase table caisses + kg_sync
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
-    KGSync.push.caisses().catch(e => console.warn('push.caisses editCaisse:', e));
+    try {
+      const sb  = KGSync.getClient();
+      const rid = window._KG_RESTAURANT_ID;
+      // 1. Mettre à jour la table caisses (loc et color si les colonnes existent)
+      if(c.sbId) {
+        await sb.from('caisses').update({
+          name: nom,
+          loc:  loc,
+          color: col,
+          display_name: nom,
+          emplacement: loc,
+        }).eq('id', c.sbId).eq('restaurant_id', rid);
+      } else {
+        // Chercher par nom original
+        const { data: found } = await sb.from('caisses').select('id').eq('restaurant_id', rid).eq('name', oldName).maybeSingle();
+        if(found) {
+          await sb.from('caisses').update({ name: nom }).eq('id', found.id);
+          c.sbId = found.id;
+        }
+      }
+      // 2. Push kg_sync pour synchroniser tous les appareils
+      await KGSync.push.caisses();
+      showNotif('✅ Caisse "' + nom + '" sauvegardée dans Supabase');
+    } catch(e) {
+      console.warn('saveEditCaisse Supabase:', e);
+      showNotif('⚠️ Sauvegardé localement (erreur Supabase: ' + (e.message||e) + ')');
+    }
+  } else {
+    showNotif('✅ Caisse mise à jour : ' + nom);
   }
-  showNotif('✅ Caisse mise à jour : ' + nom);
 }
 
 function setCaisseStatus(id, status) {
@@ -16377,7 +16606,7 @@ async function cloturerCaisse() {
         caissier: v.cashier || cashier,
         total: v.total || 0,
         mode: v.payMethod || 'cash',
-        items: (v.items || []).map(it => ({ nom: it.name || it.nom || '', qty: it.qty || 1, icon: it.icon || '', prix: it.price || it.prix || 0, categorie: it.cat || it.category || it.categorie || '' }))
+        items: (v.items || []).map(it => ({ nom: it.name || it.nom || '', qty: it.qty || 1, icon: it.icon || '', image_url: it.image_url || (it.icon&&it.icon.startsWith('http')?it.icon:null), prix: it.price || it.prix || 0, categorie: it.cat || it.category || it.categorie || '' }))
       }))
     };
     HISTORIQUE_CLOTURES.unshift(cloture);
@@ -21617,7 +21846,7 @@ setTimeout(() => {
     window._KG_RESTAURANT_ID = profile.restaurant_id;
 
     const { data: allUsers } = await sb.from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('restaurant_id', profile.restaurant_id);
-    if(allUsers) USERS = allUsers.map(u => ({ ...u, caisse: u.caisse_assignee || 'Toutes', login: u.email || u.id }));
+    if(allUsers) USERS = allUsers.map(u => ({ ...u, caisse: u.caisse_assignee || 'Toutes', login: u.email || u.id, tel: u.tel || '—', lastLogin: '—' }));
 
     // ✅ Charger permissions personnalisées des rôles depuis Supabase
     const { data: rolesData } = await sb.from('roles_config').select('role_key, perms').eq('restaurant_id', profile.restaurant_id);
@@ -21646,12 +21875,15 @@ setTimeout(() => {
     } catch(e) {}
 
     if(caissesSb) caissesSb.forEach(cs => {
-      const local = CAISSES.find(c => c.name === cs.name);
+      const local = CAISSES.find(c => c.name === cs.name || c.sbId === cs.id);
       if(local) {
-        local.sbId = cs.id;
+        local.sbId  = cs.id;
         local.fonds = cs.fonds_depart || 0;
-        // Si vraie clôture Z locale → toujours closed, sinon prendre Supabase
-        local.status = _f5CloZ.includes(cs.name) ? 'closed' : (cs.status || 'closed');
+        // ✅ v12 : lire loc et color depuis Supabase
+        if(cs.loc || cs.emplacement)   local.loc   = cs.loc || cs.emplacement || local.loc;
+        if(cs.color)                   local.color = cs.color || local.color;
+        if(cs.display_name)            local.name  = cs.display_name || local.name;
+        local.status = _f5CloZ.includes(local.name) ? 'closed' : (cs.status || 'closed');
       }
     });
 
