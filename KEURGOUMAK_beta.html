@@ -11511,6 +11511,10 @@ function openSessionModal() {
 
 
 function renderMenu(cat) {
+  // ✅ v12 FIX : mémoriser la catégorie active pour les re-renders
+  if(cat !== undefined) currentMenuCat = cat;
+  else cat = currentMenuCat || 'all';
+
   const catsEl = document.getElementById('menu-cats');
   const allCats = [{ id:'all', label:'🍽️ Tout' }, ...CATEGORIES];
   catsEl.innerHTML = allCats.map(c =>
@@ -12856,8 +12860,7 @@ icon:  (()=>{ const _v = document.getElementById('item-icon').value || '🍽️'
     }
   }
   closeModal('addItem');
-  renderMenu(document.querySelector('#menu-cats .cat-btn.active') ?
-    document.querySelector('#menu-cats .cat-btn.active').getAttribute('onclick').match(/'([^']+)'/)?.[1] || 'all' : 'all');
+  renderMenu(currentMenuCat || 'all');
   renderPOS();
 
   // ✅ FIX v38 + ANTI-DOUBLON : Synchroniser kg_sync après modif
@@ -12915,10 +12918,7 @@ async function deleteMenuItem(menuIdx) {
   // ✅ FIX : Supprimer localement IMMÉDIATEMENT avant Supabase
   // pour que l'UI soit réactive, sans attendre la réponse réseau
   MENU.splice(menuIdx, 1);
-  const activeCatBtn = document.querySelector('#menu-cats .cat-btn.active');
-  const activeCat = activeCatBtn
-    ? (activeCatBtn.getAttribute('onclick').match(/'([^']+)'/) || [])[1] || 'all'
-    : 'all';
+  const activeCat = currentMenuCat || 'all';
   renderMenu(activeCat);
   renderPOS();
   showNotif(`🗑️ "${item.name}" supprimé du menu`);
@@ -14545,10 +14545,14 @@ async function doLogin() {
       console.warn('[login] pullAll échoué, retry dans 3s…', _e1);
       setTimeout(() => KGSync.pullAll().catch(e => console.warn('[login] pullAll retry:', e)), 3000);
     }
-    // ✅ FIX v12 : Recharger immédiatement les ventes C1/C2/C3 depuis Supabase
+    // ✅ v12 : Recharger config caisses depuis Supabase (persiste même après vide cache)
+    await loadCaissesFromSupabase();
+
+    // ✅ FIX v12 : Recharger immédiatement les ventes depuis Supabase
     // AVANT que saveSession() ou openModalOuverture() ne puisse les écraser
     try {
-      const _caisses123 = ['Caisse 1', 'Caisse 2', 'Caisse 3'];
+      // ✅ v12 : Utiliser les vrais noms de caisses (après loadCaissesFromSupabase)
+      const _caisses123 = CAISSES.map(c => c.name);
       const _loginT2 = new Date().toISOString().split('T')[0];
       let _cloZLogin = [];
       try {
@@ -15512,7 +15516,7 @@ const statusLabel = { open:'🟢 Ouverte', paused:'🟡 En pause', closed:'⚫ F
 
 function saveCaisses() {
   try {
-    const config = CAISSES.map(c => ({ id: c.id, name: c.name, loc: c.loc, color: c.color }));
+    const config = CAISSES.map(c => ({ id: c.id, name: c.name, loc: c.loc, color: c.color, sbId: c.sbId }));
     localStorage.setItem('kg-caisses-config', JSON.stringify(config));
   } catch(e) {}
 }
@@ -15522,15 +15526,46 @@ function loadCaisses() {
     const saved = JSON.parse(localStorage.getItem('kg-caisses-config') || 'null');
     if(saved && Array.isArray(saved)) {
       saved.forEach(s => {
-        const c = CAISSES.find(x => x.id === s.id);
+        const c = CAISSES.find(x => x.id === s.id || (s.sbId && x.sbId === s.sbId));
         if(c) {
           if(s.name)  c.name  = s.name;
           if(s.loc)   c.loc   = s.loc;
           if(s.color) c.color = s.color;
+          if(s.sbId)  c.sbId  = s.sbId;
         }
       });
     }
   } catch(e) {}
+}
+
+// ✅ v12 : Charger config caisses depuis kg_sync Supabase (source de vérité)
+async function loadCaissesFromSupabase() {
+  if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
+  try {
+    const sb  = KGSync.getClient();
+    const rid = window._KG_RESTAURANT_ID;
+    // Lire depuis kg_sync la config caisses
+    const { data } = await sb.from('kg_sync')
+      .select('value')
+      .eq('key', rid + ':caisses_config')
+      .maybeSingle();
+    if(data?.value) {
+      const config = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+      if(Array.isArray(config)) {
+        config.forEach(s => {
+          const c = CAISSES.find(x => x.id === s.id);
+          if(c) {
+            if(s.name)  c.name  = s.name;
+            if(s.loc)   c.loc   = s.loc;
+            if(s.color) c.color = s.color;
+          }
+        });
+        // Sauvegarder en localStorage pour les prochains chargements
+        saveCaisses();
+        console.log('[loadCaissesFromSupabase] ✅ Config caisses chargée depuis Supabase');
+      }
+    }
+  } catch(e) { console.warn('[loadCaissesFromSupabase]', e); }
 }
 loadCaisses();
 
@@ -15993,7 +16028,15 @@ async function saveEditCaisse() {
           c.sbId = found.id;
         }
       }
-      // 2. Push kg_sync pour synchroniser tous les appareils
+      // 2. Push kg_sync config caisses (source de vérité cross-device)
+      const config = CAISSES.map(c => ({ id: c.id, name: c.name, loc: c.loc, color: c.color }));
+      await sb.from('kg_sync').upsert({
+        key: rid + ':caisses_config',
+        value: config,
+        restaurant_id: rid,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'key' });
+      // 3. Push kg_sync caisses_data pour sync général
       await KGSync.push.caisses();
       showNotif('✅ Caisse "' + nom + '" sauvegardée dans Supabase');
     } catch(e) {
@@ -19498,9 +19541,7 @@ function saveIngredients() {
   if(!item) return;
   item.recette = _editIngLines.filter(l => l.stockId && l.qty > 0).map(l => ({ stockId: l.stockId, qty: l.qty }));
   closeModal('editIngredient');
-  const activeCat = document.querySelector('#menu-cats .cat-btn.active');
-  const cat = activeCat ? (activeCat.getAttribute('onclick') || '').match(/'([^']+)'/)?.[1] || 'all' : 'all';
-  renderMenu(cat);
+  renderMenu(currentMenuCat || 'all');
   if(KGSync.isConnected) KGSync.push.menu().catch(()=>{});
   showNotif('✅ Ingrédients mis à jour pour ' + item.name);
 }
