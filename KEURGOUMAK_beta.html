@@ -11169,83 +11169,86 @@ function printTicket(vente, caisse) {
     width: 100%;
     font-family: Arial, Helvetica, sans-serif;
     padding: 10px 14px 16px;
-    border-top: 4px dashed #111;
+    border-top: 4px dashed #000;
   }
   .cuisine-header {
     text-align: center;
-    background: #111;
+    background: #000;
     color: #fff;
-    padding: 10px;
+    padding: 12px 10px;
     margin-bottom: 10px;
   }
   .cuisine-header-title {
-    font-size: 18px;
+    font-size: 22px;
     font-weight: 900;
     letter-spacing: 3px;
     text-transform: uppercase;
-    color: #f5a623;
+    color: #fff;
   }
   .cuisine-header-num {
-    font-size: 32px;
+    font-size: 42px;
     font-weight: 900;
     letter-spacing: 6px;
     color: #fff;
     margin-top: 4px;
   }
   .cuisine-meta {
-    font-size: 12px;
-    color: #444;
+    font-size: 15px;
+    color: #000;
+    font-weight: 600;
     margin-bottom: 10px;
-    border-bottom: 1px dashed #ccc;
+    border-bottom: 2px dashed #000;
     padding-bottom: 8px;
-    line-height: 1.8;
+    line-height: 2;
   }
   .cuisine-items-title {
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 13px;
+    font-weight: 900;
     letter-spacing: 3px;
     text-transform: uppercase;
-    color: #888;
+    color: #000;
     margin-bottom: 8px;
+    border-bottom: 2px solid #000;
+    padding-bottom: 4px;
   }
   .cuisine-item {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 0;
-    border-bottom: 1px solid #ddd;
-    font-size: 15px;
+    padding: 10px 0;
+    border-bottom: 1px dashed #000;
+    font-size: 18px;
     font-weight: 700;
   }
   .cuisine-item:last-child { border-bottom: none; }
   .cuisine-item-qty {
-    background: #f5a623;
-    color: #000;
-    font-size: 17px;
+    background: #000;
+    color: #fff;
+    font-size: 20px;
     font-weight: 900;
-    min-width: 32px;
-    height: 32px;
+    min-width: 38px;
+    height: 38px;
     border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
-  .cuisine-item-name { flex: 1; font-size: 15px; color: #111; }
-  .cuisine-item-price { font-size: 13px; color: #444; white-space: nowrap; text-align: right; font-weight: 700; }
+  .cuisine-item-name { flex: 1; font-size: 18px; color: #000; font-weight: 900; }
+  .cuisine-item-price { font-size: 16px; color: #000; white-space: nowrap; text-align: right; font-weight: 900; }
   .cuisine-total {
     margin-top: 10px;
-    padding: 10px 12px;
-    background: #111;
+    padding: 12px 14px;
+    background: #000;
     color: #fff;
-    border-radius: 6px;
+    border-radius: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 15px;
+    font-size: 18px;
     font-weight: 900;
   }
-  .cuisine-total-amount { color: #f5a623; font-size: 20px; }
+  .cuisine-total-amount { color: #fff; font-size: 24px; font-weight: 900; }
 </style>
 </head><body>
 <!-- ══ EN-TÊTE ══ -->
