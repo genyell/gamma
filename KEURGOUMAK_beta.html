@@ -8570,7 +8570,55 @@ function showView(id, el, pushState) {
     if(panelTickets && panelTickets.style.display !== 'none') renderTicketsArchives();
   }
   if(id === 'depenses') renderDepenses();
-  if(id === 'rh') renderRH();
+  if(id === 'rh') {
+    renderRH();
+    // ✅ FIX CACHE : si RH_EMPLOYES est vide mais Supabase est connecté,
+    // forcer un rechargement immédiat (évite le bug cache navigateur)
+    if(RH_EMPLOYES.length === 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      (async function _reloadRHFromSupabase() {
+        try {
+          const _sb  = KGSync.getClient();
+          const _rid = window._KG_RESTAURANT_ID;
+          if(!_sb || !_rid) return;
+          // 1. Charger rh_employes directement depuis la table
+          const { data: emps, error: empErr } = await _sb
+            .from('rh_employes')
+            .select('*')
+            .eq('restaurant_id', _rid)
+            .eq('actif', true)
+            .order('id');
+          if(!empErr && Array.isArray(emps) && emps.length > 0) {
+            RH_EMPLOYES = emps.map(e => ({
+              ...e,
+              modePaie:     e.mode_paie    || 'especes',
+              dateEmbauche: e.date_embauche || null,
+            }));
+          }
+          // 2. Charger les 3 autres tables RH
+          const [paiesRes, congesRes, avancesRes] = await Promise.all([
+            _sb.from('rh_paies').select('*').eq('restaurant_id', _rid),
+            _sb.from('rh_conges').select('*').eq('restaurant_id', _rid),
+            _sb.from('rh_avances').select('*').eq('restaurant_id', _rid),
+          ]);
+          if(!paiesRes.error   && Array.isArray(paiesRes.data))   {
+            RH_PAIES = paiesRes.data.map(p => ({ ...p, employeId: p.employe_id, mois: p.mois, statut: p.statut, datePaiement: p.date_paiement, modePaiement: p.mode_paiement }));
+          }
+          if(!congesRes.error  && Array.isArray(congesRes.data))  {
+            RH_CONGES = congesRes.data.map(c => ({ ...c, employeId: c.employe_id, debut: c.date_debut, fin: c.date_fin }));
+          }
+          if(!avancesRes.error && Array.isArray(avancesRes.data)) {
+            RH_AVANCES = avancesRes.data.map(a => ({ ...a, employeId: a.employe_id, date: a.date_avance }));
+          }
+          // 3. Rafraîchir la vue
+          updateRHStats();
+          renderEmployes();
+          console.log('[RH FIX] Rechargé depuis Supabase :', RH_EMPLOYES.length, 'employés');
+        } catch(e) {
+          console.warn('[RH FIX] Erreur rechargement Supabase :', e);
+        }
+      })();
+    }
+  }
   if(id === 'compta') renderCompta();
   if(id === 'settings') { setTimeout(() => { loadTicketConfig(); initTarifsSettings(); }, 100); }
   if(id === 'factures') { loadFacturesLocal().then ? loadFacturesLocal().then(()=>renderFactures()) : renderFactures(); }
@@ -17839,7 +17887,16 @@ TICKETS_ARCHIVES = [];
     }
 
     // ✅ FIX: restaurer RH
-    // RH_EMPLOYES toujours chargé depuis Supabase (pullAll), pas depuis localStorage
+    // ✅ FIX CACHE : restaurer RH_EMPLOYES depuis localStorage comme fallback rapide
+    // (Supabase via pullAll() prendra le dessus dès que la connexion est prête)
+    if(Array.isArray(data.RH_EMPLOYES) && data.RH_EMPLOYES.length > 0) {
+      RH_EMPLOYES = data.RH_EMPLOYES.map(e => ({
+        ...e,
+        modePaie:     e.modePaie     || e.mode_paie    || 'especes',
+        dateEmbauche: e.dateEmbauche || e.date_embauche || null,
+        actif:        e.actif !== undefined ? e.actif : true,
+      }));
+    }
     if(Array.isArray(data.RH_PAIES))   RH_PAIES   = data.RH_PAIES;
     if(Array.isArray(data.RH_CONGES))  RH_CONGES  = data.RH_CONGES;
     if(Array.isArray(data.RH_AVANCES)) RH_AVANCES = data.RH_AVANCES;
