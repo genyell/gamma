@@ -1983,7 +1983,6 @@ async function _pushClotureeSupabase(localKey, dataArray) {
     transition: all 0.25s ease;
     width: 100%;
     box-sizing: border-box;
-    backdrop-filter: blur(10px);
   }
 
   .login-input::placeholder { color: rgba(255,255,255,0.2); }
@@ -8352,7 +8351,9 @@ Revenez nous voir bient&#244;t.</textarea>
     setInterval(function() {
       var widthDiff  = window.outerWidth  - window.innerWidth;
       var heightDiff = window.outerHeight - window.innerHeight;
-      if(widthDiff > threshold || heightDiff > threshold) {
+      // Sur mobile/iPhone le clavier change innerHeight → ignorer si écran tactile
+      var isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      if(!isMobile && (widthDiff > threshold || heightDiff > threshold)) {
         if(!devtoolsOpen) {
           devtoolsOpen = true;
           // Brouiller l'affichage si DevTools détectés
@@ -15331,7 +15332,15 @@ function _refreshAllViews() {
   const v = window._currentView || 'dashboard';
   try {
     if(v === 'dashboard')    refreshDashboard();
-    if(v === 'caisse')       renderPOS();
+    if(v === 'caisse') {
+      const _activeCatBtn = document.querySelector('#pos-cats .cat-btn.active');
+      const _activeCat = _activeCatBtn ? _activeCatBtn.dataset.cat : 'all';
+      renderPOS();
+      if(_activeCat && _activeCat !== 'all') {
+        const _btn = document.querySelector(`#pos-cats .cat-btn[data-cat="${_activeCat}"]`);
+        if(_btn) filterPOS(_activeCat, { currentTarget: _btn });
+      }
+    }
     if(v === 'menu')         renderMenu('all');
     if(v === 'stock')        renderStock();
     if(v === 'inventaire')   { renderInvHistorique(); renderInvEcarts(); }
