@@ -14701,6 +14701,19 @@ async function doLogin() {
     btn.textContent = 'Se connecter →'; btn.classList.remove('loading');
     // ✅ FIX v15 LOGO : charger le vrai logo restaurant après login
     if(typeof loadRestaurantSettings === 'function') loadRestaurantSettings();
+    // ✅ FIX iPhone : appliquer logo_url Supabase directement au sidebar (localStorage non fiable sur iOS)
+    if(RESTAURANT_INFO.logo_url) {
+      const _sbLogoImg  = document.getElementById('sidebar-logo-img');
+      const _sbLogoEmoji = document.getElementById('sidebar-logo-emoji');
+      if(_sbLogoImg) {
+        _sbLogoImg.innerHTML = `<img src="${RESTAURANT_INFO.logo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none'">`;
+      }
+      // ✅ Aussi appliquer au TICKET_CONFIG si pas encore défini
+      if(typeof TICKET_CONFIG !== 'undefined' && !TICKET_CONFIG.logo) {
+        TICKET_CONFIG.logo = RESTAURANT_INFO.logo_url;
+        RESTAURANT_INFO.loginLogo = RESTAURANT_INFO.logo_url;
+      }
+    }
     showNotif(`🎉 Bienvenue ${currentUser.prenom} ${currentUser.nom} ! (${getRoleLabel(currentUser.role)})`);
 
     // ✅ FIX : retry pullAll si échec (token pas encore prêt ou réseau lent)
