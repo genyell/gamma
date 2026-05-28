@@ -1322,9 +1322,10 @@ async function _pushClotureeSupabase(localKey, dataArray) {
     /* Top produits */
     .top-prod-bar { height: 8px; }
 
-    /* Inputs plus grands sur mobile */
+    /* Inputs plus grands sur mobile - évite zoom iOS */
+    input, select, textarea,
     .form-input, .search-input, .login-input {
-      font-size: 16px !important; /* évite zoom iOS */
+      font-size: 16px !important;
       padding: 10px 12px;
     }
     select.form-input { font-size: 16px !important; }
@@ -1976,7 +1977,7 @@ async function _pushClotureeSupabase(localKey, dataArray) {
     border-radius: 14px;
     color: rgba(255,255,255,0.92);
     font-family: 'DM Sans', 'Plus Jakarta Sans', sans-serif;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 400;
     outline: none;
     transition: all 0.25s ease;
