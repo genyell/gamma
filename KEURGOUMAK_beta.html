@@ -18365,14 +18365,18 @@ const KGSync = (() => {
   // ── Préfixe restaurant pour isoler les données multi-tenant ──
   function _rkey(key) {
     const rid = window._KG_RESTAURANT_ID;
-    return rid ? (rid + ':' + key) : key;
+    if (!rid) {
+      console.warn('KGSync: _rkey() appelé sans restaurant_id, sync bloquée pour clé:', key);
+      throw new Error('restaurant_id non défini — sync bloquée');
+    }
+    return rid + ':' + key;
   }
 
   async function upsert(key, data) {
     if(!client || !syncEnabled) return;
     try {
       await client.from(TABLE).upsert(
-        { key: _rkey(key), value: enc(data), updated_at: new Date().toISOString() },
+        { key: _rkey(key), value: enc(data), updated_at: new Date().toISOString(), restaurant_id: window._KG_RESTAURANT_ID },
         { onConflict: 'key' }
       );
     } catch(e) { console.warn('KGSync upsert error:', key, e); }
