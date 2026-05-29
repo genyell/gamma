@@ -17098,7 +17098,8 @@ async function cloturerCaisse() {
       Object.values(prodMap).sort(function(a,b){return b.qty-a.qty;}).slice(0,5).forEach(function(p){ topProds.push(p); });
 
       const lignesTickets = ventes.map(function(v){
-        return '<tr><td>'+(v.orderNum||'')+'</td><td>'+(v.time||'')+'</td><td>'+(v.client||'')+'</td><td>'+(v.payLabel||'')+'</td><td style="text-align:right">'+(v.total||0).toLocaleString()+' F</td></tr>';
+        var platNoms = (v.items && v.items.length > 0) ? v.items.map(function(i){ return (i.qty > 1 ? i.qty+'× ' : '') + i.name; }).join(', ') : (v.client || '');
+        return '<tr><td>'+(v.orderNum||'')+'</td><td>'+(v.time||'')+'</td><td>'+platNoms+'</td><td>'+(v.payLabel||'')+'</td><td style="text-align:right">'+(v.total||0).toLocaleString()+' F</td></tr>';
       }).join('');
 
       const lignesTop = topProds.map(function(p){
@@ -17154,7 +17155,7 @@ async function cloturerCaisse() {
           : '<div class=\"sec\"><div class=\"row tot\" style=\"font-size:14px;color:#155724;\"><span>💰 Solde net caisse</span><span>'+soldeNet.toLocaleString()+' FCFA</span></div></div>'
         )
         +(lignesTop ? '<div class=\"sec\"><div class=\"st\">Top produits</div><table><thead><tr><th>Produit</th><th>Qté</th><th>CA</th></tr></thead><tbody>'+lignesTop+'</tbody></table></div>' : '')
-        +(lignesTickets ? '<div class=\"sec\"><div class=\"st\">Tickets ('+ventes.length+')</div><table><thead><tr><th>N°</th><th>Heure</th><th>Client</th><th>Paiement</th><th>Montant</th></tr></thead><tbody>'+lignesTickets+'</tbody></table></div>' : '')
+        +(lignesTickets ? '<div class=\"sec\"><div class=\"st\">Tickets ('+ventes.length+')</div><table><thead><tr><th>N°</th><th>Heure</th><th>Plat</th><th>Paiement</th><th>Montant</th></tr></thead><tbody>'+lignesTickets+'</tbody></table></div>' : '')
         +'<div class=\"sign-row\">'
         +'<div class=\"sign-col\"><div class=\"st\">Gérant — '+nomResto+'</div><div class=\"sign-box\"></div><div style=\"font-size:10px;color:#666;margin-top:3px;text-align:center;\">Signature & cachet</div></div>'
         +'<div class=\"sign-col\"><div class=\"st\">Caissier — '+caisse+'</div><div style=\"font-size:11px;margin-bottom:4px;\">'+cashier+'</div><div class=\"sign-box\"></div><div style=\"font-size:10px;color:#666;margin-top:3px;text-align:center;\">Signature</div></div>'
