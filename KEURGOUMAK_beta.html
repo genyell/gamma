@@ -9632,6 +9632,8 @@ async function _saveVenteSupabase(caisse, vente) {
       lignes:        vente.items   || [],
       note:          vente.note    || null,
       pay_mode:      vente.payMethod || null,
+      // ✅ FIX MIXTE : sauvegarder le détail cash/wave/orange pour Rapport X
+      pay_methods:   vente.payMethods ? JSON.stringify(vente.payMethods) : null,
       session_date:  (vente.date || new Date().toISOString()).split('T')[0]
     }, { onConflict: 'restaurant_id,caisse,order_num' });
   } catch(e) {
@@ -9665,7 +9667,9 @@ async function _loadVentesSupabase(caisse) {
       }),
       total:     parseFloat(row.total) || 0,
       payMethod: row.pay_mode || 'cash',
-      payLabel:  row.pay_mode === 'wave' ? 'Wave' : row.pay_mode === 'orange' ? 'Orange Money' : row.pay_mode === 'card' ? 'Carte bancaire' : '💵 Espèces',
+      // ✅ FIX MIXTE : recharger le détail des montants depuis Supabase
+      payMethods: (row.pay_mode === 'mixed' && row.pay_methods) ? (typeof row.pay_methods === 'string' ? JSON.parse(row.pay_methods) : row.pay_methods) : null,
+      payLabel:  row.pay_mode === 'mixed' ? '🔀 Mixte' : row.pay_mode === 'wave' ? 'Wave' : row.pay_mode === 'orange' ? 'Orange Money' : row.pay_mode === 'card' ? 'Carte bancaire' : '💵 Espèces',
       cashier:   row.cashier || '',
       client:    row.client && row.client !== 'undefined' ? row.client : 'Client',
       note:      row.note || '',
@@ -12889,21 +12893,25 @@ function openEditMenuItem(menuIdx) {
   }
   if(!item) { showNotif('⚠️ Produit introuvable — actualisez la page'); return; }
   document.getElementById('addItemTitle').textContent = `✏️ Modifier — ${item.name}`;
-  document.getElementById('item-edit-id').value = menuIdx;
+  // ✅ FIX DOUBLON : stocker sbId au lieu de l'index (l'index change après sync Supabase)
+  document.getElementById('item-edit-id').value = item.sbId || item.id || menuIdx;
   document.getElementById('item-nom').value = item.name;
-  const iconVal = item.icon || '🍽️';
-  document.getElementById('item-icon').value = iconVal;
+  // ✅ FIX URL : lire image_url en priorité (photo), sinon icon (emoji)
+  const _imgUrl = item.image_url || (item.icon && item.icon.startsWith('http') ? item.icon : null);
+  const iconVal = _imgUrl || item.icon || '🍽️';
+  // Stocker la vraie URL dans item-icon pour que saveMenuItem la récupère
+  document.getElementById('item-icon').value = _imgUrl || item.icon || '🍽️';
   // Show image or emoji
   const imgPrev = document.getElementById('item-img-preview');
   const emojiDisp = document.getElementById('item-img-emoji-display');
-  if(iconVal.startsWith('data:') || iconVal.startsWith('http')) {
-    imgPrev.src = iconVal; imgPrev.style.display = 'block'; emojiDisp.style.display = 'none';
+  if(_imgUrl) {
+    imgPrev.src = _imgUrl; imgPrev.style.display = 'block'; emojiDisp.style.display = 'none';
   } else {
     imgPrev.style.display = 'none'; imgPrev.src = ''; emojiDisp.style.display = 'block'; emojiDisp.textContent = iconVal;
   }
-  // ✅ FIX v29 : Remplir le champ URL visible
+  // ✅ FIX v29 : Remplir le champ URL visible avec la vraie URL
   const urlField = document.getElementById('item-icon-url-display');
-  if(urlField) urlField.value = iconVal.startsWith('http') ? iconVal : '';
+  if(urlField) urlField.value = _imgUrl || '';
   const _imgFileEl = document.getElementById('item-img-file'); if(_imgFileEl) _imgFileEl.value = '';
   populateItemCatSelect(item.cat);
   document.getElementById('item-price').value = item.price;
@@ -12931,7 +12939,17 @@ function saveMenuItem() {
   errEl.style.display = 'none';
 
   const editIdxVal = document.getElementById('item-edit-id').value;
-  const editIdx = editIdxVal !== '' ? parseInt(editIdxVal) : -1;
+  // ✅ FIX DOUBLON : chercher d'abord par sbId/id, sinon par index numérique
+  let editIdx = -1;
+  if(editIdxVal !== '' && editIdxVal !== 'undefined') {
+    // Chercher par sbId ou id (stable même après sync)
+    editIdx = MENU.findIndex(m => m.sbId === editIdxVal || m.id === editIdxVal);
+    // Fallback index numérique si sbId pas trouvé (anciens articles sans sbId)
+    if(editIdx === -1) {
+      const numIdx = parseInt(editIdxVal);
+      if(!isNaN(numIdx) && numIdx >= 0 && MENU[numIdx]) editIdx = numIdx;
+    }
+  }
   const data = {
     name:  nom,
 icon:  (()=>{ const _v = document.getElementById('item-icon').value || '🍽️'; return (_v.startsWith('http')||_v.startsWith('data:')||_v.includes('ibb.co')) ? '🍽️' : _v; })(),
