@@ -14029,7 +14029,7 @@ function printRapportX() {
     prodMap[i.name].qty += i.qty;
     prodMap[i.name].ca  += (i.price||0) * (i.qty||0);
   }));
-  const topRows = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).slice(0,8)
+  const topRows = Object.values(prodMap).sort((a,b)=>b.qty-a.qty)
     .map((p,i) => {
       const imgHtml = (p.image_url || (p.icon&&p.icon.startsWith('http')))
         ? `<img src="${p.image_url||p.icon}" style="width:18px;height:18px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:4px;" onerror="this.style.display='none'">`
