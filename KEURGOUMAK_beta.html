@@ -13987,10 +13987,27 @@ function printRapportX() {
     .map(name => {
       const vs = VENTES_PAR_CAISSE[name] || [];
       const ca  = vs.reduce((a,v)=>a+v.total,0);
-      const esp = vs.filter(v=>v.payMethod==='cash').reduce((a,v)=>a+v.total,0);
-      const wav = vs.filter(v=>v.payMethod==='wave').reduce((a,v)=>a+v.total,0);
-      const ora = vs.filter(v=>v.payMethod==='orange').reduce((a,v)=>a+v.total,0);
-      const car = vs.filter(v=>v.payMethod==='card').reduce((a,v)=>a+v.total,0);
+      // ✅ FIX MIXTE : inclure les paiements mixtes (v.payMethods) dans le calcul par mode
+      const esp = vs.reduce((a,v)=>{
+        if(v.payMethod==='cash') return a+v.total;
+        if(v.payMethod==='mixed' && v.payMethods) return a+(v.payMethods.cash||0);
+        return a;
+      },0);
+      const wav = vs.reduce((a,v)=>{
+        if(v.payMethod==='wave') return a+v.total;
+        if(v.payMethod==='mixed' && v.payMethods) return a+(v.payMethods.wave||0);
+        return a;
+      },0);
+      const ora = vs.reduce((a,v)=>{
+        if(v.payMethod==='orange') return a+v.total;
+        if(v.payMethod==='mixed' && v.payMethods) return a+(v.payMethods.orange||0);
+        return a;
+      },0);
+      const car = vs.reduce((a,v)=>{
+        if(v.payMethod==='card') return a+v.total;
+        if(v.payMethod==='mixed' && v.payMethods) return a+(v.payMethods.card||0);
+        return a;
+      },0);
       const dep = (DEPENSES||[]).filter(d=>d.caisse===name&&!d.cloturee).reduce((a,d)=>a+(d.montant||0),0);
       return `<tr><td><b>${name}</b></td><td style="text-align:right">${vs.length}</td>
         <td style="text-align:right;color:#2ecc71;font-weight:700">${ca.toLocaleString()} F</td>
