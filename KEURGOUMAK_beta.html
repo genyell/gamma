@@ -13899,6 +13899,7 @@ function renderRapportX() {
               <div style="font-family:'Space Mono';font-size:20px;color:${col}">${ca.toLocaleString()} F</div>
               <div style="font-size:12px;color:var(--text2)">${ventes.length} ticket(s)</div>
             </div>
+            <button onclick="printRapportXCaisse('${name}')" style="margin-top:6px;padding:4px 12px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;width:100%;">🖨️ Imprimer ${name}</button>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">
             <div style="padding:6px 10px;background:var(--surface2);border-radius:6px;display:flex;justify-content:space-between;"><span>💵 Espèces</span><span style="font-family:'Space Mono'">${esp.toLocaleString()} F</span></div>
@@ -13972,7 +13973,131 @@ function renderRapportX() {
   }
 }
 
-// ===== IMPRESSION RAPPORT X =====
+// ===== IMPRESSION RAPPORT X — UNE SEULE CAISSE =====
+function printRapportXCaisse(name) {
+  const ventes = VENTES_PAR_CAISSE[name] || [];
+  if(ventes.length === 0) { showNotif('Aucune vente pour '+name); return; }
+  const now      = new Date();
+  const dateStr  = now.toLocaleDateString('fr-FR');
+  const heureStr = now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+  const nomResto = (RESTAURANT_INFO?.nom) || 'KEURGOUMAK';
+  const ca  = ventes.reduce((a,v)=>a+v.total,0);
+  const esp = ventes.reduce((a,v)=>{ if(v.payMethod==='cash') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.cash||0); return a; },0);
+  const wav = ventes.reduce((a,v)=>{ if(v.payMethod==='wave') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.wave||0); return a; },0);
+  const ora = ventes.reduce((a,v)=>{ if(v.payMethod==='orange') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.orange||0); return a; },0);
+  const car = ventes.reduce((a,v)=>{ if(v.payMethod==='card') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.card||0); return a; },0);
+  const dep = (DEPENSES||[]).filter(d=>d.caisse===name&&!d.cloturee).reduce((a,d)=>a+(d.montant||0),0);
+  const net = ca - dep;
+  const tva = Math.round(ca * 18 / 118);
+  const ht  = ca - tva;
+  const c   = CAISSES.find(x=>x.name===name);
+  const cashier = ventes[0]?.cashier || '—';
+
+  // Top produits pour cette caisse
+  const prodMap = {};
+  ventes.forEach(v => (v.items||[]).forEach(i => {
+    if(!prodMap[i.name]) prodMap[i.name] = { icon:i.icon||'', image_url:i.image_url||(i.icon&&i.icon.startsWith('http')?i.icon:null), name:i.name, qty:0, ca:0 };
+    prodMap[i.name].qty += i.qty;
+    prodMap[i.name].ca  += (i.price||0)*(i.qty||0);
+  }));
+  const topRows = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).map((p,i)=>{
+    const imgHtml = (p.image_url||(p.icon&&p.icon.startsWith('http')))
+      ? `<img src="${p.image_url||p.icon}" style="width:16px;height:16px;object-fit:cover;border-radius:2px;vertical-align:middle;margin-right:4px;" onerror="this.style.display='none'">`
+      : `<span>${p.icon||'🍽️'}</span>`;
+    return `<tr><td>#${i+1}</td><td>${imgHtml} ${p.name}</td><td style="text-align:right">${p.qty}</td><td style="text-align:right;color:#f5a623">${p.ca.toLocaleString()} F</td></tr>`;
+  }).join('') || '<tr><td colspan="4" style="text-align:center;color:#888">Aucune vente</td></tr>';
+
+  // Tickets
+  const ticketRows = ventes.map(v=>{
+    const heure = v.time || (v.date ? new Date(v.date).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—');
+    const plats = (v.items||[]).map(i=>(i.qty>1?i.qty+'× ':'')+i.name).join(', ') || v.label || '—';
+    const payLabel = v.payMethod==='mixed' ? '🔀 Mixte' : (v.payLabel||v.payMethod||'—');
+    return `<tr><td>#${v.num||v.id||'—'}</td><td>${heure}</td><td>${plats}</td><td>${payLabel}</td><td style="text-align:right;font-weight:700">${(v.total||0).toLocaleString()} F</td></tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+  <title>Rapport X — ${name} — ${nomResto}</title>
+  <style>
+    body{font-family:'Courier New',monospace;font-size:12px;color:#111;padding:24px;max-width:800px;margin:auto;}
+    h1{text-align:center;font-size:18px;border-bottom:3px solid #f5a623;padding-bottom:8px;margin-bottom:4px;}
+    .sub{text-align:center;font-size:11px;color:#555;margin-bottom:16px;}
+    .badge{display:inline-block;background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:3px 10px;font-size:11px;margin-bottom:16px;}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px;}
+    th{background:#f0f0f0;padding:6px 8px;text-align:left;border:1px solid #ddd;font-size:11px;}
+    td{padding:5px 8px;border:1px solid #eee;font-size:11px;}
+    tr:nth-child(even) td{background:#fafafa;}
+    .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+    .kpi{border:1px solid #ddd;border-radius:6px;padding:10px;text-align:center;}
+    .kpi-val{font-size:16px;font-weight:900;color:#f5a623;}
+    .kpi-lbl{font-size:10px;color:#777;margin-top:2px;text-transform:uppercase;letter-spacing:1px;}
+    .section-title{font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#333;border-bottom:1px solid #ddd;padding-bottom:4px;margin-bottom:8px;}
+    .pay-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px;}
+    .pay-item{border:1px solid #eee;border-radius:4px;padding:6px 10px;display:flex;justify-content:space-between;font-size:12px;}
+    .no-print{display:flex;gap:10px;justify-content:center;padding:14px;position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;}
+    .no-print button{padding:8px 22px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+    @media print{.no-print{display:none!important;} @page{margin:1.5cm;}}
+  </style></head><body>
+  <h1>🍽️ ${nomResto}</h1>
+  <div class="sub">${RESTAURANT_INFO?.adresse||'Dakar, Sénégal'}</div>
+  <div style="text-align:center"><span class="badge">📊 RAPPORT X — ${name} — Consultation en cours · ${dateStr} à ${heureStr}</span></div>
+  <div class="sub" style="margin-top:-8px;">Caissier : <b>${cashier}</b>${c?.loc?' · '+c.loc:''}</div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-val">${ca.toLocaleString()} F</div><div class="kpi-lbl">CA TTC</div></div>
+    <div class="kpi"><div class="kpi-val">${ventes.length}</div><div class="kpi-lbl">Tickets</div></div>
+    <div class="kpi"><div class="kpi-val">${net.toLocaleString()} F</div><div class="kpi-lbl">Solde Net</div></div>
+  </div>
+  <div class="section-title">Résumé financier</div>
+  <table>
+    <tr><td>CA HT</td><td style="text-align:right;font-weight:700">${ht.toLocaleString()} F</td></tr>
+    <tr><td>TVA 18% (incluse)</td><td style="text-align:right">${tva.toLocaleString()} F</td></tr>
+    <tr><td><b>CA TTC</b></td><td style="text-align:right;font-weight:700;color:#2ecc71">${ca.toLocaleString()} F</td></tr>
+    ${dep>0?`<tr><td style="color:#e74c3c">Dépenses</td><td style="text-align:right;color:#e74c3c">−${dep.toLocaleString()} F</td></tr><tr><td><b>SOLDE NET</b></td><td style="text-align:right;font-weight:700">${net.toLocaleString()} F</td></tr>`:''}
+  </table>
+  <div class="section-title">Paiements</div>
+  <div class="pay-grid">
+    <div class="pay-item"><span>💵 Espèces</span><b>${esp.toLocaleString()} F</b></div>
+    <div class="pay-item"><span>🌊 Wave</span><b>${wav.toLocaleString()} F</b></div>
+    <div class="pay-item"><span>🟠 Orange</span><b>${ora.toLocaleString()} F</b></div>
+    <div class="pay-item"><span>💳 Carte</span><b>${car.toLocaleString()} F</b></div>
+  </div>
+  <div class="section-title">Top produits</div>
+  <table><thead><tr><th>Rang</th><th>Produit</th><th>Qté</th><th>CA</th></tr></thead>
+  <tbody>${topRows}</tbody></table>
+  <div class="section-title">Tickets (${ventes.length})</div>
+  <table><thead><tr><th>N°</th><th>Heure</th><th>Plat</th><th>Paiement</th><th>Montant</th></tr></thead>
+  <tbody>${ticketRows}</tbody></table>
+  <div style="text-align:center;font-size:10px;color:#888;margin-top:16px;border-top:1px solid #eee;padding-top:8px;">
+    Rapport X — ${name} — Consultation sans fermeture — ${nomResto} — Généré le ${dateStr} à ${heureStr}
+  </div>
+  <div class="no-print">
+    <button onclick="window.print()" style="background:#f5a623;color:#fff;">🖨️ Imprimer</button>
+    <button onclick="window.close()" style="background:#444;color:#fff;">✕ Fermer</button>
+  </div>
+  </body></html>`;
+
+  document.getElementById('kg-rapportx-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'kg-rapportx-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:99999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:12px;overflow:hidden;max-height:95vh;display:flex;flex-direction:column;width:860px;max-width:97vw;">
+      <div style="background:#111;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+        <span style="color:#f5a623;font-weight:800;font-size:14px;">📊 Rapport X — ${name}</span>
+        <div style="display:flex;gap:8px;">
+          <button onclick="document.getElementById('rapportx-single-frame').contentWindow.print()"
+            style="padding:8px 22px;background:#f5a623;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:800;cursor:pointer;">🖨️ Imprimer</button>
+          <button onclick="document.getElementById('kg-rapportx-overlay').remove()"
+            style="padding:8px 16px;background:#444;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">✕</button>
+        </div>
+      </div>
+      <iframe id="rapportx-single-frame" style="flex:1;border:none;min-height:520px;" srcdoc=""></iframe>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
+  document.getElementById('rapportx-single-frame').srcdoc = html;
+}
+
+// ===== IMPRESSION RAPPORT X — TOUTES CAISSES =====
 function printRapportX() {
   const allVentes = Object.values(VENTES_PAR_CAISSE).flat();
   const totalCA   = allVentes.reduce((a,v) => a + v.total, 0);
@@ -16817,10 +16942,27 @@ async function cloturerCaisse() {
     const totalHT      = ventes.reduce((a,v) => a + (v.sub   || 0), 0);
     const totalTVA     = ventes.reduce((a,v) => a + (v.tva   || 0), 0);
     const totalTTC     = ventes.reduce((a,v) => a + (v.total || 0), 0);
-    const totalEspeces = ventes.filter(v => v.payMethod === 'cash').reduce((a,v) => a + (v.total||0), 0);
-    const totalWave    = ventes.filter(v => v.payMethod === 'wave').reduce((a,v) => a + (v.total||0), 0);
-    const totalOrange  = ventes.filter(v => v.payMethod === 'orange').reduce((a,v) => a + (v.total||0), 0);
-    const totalCarte   = ventes.filter(v => v.payMethod === 'card').reduce((a,v) => a + (v.total||0), 0);
+    // FIX MIXTE : inclure les paiements mixtes dans le calcul par mode
+    const totalEspeces = ventes.reduce((a,v) => {
+      if(v.payMethod === 'cash') return a + (v.total||0);
+      if(v.payMethod === 'mixed' && v.payMethods) return a + (v.payMethods.cash||0);
+      return a;
+    }, 0);
+    const totalWave = ventes.reduce((a,v) => {
+      if(v.payMethod === 'wave') return a + (v.total||0);
+      if(v.payMethod === 'mixed' && v.payMethods) return a + (v.payMethods.wave||0);
+      return a;
+    }, 0);
+    const totalOrange = ventes.reduce((a,v) => {
+      if(v.payMethod === 'orange') return a + (v.total||0);
+      if(v.payMethod === 'mixed' && v.payMethods) return a + (v.payMethods.orange||0);
+      return a;
+    }, 0);
+    const totalCarte = ventes.reduce((a,v) => {
+      if(v.payMethod === 'card') return a + (v.total||0);
+      if(v.payMethod === 'mixed' && v.payMethods) return a + (v.payMethods.card||0);
+      return a;
+    }, 0);
 
     // 3b. Dépenses liées à cette caisse (capturées au moment de la clôture)
     // ✅ FIX v40 : Exclure les dépenses déjà dans une clôture précédente (via dateCloture ou id déjà listé)
