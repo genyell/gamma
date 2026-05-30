@@ -8572,7 +8572,30 @@ function showView(id, el, pushState) {
     if(panelTickets && panelTickets.style.display !== 'none') renderTicketsArchives();
   }
   if(id === 'depenses') renderDepenses();
-  if(id === 'rh') renderRH();
+  if(id === 'rh') {
+    // ✅ FIX v50 : Pré-remplir depuis localStorage avant même que pullAll arrive
+    if(RH_EMPLOYES.length === 0) {
+      try { const _e = JSON.parse(localStorage.getItem('kg-rh-employes')||'null'); if(Array.isArray(_e) && _e.length > 0) RH_EMPLOYES = _e; } catch(e) {}
+    }
+    if(RH_PAIES.length === 0)   { try { const _p = JSON.parse(localStorage.getItem('kg-rh-paies')  ||'null'); if(Array.isArray(_p)) RH_PAIES   = _p; } catch(e) {} }
+    if(RH_CONGES.length === 0)  { try { const _c = JSON.parse(localStorage.getItem('kg-rh-conges') ||'null'); if(Array.isArray(_c)) RH_CONGES  = _c; } catch(e) {} }
+    if(RH_AVANCES.length === 0) { try { const _a = JSON.parse(localStorage.getItem('kg-rh-avances')||'null'); if(Array.isArray(_a)) RH_AVANCES = _a; } catch(e) {} }
+    renderRH();
+  }
+  if(id === 'fournisseurs') {
+    renderFournisseurs();
+    // ✅ FIX v50 : Si liste vide et Supabase connecté → forcer pullAll
+    if(typeof FOURNISSEURS !== 'undefined' && FOURNISSEURS.length === 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      KGSync.pullAll().catch(()=>{});
+    }
+  }
+  if(id === 'stock') {
+    renderStock();
+    // ✅ FIX v50 : Si stock vide et Supabase connecté → forcer pullAll
+    if(typeof STOCK_ITEMS !== 'undefined' && STOCK_ITEMS.length === 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      KGSync.pullAll().catch(()=>{});
+    }
+  }
   if(id === 'compta') renderCompta();
   if(id === 'settings') { setTimeout(() => { loadTicketConfig(); initTarifsSettings(); }, 100); }
   if(id === 'factures') { loadFacturesLocal().then ? loadFacturesLocal().then(()=>renderFactures()) : renderFactures(); }
@@ -10694,34 +10717,34 @@ function printTicket(vente, caisse) {
   .header {
     background: #111;
     color: #fff;
-    padding: 16px 14px 12px;
+    padding: 8px 10px 6px;
     text-align: center;
   }
   .header-logo {
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 900;
     letter-spacing: 2px;
     text-transform: uppercase;
     color: #f5a623;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
   }
   .header-tagline {
-    font-size: 10px;
+    font-size: 9px;
     color: #aaa;
-    letter-spacing: 3px;
+    letter-spacing: 2px;
     text-transform: uppercase;
-    margin-bottom: 10px;
+    margin-bottom: 4px;
   }
   .header-addr {
-    font-size: 11px;
+    font-size: 10px;
     color: #ccc;
-    line-height: 1.6;
+    line-height: 1.4;
   }
   .header-tel {
-    font-size: 11px;
+    font-size: 10px;
     color: #f5a623;
     font-weight: 600;
-    margin-top: 3px;
+    margin-top: 1px;
   }
 
   /* ══ BANDEAU TICKET NUM ══ */
@@ -10729,56 +10752,59 @@ function printTicket(vente, caisse) {
     background: #f5a623;
     color: #000;
     text-align: center;
-    padding: 8px 0 6px;
+    padding: 4px 0 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
   }
   .ticket-band-label {
     font-size: 9px;
     font-weight: 700;
-    letter-spacing: 3px;
+    letter-spacing: 2px;
     text-transform: uppercase;
-    opacity: 0.6;
-    margin-bottom: 2px;
+    opacity: 0.7;
   }
   .ticket-band-num {
-    font-size: 28px;
+    font-size: 20px;
     font-weight: 900;
-    letter-spacing: 4px;
+    letter-spacing: 3px;
   }
 
   /* ══ INFOS COMMANDE ══ */
   .meta-block {
     background: #f8f8f8;
-    padding: 8px 14px;
+    padding: 5px 10px;
     border-bottom: 1px dashed #ddd;
   }
   .meta-row {
     display: flex;
     justify-content: space-between;
-    font-size: 12.5px;
-    padding: 3px 0;
+    font-size: 11px;
+    padding: 2px 0;
     color: #333;
   }
   .meta-row .lbl { color: #777; }
   .meta-row .val { font-weight: 700; color: #111; }
 
   /* ══ SECTION ARTICLES ══ */
-  .articles-section { padding: 10px 14px; }
+  .articles-section { padding: 6px 10px; }
   .articles-title {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 800;
     letter-spacing: 2px;
     text-transform: uppercase;
     color: #777;
-    margin-bottom: 8px;
-    padding-bottom: 6px;
+    margin-bottom: 5px;
+    padding-bottom: 4px;
     border-bottom: 1px solid #ddd;
   }
 
   .article-item {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
-    padding: 7px 0;
+    gap: 6px;
+    padding: 4px 0;
     border-bottom: 1px solid #eee;
   }
   .article-item:last-child { border-bottom: none; }
@@ -10786,11 +10812,11 @@ function printTicket(vente, caisse) {
   .article-qty-badge {
     background: #111;
     color: #fff;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
-    min-width: 24px;
-    height: 24px;
-    border-radius: 4px;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 3px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -10800,182 +10826,174 @@ function printTicket(vente, caisse) {
   .article-details { flex: 1; }
 
   .article-name {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
     color: #111;
-    line-height: 1.4;
+    line-height: 1.3;
   }
 
   .article-total {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 800;
     color: #111;
     white-space: nowrap;
     text-align: right;
-    min-width: 65px;
+    min-width: 55px;
   }
   .article-unit-price {
-    font-size: 11.5px;
-    color: #777;
-    margin-top: 2px;
+    font-size: 10px;
+    color: #999;
+    margin-top: 1px;
   }
   .article-promo {
     display: inline-block;
     background: #e74c3c;
     color: #fff;
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 700;
-    padding: 1px 4px;
-    border-radius: 3px;
-    margin-left: 4px;
-  }
-  .article-total {
-    font-size: 13px;
-    font-weight: 800;
-    color: #111;
-    white-space: nowrap;
-    text-align: right;
-    min-width: 60px;
+    padding: 1px 3px;
+    border-radius: 2px;
+    margin-left: 3px;
   }
 
   /* ══ REMISE ══ */
   .remise-row {
     display: flex;
     justify-content: space-between;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     color: #e74c3c;
-    padding: 4px 14px;
+    padding: 3px 10px;
     background: #fff5f5;
   }
 
   /* ══ TOTAUX ══ */
   .totaux-section {
-    padding: 8px 14px 0;
+    padding: 5px 10px 0;
     border-top: 1px dashed #ddd;
   }
   .subtotal-row {
     display: flex;
     justify-content: space-between;
-    font-size: 12.5px;
-    color: #555;
-    padding: 3px 0;
+    font-size: 11px;
+    color: #666;
+    padding: 2px 0;
   }
 
   /* ══ TOTAL FINAL ══ */
   .total-final {
-    margin: 8px 14px;
+    margin: 5px 10px;
     background: #111;
     color: #fff;
-    border-radius: 8px;
-    padding: 12px 16px;
+    border-radius: 6px;
+    padding: 8px 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
   .total-final-label {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 1px;
     text-transform: uppercase;
   }
   .total-final-amount {
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 900;
     color: #f5a623;
   }
 
   /* ══ PAIEMENT ══ */
   .pay-section {
-    margin: 0 14px 8px;
+    margin: 0 10px 5px;
     background: #f8f8f8;
-    border-radius: 6px;
-    padding: 8px 12px;
+    border-radius: 5px;
+    padding: 5px 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-  .pay-label { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 1px; }
-  .pay-value { font-size: 15px; font-weight: 800; color: #111; }
+  .pay-label { font-size: 10px; color: #777; text-transform: uppercase; letter-spacing: 1px; }
+  .pay-value { font-size: 13px; font-weight: 800; color: #111; }
 
   /* ══ TVA NOTE ══ */
   .tva-note {
     text-align: center;
-    font-size: 11px;
-    color: #888;
-    padding: 5px 14px;
+    font-size: 10px;
+    color: #999;
+    padding: 3px 10px;
   }
 
   /* ══ WIFI ══ */
   .wifi-section {
-    margin: 6px 14px;
-    padding: 8px 12px;
-    border: 1.5px dashed #ddd;
-    border-radius: 6px;
+    margin: 4px 10px;
+    padding: 5px 10px;
+    border: 1px dashed #ddd;
+    border-radius: 5px;
     text-align: center;
-    font-size: 11px;
+    font-size: 10px;
     color: #555;
   }
-  .wifi-title { font-weight: 800; font-size: 12px; margin-bottom: 2px; }
+  .wifi-title { font-weight: 800; font-size: 11px; margin-bottom: 1px; }
 
   /* ══ SÉPARATEUR DÉCORATIF ══ */
   .deco-sep {
     text-align: center;
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: 2px;
     color: #ccc;
-    margin: 8px 0;
+    margin: 5px 0;
     overflow: hidden;
   }
 
   /* ══ QR CODE ══ */
-  .qr-section { text-align: center; padding: 8px 14px; }
-  .qr-section img { border: 2px solid #111; border-radius: 6px; }
-  .qr-label { font-size: 10px; color: #888; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  .qr-section { text-align: center; padding: 5px 10px; }
+  .qr-section img { border: 2px solid #111; border-radius: 5px; }
+  .qr-label { font-size: 9px; color: #888; margin-bottom: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
 
   /* ══ FOOTER ══ */
   .footer-section {
     background: #f8f8f8;
     border-top: 2px solid #f5a623;
-    padding: 10px 14px 14px;
+    padding: 6px 10px 8px;
     text-align: center;
   }
   .footer-msg {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
     color: #111;
-    line-height: 1.7;
-    margin-bottom: 6px;
+    line-height: 1.5;
+    margin-bottom: 3px;
   }
   .footer-meta {
-    font-size: 11px;
+    font-size: 10px;
     color: #888;
-    line-height: 1.8;
+    line-height: 1.6;
   }
   .footer-ninea {
     display: inline-block;
     background: #111;
     color: #f5a623;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 4px;
+    padding: 1px 6px;
+    border-radius: 3px;
     letter-spacing: 1px;
-    margin-top: 4px;
+    margin-top: 2px;
   }
 
   /* ══ BOUTONS ÉCRAN ══ */
   .no-print {
-    padding: 14px;
+    padding: 8px;
     display: flex;
     gap: 8px;
     justify-content: center;
   }
   .no-print button {
-    padding: 10px 24px;
+    padding: 7px 18px;
     border: none;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 6px;
+    font-size: 13px;
     font-weight: 700;
     cursor: pointer;
   }
@@ -11012,26 +11030,26 @@ function printTicket(vente, caisse) {
     .header {
       background: #fff !important;
       color: #000 !important;
-      border-bottom: 3px solid #000 !important;
-      padding: 8px 6px 6px !important;
+      border-bottom: 2px solid #000 !important;
+      padding: 5px 6px 4px !important;
     }
     .header-logo {
       color: #000 !important;
-      font-size: 22px !important;
+      font-size: 18px !important;
       font-weight: 900 !important;
       letter-spacing: 2px !important;
     }
     .header-tagline {
       color: #000 !important;
-      font-size: 11px !important;
+      font-size: 10px !important;
     }
     .header-addr {
       color: #000 !important;
-      font-size: 12px !important;
+      font-size: 11px !important;
     }
     .header-tel {
       color: #000 !important;
-      font-size: 13px !important;
+      font-size: 12px !important;
       font-weight: 900 !important;
     }
     .header-logo img {
@@ -11040,14 +11058,15 @@ function printTicket(vente, caisse) {
     .ticket-band {
       background: #000 !important;
       color: #fff !important;
+      padding: 3px 0 !important;
     }
     .ticket-band-label {
       color: #fff !important;
-      font-size: 11px !important;
+      font-size: 9px !important;
     }
     .ticket-band-num {
       color: #fff !important;
-      font-size: 30px !important;
+      font-size: 20px !important;
       font-weight: 900 !important;
     }
     .meta-block {
@@ -11055,99 +11074,99 @@ function printTicket(vente, caisse) {
       border-bottom: 1px dashed #000 !important;
     }
     .meta-row {
-      font-size: 13px !important;
+      font-size: 11px !important;
       color: #000 !important;
     }
     .meta-row .lbl { color: #000 !important; font-weight: 600 !important; }
     .meta-row .val { color: #000 !important; font-weight: 900 !important; }
-    .articles-section { padding: 8px 10px !important; }
+    .articles-section { padding: 6px 8px !important; }
     .articles-title {
       color: #000 !important;
-      font-size: 12px !important;
+      font-size: 10px !important;
       font-weight: 900 !important;
       border-bottom: 2px solid #000 !important;
     }
     .article-name {
-      font-size: 15px !important;
+      font-size: 13px !important;
       font-weight: 900 !important;
       color: #000 !important;
     }
     .article-qty-badge {
       background: #000 !important;
       color: #fff !important;
-      font-size: 14px !important;
+      font-size: 12px !important;
       font-weight: 900 !important;
-      min-width: 26px !important;
-      height: 26px !important;
+      min-width: 22px !important;
+      height: 22px !important;
     }
     .article-total {
-      font-size: 15px !important;
+      font-size: 13px !important;
       font-weight: 900 !important;
       color: #000 !important;
     }
     .article-unit-price {
-      font-size: 12px !important;
+      font-size: 10px !important;
       color: #000 !important;
     }
     .article-item {
       border-bottom: 1px dashed #000 !important;
-      padding: 6px 0 !important;
+      padding: 4px 0 !important;
     }
     .totaux-section {
       border-top: 2px solid #000 !important;
     }
     .subtotal-row {
-      font-size: 13px !important;
+      font-size: 11px !important;
       color: #000 !important;
     }
     .total-final {
       background: #000 !important;
       color: #fff !important;
       border-radius: 0 !important;
-      margin: 6px 0 !important;
+      margin: 4px 0 !important;
     }
     .total-final-label {
       color: #fff !important;
-      font-size: 15px !important;
+      font-size: 13px !important;
       font-weight: 900 !important;
     }
     .total-final-amount {
       color: #fff !important;
-      font-size: 24px !important;
+      font-size: 20px !important;
       font-weight: 900 !important;
     }
     .pay-section {
       background: #fff !important;
-      border: 2px solid #000 !important;
+      border: 1px solid #000 !important;
       border-radius: 0 !important;
-      margin: 4px 0 !important;
+      margin: 3px 0 !important;
     }
     .pay-label {
       color: #000 !important;
-      font-size: 12px !important;
+      font-size: 10px !important;
       font-weight: 700 !important;
     }
     .pay-value {
       color: #000 !important;
-      font-size: 16px !important;
+      font-size: 14px !important;
       font-weight: 900 !important;
     }
     .tva-note {
       color: #000 !important;
-      font-size: 12px !important;
+      font-size: 10px !important;
     }
     .footer-section {
       background: #fff !important;
-      border-top: 3px solid #000 !important;
+      border-top: 2px solid #000 !important;
     }
     .footer-msg {
       color: #000 !important;
-      font-size: 14px !important;
+      font-size: 12px !important;
       font-weight: 700 !important;
     }
     .footer-meta {
       color: #000 !important;
-      font-size: 12px !important;
+      font-size: 10px !important;
     }
     .footer-ninea {
       background: #000 !important;
@@ -11174,87 +11193,127 @@ function printTicket(vente, caisse) {
   .cuisine-ticket {
     width: 100%;
     font-family: Arial, Helvetica, sans-serif;
-    padding: 10px 14px 16px;
-    border-top: 4px dashed #000;
+    padding: 6px 10px 10px;
+    border-top: 3px dashed #000;
   }
   .cuisine-header {
     text-align: center;
     background: #000;
     color: #fff;
-    padding: 12px 10px;
-    margin-bottom: 10px;
+    padding: 8px 8px;
+    margin-bottom: 6px;
   }
   .cuisine-header-title {
-    font-size: 22px;
+    font-size: 16px;
     font-weight: 900;
-    letter-spacing: 3px;
+    letter-spacing: 2px;
     text-transform: uppercase;
     color: #fff;
   }
   .cuisine-header-num {
-    font-size: 42px;
+    font-size: 30px;
     font-weight: 900;
-    letter-spacing: 6px;
+    letter-spacing: 4px;
     color: #fff;
-    margin-top: 4px;
+    margin-top: 2px;
   }
   .cuisine-meta {
-    font-size: 15px;
+    font-size: 12px;
     color: #000;
     font-weight: 600;
-    margin-bottom: 10px;
-    border-bottom: 2px dashed #000;
-    padding-bottom: 8px;
-    line-height: 2;
+    margin-bottom: 6px;
+    border-bottom: 1px dashed #000;
+    padding-bottom: 5px;
+    line-height: 1.6;
   }
   .cuisine-items-title {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 900;
-    letter-spacing: 3px;
+    letter-spacing: 2px;
     text-transform: uppercase;
     color: #000;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
     border-bottom: 2px solid #000;
-    padding-bottom: 4px;
+    padding-bottom: 3px;
   }
   .cuisine-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 0;
+    gap: 8px;
+    padding: 7px 0;
     border-bottom: 1px dashed #000;
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 700;
   }
   .cuisine-item:last-child { border-bottom: none; }
   .cuisine-item-qty {
     background: #000;
     color: #fff;
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 900;
-    min-width: 38px;
-    height: 38px;
-    border-radius: 4px;
+    min-width: 30px;
+    height: 30px;
+    border-radius: 3px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
-  .cuisine-item-name { flex: 1; font-size: 18px; color: #000; font-weight: 900; }
-  .cuisine-item-price { font-size: 16px; color: #000; white-space: nowrap; text-align: right; font-weight: 900; }
+  .cuisine-item-name { flex: 1; font-size: 15px; color: #000; font-weight: 900; }
+  .cuisine-item-price { font-size: 13px; color: #000; white-space: nowrap; text-align: right; font-weight: 900; }
   .cuisine-total {
-    margin-top: 10px;
-    padding: 12px 14px;
+    margin-top: 6px;
+    padding: 8px 10px;
     background: #000;
     color: #fff;
     border-radius: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 900;
   }
-  .cuisine-total-amount { color: #fff; font-size: 24px; font-weight: 900; }
+  .cuisine-total-amount { color: #fff; font-size: 18px; font-weight: 900; }
+  .cuisine-pay-section {
+    margin-top: 6px;
+    border: 2px solid #000;
+    padding: 6px 10px;
+    background: #f5f5f5;
+  }
+  .cuisine-pay-title {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #000;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #000;
+    padding-bottom: 3px;
+  }
+  .cuisine-pay-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: #000;
+    border-bottom: 1px dashed #ccc;
+  }
+  .cuisine-pay-row:last-child { border-bottom: none; }
+  .cuisine-pay-amount { font-weight: 900; font-size: 14px; }
+  .cuisine-pay-mixed-label {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    background: #000;
+    color: #fff;
+    padding: 1px 5px;
+    border-radius: 2px;
+    display: inline-block;
+    margin-bottom: 3px;
+  }
 </style>
 </head><body>
 <!-- ══ EN-TÊTE ══ -->
@@ -11360,8 +11419,7 @@ ${TICKET_CONFIG.showQR ? `
 <div class="footer-section">
   <div class="footer-msg">${(TICKET_CONFIG.footerMsg || '🙏 Merci pour votre visite !\nÀ très bientôt parmi nous.').replace(/\n/g,'<br>')}</div>
   <div class="footer-meta">
-    Conservez ce ticket — Ticket N°${String(vente.orderNum).padStart(3,'0')}<br>
-    ${dateStr} · ${heureStr}
+    N°${String(vente.orderNum).padStart(3,'0')} · ${dateStr} · ${heureStr}
     ${TICKET_CONFIG.showNinea && ninea ? `<br><span class="footer-ninea">NINEA : ${ninea}</span>` : ''}
   </div>
 </div>
@@ -11413,6 +11471,29 @@ ${(function(){
       return _items.reduce(function(s,i){ return s + i.price * i.qty; }, 0).toLocaleString();
     })()} F</span>
   </div>
+
+  <!-- ══ PAIEMENT CUISINE ══ -->
+  ${(function(){
+    var _pm  = vente.payMethod;
+    var _pms = vente.payMethods || {};
+    var _h   = '<div class="cuisine-pay-section">';
+    _h += '<div class="cuisine-pay-title">💳 Mode de paiement</div>';
+    if(_pm === 'mixed' && (_pms.cash > 0 || _pms.wave > 0 || _pms.orange > 0)) {
+      _h += '<div class="cuisine-pay-mixed-label">🔀 Paiement Mixte</div>';
+      if(_pms.cash   > 0) _h += '<div class="cuisine-pay-row"><span class="cuisine-pay-mode">💵 Espèces</span><span class="cuisine-pay-amount">'   + _pms.cash.toLocaleString()   + ' F</span></div>';
+      if(_pms.wave   > 0) _h += '<div class="cuisine-pay-row"><span class="cuisine-pay-mode">📱 Wave</span><span class="cuisine-pay-amount">'        + _pms.wave.toLocaleString()   + ' F</span></div>';
+      if(_pms.orange > 0) _h += '<div class="cuisine-pay-row"><span class="cuisine-pay-mode">🟠 Orange Money</span><span class="cuisine-pay-amount">'+ _pms.orange.toLocaleString() + ' F</span></div>';
+    } else {
+      var _icon = _pm==='cash'   ? '💵 Espèces'
+                : _pm==='wave'   ? '📱 Wave'
+                : _pm==='orange' ? '🟠 Orange Money'
+                : '💳 ' + (_pm||'');
+      var _total = (typeof vente.total !== 'undefined') ? vente.total : vente.items.reduce(function(s,i){ return s+i.price*i.qty; },0);
+      _h += '<div class="cuisine-pay-row"><span class="cuisine-pay-mode">' + _icon + '</span><span class="cuisine-pay-amount">' + _total.toLocaleString() + ' F</span></div>';
+    }
+    _h += '</div>';
+    return _h;
+  })()}
 </div>
 
 <!-- ══ BOUTONS ÉCRAN ══ -->
@@ -18200,11 +18281,15 @@ TICKETS_ARCHIVES = [];
       try { const d = JSON.parse(localStorage.getItem('kg_depenses')||'null'); if(Array.isArray(d)) DEPENSES = d; } catch(e) {}
     }
 
-    // ✅ FIX: restaurer RH
-    // RH_EMPLOYES toujours chargé depuis Supabase (pullAll), pas depuis localStorage
-    if(Array.isArray(data.RH_PAIES))   RH_PAIES   = data.RH_PAIES;
-    if(Array.isArray(data.RH_CONGES))  RH_CONGES  = data.RH_CONGES;
-    if(Array.isArray(data.RH_AVANCES)) RH_AVANCES = data.RH_AVANCES;
+    // ✅ FIX v50 : restaurer RH depuis localStorage EN ATTENDANT pullAll Supabase
+    // RH_EMPLOYES : fallback localStorage si pullAll pas encore arrivé
+    try { const _e = JSON.parse(localStorage.getItem('kg-rh-employes')||'null'); if(Array.isArray(_e) && _e.length > 0 && RH_EMPLOYES.length === 0) RH_EMPLOYES = _e; } catch(e) {}
+    if(Array.isArray(data.RH_PAIES))   { RH_PAIES   = data.RH_PAIES;   try { localStorage.setItem('kg-rh-paies',   JSON.stringify(RH_PAIES));   } catch(e) {} }
+    else { try { const _p = JSON.parse(localStorage.getItem('kg-rh-paies')||'null');   if(Array.isArray(_p))  RH_PAIES   = _p;  } catch(e) {} }
+    if(Array.isArray(data.RH_CONGES))  { RH_CONGES  = data.RH_CONGES;  try { localStorage.setItem('kg-rh-conges',  JSON.stringify(RH_CONGES));  } catch(e) {} }
+    else { try { const _c = JSON.parse(localStorage.getItem('kg-rh-conges')||'null');  if(Array.isArray(_c))  RH_CONGES  = _c;  } catch(e) {} }
+    if(Array.isArray(data.RH_AVANCES)) { RH_AVANCES = data.RH_AVANCES; try { localStorage.setItem('kg-rh-avances', JSON.stringify(RH_AVANCES)); } catch(e) {} }
+    else { try { const _a = JSON.parse(localStorage.getItem('kg-rh-avances')||'null'); if(Array.isArray(_a))  RH_AVANCES = _a;  } catch(e) {} }
 
     // ✅ FIX: restaurer FACTURES
     if(Array.isArray(data.FACTURES) && data.FACTURES.length) {
@@ -18648,7 +18733,16 @@ const KGSync = (() => {
   async function pushStockCategories() { _invalidateCache('stock_categories_data'); await upsert('stock_categories_data', { items: (typeof STOCK_CATEGORIES !== 'undefined' ? STOCK_CATEGORIES : []) }); }
   // ✅ FIX v39 : Factures & RH via kg_sync (realtime sur tous les navigateurs)
   async function pushFactures()  { _invalidateCache('factures_data'); await upsert('factures_data',  { items: (typeof FACTURES     !== 'undefined' ? FACTURES     : []) }); }
-  async function pushRH()        { _invalidateCache('rh_data'); await upsert('rh_data',        { employes: (typeof RH_EMPLOYES !== 'undefined' ? RH_EMPLOYES : []), paies: (typeof RH_PAIES !== 'undefined' ? RH_PAIES : []), conges: (typeof RH_CONGES !== 'undefined' ? RH_CONGES : []), avances: (typeof RH_AVANCES !== 'undefined' ? RH_AVANCES : []) }); }
+  async function pushRH()        {
+    _invalidateCache('rh_data');
+    const _rhPayload = { employes: (typeof RH_EMPLOYES !== 'undefined' ? RH_EMPLOYES : []), paies: (typeof RH_PAIES !== 'undefined' ? RH_PAIES : []), conges: (typeof RH_CONGES !== 'undefined' ? RH_CONGES : []), avances: (typeof RH_AVANCES !== 'undefined' ? RH_AVANCES : []) };
+    await upsert('rh_data', _rhPayload);
+    // ✅ FIX v50 : Double persistance localStorage — évite la disparition au refresh
+    try { localStorage.setItem('kg-rh-employes', JSON.stringify(_rhPayload.employes)); } catch(e) {}
+    try { localStorage.setItem('kg-rh-paies',    JSON.stringify(_rhPayload.paies));    } catch(e) {}
+    try { localStorage.setItem('kg-rh-conges',   JSON.stringify(_rhPayload.conges));   } catch(e) {}
+    try { localStorage.setItem('kg-rh-avances',  JSON.stringify(_rhPayload.avances));  } catch(e) {}
+  }
   async function pushInventaires() { _invalidateCache('inventaires_data'); await upsert('inventaires_data', { items: (typeof INVENTAIRES !== 'undefined' ? INVENTAIRES : []) }); } // ✅ FIX v39
   // ✅ FIX v40 RESERVATIONS : Synchroniser les réservations Terrain et Location
   async function pushTerrainReservations() {
@@ -19286,10 +19380,14 @@ const KGSync = (() => {
               actif:        e.actif !== undefined ? e.actif : (e.actif ?? true),
             };
           }
-          if(Array.isArray(data.employes) && data.employes.length > 0) RH_EMPLOYES = data.employes.map(_normEmploye);
-          if(Array.isArray(data.paies))   RH_PAIES   = data.paies;
-          if(Array.isArray(data.conges))  RH_CONGES  = data.conges;
-          if(Array.isArray(data.avances)) RH_AVANCES = data.avances;
+          if(Array.isArray(data.employes) && data.employes.length > 0) {
+            RH_EMPLOYES = data.employes.map(_normEmploye);
+            // ✅ FIX v50 : Persister dans localStorage pour survie au refresh
+            try { localStorage.setItem('kg-rh-employes', JSON.stringify(RH_EMPLOYES)); } catch(e) {}
+          }
+          if(Array.isArray(data.paies))   { RH_PAIES   = data.paies;   try { localStorage.setItem('kg-rh-paies',   JSON.stringify(RH_PAIES));   } catch(e) {} }
+          if(Array.isArray(data.conges))  { RH_CONGES  = data.conges;  try { localStorage.setItem('kg-rh-conges',  JSON.stringify(RH_CONGES));  } catch(e) {} }
+          if(Array.isArray(data.avances)) { RH_AVANCES = data.avances; try { localStorage.setItem('kg-rh-avances', JSON.stringify(RH_AVANCES)); } catch(e) {} }
         } else if(key === 'sport_data') {
           // ✅ FIX v40 SPORT : Restaurer membres et entrées sport
           try {
@@ -20207,11 +20305,19 @@ function loadTicketConfig() {
 // MODULE RH — Ressources Humaines & Salaires
 // ============================================================
 
-let RH_EMPLOYES = []; // Chargé depuis Supabase via pullAll()
+let RH_EMPLOYES = []; // Chargé depuis Supabase via pullAll() + fallback localStorage v50
+// ✅ FIX v50 : Pré-charger RH depuis localStorage dès le démarrage (avant pullAll)
+(function(){ try { const _e = JSON.parse(localStorage.getItem('kg-rh-employes')||'null'); if(Array.isArray(_e) && _e.length > 0) RH_EMPLOYES = _e; } catch(e) {} })();
 
 let RH_PAIES = [];       // fiches de paie générées
 let RH_CONGES = [];      // congés / absences
 let RH_AVANCES = [];     // avances sur salaire
+// ✅ FIX v50 : Pré-charger depuis localStorage dès le démarrage
+(function(){
+  try { const _p = JSON.parse(localStorage.getItem('kg-rh-paies')  ||'null'); if(Array.isArray(_p)) RH_PAIES   = _p; } catch(e) {}
+  try { const _c = JSON.parse(localStorage.getItem('kg-rh-conges') ||'null'); if(Array.isArray(_c)) RH_CONGES  = _c; } catch(e) {}
+  try { const _a = JSON.parse(localStorage.getItem('kg-rh-avances')||'null'); if(Array.isArray(_a)) RH_AVANCES = _a; } catch(e) {}
+})();
 
 const RH_POSTES = {
   gerant:'👑 Gérant', superviseur:'🔷 Superviseur', caissier:'💳 Caissier',
