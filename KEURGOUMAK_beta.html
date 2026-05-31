@@ -6227,13 +6227,8 @@ Revenez nous voir bient&#244;t.</textarea>
 
       <!-- TAB : RUPTURES -->
       <div id="qrtab-ruptures" style="display:none;">
-        <div style="background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.2);border-radius:12px;padding:14px;margin-bottom:12px;font-size:13px;color:var(--text2);">
+        <div style="background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.2);border-radius:12px;padding:14px;margin-bottom:20px;font-size:13px;color:var(--text2);">
           ⚠️ Activez la rupture pour qu'un article <strong style="color:var(--text)">disparaisse immédiatement</strong> du menu client. Le client en cours de commande verra aussi l'alerte.
-        </div>
-        <div style="margin-bottom:14px;">
-          <button onclick="deduplicateMenuItems()" style="background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.35);color:var(--accent);border-radius:10px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">
-            🧹 Nettoyer les doublons du menu
-          </button>
         </div>
         <div id="qr-ruptures-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;"></div>
       </div>
@@ -13130,10 +13125,29 @@ icon:  (()=>{ const _v = document.getElementById('item-icon').value || '🍽️'
   renderMenu(currentMenuCat || 'all');
   renderPOS();
 
-  // ✅ FIX ANTI-DOUBLON v42 : NE PAS appeler KGSync.push.menu() ici.
-  // Les modifications sont déjà poussées directement dans menu_items (update/insert ci-dessus).
-  // push.menu() pousse dans kg_sync ET recharge depuis menu_items au prochain pull → doublons.
-  // On invalide seulement le cache QR pour forcer le rechargement du menu client.
+  // ✅ FIX v38 + ANTI-DOUBLON : Synchroniser kg_sync après modif
+  // Dédupliquer MENU par sbId avant push (évite doublon local+supabase)
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    // Dédupliquer : si un article a un sbId, supprimer les doublons locaux avec même nom
+    const _seenSbIds = new Set();
+    const _seenNames = new Set();
+    MENU = MENU.filter(m => {
+      if(m.sbId) {
+        if(_seenSbIds.has(m.sbId)) return false;
+        _seenSbIds.add(m.sbId);
+        _seenNames.add((m.name||'').toLowerCase());
+        return true;
+      } else {
+        // Article local sans sbId : garder seulement si nom unique
+        const _n = (m.name||'').toLowerCase();
+        if(_seenNames.has(_n)) return false;
+        _seenNames.add(_n);
+        return true;
+      }
+    });
+    KGSync.push.menu().catch(e => console.error('push.menu (saveMenuItem):', e));
+  }
+  // Invalider le cache QR menu sur cet appareil
   try {
     const _rid = window._KG_RESTAURANT_ID;
     if(_rid) { localStorage.removeItem('kg_qr_menu_' + _rid); localStorage.removeItem('kg_qr_menu_ts_' + _rid); }
@@ -18710,22 +18724,7 @@ const KGSync = (() => {
       localStorage.setItem(_CACHE_KEY, JSON.stringify(_cache));
     } catch(e) {}
   }
-  async function pushMenu() {
-    // ✅ FIX ANTI-DOUBLON v42 : dédupliquer MENU par sbId/id avant push dans kg_sync
-    const _seen = new Map();
-    const _dedupMenu = [];
-    MENU.forEach(item => {
-      const _uid = item.sbId || item.id;
-      if(_uid && _seen.has(_uid)) {
-        // Doublon — ignorer
-        return;
-      }
-      if(_uid) _seen.set(_uid, true);
-      _dedupMenu.push(item);
-    });
-    _invalidateCache('menu_data');
-    await upsert('menu_data', { items: _dedupMenu });
-  }
+  async function pushMenu()           { _invalidateCache('menu_data'); await upsert('menu_data', { items: MENU }); }
   async function pushUsers()          { _invalidateCache('users_data'); await upsert('users_data', { items: USERS.map(u => ({...u})) }); }
   async function pushRestaurantInfo() { _invalidateCache('restaurant_info'); await upsert('restaurant_info', { info: RESTAURANT_INFO }); }
   async function pushDepenses()        { _invalidateCache('depenses_data'); await upsert('depenses_data', { items: DEPENSES }); }
@@ -19293,28 +19292,19 @@ const KGSync = (() => {
           if(typeof refreshDashboard === 'function') try { refreshDashboard(); } catch(e) {}
           console.log('[pullAll] ✅ Clôtures sync:', HISTORIQUE_CLOTURES.length, 'clôture(s)');
         } else if(key === 'menu_data' && data.items) {
-          // ✅ FIX ANTI-DOUBLON v42 : Remplacer MENU depuis kg_sync mais dédupliquer strictement par sbId.
-          // Un article avec le même sbId ne peut apparaître qu'une fois (update ≠ création).
-          const _seen = new Map(); // sbId → index dans le nouveau tableau
-          const _newMenu = [];
-          data.items.forEach(item => {
+          // ✅ FIX : Normaliser cat/category + image_url → icon si icon est un emoji
+          MENU = data.items.map(item => {
             if(!item.cat && item.category) item.cat = item.category;
+            // Si image_url existe et icon est un emoji (pas une URL), utiliser image_url
             if(item.image_url && item.icon && !item.icon.startsWith('http') && !item.icon.startsWith('data:')) {
               item._displayIcon = item.image_url;
             }
+            // Also: if icon is a URL but image_url is missing, populate image_url
             if(!item.image_url && item.icon && (item.icon.startsWith('http')||item.icon.startsWith('data:')||item.icon.includes('ibb.co'))) {
               item.image_url = item.icon;
             }
-            const _uid = item.sbId || item.id;
-            if(_uid && _seen.has(_uid)) {
-              // Doublon — on garde la version la plus récente (celle-ci, plus tardive dans le tableau)
-              _newMenu[_seen.get(_uid)] = item;
-            } else {
-              if(_uid) _seen.set(_uid, _newMenu.length);
-              _newMenu.push(item);
-            }
+            return item;
           });
-          MENU = _newMenu;
           // ✅ Re-sync cart image_url now that MENU is populated
           if(Array.isArray(cart)) {
             cart.forEach(cartItem => {
@@ -27734,20 +27724,6 @@ function renderQRRupturesPanel() {
       en_rupture: m.en_rupture || false
     }));
   }
-
-  // ✅ FIX ANTI-DOUBLON v42 : dédupliquer par id d'abord, puis par nom+prix
-  const _seenIds = new Set();
-  const _seenNamePrice = new Set();
-  _rupItems = _rupItems.filter(item => {
-    const _id = String(item.id || '');
-    const _np = (item.nom||item.name||'').toLowerCase() + '_' + (item.prix||item.price_ttc||0);
-    if(_id && _seenIds.has(_id)) return false;
-    if(_seenNamePrice.has(_np)) return false;
-    if(_id) _seenIds.add(_id);
-    _seenNamePrice.add(_np);
-    return true;
-  });
-
   if(!_rupItems.length) {
     list.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:20px 0;">Aucun article dans le menu.</div>`;
     return;
@@ -27793,54 +27769,6 @@ async function deleteQRMenuItem(itemId, itemName) {
   }
   renderQRRupturesPanel();
   _qrToast(`🗑️ "${itemName}" supprimé du menu`);
-}
-
-// ✅ FIX ANTI-DOUBLON v42 : Nettoyer les doublons dans menu_items Supabase
-async function deduplicateMenuItems() {
-  if(!_qrSb || !_qrRid) { _qrToast('❌ Non connecté'); return; }
-  _qrToast('⏳ Analyse des doublons…');
-  try {
-    const { data: all, error } = await _qrSb.from('menu_items')
-      .select('id, name, price_ttc, actif, created_at')
-      .eq('restaurant_id', _qrRid)
-      .order('created_at', { ascending: true }); // garder le plus ancien
-    if(error) throw error;
-    // Grouper par nom+prix — garder le premier (plus ancien), supprimer les autres
-    const _seen = new Map();
-    const _toDelete = [];
-    (all || []).forEach(item => {
-      const _key = (item.name || '').toLowerCase() + '_' + (item.price_ttc || 0);
-      if(_seen.has(_key)) {
-        _toDelete.push(item.id); // doublon — marquer inactif
-      } else {
-        _seen.set(_key, item.id);
-      }
-    });
-    if(_toDelete.length === 0) {
-      _qrToast('✅ Aucun doublon trouvé !');
-      return;
-    }
-    // Désactiver les doublons (actif: false) — ne pas supprimer physiquement
-    const { error: delErr } = await _qrSb.from('menu_items')
-      .update({ actif: false })
-      .in('id', _toDelete);
-    if(delErr) throw delErr;
-    // Invalider cache et recharger
-    try { localStorage.removeItem('kg_qr_menu_' + _qrRid); localStorage.removeItem('kg_qr_menu_ts_' + _qrRid); } catch(e) {}
-    await loadQRMenuItems();
-    // Nettoyer aussi MENU local
-    if(typeof MENU !== 'undefined') {
-      const _delSet = new Set(_toDelete);
-      MENU = MENU.filter(m => !_delSet.has(m.sbId) && !_delSet.has(m.id));
-      if(typeof renderMenu === 'function') renderMenu('all');
-      if(typeof renderPOS === 'function') renderPOS();
-    }
-    renderQRRupturesPanel();
-    _qrToast(`✅ ${_toDelete.length} doublon(s) supprimé(s) !`);
-  } catch(e) {
-    console.error('deduplicateMenuItems:', e);
-    _qrToast('❌ Erreur : ' + (e.message || e));
-  }
 }
 
 async function setQRMenuRupture(itemId, en_rupture) {
