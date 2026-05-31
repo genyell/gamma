@@ -11800,7 +11800,7 @@ function renderMenu(cat) {
         <div style="margin-bottom:6px;">
           ${(item.recette && item.recette.length) ?
             `<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
-              ${item.recette.map(r=>{const s=STOCK_DATA.find(x=>x.id===r.stockId);return s?`<span style="font-size:10px;background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.25);border-radius:20px;padding:2px 8px;color:var(--teal);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})" title="Modifier les ingr&eacute;dients">${s.icon} ${r.qty} ${s.unit}</span>`:''}).filter(Boolean).join('')}
+              ${item.recette.map(r=>{const s=STOCK_DATA.find(x=>x.id===r.stockId||x.sbId===r.stockId||String(x.id)===String(r.stockId));return s?`<span style="font-size:10px;background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.25);border-radius:20px;padding:2px 8px;color:var(--teal);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})" title="Modifier les ingr&eacute;dients">${s.icon} ${r.qty} ${s.unit}</span>`:''}).filter(Boolean).join('')}
               ${isManager ? `<span style="font-size:10px;background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);border-radius:20px;padding:2px 8px;color:var(--accent);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})">&#9998; modifier</span>` : ''}
             </div>`
           : isManager ? `<span style="font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:2px 8px;color:var(--text2);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})">+ Lier des ingr&eacute;dients</span>` : ''
@@ -19957,7 +19957,11 @@ function openEditIngredient(menuIdx) {
   if(!item) return;
   document.getElementById('editIngredient-title').textContent = '🍳 ' + (item.icon||'') + ' ' + item.name + ' — Ingrédients';
   document.getElementById('editIngredient-itemId').value = menuIdx;
-  _editIngLines = (item.recette || []).map(l => ({ stockId: l.stockId, qty: l.qty }));
+  _editIngLines = (item.recette || []).map(l => {
+    // Normaliser : résoudre le stockId vers l'id local
+    const stock = STOCK_DATA.find(x => x.id == l.stockId || x.sbId == l.stockId || String(x.id) === String(l.stockId));
+    return { stockId: stock ? stock.id : l.stockId, qty: l.qty };
+  });
   _drawIngredientLines();
   showModal('editIngredient');
 }
@@ -20003,7 +20007,11 @@ function saveIngredients() {
   const menuIdx = parseInt(document.getElementById('editIngredient-itemId').value);
   const item = MENU[menuIdx];
   if(!item) return;
-  item.recette = _editIngLines.filter(l => l.stockId && l.qty > 0).map(l => ({ stockId: l.stockId, qty: l.qty }));
+  item.recette = _editIngLines.filter(l => l.stockId && l.qty > 0).map(l => {
+    // Normaliser : toujours stocker l'id local (pas sbId) pour la cohérence
+    const stock = STOCK_DATA.find(x => x.id == l.stockId || x.sbId == l.stockId || String(x.id) === String(l.stockId));
+    return { stockId: stock ? stock.id : l.stockId, qty: l.qty };
+  });
   closeModal('editIngredient');
   renderMenu(currentMenuCat || 'all');
   if(KGSync.isConnected) KGSync.push.menu().catch(()=>{});
