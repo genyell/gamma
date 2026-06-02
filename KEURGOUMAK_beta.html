@@ -4905,6 +4905,13 @@ function _syncSportVentes()       { return []; }
       </div>
       <div class="pos-layout">
         <div class="pos-left">
+          <div style="position:relative;margin-bottom:10px;">
+            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;">🔍</span>
+            <input id="pos-search" type="text" placeholder="Rechercher un article…"
+              oninput="filterPOSSearch(this.value)"
+              style="width:100%;box-sizing:border-box;padding:10px 12px 10px 38px;background:var(--surface2);border:1.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:14px;outline:none;transition:border-color 0.2s;"
+              onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+          </div>
           <div class="menu-cats pos-cats" id="pos-cats"></div>
           <div class="pos-items-grid" id="pos-items-grid"></div>
         </div>
@@ -9861,13 +9868,37 @@ function renderPOS() {
   filterPOS('all', {currentTarget: catsEl.children[0]});
 }
 
+// Garde la catégorie active pour que la recherche ne la perde pas
+let _posCurCat = 'all';
+
 function filterPOS(cat, ev) {
   // ✅ FIX PC : utiliser currentTarget ou closest pour éviter le bug de clic sur enfant
   const el = ev && ev.currentTarget ? ev.currentTarget : (ev && ev.target ? ev.target.closest('.cat-btn') : null);
   document.querySelectorAll('#pos-cats .cat-btn').forEach(b => b.classList.remove('active'));
   if(el) el.classList.add('active');
-  const items = cat === 'all' ? MENU : MENU.filter(m => (m.cat || m.category) === cat);
-  document.getElementById('pos-items-grid').innerHTML = items.map((item, idx) => {
+  _posCurCat = cat;
+  // Réinitialiser la recherche quand on change de catégorie
+  const searchEl = document.getElementById('pos-search');
+  if(searchEl) searchEl.value = '';
+  _renderPOSGrid(cat, '');
+}
+
+function filterPOSSearch(query) {
+  _renderPOSGrid(_posCurCat, query);
+}
+
+function _renderPOSGrid(cat, query) {
+  let items = cat === 'all' ? MENU : MENU.filter(m => (m.cat || m.category) === cat);
+  if(query && query.trim()) {
+    const q = query.trim().toLowerCase();
+    items = items.filter(m => (m.name || '').toLowerCase().includes(q));
+  }
+  const grid = document.getElementById('pos-items-grid');
+  if(items.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text2);font-size:13px;">😕 Aucun article trouvé</div>';
+    return;
+  }
+  grid.innerHTML = items.map((item) => {
     // Utiliser l'index global dans MENU pour éviter les problèmes avec les UUIDs dans onclick
     const menuIdx = MENU.indexOf(item);
     const iconVal = item.image_url || item.icon || '🍽️';
@@ -18900,26 +18931,26 @@ TICKETS_ARCHIVES = [];
 
     // ✅ FIX v43: restaurer MENU depuis localStorage avec déduplication par sbId/id ET par nom
     if(Array.isArray(data.MENU) && data.MENU.length && typeof MENU !== 'undefined') {
-      const _lsSeenId   = new Map();
-      const _lsSeenName = new Map();
+      const _lsSeenId = new Map();
+      const _lsSeenNP = new Map(); // nom+prix → index
       const _lsMenu = [];
       data.MENU.forEach(item => {
         if(!item.image_url && item.icon && (item.icon.startsWith('http')||item.icon.startsWith('data:')||item.icon.includes('ibb.co'))) {
           item.image_url = item.icon;
         }
         const _uid  = item.sbId || item.id;
-        const _nkey = (item.name || '').toLowerCase().trim();
+        const _npk  = (item.name || '').toLowerCase().trim() + '_' + (item.price || item.price_ttc || 0);
         if(_uid && _lsSeenId.has(_uid)) {
           _lsMenu[_lsSeenId.get(_uid)] = item;
-        } else if(_nkey && _lsSeenName.has(_nkey)) {
-          const _ei = _lsSeenName.get(_nkey);
+        } else if(_lsSeenNP.has(_npk)) {
+          const _ei = _lsSeenNP.get(_npk);
           const _ex = _lsMenu[_ei];
           const _exLocal = !_ex.sbId && String(_ex.id||'').startsWith('local_');
           const _newLocal = !item.sbId && String(item.id||'').startsWith('local_');
           if(!_newLocal || _exLocal) { _lsMenu[_ei] = item; if(_uid) { _lsSeenId.delete(_ex.sbId||_ex.id); _lsSeenId.set(_uid,_ei); } }
         } else {
           if(_uid)  _lsSeenId.set(_uid, _lsMenu.length);
-          if(_nkey) _lsSeenName.set(_nkey, _lsMenu.length);
+          _lsSeenNP.set(_npk, _lsMenu.length);
           _lsMenu.push(item);
         }
       });
@@ -19961,7 +19992,7 @@ const KGSync = (() => {
           // différents → passaient tous les deux dans MENU. On déduplique maintenant aussi par nom normalisé
           // pour fusionner les articles locaux avec leur équivalent Supabase.
           const _seen = new Map();    // uid → index dans _newMenu
-          const _seenName = new Map(); // nom normalisé → index dans _newMenu
+          const _seenNP = new Map();  // nom+prix → index dans _newMenu (clé de dédup métier)
           const _newMenu = [];
           data.items.forEach(item => {
             if(!item.cat && item.category) item.cat = item.category;
@@ -19971,27 +20002,24 @@ const KGSync = (() => {
             if(!item.image_url && item.icon && (item.icon.startsWith('http')||item.icon.startsWith('data:')||item.icon.includes('ibb.co'))) {
               item.image_url = item.icon;
             }
-            const _uid = item.sbId || item.id;
-            const _nameKey = (item.name || '').toLowerCase().trim();
+            const _uid  = item.sbId || item.id;
+            const _npKey = (item.name || '').toLowerCase().trim() + '_' + (item.price || item.price_ttc || 0);
             // Doublon par ID (même sbId ou même id)
             if(_uid && _seen.has(_uid)) {
               _newMenu[_seen.get(_uid)] = item;
-            // Doublon par nom : article local (local_xxx) déjà présent remplacé par version Supabase
-            } else if(_nameKey && _seenName.has(_nameKey)) {
-              const _existIdx = _seenName.get(_nameKey);
+            // Doublon par nom+prix : article local remplacé par sa version Supabase
+            } else if(_seenNP.has(_npKey)) {
+              const _existIdx = _seenNP.get(_npKey);
               const _existItem = _newMenu[_existIdx];
-              // Garder la version Supabase (non-local) ; si les deux sont locaux, garder le plus récent
               const _existIsLocal = !_existItem.sbId && String(_existItem.id||'').startsWith('local_');
               const _newIsLocal   = !item.sbId && String(item.id||'').startsWith('local_');
               if(!_newIsLocal || _existIsLocal) {
-                // La version entrante est Supabase (ou les deux locaux → prendre le plus récent)
                 _newMenu[_existIdx] = item;
                 if(_uid) { _seen.delete(_existItem.sbId||_existItem.id); _seen.set(_uid, _existIdx); }
               }
-              // sinon on ignore le doublon local entrant
             } else {
-              if(_uid) _seen.set(_uid, _newMenu.length);
-              if(_nameKey) _seenName.set(_nameKey, _newMenu.length);
+              if(_uid)  _seen.set(_uid, _newMenu.length);
+              _seenNP.set(_npKey, _newMenu.length);
               _newMenu.push(item);
             }
           });
