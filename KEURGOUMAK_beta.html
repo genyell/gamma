@@ -18898,14 +18898,32 @@ TICKETS_ARCHIVES = [];
       STOCK_CATEGORIES = data.STOCK_CATEGORIES;
     }
 
-    // ✅ FIX: restaurer MENU si présent (désactivé uniquement si Supabase va écraser)
+    // ✅ FIX v43: restaurer MENU depuis localStorage avec déduplication par sbId/id ET par nom
     if(Array.isArray(data.MENU) && data.MENU.length && typeof MENU !== 'undefined') {
-      MENU = data.MENU.map(item => {
+      const _lsSeenId   = new Map();
+      const _lsSeenName = new Map();
+      const _lsMenu = [];
+      data.MENU.forEach(item => {
         if(!item.image_url && item.icon && (item.icon.startsWith('http')||item.icon.startsWith('data:')||item.icon.includes('ibb.co'))) {
           item.image_url = item.icon;
         }
-        return item;
+        const _uid  = item.sbId || item.id;
+        const _nkey = (item.name || '').toLowerCase().trim();
+        if(_uid && _lsSeenId.has(_uid)) {
+          _lsMenu[_lsSeenId.get(_uid)] = item;
+        } else if(_nkey && _lsSeenName.has(_nkey)) {
+          const _ei = _lsSeenName.get(_nkey);
+          const _ex = _lsMenu[_ei];
+          const _exLocal = !_ex.sbId && String(_ex.id||'').startsWith('local_');
+          const _newLocal = !item.sbId && String(item.id||'').startsWith('local_');
+          if(!_newLocal || _exLocal) { _lsMenu[_ei] = item; if(_uid) { _lsSeenId.delete(_ex.sbId||_ex.id); _lsSeenId.set(_uid,_ei); } }
+        } else {
+          if(_uid)  _lsSeenId.set(_uid, _lsMenu.length);
+          if(_nkey) _lsSeenName.set(_nkey, _lsMenu.length);
+          _lsMenu.push(item);
+        }
       });
+      MENU = _lsMenu;
     }
 
     applySession();
@@ -19938,9 +19956,12 @@ const KGSync = (() => {
           if(typeof refreshDashboard === 'function') try { refreshDashboard(); } catch(e) {}
           console.log('[pullAll] ✅ Clôtures sync:', HISTORIQUE_CLOTURES.length, 'clôture(s)');
         } else if(key === 'menu_data' && data.items) {
-          // ✅ FIX ANTI-DOUBLON v42 : Remplacer MENU depuis kg_sync mais dédupliquer strictement par sbId.
-          // Un article avec le même sbId ne peut apparaître qu'une fois (update ≠ création).
-          const _seen = new Map(); // sbId → index dans le nouveau tableau
+          // ✅ FIX ANTI-DOUBLON v43 : Déduplication par sbId/id ET par nom.
+          // Problème v42 : un article local (local_123) et sa version Supabase (uuid) avaient des IDs
+          // différents → passaient tous les deux dans MENU. On déduplique maintenant aussi par nom normalisé
+          // pour fusionner les articles locaux avec leur équivalent Supabase.
+          const _seen = new Map();    // uid → index dans _newMenu
+          const _seenName = new Map(); // nom normalisé → index dans _newMenu
           const _newMenu = [];
           data.items.forEach(item => {
             if(!item.cat && item.category) item.cat = item.category;
@@ -19951,11 +19972,26 @@ const KGSync = (() => {
               item.image_url = item.icon;
             }
             const _uid = item.sbId || item.id;
+            const _nameKey = (item.name || '').toLowerCase().trim();
+            // Doublon par ID (même sbId ou même id)
             if(_uid && _seen.has(_uid)) {
-              // Doublon — on garde la version la plus récente (celle-ci, plus tardive dans le tableau)
               _newMenu[_seen.get(_uid)] = item;
+            // Doublon par nom : article local (local_xxx) déjà présent remplacé par version Supabase
+            } else if(_nameKey && _seenName.has(_nameKey)) {
+              const _existIdx = _seenName.get(_nameKey);
+              const _existItem = _newMenu[_existIdx];
+              // Garder la version Supabase (non-local) ; si les deux sont locaux, garder le plus récent
+              const _existIsLocal = !_existItem.sbId && String(_existItem.id||'').startsWith('local_');
+              const _newIsLocal   = !item.sbId && String(item.id||'').startsWith('local_');
+              if(!_newIsLocal || _existIsLocal) {
+                // La version entrante est Supabase (ou les deux locaux → prendre le plus récent)
+                _newMenu[_existIdx] = item;
+                if(_uid) { _seen.delete(_existItem.sbId||_existItem.id); _seen.set(_uid, _existIdx); }
+              }
+              // sinon on ignore le doublon local entrant
             } else {
               if(_uid) _seen.set(_uid, _newMenu.length);
+              if(_nameKey) _seenName.set(_nameKey, _newMenu.length);
               _newMenu.push(item);
             }
           });
