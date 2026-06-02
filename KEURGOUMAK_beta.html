@@ -12213,7 +12213,7 @@ function renderMenu(cat) {
         <div style="margin-bottom:6px;">
           ${(item.recette && item.recette.length) ?
             `<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
-              ${item.recette.map(r=>{const s=STOCK_DATA.find(x=>x.id===r.stockId||x.sbId===r.stockId||String(x.id)===String(r.stockId));return s?`<span style="font-size:10px;background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.25);border-radius:20px;padding:2px 8px;color:var(--teal);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})" title="Modifier les ingr&eacute;dients">${s.icon} ${r.qty} ${s.unit}</span>`:''}).filter(Boolean).join('')}
+              ${item.recette.map(r=>{const s=STOCK_DATA.find(x=>String(x.id)===String(r.stockId)||String(x.sbId)===String(r.stockId)||String(x.id)===String(r.sbStockId)||String(x.sbId)===String(r.sbStockId));const nom=s?s.name:(r.stockNom||"?");const icon=s?s.icon:"📦";const unit=s?s.unit:(r.unit||"");return `<span style="font-size:10px;background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.25);border-radius:20px;padding:2px 8px;color:var(--teal);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})" title="Modifier les ingrédients">${icon} ${r.qty} ${unit} ${nom}</span>`;}).join("")}
               ${isManager ? `<span style="font-size:10px;background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);border-radius:20px;padding:2px 8px;color:var(--accent);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})">&#9998; modifier</span>` : ''}
             </div>`
           : isManager ? `<span style="font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:2px 8px;color:var(--text2);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})">+ Lier des ingr&eacute;dients</span>` : ''
@@ -18815,7 +18815,28 @@ TICKETS_ARCHIVES = [];
         }
       });
     }
-    if(data.STOCK_DATA && data.STOCK_DATA.length) STOCK_DATA = data.STOCK_DATA;
+    if(data.STOCK_DATA && data.STOCK_DATA.length) {
+      STOCK_DATA = data.STOCK_DATA;
+      // ✅ FIX IDs : normaliser les stockId des recettes avec le STOCK_DATA chargé
+      MENU.forEach(function(item) {
+        if(!item.recette || !item.recette.length) return;
+        item.recette.forEach(function(ligne) {
+          const stock = STOCK_DATA.find(function(s) {
+            return String(s.id)   === String(ligne.stockId)
+                || String(s.sbId) === String(ligne.stockId)
+                || String(s.id)   === String(ligne.sbStockId)
+                || String(s.sbId) === String(ligne.sbStockId)
+                || (ligne.stockNom && s.name && s.name.trim().toLowerCase() === ligne.stockNom.trim().toLowerCase());
+          });
+          if(stock) {
+            ligne.stockId   = stock.id;
+            ligne.sbStockId = stock.sbId || ligne.sbStockId;
+            if(!ligne.stockNom) ligne.stockNom = stock.name;
+            if(!ligne.unit)     ligne.unit     = stock.unit;
+          }
+        });
+      });
+    }
     if(data.INVENTAIRES && data.INVENTAIRES.length) INVENTAIRES = data.INVENTAIRES;
     // ✅ FIX v32b : Charger aussi depuis la clé autonome kg-inventaires (plus fiable)
     try {
@@ -19732,6 +19753,29 @@ const KGSync = (() => {
         } else if(key === 'stock_data' && data.items) {
           STOCK_DATA = data.items;
           STOCK_ENTREES = data.entries || STOCK_ENTREES;
+          // ✅ FIX IDs : après chaque pullAll, resynchroniser les stockId dans les recettes du MENU
+          // pour qu'ils correspondent exactement aux IDs actuels de STOCK_DATA
+          (typeof MENU !== 'undefined' ? MENU : []).forEach(function(item) {
+            if(!item.recette || !item.recette.length) return;
+            item.recette.forEach(function(ligne) {
+              // Chercher le stock correspondant par tous les identifiants possibles
+              const stock = STOCK_DATA.find(function(s) {
+                return String(s.id)    === String(ligne.stockId)
+                    || String(s.sbId)  === String(ligne.stockId)
+                    || String(s.id)    === String(ligne.sbStockId)
+                    || String(s.sbId)  === String(ligne.sbStockId)
+                    || (ligne.stockNom && s.name && s.name.trim().toLowerCase() === ligne.stockNom.trim().toLowerCase());
+              });
+              if(stock) {
+                // Mettre à jour les deux IDs pour cohérence future
+                ligne.stockId   = stock.id;
+                ligne.sbStockId = stock.sbId || ligne.sbStockId;
+                if(!ligne.stockNom) ligne.stockNom = stock.name;
+                if(!ligne.unit)     ligne.unit     = stock.unit;
+              }
+            });
+          });
+          console.log('[pullAll] ✅ stockId recettes normalisés après rechargement STOCK_DATA');
         } else if(key === 'modules_caisses_data' && data.states) {
           // ✅ FIX v31 MULTI-NAVIGATEURS : restaurer les états des modules depuis Supabase
           // Ce navigateur reçoit les transactions et l'état actif de l'autre navigateur
