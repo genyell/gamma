@@ -12220,7 +12220,10 @@ function renderMenu(cat) {
     // ── Stock lié à l'article (via recette)
     const hasLinkedStock = item.recette && item.recette.length > 0;
     const linkedStockOk  = hasLinkedStock && item.recette.some(r => {
-      const s = STOCK_DATA.find(x => x.id === r.stockId || x.sbId === r.stockId);
+      let s = null;
+      if(r.sbStockId) s = STOCK_DATA.find(x => String(x.sbId) === String(r.sbStockId));
+      if(!s && r.stockId) s = STOCK_DATA.find(x => String(x.sbId) === String(r.stockId) || String(x.id) === String(r.stockId));
+      if(!s && r.stockNom) s = STOCK_DATA.find(x => x.name && x.name.trim().toLowerCase() === r.stockNom.trim().toLowerCase());
       return s && s.qty > 0;
     });
     // Badge stock sur la carte
@@ -12244,7 +12247,15 @@ function renderMenu(cat) {
         <div style="margin-bottom:6px;">
           ${(item.recette && item.recette.length) ?
             `<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
-              ${item.recette.map(r=>{const s=STOCK_DATA.find(x=>String(x.id)===String(r.stockId)||String(x.sbId)===String(r.stockId)||String(x.id)===String(r.sbStockId)||String(x.sbId)===String(r.sbStockId));const nom=s?s.name:(r.stockNom||"?");const icon=s?s.icon:"📦";const unit=s?s.unit:(r.unit||"");return `<span style="font-size:10px;background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.25);border-radius:20px;padding:2px 8px;color:var(--teal);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})" title="Modifier les ingrédients">${icon} ${r.qty} ${unit} ${nom}</span>`;}).join("")}
+              ${item.recette.map(r=>{
+                // Priorité : sbStockId (UUID Supabase) > stockId, pour éviter collision avec IDs locaux
+                let s = null;
+                if(r.sbStockId) s = STOCK_DATA.find(x=>String(x.sbId)===String(r.sbStockId));
+                if(!s && r.stockId) s = STOCK_DATA.find(x=>String(x.sbId)===String(r.stockId)||String(x.id)===String(r.stockId));
+                // Fallback par nom si le stock a été supprimé et recréé
+                if(!s && r.stockNom) s = STOCK_DATA.find(x=>x.name&&x.name.trim().toLowerCase()===r.stockNom.trim().toLowerCase());
+                const nom=s?s.name:(r.stockNom||"?");const icon=s?s.icon:"📦";const unit=s?s.unit:(r.unit||"");
+                return `<span style="font-size:10px;background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.25);border-radius:20px;padding:2px 8px;color:var(--teal);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})" title="Modifier les ingrédients">${icon} ${r.qty} ${unit} ${nom}</span>`;}).join("")}
               ${isManager ? `<span style="font-size:10px;background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);border-radius:20px;padding:2px 8px;color:var(--accent);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})">&#9998; modifier</span>` : ''}
             </div>`
           : isManager ? `<span style="font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:2px 8px;color:var(--text2);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})">+ Lier des ingr&eacute;dients</span>` : ''
@@ -20030,6 +20041,24 @@ const KGSync = (() => {
               _newMenu.push(item);
             }
           });
+          // ✅ FIX v43 RECETTE : préserver les recettes du MENU précédent
+          // Si un article dans _newMenu n'a pas de recette (ou recette vide) mais que
+          // l'ancien MENU en avait une (sauvée localement), on la réinjecte.
+          // Cela évite que le pullAll efface les recettes qu'on vient de lier.
+          if(Array.isArray(MENU)) {
+            _newMenu.forEach(newItem => {
+              if(!newItem.recette || newItem.recette.length === 0) {
+                const oldItem = MENU.find(m =>
+                  (newItem.sbId && (m.sbId === newItem.sbId || m.id === newItem.sbId)) ||
+                  (newItem.id   && (m.id   === newItem.id   || m.sbId === newItem.id)) ||
+                  ((m.name||'').toLowerCase().trim() === (newItem.name||'').toLowerCase().trim())
+                );
+                if(oldItem && oldItem.recette && oldItem.recette.length > 0) {
+                  newItem.recette = oldItem.recette;
+                }
+              }
+            });
+          }
           MENU = _newMenu;
           // ✅ Re-sync cart image_url now that MENU is populated
           if(Array.isArray(cart)) {
@@ -20698,6 +20727,10 @@ function renderRecetteLines(lines) {
 function _drawRecetteLines() {
   const container = document.getElementById('recette-lines');
   if(!container) return;
+  // ✅ FIX v43 : sauvegarder les qty du DOM avant redraw pour ne pas perdre les autres lignes
+  container.querySelectorAll('input[type="number"]').forEach((inp, i) => {
+    if(_recetteLines[i] !== undefined) _recetteLines[i].qty = parseFloat(inp.value) || _recetteLines[i].qty || 0;
+  });
   if(_recetteLines.length === 0) {
     container.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:6px 0;font-style:italic;">Aucun ingr&eacute;dient li&eacute; &mdash; pas de d&eacute;duction de stock &agrave; la vente.</div>';
     return;
@@ -20705,21 +20738,28 @@ function _drawRecetteLines() {
   container.innerHTML = _recetteLines.map((line, i) => {
     const unitLabel = _getStockUnit(line.stockId);
     const opts = STOCK_DATA.map(s =>
-      '<option value="' + s.id + '"' + (s.id == line.stockId || s.sbId == line.stockId ? ' selected' : '') + '>' + s.icon + ' ' + s.name + ' (' + s.unit + ')</option>'
+      '<option value="' + s.id + '"' + (String(s.id) === String(line.stockId) || String(s.sbId) === String(line.stockId) ? ' selected' : '') + '>' + s.icon + ' ' + s.name + ' (' + s.unit + ')</option>'
     ).join('');
     return '<div style="display:flex;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;">' +
       '<select style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:12px;" ' +
-        'onchange="_recetteLines[' + i + '].stockId=this.value||null;_drawRecetteLines()">' +
+        'onchange="_recetteLines[' + i + '].stockId=this.value||null;_updateUnitLabel(\\"rec-unit-\\"+' + i + ',this.value)">' +
         '<option value="">— Article de stock —</option>' + opts +
       '</select>' +
       '<input type="number" min="0.01" step="0.01" value="' + (line.qty || '') + '" placeholder="Qt&eacute;" ' +
         'style="width:70px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:12px;" ' +
         'oninput="_recetteLines[' + i + '].qty=parseFloat(this.value)||0">' +
-      '<span style="font-size:11px;color:var(--text2);min-width:35px;text-align:left;">' + unitLabel + '</span>' +
+      '<span id="rec-unit-' + i + '" style="font-size:11px;color:var(--text2);min-width:35px;text-align:left;">' + unitLabel + '</span>' +
       '<button type="button" onclick="_removeRecetteLine(' + i + ')" ' +
         'style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.35);border-radius:6px;color:var(--red);padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;">&#10005;</button>' +
     '</div>';
   }).join('');
+}
+
+function _updateUnitLabel(spanId, stockId) {
+  var el = document.getElementById(spanId);
+  if(!el) return;
+  var s = STOCK_DATA.find(function(x){ return String(x.id)===String(stockId) || String(x.sbId)===String(stockId); });
+  el.textContent = s ? s.unit : '';
 }
 
 function _getStockUnit(stockId) {
@@ -20748,12 +20788,11 @@ function deduireStockVente(items) {
     if(!menuItem || !menuItem.recette || !menuItem.recette.length) return;
     menuItem.recette.forEach(function(ligne) {
       // ✅ FIX : matcher par id, sbId, ET par nom (robuste après pullAll)
-      const stockItem = STOCK_DATA.find(function(s) {
-        return String(s.id) === String(ligne.stockId)
-            || String(s.sbId) === String(ligne.stockId)
-            || String(s.id) === String(ligne.sbStockId)
-            || String(s.sbId) === String(ligne.sbStockId);
-      });
+      // Priorité : sbStockId (UUID Supabase) > stockId > nom (robuste après sync)
+      let stockItem = null;
+      if(ligne.sbStockId) stockItem = STOCK_DATA.find(function(s){ return String(s.sbId)===String(ligne.sbStockId); });
+      if(!stockItem && ligne.stockId) stockItem = STOCK_DATA.find(function(s){ return String(s.sbId)===String(ligne.stockId) || String(s.id)===String(ligne.stockId); });
+      if(!stockItem && ligne.stockNom) stockItem = STOCK_DATA.find(function(s){ return s.name && s.name.trim().toLowerCase()===ligne.stockNom.trim().toLowerCase(); });
       if(!stockItem) {
         console.warn('[stock] Ingrédient introuvable pour stockId:', ligne.stockId, '— article:', menuItem.name);
         return;
@@ -20796,24 +20835,29 @@ function openEditIngredient(menuIdx) {
 function _drawIngredientLines() {
   const container = document.getElementById('editIngredient-lines');
   if(!container) return;
+  // ✅ FIX v43 : sauvegarder les qty du DOM avant redraw pour ne pas perdre les autres lignes
+  container.querySelectorAll('input[type="number"]').forEach((inp, i) => {
+    if(_editIngLines[i] !== undefined) _editIngLines[i].qty = parseFloat(inp.value) || _editIngLines[i].qty || 0;
+  });
   if(_editIngLines.length === 0) {
     container.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:8px 0;font-style:italic;">Aucun ingr&eacute;dient li&eacute; pour l\u2019instant.</div>';
     return;
   }
   container.innerHTML = _editIngLines.map((line, i) => {
-    const unit = (STOCK_DATA.find(s => s.id == line.stockId || s.sbId == line.stockId) || {}).unit || '';
+    const unit = (STOCK_DATA.find(s => String(s.id) === String(line.stockId) || String(s.sbId) === String(line.stockId)) || {}).unit || '';
     const opts = STOCK_DATA.map(s =>
-      '<option value="' + s.id + '"' + (s.id == line.stockId || s.sbId == line.stockId ? ' selected' : '') + '>' + s.icon + ' ' + s.name + ' (' + s.unit + ')</option>'
+      '<option value="' + s.id + '"' + (String(s.id) === String(line.stockId) || String(s.sbId) === String(line.stockId) ? ' selected' : '') + '>' + s.icon + ' ' + s.name + ' (' + s.unit + ')</option>'
     ).join('');
     return '<div style="display:flex;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">' +
       '<select style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12px;" ' +
-        'onchange="_editIngLines[' + i + '].stockId=this.value||null;_drawIngredientLines()">' +
+        'data-line="' + i + '" ' +
+        'onchange="_editIngLines[' + i + '].stockId=this.value||null;_updateUnitLabel(\\"ing-unit-\\"+' + i + ',this.value)">' +
         '<option value="">— Article de stock —</option>' + opts +
       '</select>' +
       '<input type="number" min="0.01" step="0.01" value="' + (line.qty || '') + '" placeholder="Qt\u00e9" ' +
         'style="width:72px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12px;" ' +
         'oninput="_editIngLines[' + i + '].qty=parseFloat(this.value)||0">' +
-      '<span style="font-size:11px;color:var(--text2);min-width:36px;">' + unit + '</span>' +
+      '<span id="ing-unit-' + i + '" style="font-size:11px;color:var(--text2);min-width:36px;">' + unit + '</span>' +
       '<button type="button" onclick="_removeIngLine(' + i + ')" ' +
         'style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.3);border-radius:6px;color:var(--red);padding:5px 10px;cursor:pointer;font-weight:700;">&#10005;</button>' +
     '</div>';
@@ -20834,22 +20878,61 @@ function saveIngredients() {
   const menuIdx = parseInt(document.getElementById('editIngredient-itemId').value);
   const item = MENU[menuIdx];
   if(!item) return;
+  // ✅ FIX v43 : lire les valeurs actuelles du DOM (qty ET stockId) avant de sauver
+  // oninput/onchange peuvent ne pas avoir encore déclenché si l'user n'a pas quitté le champ
+  const _container = document.getElementById('editIngredient-lines');
+  if(_container) {
+    _container.querySelectorAll('input[type="number"]').forEach((inp, i) => {
+      if(_editIngLines[i] !== undefined) _editIngLines[i].qty = parseFloat(inp.value) || _editIngLines[i].qty || 0;
+    });
+    _container.querySelectorAll('select').forEach((sel, i) => {
+      if(_editIngLines[i] !== undefined && sel.value) _editIngLines[i].stockId = sel.value;
+    });
+  }
   item.recette = _editIngLines.filter(l => l.stockId && l.qty > 0).map(l => {
-    // ✅ FIX : stocker id local ET sbId pour survie après pullAll
     const stock = STOCK_DATA.find(x =>
       String(x.id) === String(l.stockId) ||
-      String(x.sbId) === String(l.stockId) ||
-      String(x.id) === String(l.stockId)
+      String(x.sbId) === String(l.stockId)
     );
     return {
-      stockId:   stock ? stock.id   : l.stockId,   // id local (ex: local_123 ou UUID)
-      sbStockId: stock ? stock.sbId : null,         // UUID Supabase (survit au pullAll)
+      stockId:   stock ? stock.id   : l.stockId,
+      sbStockId: stock ? stock.sbId : null,
+      stockNom:  stock ? stock.name : null,
+      unit:      stock ? stock.unit : null,
       qty: l.qty
     };
   });
   closeModal('editIngredient');
   renderMenu(currentMenuCat || 'all');
-  if(KGSync.isConnected) KGSync.push.menu().catch(()=>{});
+
+  // ✅ FIX v43 : mettre à jour la colonne recette dans menu_items Supabase directement
+  // Sans ça, le pullAll recharge menu_items sans la recette et écrase kg_sync
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected && item.sbId) {
+    const _sb = KGSync.getClient();
+    const _rid = window._KG_RESTAURANT_ID;
+    if(_sb && _rid) {
+      _sb.from('menu_items')
+        .update({ recette: item.recette })
+        .eq('id', item.sbId)
+        .then(({ error }) => {
+          if(error) console.error('[saveIngredients] update recette:', error);
+        })
+        .catch(e => console.error('[saveIngredients] update recette:', e));
+    }
+  }
+  // Aussi mettre à jour kg_sync pour que les autres appareils voient la recette
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.menu().catch(()=>{});
+  // Invalider le cache pullAll pour menu_data
+  try {
+    const _rid = window._KG_RESTAURANT_ID;
+    if(_rid) {
+      const _ck = 'kg_pull_cache_' + _rid;
+      const _c = JSON.parse(localStorage.getItem(_ck)||'{}');
+      Object.keys(_c).forEach(k => { if(k.includes('menu_data')) delete _c[k]; });
+      localStorage.setItem(_ck, JSON.stringify(_c));
+      localStorage.removeItem('kg_val_' + _rid + ':menu_data');
+    }
+  } catch(e) {}
   showNotif('✅ Ingrédients mis à jour pour ' + item.name);
 }
 // ============================================================
