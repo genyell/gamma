@@ -15409,6 +15409,11 @@ async function doLogin() {
     if(typeof checkOnlineStatus === 'function') checkOnlineStatus();
     // ✅ REALTIME : activer la synchronisation multi-appareils après connexion
     KGSync.startRealtime();
+    // ✅ Démarrer la déconnexion automatique après 15 min d'inactivité
+    if(typeof window._kgStartAutoLogout === 'function') {
+      window._kgStopAutoLogout();
+      window._kgStartAutoLogout();
+    }
     // ✅ FIX v33 : Sync compteur tickets au login
     _syncOrderCounterFromSupabase();
 
@@ -15502,8 +15507,106 @@ function openUserMenuOrUtilisateurs() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  DÉCONNEXION AUTOMATIQUE APRÈS 15 MIN D'INACTIVITÉ
+// ═══════════════════════════════════════════════════════════════
+(function() {
+  const INACTIVITY_MS  = 15 * 60 * 1000; // 15 minutes
+  const WARNING_BEFORE = 60 * 1000;       // Avertissement 60s avant
+  let _mainTimer    = null;
+  let _countdownInt = null;
+
+  function _ensureBanner() {
+    if(document.getElementById('kg-autologout-banner')) return;
+    const b = document.createElement('div');
+    b.id = 'kg-autologout-banner';
+    b.style.cssText = `
+      display:none;position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+      z-index:99999;background:#13131e;border:2px solid #f59e2a;
+      border-radius:16px;padding:18px 28px;box-shadow:0 8px 40px rgba(0,0,0,0.8);
+      color:#f0ece6;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;
+      flex-direction:column;gap:10px;align-items:center;text-align:center;
+      min-width:300px;max-width:88vw;
+    `;
+    b.innerHTML = `
+      <div style="font-size:26px;">⏳</div>
+      <div style="font-weight:700;font-size:15px;color:#f59e2a;">Inactivité détectée</div>
+      <div style="font-size:13px;color:#9898b4;">
+        Vous serez déconnecté dans <strong id="kg-alo-cd" style="color:#f0ece6;">60</strong>s
+      </div>
+      <button id="kg-alo-btn" style="
+        margin-top:4px;padding:10px 26px;border-radius:10px;border:none;cursor:pointer;
+        background:linear-gradient(135deg,#f59e2a,#e84520);color:#fff;font-weight:700;font-size:13px;
+      ">✅ Je suis là !</button>
+    `;
+    document.body.appendChild(b);
+    document.getElementById('kg-alo-btn').addEventListener('click', _resetTimer);
+  }
+
+  function _showWarning() {
+    _ensureBanner();
+    const b = document.getElementById('kg-autologout-banner');
+    if(b) b.style.display = 'flex';
+    let remaining = 60;
+    const cd = document.getElementById('kg-alo-cd');
+    if(cd) cd.textContent = remaining;
+    _countdownInt = setInterval(() => {
+      remaining--;
+      if(cd) cd.textContent = remaining;
+      if(remaining <= 0) {
+        clearInterval(_countdownInt);
+        _countdownInt = null;
+        _doAutoLogout();
+      }
+    }, 1000);
+  }
+
+  function _hideWarning() {
+    const b = document.getElementById('kg-autologout-banner');
+    if(b) b.style.display = 'none';
+    if(_countdownInt) { clearInterval(_countdownInt); _countdownInt = null; }
+  }
+
+  async function _doAutoLogout() {
+    _hideWarning();
+    if(typeof showNotif === 'function') showNotif('🔒 Déconnexion automatique — 15 min d\'inactivité');
+    if(typeof doLogout === 'function') await doLogout();
+  }
+
+  function _resetTimer() {
+    _hideWarning();
+    if(_mainTimer) clearTimeout(_mainTimer);
+    if(!currentUser) return;
+    // Déclencher l'avertissement 60s avant la limite
+    _mainTimer = setTimeout(_showWarning, INACTIVITY_MS - WARNING_BEFORE);
+  }
+
+  function _startAutoLogout() {
+    const evts = ['mousemove','mousedown','keydown','touchstart','scroll','click'];
+    evts.forEach(ev => document.addEventListener(ev, _resetTimer, { passive: true }));
+    _resetTimer();
+  }
+
+  function _stopAutoLogout() {
+    if(_mainTimer) { clearTimeout(_mainTimer); _mainTimer = null; }
+    _hideWarning();
+    const evts = ['mousemove','mousedown','keydown','touchstart','scroll','click'];
+    evts.forEach(ev => document.removeEventListener(ev, _resetTimer));
+  }
+
+  window._kgStartAutoLogout = _startAutoLogout;
+  window._kgStopAutoLogout  = _stopAutoLogout;
+})();
+// ═══════════════════════════════════════════════════════════════
+//  FIN DÉCONNEXION AUTOMATIQUE
+// ═══════════════════════════════════════════════════════════════
+
 async function doLogout() {
   if(!currentUser) return;
+  // Arrêter la surveillance d'inactivité
+  if(typeof window._kgStopAutoLogout === 'function') window._kgStopAutoLogout();
+  const _kgBanner = document.getElementById('kg-autologout-banner');
+  if(_kgBanner) _kgBanner.style.display = 'none';
   JOURNAL.unshift({ user:`${currentUser.prenom} ${currentUser.nom}`, role:currentUser.role, action:'Déconnexion', module:'Système', date:new Date().toLocaleDateString('fr').slice(0,8), heure:new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'}), ip:'—' });
   try { const sb = KGSync.getClient(); if(sb) await sb.auth.signOut(); } catch(e) {}
   clearSession();
