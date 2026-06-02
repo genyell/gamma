@@ -13537,7 +13537,6 @@ icon:  (()=>{ const _v = document.getElementById('item-icon').value || '🍽️'
             .then(({ error }) => {
               if(error) console.error('update menu_item:', error);
               // ✅ FIX DOUBLON RUPTURES : Mettre à jour _qrMenuItems en place (pas de reload)
-              // loadQRMenuItems() après update crée un doublon si le cache n'est pas encore purgé
               if(typeof _qrMenuItems !== 'undefined') {
                 const _qrIdx = _qrMenuItems.findIndex(m => m.id === item.sbId || m.id === editIdxVal);
                 if(_qrIdx >= 0) {
@@ -13553,6 +13552,8 @@ icon:  (()=>{ const _v = document.getElementById('item-icon').value || '🍽️'
               const _cKey = 'kg_qr_menu_' + _rid;
               const _cTsKey = 'kg_qr_menu_ts_' + _rid;
               try { localStorage.removeItem(_cKey); localStorage.removeItem(_cTsKey); } catch(e) {}
+              // ✅ FIX v43 : mettre à jour kg_sync après update pour que pullAll garde l'article
+              if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.menu().catch(()=>{});
               if(typeof renderQRRupturesPanel === 'function') renderQRRupturesPanel();
             })
             .catch(e => console.error('update menu_item:', e));
@@ -13606,6 +13607,8 @@ icon:  (()=>{ const _v = document.getElementById('item-icon').value || '🍽️'
               return;
             }
             if(row) { newItem.sbId = newItem.id = row.id; }
+            // ✅ FIX v43 : mettre à jour kg_sync après insert pour que pullAll voie le nouvel article
+            if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.menu().catch(()=>{});
             if(typeof loadQRMenuItems === 'function') loadQRMenuItems().then(() => { if(typeof renderQRRupturesPanel === 'function') renderQRRupturesPanel(); });
           }).catch(e => { console.error('insert menu_item:', e); alert('❌ Erreur réseau : ' + e.message); });
       }
@@ -13615,13 +13618,17 @@ icon:  (()=>{ const _v = document.getElementById('item-icon').value || '🍽️'
   renderMenu(currentMenuCat || 'all');
   renderPOS();
 
-  // ✅ FIX ANTI-DOUBLON v42 : NE PAS appeler KGSync.push.menu() ici.
-  // Les modifications sont déjà poussées directement dans menu_items (update/insert ci-dessus).
-  // push.menu() pousse dans kg_sync ET recharge depuis menu_items au prochain pull → doublons.
-  // On invalide seulement le cache QR pour forcer le rechargement du menu client.
+  // ✅ FIX v43 : invalider le cache QR
   try {
     const _rid = window._KG_RESTAURANT_ID;
     if(_rid) { localStorage.removeItem('kg_qr_menu_' + _rid); localStorage.removeItem('kg_qr_menu_ts_' + _rid); }
+    // Invalider aussi le cache pullAll pour que le prochain pull re-fetch menu_data
+    const _cacheKey = 'kg_pull_cache_' + _rid;
+    const _c = JSON.parse(localStorage.getItem(_cacheKey)||'{}');
+    // Supprimer le timestamp de menu_data pour forcer le rechargement
+    Object.keys(_c).forEach(k => { if(k.includes('menu_data')) delete _c[k]; });
+    localStorage.setItem(_cacheKey, JSON.stringify(_c));
+    localStorage.removeItem('kg_val_' + _rid + ':menu_data');
   } catch(e) {}
 }
 
