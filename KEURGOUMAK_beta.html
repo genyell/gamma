@@ -9921,7 +9921,7 @@ function addToCart(menuIdx) {
   if(!item) return;
   const existing = cart.find(c => c.id === item.id);
   if(existing) { existing.qty++; }
-  else { cart.push({ id: item.id, sbId: item.sbId, name: item.name, image_url: item.image_url || item._displayIcon || ((item.icon && (item.icon.startsWith('http')||item.icon.startsWith('data:')||item.icon.startsWith('//')||item.icon.includes('ibb.co'))) ? item.icon : null), icon: _safeIconText(item.icon), price: item.price, cat: item.cat, qty: 1 }); }
+  else { cart.push({ id: item.id, sbId: item.sbId, name: item.name, image_url: item.image_url || item._displayIcon || ((item.icon && (item.icon.startsWith('http')||item.icon.startsWith('data:')||item.icon.startsWith('//')||item.icon.includes('ibb.co'))) ? item.icon : null), icon: _safeIconText(item.icon), price: item.price, cat: item.cat, qty: 1, recette: item.recette || [] }); }
   renderCart();
   showNotif(`➕ ${_safeIconText(item.icon)} ${item.name} ajouté`);
 }
@@ -12029,7 +12029,7 @@ function addCmdItem(menuIdx) {
   if(!item) return;
   const existing = cmdCart.find(c => c.id === item.id);
   if(existing) existing.qty++;
-  else cmdCart.push({ id: item.id, name: item.name, icon: item.icon||'🍽️', price: item.price, qty: 1 });
+  else cmdCart.push({ id: item.id, name: item.name, icon: item.icon||'🍽️', price: item.price, qty: 1, recette: item.recette || [] });
   renderCmdItems();
 }
 
@@ -20782,11 +20782,13 @@ function deduireStockVente(items) {
   if(!items || !items.length) return;
   let hasChanges = false;
   items.forEach(function(item) {
+    // Priorité : recette portée par l'item du panier (plus à jour), sinon fallback MENU
     const menuItem = MENU.find(function(m) {
       return m.id === item.id || m.sbId === item.id || m.id === item.sbId || m.sbId === item.sbId || m.name === item.name;
     });
-    if(!menuItem || !menuItem.recette || !menuItem.recette.length) return;
-    menuItem.recette.forEach(function(ligne) {
+    const recetteSource = (item.recette && item.recette.length > 0) ? item.recette : (menuItem && menuItem.recette ? menuItem.recette : []);
+    if(!recetteSource || !recetteSource.length) return;
+    recetteSource.forEach(function(ligne) {
       // ✅ FIX : matcher par id, sbId, ET par nom (robuste après pullAll)
       // Priorité : sbStockId (UUID Supabase) > stockId > nom (robuste après sync)
       let stockItem = null;
