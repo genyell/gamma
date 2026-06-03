@@ -8975,11 +8975,12 @@ function showView(id, el, pushState) {
             h.nbTickets = h.nbTickets || h.orders || 0;
             return h;
           };
-          if(remote.length >= HISTORIQUE_CLOTURES.length) {
-            HISTORIQUE_CLOTURES = remote.map(_fixCA);
-          } else {
-            const localKeys = new Set(HISTORIQUE_CLOTURES.map(h => h.date+'_'+h.heure+'_'+h.caisse));
-            remote.forEach(h => { const k=h.date+'_'+h.heure+'_'+h.caisse; if(!localKeys.has(k)){HISTORIQUE_CLOTURES.push(_fixCA(h));localKeys.add(k);} });
+          // ✅ FIX v44 SYNC CLOTURES : merge par clé unique
+          {
+            const mergedMap = new Map();
+            HISTORIQUE_CLOTURES.forEach(h => mergedMap.set(h.date+'_'+h.heure+'_'+h.caisse, _fixCA(h)));
+            remote.forEach(h => mergedMap.set(h.date+'_'+h.heure+'_'+h.caisse, _fixCA(h)));
+            HISTORIQUE_CLOTURES = Array.from(mergedMap.values());
             HISTORIQUE_CLOTURES.sort((a,b)=>(b.date+b.heure).localeCompare(a.date+a.heure));
           }
           renderHistorique();
@@ -19365,7 +19366,9 @@ const KGSync = (() => {
   }
   async function pushClients()        { await upsert('clients_data',         { items: CLIENTS }); }
   async function pushCommandesFourn() { await upsert('commandes_fourn_data', { items: COMMANDES_FOURNISSEURS, fournisseurs: FOURNISSEURS }); }
-  async function pushClotures()       { await upsert('clotures_data',        { items: HISTORIQUE_CLOTURES }); }
+  async function pushClotures()       { _invalidateCache('clotures_data'); await upsert('clotures_data', { items: HISTORIQUE_CLOTURES }); }
+  // ✅ FIX iOS : cache mémoire en complément localStorage (Safari navigation privée bloque localStorage)
+  const _memCache = {};
   function _invalidateCache(...keys) {
     try {
       const _rid = window._KG_RESTAURANT_ID;
@@ -19376,9 +19379,10 @@ const KGSync = (() => {
       keys.forEach(k => {
         const fullKey = _rid + ':' + k;
         delete _cache[fullKey];
+        _memCache[fullKey] = null; // ✅ invalider aussi le cache mémoire (iOS Safari)
         try { localStorage.removeItem('kg_val_' + fullKey); } catch(e) {}
       });
-      localStorage.setItem(_CACHE_KEY, JSON.stringify(_cache));
+      try { localStorage.setItem(_CACHE_KEY, JSON.stringify(_cache)); } catch(e) {}
     } catch(e) {}
   }
   async function pushMenu() {
@@ -19529,6 +19533,8 @@ const KGSync = (() => {
       const _CACHE_KEY = 'kg_pull_cache_' + _rid;
       let _cache = {};
       try { _cache = JSON.parse(localStorage.getItem(_CACHE_KEY) || '{}'); } catch(e) { _cache = {}; }
+      // ✅ FIX iOS : appliquer les invalidations mémoire (localStorage peut être bloqué sur Safari)
+      Object.keys(_memCache || {}).forEach(k => { if(_memCache[k] === null) delete _cache[k]; });
 
       // Clés statiques qui changent rarement → cachées agressivement
       const _STATIC_KEYS = ['menu_data', 'restaurant_info', 'categories_data', 'stock_categories_data', 'users_data', 'annonces_data'];
@@ -19962,14 +19968,15 @@ const KGSync = (() => {
             h.nbTickets = h.nbTickets || h.orders || 0;
             return h;
           };
-          if(remote.length >= HISTORIQUE_CLOTURES.length) {
-            HISTORIQUE_CLOTURES = remote.map(_fixCA);
-          } else {
-            const localKeys = new Set(HISTORIQUE_CLOTURES.map(h => h.date+'_'+h.heure+'_'+h.caisse));
-            remote.forEach(h => {
-              const k = h.date+'_'+h.heure+'_'+h.caisse;
-              if(!localKeys.has(k)) { HISTORIQUE_CLOTURES.push(_fixCA(h)); localKeys.add(k); }
-            });
+          // ✅ FIX v44 SYNC CLOTURES : merge par clé unique (date+heure+caisse) dans les deux sens
+          // Avant: comparaison par length → si local avait plus de clôtures, les nouvelles de Supabase étaient perdues
+          {
+            const mergedMap = new Map();
+            // 1. Partir de l'état local
+            HISTORIQUE_CLOTURES.forEach(h => mergedMap.set(h.date+'_'+h.heure+'_'+h.caisse, _fixCA(h)));
+            // 2. Écraser/ajouter avec les données Supabase (source de vérité)
+            remote.forEach(h => mergedMap.set(h.date+'_'+h.heure+'_'+h.caisse, _fixCA(h)));
+            HISTORIQUE_CLOTURES = Array.from(mergedMap.values());
             HISTORIQUE_CLOTURES.sort((a,b) => (b.date+b.heure).localeCompare(a.date+a.heure));
           }
           // ✅ FIX v32 SYNC CLOTURES : persister en localStorage + rafraîchir l'interface
@@ -20032,6 +20039,10 @@ const KGSync = (() => {
               const _existIsLocal = !_existItem.sbId && String(_existItem.id||'').startsWith('local_');
               const _newIsLocal   = !item.sbId && String(item.id||'').startsWith('local_');
               if(!_newIsLocal || _existIsLocal) {
+                // ✅ FIX v44 : préserver recette de l'article existant si le nouveau n'en a pas
+                if((!item.recette || item.recette.length === 0) && _existItem.recette && _existItem.recette.length > 0) {
+                  item.recette = _existItem.recette;
+                }
                 _newMenu[_existIdx] = item;
                 if(_uid) { _seen.delete(_existItem.sbId||_existItem.id); _seen.set(_uid, _existIdx); }
               }
@@ -20917,9 +20928,13 @@ function saveIngredients() {
         .update({ recette: item.recette })
         .eq('id', item.sbId)
         .then(({ error }) => {
-          if(error) console.error('[saveIngredients] update recette:', error);
+          if(error) {
+            console.warn('[saveIngredients] colonne recette absente dans menu_items — recette sauvée uniquement via kg_sync', error.message);
+          } else {
+            console.log('[saveIngredients] ✅ recette sauvée dans menu_items pour:', item.name);
+          }
         })
-        .catch(e => console.error('[saveIngredients] update recette:', e));
+        .catch(e => console.warn('[saveIngredients] update recette:', e));
     }
   }
   // Aussi mettre à jour kg_sync pour que les autres appareils voient la recette
