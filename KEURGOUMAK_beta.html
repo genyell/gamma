@@ -12291,31 +12291,42 @@ function filterOrders(status, el) {
 }
 
 function renderOrders(status) {
-  // Uniquement les commandes réelles de session — aucune vente fictive
-  const caisse = sessionCaisseActive?.caisse || (currentUser?.caisse !== 'Toutes' ? currentUser?.caisse : null);
+  // Afficher les commandes de TOUTES les caisses actives (ouvertes)
+  // Récupérer les noms des caisses actuellement ouvertes
+  const caissesOuvertes = (typeof CAISSES !== 'undefined' ? CAISSES : [])
+    .filter(c => c.status === 'open')
+    .map(c => c.name);
 
   let allOrders = [];
-  if(caisse && VENTES_PAR_CAISSE[caisse]) {
-    allOrders = VENTES_PAR_CAISSE[caisse].map(v => ({
-      id: v.orderNum,
-      client: v.client && v.client !== 'undefined' ? v.client : 'Client',
-      items: (v.items||[]).map(i => `${_safeIconText(i.icon)} ${i.name||i.nom||''} x${i.qty||1}`).join(', '),
-      price: v.total,
-      time: v.time,
-      status: 'done',
-      payLabel: v.payLabel,
-      vente: v
-    }));
-  } else if(!caisse) {
-    // Gérant sans caisse sélectionnée : voir toutes les caisses
-    Object.values(VENTES_PAR_CAISSE).forEach(ventes => {
+
+  if(caissesOuvertes.length > 0) {
+    // Afficher les commandes de toutes les caisses ouvertes
+    caissesOuvertes.forEach(caisseName => {
+      const ventes = VENTES_PAR_CAISSE[caisseName] || [];
       ventes.forEach(v => {
         allOrders.push({
           id: v.orderNum,
           client: v.client && v.client !== 'undefined' ? v.client : 'Client',
           items: (v.items||[]).map(i => `${_safeIconText(i.icon)} ${i.name||i.nom||''} x${i.qty||1}`).join(', '),
           price: v.total, time: v.time, status: 'done',
-          payLabel: v.payLabel, caisse: v.caisse || '', vente: v
+          payLabel: v.payLabel,
+          caisse: caissesOuvertes.length > 1 ? caisseName : '',
+          vente: v
+        });
+      });
+    });
+    // Trier par heure décroissante (plus récent en haut)
+    allOrders.sort((a, b) => (b.id||'').localeCompare(a.id||''));
+  } else {
+    // Aucune caisse ouverte : afficher quand même toutes les ventes de session
+    Object.entries(VENTES_PAR_CAISSE).forEach(([caisseName, ventes]) => {
+      ventes.forEach(v => {
+        allOrders.push({
+          id: v.orderNum,
+          client: v.client && v.client !== 'undefined' ? v.client : 'Client',
+          items: (v.items||[]).map(i => `${_safeIconText(i.icon)} ${i.name||i.nom||''} x${i.qty||1}`).join(', '),
+          price: v.total, time: v.time, status: 'done',
+          payLabel: v.payLabel, caisse: caisseName, vente: v
         });
       });
     });
