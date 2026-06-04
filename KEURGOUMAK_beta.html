@@ -6238,8 +6238,16 @@ Revenez nous voir bient&#244;t.</textarea>
       <!-- TABS PRINCIPAUX -->
       <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
         <button class="cat-btn active" id="qrtab-btn-commandes" onclick="switchQRTab('commandes')">🔔 Commandes <span id="qr-tab-badge" style="background:var(--red);color:white;font-size:9px;padding:1px 6px;border-radius:10px;margin-left:4px;display:none;">0</span></button>
+        <button class="cat-btn" id="qrtab-btn-additions" onclick="switchQRTab('additions')">💳 Additions <span id="qr-additions-badge" style="background:var(--accent,#f59e2a);color:#000;font-size:9px;padding:1px 6px;border-radius:10px;margin-left:4px;display:none;font-weight:900;">0</span></button>
         <button class="cat-btn" id="qrtab-btn-qrcodes" onclick="switchQRTab('qrcodes')">📱 QR Codes</button>
         <button class="cat-btn" id="qrtab-btn-ruptures" onclick="switchQRTab('ruptures')">🚦 Ruptures Menu</button>
+      </div>
+
+      <!-- TAB : ADDITIONS ENVOYÉES À LA CAISSE -->
+      <div id="qrtab-additions" style="display:none;">
+        <div id="qr-additions-panel-content">
+          <div style="text-align:center;padding:40px;color:var(--text2);">⏳ Chargement...</div>
+        </div>
       </div>
 
       <!-- TAB : COMMANDES EN LIGNE -->
@@ -8783,7 +8791,7 @@ Revenez nous voir bient&#244;t.</textarea>
           }, 3000);
         }
       }
-    }, 1000);
+    }, 5000); // ✅ OPT : 1s → 5s (mobile n'utilise jamais DevTools)
   })();
 
 })();
@@ -8890,6 +8898,8 @@ function showView(id, el, pushState) {
       }, 100);
     }
     initQRCommandesSmart();
+    // Mettre à jour le badge Additions dès l'ouverture
+    setTimeout(_updateQRAdditionsBadge, 300);
   }
   if(id === 'settings') setTimeout(_initPhotosPreviews, 200);
   if(id === 'livreurs') afficherListeLivreurs();
@@ -8904,8 +8914,12 @@ function showView(id, el, pushState) {
   if(id === 'rapportx') {
     // Afficher immédiatement avec données locales
     renderRapportX();
-    // ✅ Mettre à jour en arrière-plan depuis Supabase
-    loadDepensesFromSupabase().then(() => renderRapportX()).catch(()=>{});
+    // ✅ OPT EGRESS : recharger dépenses seulement si > 5 min depuis dernier chargement
+    const _now = Date.now();
+    if(!window._depensesLastLoad || (_now - window._depensesLastLoad) > 300000) {
+      window._depensesLastLoad = _now;
+      loadDepensesFromSupabase().then(() => renderRapportX()).catch(()=>{});
+    }
   }
   if(id === 'shift') renderShifts();
   if(id === 'reconciliation') renderReconciliation();
@@ -8924,11 +8938,15 @@ function showView(id, el, pushState) {
     // Afficher immédiatement avec données locales
     initFermetureSelect();
     calcTotal();
-    // ✅ Mettre à jour en arrière-plan depuis Supabase
-    loadDepensesFromSupabase().then(() => {
-      initFermetureSelect();
-      calcTotal();
-    }).catch(()=>{});
+    // ✅ OPT EGRESS : recharger dépenses seulement si > 5 min depuis dernier chargement
+    const _nowF = Date.now();
+    if(!window._depensesLastLoad || (_nowF - window._depensesLastLoad) > 300000) {
+      window._depensesLastLoad = _nowF;
+      loadDepensesFromSupabase().then(() => {
+        initFermetureSelect();
+        calcTotal();
+      }).catch(()=>{});
+    }
   }
   if(id === 'historique') {
     // ✅ FIX SYNTHÈSE : réinitialiser les filtres de date à chaque ouverture
@@ -15278,6 +15296,102 @@ function _checkAbonnement(resto) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  SYSTÈME SESSION UNIQUE — 1 seul appareil actif par compte
+//  Si un 2ème appareil se connecte avec le même compte,
+//  l'appareil actuel est automatiquement déconnecté.
+// ═══════════════════════════════════════════════════════════════
+
+// Token unique pour cet appareil/onglet (généré une fois par session navigateur)
+window._KG_SESSION_TOKEN = (function() {
+  let t = sessionStorage.getItem('_kg_device_token');
+  if(!t) {
+    t = 'dev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+    sessionStorage.setItem('_kg_device_token', t);
+  }
+  return t;
+})();
+
+let _kgSessionWatchInterval = null;
+
+// ── Enregistrer ce token dans Supabase après login ──────────────
+async function _kgRegisterSessionToken(userId, restaurantId) {
+  try {
+    const sb = KGSync.getClient();
+    if(!sb || !userId || !restaurantId) return;
+    const key = restaurantId + ':_active_session_' + userId;
+    await sb.from('kg_sync').upsert(
+      { key, value: JSON.stringify({ token: window._KG_SESSION_TOKEN, ts: Date.now(), user: userId }), updated_at: new Date().toISOString(), restaurant_id: restaurantId },
+      { onConflict: 'key' }
+    );
+    console.log('[Session unique] ✅ Token enregistré:', window._KG_SESSION_TOKEN.slice(0,16));
+  } catch(e) { console.warn('[Session unique] Erreur enregistrement:', e); }
+}
+
+// ── Déconnexion forcée avec message d'alerte ────────────────────
+async function _kgForceLogout() {
+  _kgStopSessionWatch();
+  if(!currentUser) return; // Déjà déconnecté
+  // Afficher le modal d'alerte
+  const _overlay = document.createElement('div');
+  _overlay.id = 'kg-session-kicked';
+  _overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);';
+  _overlay.innerHTML = `
+    <div style="background:#13131e;border:1.5px solid #f04444;border-radius:18px;padding:36px 32px;max-width:380px;text-align:center;box-shadow:0 0 60px rgba(240,68,68,0.3);">
+      <div style="font-size:48px;margin-bottom:16px;">🔐</div>
+      <div style="font-size:18px;font-weight:800;color:#f0ece6;margin-bottom:10px;">Session expirée</div>
+      <div style="font-size:14px;color:#9898b4;line-height:1.6;margin-bottom:24px;">
+        Un autre appareil s'est connecté avec ce compte.<br>
+        <strong style="color:#f04444;">Vous avez été déconnecté automatiquement.</strong>
+      </div>
+      <button onclick="document.getElementById('kg-session-kicked').remove();doLogout();" 
+        style="background:linear-gradient(135deg,#f59e2a,#e84520);color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;width:100%;">
+        OK — Retour à la connexion
+      </button>
+    </div>`;
+  document.body.appendChild(_overlay);
+  // Déconnexion effective après 5 secondes même si l'utilisateur ne clique pas
+  setTimeout(() => {
+    const el = document.getElementById('kg-session-kicked');
+    if(el) el.remove();
+    doLogout();
+  }, 5000);
+}
+
+// ── Surveillance via Realtime (0 polling, 0 egress) ────────────
+// La détection est faite directement dans le canal Realtime KGSync
+// Ces fonctions sont conservées pour compatibilité avec doLogin/doLogout
+function _kgStartSessionWatch() {
+  // Rien à faire — détection via Realtime dans KGSync._startRealtime()
+  console.log('[Session unique] 👁 Surveillance via Realtime (0 polling)');
+}
+function _kgStopSessionWatch() {
+  if(_kgSessionWatchInterval) { clearInterval(_kgSessionWatchInterval); _kgSessionWatchInterval = null; }
+}
+
+// ── Supprimer le token au logout ────────────────────────────────
+async function _kgUnregisterSessionToken() {
+  try {
+    if(!currentUser || !window._KG_RESTAURANT_ID) return;
+    const sb = KGSync.getClient();
+    if(!sb) return;
+    const key = window._KG_RESTAURANT_ID + ':_active_session_' + currentUser.id;
+    // Seulement supprimer si c'est notre token (évite d'effacer le token d'un autre appareil)
+    const { data } = await sb.from('kg_sync').select('value').eq('key', key).single();
+    if(data) {
+      let stored = null;
+      try { stored = JSON.parse(data.value); } catch(e) {}
+      if(stored && stored.token === window._KG_SESSION_TOKEN) {
+        await sb.from('kg_sync').delete().eq('key', key);
+      }
+    }
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FIN SYSTÈME SESSION UNIQUE
+// ═══════════════════════════════════════════════════════════════
+
 async function doLogin() {
   const email = document.getElementById('login-user').value.trim();
   const pwd   = document.getElementById('login-pass').value;
@@ -15462,6 +15576,9 @@ async function doLogin() {
       }
     }
     showNotif(`🎉 Bienvenue ${currentUser.prenom} ${currentUser.nom} ! (${getRoleLabel(currentUser.role)})`);
+    // ✅ SESSION UNIQUE : enregistrer ce token + démarrer surveillance
+    await _kgRegisterSessionToken(currentUser.id, window._KG_RESTAURANT_ID);
+    _kgStartSessionWatch();
 
     // ✅ FIX : retry pullAll si échec (token pas encore prêt ou réseau lent)
     try { await KGSync.pullAll(); } catch(_e1) {
@@ -15686,6 +15803,9 @@ function openUserMenuOrUtilisateurs() {
 
 async function doLogout() {
   if(!currentUser) return;
+  // ✅ SESSION UNIQUE : arrêter la surveillance + libérer le token
+  _kgStopSessionWatch();
+  await _kgUnregisterSessionToken();
   // Arrêter la surveillance d'inactivité
   if(typeof window._kgStopAutoLogout === 'function') window._kgStopAutoLogout();
   const _kgBanner = document.getElementById('kg-autologout-banner');
@@ -19314,6 +19434,21 @@ const KGSync = (() => {
     } catch(e) { console.warn('KGSync upsert error:', key, e); }
   }
 
+  // ── Debounce global pour TOUS les push (anti-egress) ─────────
+  // Évite les appels répétés en rafale — regroupe en 1 seul push toutes les 3s
+  const _debounceTimers = {};
+  function _debouncedUpsert(key, dataFn, delay) {
+    delay = delay || 3000;
+    if(_debounceTimers[key]) { clearTimeout(_debounceTimers[key]); }
+    _debounceTimers[key] = setTimeout(async () => {
+      delete _debounceTimers[key];
+      try {
+        const data = (typeof dataFn === 'function') ? dataFn() : dataFn;
+        if(data !== null && data !== undefined) await upsert(key, data);
+      } catch(e) { console.warn('[debounce upsert]', key, e); }
+    }, delay);
+  }
+
   // ── Push ──────────────────────────────────────────────────────
   let _pushVentesTimer = null;
   async function pushVentes() {
@@ -19359,25 +19494,27 @@ const KGSync = (() => {
       await upsert('ventes_' + caisse.replace(/\s+/g,'_'), { caisse, ventes, orderCounter, caisseStatus: _caisseStatus, moduleActive: _moduleActive });
     }
   }
-  async function pushStock()          { _invalidateCache('stock_data'); await upsert('stock_data', { items: STOCK_DATA, entries: STOCK_ENTREES }); }
-  async function pushCaisses()        { await upsert('caisses_data',         { items: CAISSES, sessionActive: sessionCaisseActive }); }
+  async function pushStock()          { _invalidateCache('stock_data'); _debouncedUpsert('stock_data', () => ({ items: STOCK_DATA, entries: STOCK_ENTREES }), 3000); }
+  async function pushCaisses()        { _debouncedUpsert('caisses_data', () => ({ items: CAISSES, sessionActive: sessionCaisseActive }), 2000); }
 
   // ✅ FIX v31 MULTI-NAVIGATEURS : synchroniser les états complets des modules (C4-C8) vers Supabase
   // Sans ça, un 2ème navigateur ne voit jamais les ventes des modules — il reçoit juste VENTES_PAR_CAISSE
   // mais pas TERRAIN_CAISSE.transactions etc. → il croit que les modules sont inactifs → il vide les ventes
   async function pushModulesCaisses() {
-    const states = {
-      terrain: typeof TERRAIN_CAISSE !== 'undefined' ? { active: TERRAIN_CAISSE.active, ouvertureAt: TERRAIN_CAISSE.ouvertureAt, transactions: TERRAIN_CAISSE.transactions || [], caissier: TERRAIN_CAISSE.caissier || '' } : null,
-      piscine: typeof PISCINE_CAISSE !== 'undefined' ? { active: PISCINE_CAISSE.active, ouvertureAt: PISCINE_CAISSE.ouvertureAt, transactions: PISCINE_CAISSE.transactions || [], caissier: PISCINE_CAISSE.caissier || '' } : null,
-      loc:     typeof LOC_CAISSE     !== 'undefined' ? { active: LOC_CAISSE.active,     ouvertureAt: LOC_CAISSE.ouvertureAt,     transactions: LOC_CAISSE.transactions     || [], caissier: LOC_CAISSE.caissier     || '' } : null,
-      manege:  typeof MANEGE_CAISSE  !== 'undefined' ? { active: MANEGE_CAISSE.active,  ouvertureAt: MANEGE_CAISSE.ouvertureAt,  transactions: MANEGE_CAISSE.transactions  || [], caissier: MANEGE_CAISSE.caissier  || '' } : null,
-      sport:   typeof SPORT_CAISSE   !== 'undefined' ? { active: SPORT_CAISSE.active,   ouvertureAt: SPORT_CAISSE.ouvertureAt,   transactions: SPORT_CAISSE.transactions   || [], caissier: SPORT_CAISSE.caissier   || '' } : null,
-    };
-    await upsert('modules_caisses_data', { states, updatedAt: new Date().toISOString() });
+    _debouncedUpsert('modules_caisses_data', () => ({
+      states: {
+        terrain: typeof TERRAIN_CAISSE !== 'undefined' ? { active: TERRAIN_CAISSE.active, ouvertureAt: TERRAIN_CAISSE.ouvertureAt, transactions: TERRAIN_CAISSE.transactions || [], caissier: TERRAIN_CAISSE.caissier || '' } : null,
+        piscine: typeof PISCINE_CAISSE !== 'undefined' ? { active: PISCINE_CAISSE.active, ouvertureAt: PISCINE_CAISSE.ouvertureAt, transactions: PISCINE_CAISSE.transactions || [], caissier: PISCINE_CAISSE.caissier || '' } : null,
+        loc:     typeof LOC_CAISSE     !== 'undefined' ? { active: LOC_CAISSE.active,     ouvertureAt: LOC_CAISSE.ouvertureAt,     transactions: LOC_CAISSE.transactions     || [], caissier: LOC_CAISSE.caissier     || '' } : null,
+        manege:  typeof MANEGE_CAISSE  !== 'undefined' ? { active: MANEGE_CAISSE.active,  ouvertureAt: MANEGE_CAISSE.ouvertureAt,  transactions: MANEGE_CAISSE.transactions  || [], caissier: MANEGE_CAISSE.caissier  || '' } : null,
+        sport:   typeof SPORT_CAISSE   !== 'undefined' ? { active: SPORT_CAISSE.active,   ouvertureAt: SPORT_CAISSE.ouvertureAt,   transactions: SPORT_CAISSE.transactions   || [], caissier: SPORT_CAISSE.caissier   || '' } : null,
+      },
+      updatedAt: new Date().toISOString()
+    }), 2000);
   }
-  async function pushClients()        { await upsert('clients_data',         { items: CLIENTS }); }
-  async function pushCommandesFourn() { await upsert('commandes_fourn_data', { items: COMMANDES_FOURNISSEURS, fournisseurs: FOURNISSEURS }); }
-  async function pushClotures()       { _invalidateCache('clotures_data'); await upsert('clotures_data', { items: HISTORIQUE_CLOTURES }); }
+  async function pushClients()        { _debouncedUpsert('clients_data', () => ({ items: CLIENTS }), 3000); }
+  async function pushCommandesFourn() { _debouncedUpsert('commandes_fourn_data', () => ({ items: COMMANDES_FOURNISSEURS, fournisseurs: FOURNISSEURS }), 3000); }
+  async function pushClotures()       { _invalidateCache('clotures_data'); _debouncedUpsert('clotures_data', () => ({ items: HISTORIQUE_CLOTURES }), 2000); }
   // ✅ FIX iOS : cache mémoire en complément localStorage (Safari navigation privée bloque localStorage)
   const _memCache = {};
   function _invalidateCache(...keys) {
@@ -19402,47 +19539,44 @@ const KGSync = (() => {
     const _dedupMenu = [];
     MENU.forEach(item => {
       const _uid = item.sbId || item.id;
-      if(_uid && _seen.has(_uid)) {
-        // Doublon — ignorer
-        return;
-      }
+      if(_uid && _seen.has(_uid)) { return; }
       if(_uid) _seen.set(_uid, true);
       _dedupMenu.push(item);
     });
     _invalidateCache('menu_data');
-    await upsert('menu_data', { items: _dedupMenu });
+    _debouncedUpsert('menu_data', () => { return { items: _dedupMenu }; }, 3000);
   }
-  async function pushUsers()          { _invalidateCache('users_data'); await upsert('users_data', { items: USERS.map(u => ({...u})) }); }
-  async function pushRestaurantInfo() { _invalidateCache('restaurant_info'); await upsert('restaurant_info', { info: RESTAURANT_INFO }); }
-  async function pushDepenses()        { _invalidateCache('depenses_data'); await upsert('depenses_data', { items: DEPENSES }); }
-  async function pushJournal()         { _invalidateCache('journal_data'); await upsert('journal_data', { items: (JOURNAL||[]).slice(0,200) }); }
-  async function pushCategories()      { _invalidateCache('categories_data'); await upsert('categories_data', { items: (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []) }); }
-  async function pushStockCategories() { _invalidateCache('stock_categories_data'); await upsert('stock_categories_data', { items: (typeof STOCK_CATEGORIES !== 'undefined' ? STOCK_CATEGORIES : []) }); }
+  async function pushUsers()          { _invalidateCache('users_data'); _debouncedUpsert('users_data', () => ({ items: USERS.map(u => ({...u})) }), 3000); }
+  async function pushRestaurantInfo() { _invalidateCache('restaurant_info'); _debouncedUpsert('restaurant_info', () => ({ info: RESTAURANT_INFO }), 3000); }
+  async function pushDepenses()        { _invalidateCache('depenses_data'); _debouncedUpsert('depenses_data', () => ({ items: DEPENSES }), 3000); }
+  async function pushJournal()         { _invalidateCache('journal_data'); _debouncedUpsert('journal_data', () => ({ items: (JOURNAL||[]).slice(0,200) }), 3000); }
+  async function pushCategories()      { _invalidateCache('categories_data'); _debouncedUpsert('categories_data', () => ({ items: (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []) }), 3000); }
+  async function pushStockCategories() { _invalidateCache('stock_categories_data'); _debouncedUpsert('stock_categories_data', () => ({ items: (typeof STOCK_CATEGORIES !== 'undefined' ? STOCK_CATEGORIES : []) }), 3000); }
   // ✅ FIX v39 : Factures & RH via kg_sync (realtime sur tous les navigateurs)
-  async function pushFactures()  { _invalidateCache('factures_data'); await upsert('factures_data',  { items: (typeof FACTURES     !== 'undefined' ? FACTURES     : []) }); }
+  async function pushFactures()  { _invalidateCache('factures_data'); _debouncedUpsert('factures_data', () => ({ items: (typeof FACTURES !== 'undefined' ? FACTURES : []) }), 3000); }
   async function pushRH()        {
     _invalidateCache('rh_data');
     const _rhPayload = { employes: (typeof RH_EMPLOYES !== 'undefined' ? RH_EMPLOYES : []), paies: (typeof RH_PAIES !== 'undefined' ? RH_PAIES : []), conges: (typeof RH_CONGES !== 'undefined' ? RH_CONGES : []), avances: (typeof RH_AVANCES !== 'undefined' ? RH_AVANCES : []) };
-    await upsert('rh_data', _rhPayload);
     // ✅ FIX v50 : Double persistance localStorage — évite la disparition au refresh
     try { localStorage.setItem('kg-rh-employes', JSON.stringify(_rhPayload.employes)); } catch(e) {}
     try { localStorage.setItem('kg-rh-paies',    JSON.stringify(_rhPayload.paies));    } catch(e) {}
     try { localStorage.setItem('kg-rh-conges',   JSON.stringify(_rhPayload.conges));   } catch(e) {}
     try { localStorage.setItem('kg-rh-avances',  JSON.stringify(_rhPayload.avances));  } catch(e) {}
+    _debouncedUpsert('rh_data', _rhPayload, 3000);
   }
-  async function pushInventaires() { _invalidateCache('inventaires_data'); await upsert('inventaires_data', { items: (typeof INVENTAIRES !== 'undefined' ? INVENTAIRES : []) }); } // ✅ FIX v39
+  async function pushInventaires() { _invalidateCache('inventaires_data'); _debouncedUpsert('inventaires_data', () => ({ items: (typeof INVENTAIRES !== 'undefined' ? INVENTAIRES : []) }), 3000); } // ✅ FIX v39
   // ✅ FIX v40 RESERVATIONS : Synchroniser les réservations Terrain et Location
   async function pushTerrainReservations() {
     try {
       const items = (typeof TERRAIN_RESERVATIONS !== 'undefined') ? TERRAIN_RESERVATIONS : [];
       const cfg   = (() => { try { return JSON.parse(localStorage.getItem('kg-terrain-config')||'{}'); } catch(e){return{};} })();
-      await upsert('terrain_reservations_data', { items, config: cfg });
+      _debouncedUpsert('terrain_reservations_data', { items, config: cfg }, 3000);
     } catch(e) { console.warn('KGSync pushTerrainReservations error:', e); }
   }
   async function pushLocReservations() {
     try {
       const items = (typeof LOC_RESERVATIONS !== 'undefined') ? LOC_RESERVATIONS : [];
-      await upsert('loc_reservations_data', { items });
+      _debouncedUpsert('loc_reservations_data', { items }, 3000);
     } catch(e) { console.warn('KGSync pushLocReservations error:', e); }
   }
   // ✅ Salle de Location (SALLE_RESERVATIONS + config)
@@ -19450,7 +19584,7 @@ const KGSync = (() => {
     try {
       const items = (typeof SALLE_RESERVATIONS !== 'undefined') ? SALLE_RESERVATIONS : [];
       const cfg   = (() => { try { return JSON.parse(localStorage.getItem('kg-salle-config')||'{}'); } catch(e){return{};} })();
-      await upsert('salle_reservations_data', { items, config: cfg });
+      _debouncedUpsert('salle_reservations_data', { items, config: cfg }, 3000);
     } catch(e) { console.warn('KGSync pushSalleReservations error:', e); }
   }
   // ✅ Salle de Sport nouveau module (SP_MEMBRES + SP_LOG_ACCES + config)
@@ -19459,30 +19593,30 @@ const KGSync = (() => {
       const membres = (typeof SP_MEMBRES !== 'undefined') ? SP_MEMBRES : [];
       const log     = (typeof SP_LOG_ACCES !== 'undefined') ? SP_LOG_ACCES.slice(0,100) : [];
       const cfg     = (() => { try { return JSON.parse(localStorage.getItem('kg-sport-config')||'{}'); } catch(e){return{};} })();
-      await upsert('sport_membres_data', { membres, log, config: cfg });
+      _debouncedUpsert('sport_membres_data', { membres, log, config: cfg }, 3000);
     } catch(e) { console.warn('KGSync pushSportMembres error:', e); }
   }
   // ✅ FIX v40 SPORT/PISCINE/MANEGE : Synchroniser entrées et membres
   async function pushSportData() {
     try {
-      await upsert('sport_data', {
+      _debouncedUpsert('sport_data', () => ({
         membres: (typeof SPORT_MEMBRES !== 'undefined' ? SPORT_MEMBRES : []),
         entrees: (typeof SPORT_ENTREES !== 'undefined' ? SPORT_ENTREES : []),
-      });
+      }), 3000);
     } catch(e) { console.warn('KGSync pushSportData error:', e); }
   }
   async function pushPiscineData() {
     try {
-      await upsert('piscine_data', {
+      _debouncedUpsert('piscine_data', () => ({
         entrees: (typeof PISCINE_ENTREES !== 'undefined' ? PISCINE_ENTREES : []),
-      });
+      }), 3000);
     } catch(e) { console.warn('KGSync pushPiscineData error:', e); }
   }
   async function pushManegeData() {
     try {
-      await upsert('manege_data', {
+      _debouncedUpsert('manege_data', () => ({
         entrees: (typeof MANEGE_ENTREES !== 'undefined' ? MANEGE_ENTREES : []),
-      });
+      }), 3000);
     } catch(e) { console.warn('KGSync pushManegeData error:', e); }
   }
 
@@ -19515,12 +19649,13 @@ const KGSync = (() => {
         tarifs_piscine:   JSON.parse(localStorage.getItem('kg-tarifs-piscine')   || 'null'),
         tarifs_location:  JSON.parse(localStorage.getItem('kg-tarifs-location')  || 'null'),
       };
-      await upsert('tarifs_formules_data', data);
+      _debouncedUpsert('tarifs_formules_data', data, 3000);
     } catch(e) { console.warn('KGSync pushTarifs error:', e); }
   }
 
   // ── Pull toutes les données ────────────────────────────────────
   async function _pullAll() {
+    window._lastPullAllTs = Date.now(); // ✅ OPT EGRESS : tracker pour éviter pulls redondants
     if(!client || !syncEnabled) return;
     // Bloquer uniquement si clôture ACTIVE en cours (pas de verrou post-clôture)
     if(typeof _CLOTURE_EN_COURS !== 'undefined' && _CLOTURE_EN_COURS) {
@@ -20111,8 +20246,11 @@ const KGSync = (() => {
             if(typeof loadTicketConfig === 'function') loadTicketConfig();
           }
         } else if(key === 'depenses_data') {
-          // FIX : Recharger depuis la table depenses directement (inclut cloturees ET en cours)
-          if(typeof loadDepensesFromSupabase === 'function') {
+          // ✅ OPT EGRESS : recharger dépenses seulement si > 2 min (évite les rafales Realtime)
+          const _nowD = Date.now();
+          if(typeof loadDepensesFromSupabase === 'function' &&
+             (!window._depensesLastLoad || (_nowD - window._depensesLastLoad) > 120000)) {
+            window._depensesLastLoad = _nowD;
             loadDepensesFromSupabase().catch(e => console.warn('[sync depenses]', e));
           }
         } else if(key === 'categories_data' && data.items) {
@@ -20544,7 +20682,7 @@ const KGSync = (() => {
       var platformLabel = isIOS ? 'iOS' : 'Android';
       // iOS : polling 60s pour voir les clôtures rapidement
       // Android : polling 5 min (économie egress)
-      var pollInterval = isIOS ? 60000 : 300000;
+      var pollInterval = isIOS ? 180000 : 600000; // ✅ OPT EGRESS : iOS→3min, Android→10min
       console.log('KGSync: mode polling ' + platformLabel + ' actif (' + (pollInterval/1000) + 's)');
       _rtTimeout = setTimeout(function poll(){
         // ✅ FIX iOS : pas de restriction horaire pour iOS (clôtures peuvent se faire à tout moment)
@@ -20570,6 +20708,16 @@ const KGSync = (() => {
             if(!key || key === '_ping') return;
             var _rid = window._KG_RESTAURANT_ID;
             if(_rid && !key.startsWith(_rid + ':')) return;
+            // ✅ SESSION UNIQUE : détecter si un autre appareil a pris la main (via Realtime, 0 requête)
+            if(currentUser && key === _rid + ':_active_session_' + currentUser.id) {
+              try {
+                var _sess = JSON.parse((payload.new && payload.new.value) || '{}');
+                if(_sess.token && _sess.token !== window._KG_SESSION_TOKEN) {
+                  console.warn('[Session unique] ⚠️ Autre appareil détecté — déconnexion');
+                  _kgForceLogout(); return;
+                }
+              } catch(se) {}
+            }
             clearTimeout(_rtTimeout);
             _rtTimeout = setTimeout(function(){ _pullAll().catch(function(){}); }, 300);
           } catch(pe) {}
@@ -23222,7 +23370,7 @@ renderQuickUsers();
 // puis recharger depuis Supabase (source de vérité)
 // ✅ Charger dépenses depuis Supabase au démarrage (après déclaration de la fonction)
 setTimeout(() => {
-  if(typeof loadDepensesFromSupabase === 'function') loadDepensesFromSupabase().catch(()=>{});
+  // ✅ OPT EGRESS : dépenses chargées via pullAll au login — pas besoin de SELECT séparé au démarrage
   if(typeof loadStockFromSupabase === 'function') loadStockFromSupabase().catch(()=>{});
 }, 1000);
 
@@ -23244,10 +23392,17 @@ function checkOnlineStatus() {
 }
 
 // Vérifier toutes les 10 secondes
-setInterval(checkOnlineStatus, 10000);
+setInterval(checkOnlineStatus, 30000); // ✅ OPT : 10s → 30s (vérif locale)
 
 // Écouter les événements réseau natifs
-window.addEventListener('online',  () => { setTimeout(() => { KGSync.pullAll().then(checkOnlineStatus); }, 1000); });
+window.addEventListener('online',  () => {
+  // ✅ OPT EGRESS : pullAll seulement si > 2 min depuis dernier pull (évite rafales reconnexion)
+  setTimeout(() => {
+    const _sinceLastPull = Date.now() - (window._lastPullAllTs || 0);
+    if(_sinceLastPull > 120000) { KGSync.pullAll().then(checkOnlineStatus); }
+    else { checkOnlineStatus(); }
+  }, 1500);
+});
 window.addEventListener('offline', () => checkOnlineStatus());
 
 // ================================================================
@@ -23945,23 +24100,25 @@ async function loadAndRenderTicketsArchives() {
         const today = new Date().toISOString().split('T')[0];
         let fetched = null;
 
+        // ✅ OPT EGRESS : ne pas charger vente_items en masse (trop lourd)
+        // Les items sont chargés à la demande quand l'utilisateur ouvre un ticket
         // Tentative 1 : colonne cloturee=true
         const { data: d1, error: e1 } = await _cl.from('ventes')
-          .select('*, vente_items(*)')
+          .select('id, ticket_ref, created_at, caisse_nom, cashier_nom, total_ttc, pay_method, restaurant_id')
           .eq('restaurant_id', rid)
           .eq('cloturee', true)
           .order('created_at', { ascending: false })
-          .limit(2000);
+          .limit(500);
         if(!e1 && d1) { fetched = d1; }
 
         // Tentative 2 : ventes antérieures à aujourd'hui
         if(!fetched) {
           const { data: d2, error: e2 } = await _cl.from('ventes')
-            .select('*, vente_items(*)')
+            .select('id, ticket_ref, created_at, caisse_nom, cashier_nom, total_ttc, pay_method, restaurant_id')
             .eq('restaurant_id', rid)
             .lt('created_at', today + 'T00:00:00')
             .order('created_at', { ascending: false })
-            .limit(2000);
+            .limit(500);
           if(!e2 && d2) fetched = d2;
         }
 
@@ -23969,12 +24126,12 @@ async function loadAndRenderTicketsArchives() {
         const closedCaisses = (typeof CAISSES !== 'undefined' ? CAISSES : []).filter(c => c.status === 'closed').map(c => c.name);
         if(closedCaisses.length) {
           const { data: d3 } = await _cl.from('ventes')
-            .select('*, vente_items(*)')
+            .select('id, ticket_ref, created_at, caisse_nom, cashier_nom, total_ttc, pay_method, restaurant_id')
             .eq('restaurant_id', rid)
             .gte('created_at', today + 'T00:00:00')
             .in('caisse_nom', closedCaisses)
             .order('created_at', { ascending: false })
-            .limit(500);
+            .limit(200);
           if(d3 && d3.length) fetched = [...(fetched||[]), ...d3];
         }
 
@@ -27458,7 +27615,7 @@ function startQRRealtime() {
         if(document.getElementById('qrtab-ruptures')?.style.display !== 'none') renderQRRupturesPanel();
       }
     } catch(e) { console.warn('QR poll:', e); }
-  }, 30000); // toutes les 30 secondes
+  }, 60000); // ✅ OPT EGRESS : 30s → 60s
 }
 
 function _qrPlayBeep() {
@@ -27495,12 +27652,13 @@ function renderQRCommandes() {
 }
 
 function switchQRTab(tab, btn) {
-  ['commandes','qrcodes','ruptures'].forEach(t => {
+  ['commandes','additions','qrcodes','ruptures'].forEach(t => {
     const panel = document.getElementById('qrtab-' + t);
     if(panel) panel.style.display = t === tab ? '' : 'none';
     const b = document.getElementById('qrtab-btn-' + t);
     if(b) b.classList.toggle('active', t === tab);
   });
+  if(tab === 'additions') { _renderQRAdditionsPanel(); return; }
   if(tab === 'ruptures') {
     if(!_qrSb && typeof KGSync !== 'undefined' && KGSync.isConnected) {
       _qrSb  = KGSync.getClient();
@@ -27724,8 +27882,19 @@ function qrActionButtons(o) {
   if(o.statut === 'en_attente')     return btn('✅ Accepter','acceptee','#2ecc71') + reject;
   if(o.statut === 'acceptee')       return btn('👨‍🍳 En préparation','en_preparation','#a88ee8');
   if(o.statut === 'en_preparation') return btn('🎉 Commande prête','prete','#00c9b1');
-  if(o.statut === 'prete')          return `<button onclick="ouvrirModalLivreur('${o.id}')"
-    style="flex:1;min-width:100px;padding:9px 12px;background:#2ecc71;border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;font-size:13px;">🛵 Livrée / Remise</button>`;
+  if(o.statut === 'prete') {
+    // Vérifier si une addition a déjà été envoyée à une caisse
+    const existingBill = (window._BILL_REQUESTS||[]).find(b => b.qrOrderId === o.id && b.statut === 'en_attente');
+    const billBtn = existingBill
+      ? `<button disabled style="flex:1;min-width:140px;padding:9px 12px;background:rgba(245,158,42,0.15);border:1px solid rgba(245,158,42,0.4);border-radius:8px;color:var(--accent);font-weight:700;font-size:13px;cursor:not-allowed;">⏳ Addition → ${existingBill.caisseName}</button>`
+      : `<button onclick="envoyerAdditionCaisse('${o.id}')"
+          style="flex:1;min-width:140px;padding:9px 12px;background:linear-gradient(135deg,#f59e2a,#e84520);border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;font-size:13px;">💳 Envoyer à la caisse</button>`;
+    return `<div style="display:flex;gap:8px;flex-wrap:wrap;width:100%;">
+      ${billBtn}
+      <button onclick="ouvrirModalLivreur('${o.id}')"
+        style="flex:1;min-width:120px;padding:9px 12px;background:#2ecc71;border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;font-size:13px;">🛵 Livrée / Remise</button>
+    </div>`;
+  }
   // Commandes livrées ou annulées → boutons réimpression + partage
   return `
     <div style="display:flex;gap:8px;flex-wrap:wrap;width:100%;">
@@ -27739,6 +27908,375 @@ function qrActionButtons(o) {
         style="flex:1;min-width:120px;padding:9px 12px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.4);border-radius:8px;color:#3b82f6;font-weight:700;cursor:pointer;font-size:13px;">✉️ Email</button>
     </div>`;
 }
+
+// ══════════════════════════════════════════════════════════════════
+//  SYSTÈME ADDITION SERVEUR → CAISSE
+// ══════════════════════════════════════════════════════════════════
+
+// Stockage local des demandes d'addition
+window._BILL_REQUESTS = window._BILL_REQUESTS || [];
+
+function _saveBillRequests() {
+  try { localStorage.setItem('kg_bill_requests', JSON.stringify(window._BILL_REQUESTS)); } catch(e) {}
+}
+function _loadBillRequests() {
+  try { window._BILL_REQUESTS = JSON.parse(localStorage.getItem('kg_bill_requests') || '[]'); } catch(e) { window._BILL_REQUESTS = []; }
+}
+_loadBillRequests();
+
+// Serveur : choisir la caisse et envoyer l'addition
+function envoyerAdditionCaisse(orderId) {
+  const o = _qrOrders.find(x => x.id === orderId);
+  if(!o) { _qrToast('❌ Commande introuvable'); return; }
+
+  // Lister les caisses ouvertes
+  const caissesOuvertes = (typeof CAISSES !== 'undefined' ? CAISSES : []).filter(c => c.status === 'open');
+  if(!caissesOuvertes.length) { _qrToast('⚠️ Aucune caisse ouverte'); return; }
+
+  // Normaliser les articles
+  const rawSrc = (Array.isArray(o.items) && o.items.length) ? o.items : (Array.isArray(o.lignes) && o.lignes.length) ? o.lignes : [];
+  const articles = rawSrc.map(it => ({
+    name:  it.name  || it.nom  || 'Article',
+    icon:  it.icon  || '🍽️',
+    qty:   it.qty   || 1,
+    price: it.price || it.prix || 0
+  }));
+  const total = o.total || articles.reduce((s, it) => s + it.price * it.qty, 0);
+  const tableLabel = o.table_label || o.table || ('Cmd #' + (o.numero || String(orderId).slice(-4)));
+  const clientNom  = o.client_nom || o.nom || 'Client';
+
+  // Modal de sélection de la caisse
+  const existingModal = document.getElementById('_bill_caisse_modal');
+  if(existingModal) existingModal.remove();
+
+  const modal = document.createElement('div');
+  modal.id = '_bill_caisse_modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:99999;padding:16px;';
+  modal.innerHTML = `
+    <div style="background:var(--surface,#0c0c14);border:1px solid var(--border,#1e1e32);border-radius:20px;padding:24px;width:100%;max-width:380px;box-shadow:0 24px 64px rgba(0,0,0,0.8);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <div style="font-size:17px;font-weight:800;color:var(--text,#f0ece6);">💳 Envoyer l'addition</div>
+        <button onclick="document.getElementById('_bill_caisse_modal').remove()" style="background:none;border:none;color:var(--text2,#6e6e8e);font-size:20px;cursor:pointer;">✕</button>
+      </div>
+      <div style="background:var(--surface2,#13131e);border-radius:12px;padding:14px;margin-bottom:18px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text,#f0ece6);margin-bottom:4px;">📋 ${tableLabel} — ${clientNom}</div>
+        <div style="font-size:12px;color:var(--text2,#6e6e8e);">${articles.length} article(s)</div>
+        <div style="font-size:20px;font-weight:900;color:var(--accent,#f59e2a);margin-top:6px;">${total.toLocaleString()} F</div>
+      </div>
+      <div style="font-size:12px;font-weight:600;color:var(--text2,#6e6e8e);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Choisir la caisse :</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${caissesOuvertes.map(c => `
+          <button onclick="_confirmerEnvoiAddition('${orderId}','${c.name}','${tableLabel}','${clientNom}',${total})"
+            style="padding:13px 16px;background:var(--surface2,#13131e);border:1.5px solid var(--border,#1e1e32);border-radius:12px;cursor:pointer;color:var(--text,#f0ece6);font-size:14px;font-weight:700;text-align:left;display:flex;align-items:center;justify-content:space-between;">
+            <span>🖥️ ${c.name}</span>
+            <span style="font-size:11px;color:var(--green,#1adb6a);font-weight:600;">● Ouverte</span>
+          </button>`).join('')}
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function _confirmerEnvoiAddition(orderId, caisseName, tableLabel, clientNom, total) {
+  document.getElementById('_bill_caisse_modal')?.remove();
+
+  _loadBillRequests();
+  const bill = {
+    id:         'BILL_' + Date.now(),
+    qrOrderId:  orderId,
+    caisseName,
+    tableLabel,
+    clientNom,
+    total,
+    statut:     'en_attente',
+    createdAt:  new Date().toISOString()
+  };
+  window._BILL_REQUESTS.push(bill);
+  _saveBillRequests();
+
+  // Notifier la caisse via le badge
+  _updateCaisseBillBadge();
+  // Mettre à jour le badge onglet Additions (côté QR)
+  _updateQRAdditionsBadge();
+
+  _qrToast(`✅ Addition envoyée à ${caisseName} — ${total.toLocaleString()} F`);
+  renderQROrdersPanel();
+}
+
+// ── Côté CAISSE : badge et panneau des additions en attente ──────
+
+function _updateCaisseBillBadge() {
+  _loadBillRequests();
+  const pending = window._BILL_REQUESTS.filter(b => b.statut === 'en_attente');
+  // Afficher un badge sur le bouton commandes du nav si on est dans une caisse active
+  const badge = document.getElementById('_bill-nav-badge');
+  if(badge) {
+    badge.textContent = pending.length;
+    badge.style.display = pending.length ? '' : 'none';
+  }
+  // Aussi mettre à jour le panneau si visible
+  _renderCaisseBillPanel();
+}
+
+function _renderCaisseBillPanel() {
+  const container = document.getElementById('_caisse-bill-panel');
+  if(!container) return;
+
+  _loadBillRequests();
+  // Filtrer par caisse active
+  const caisseName = sessionCaisseActive?.caisse || (currentUser?.caisse !== 'Toutes' ? currentUser?.caisse : null);
+  const myBills = window._BILL_REQUESTS.filter(b => b.statut === 'en_attente' && (!caisseName || b.caisseName === caisseName));
+
+  if(!myBills.length) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'block';
+  container.innerHTML = `
+    <div style="margin-bottom:16px;">
+      <div style="font-size:14px;font-weight:800;color:var(--accent,#f59e2a);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+        💳 Additions en attente <span style="background:var(--accent,#f59e2a);color:#000;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:900;">${myBills.length}</span>
+      </div>
+      ${myBills.map(b => `
+        <div style="background:var(--surface2,#13131e);border:1.5px solid rgba(245,158,42,0.35);border-radius:14px;padding:14px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div>
+              <div style="font-size:14px;font-weight:800;color:var(--text,#f0ece6);">🪑 ${b.tableLabel}</div>
+              <div style="font-size:12px;color:var(--text2,#6e6e8e);">👤 ${b.clientNom}</div>
+            </div>
+            <div style="font-size:22px;font-weight:900;color:var(--accent,#f59e2a);">${b.total.toLocaleString()} F</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="_validerAdditionCaisse('${b.id}')"
+              style="flex:1;padding:10px;background:linear-gradient(135deg,#1adb6a,#15b557);border:none;border-radius:10px;color:#fff;font-weight:800;font-size:13px;cursor:pointer;">✅ Valider & Encaisser</button>
+            <button onclick="_refuserAdditionCaisse('${b.id}')"
+              style="padding:10px 14px;background:rgba(240,68,68,0.15);border:1px solid rgba(240,68,68,0.4);border-radius:10px;color:var(--red,#f04444);font-weight:700;font-size:13px;cursor:pointer;">✖</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function _validerAdditionCaisse(billId) {
+  _loadBillRequests();
+  const bill = window._BILL_REQUESTS.find(b => b.id === billId);
+  if(!bill) return;
+
+  // Trouver la commande QR originale pour récupérer les articles
+  const qrOrder = (typeof _qrOrders !== 'undefined') ? _qrOrders.find(o => o.id === bill.qrOrderId) : null;
+  const rawSrc = qrOrder ? ((Array.isArray(qrOrder.items) && qrOrder.items.length) ? qrOrder.items : (Array.isArray(qrOrder.lignes) && qrOrder.lignes.length) ? qrOrder.lignes : []) : [];
+  const items = rawSrc.map(it => ({
+    id: it.id || null, sbId: it.sbId || null,
+    name: it.name || it.nom || 'Article',
+    icon: it.icon || '🍽️',
+    qty:  it.qty  || 1,
+    price: it.price || it.prix || 0
+  }));
+
+  // Demander mode de paiement
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;padding:16px;';
+  overlay.innerHTML = `
+    <div style="background:var(--surface,#0c0c14);border:1px solid var(--border,#1e1e32);border-radius:20px;padding:24px;width:100%;max-width:340px;">
+      <div style="font-size:16px;font-weight:800;color:var(--text,#f0ece6);margin-bottom:6px;">💳 Encaisser l'addition</div>
+      <div style="font-size:13px;color:var(--text2,#6e6e8e);margin-bottom:16px;">🪑 ${bill.tableLabel} — <strong style="color:var(--accent,#f59e2a);">${bill.total.toLocaleString()} F</strong></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <button onclick="_finalisserBill('${billId}','cash')" style="padding:12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;cursor:pointer;color:var(--text);font-size:13px;font-weight:600;">💵 Espèces</button>
+        <button onclick="_finalisserBill('${billId}','wave')" style="padding:12px;background:var(--surface2);border:1.5px solid var(--teal,#00e5c8);border-radius:10px;cursor:pointer;color:var(--teal,#00e5c8);font-size:13px;font-weight:600;">🌊 Wave</button>
+        <button onclick="_finalisserBill('${billId}','orange')" style="padding:12px;background:var(--surface2);border:1.5px solid #FF6200;border-radius:10px;cursor:pointer;color:#FF6200;font-size:13px;font-weight:600;">🟠 Orange</button>
+        <button onclick="_finalisserBill('${billId}','card')" style="padding:12px;background:var(--surface2);border:1.5px solid var(--purple,#9b7cf4);border-radius:10px;cursor:pointer;color:var(--purple,#9b7cf4);font-size:13px;font-weight:600;">💳 Carte</button>
+      </div>
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="width:100%;padding:10px;background:transparent;border:1px solid var(--border);border-radius:10px;cursor:pointer;color:var(--text2);font-size:12px;">Annuler</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  window._finalisserBill = function(bId, payMethod) {
+    overlay.remove();
+    _loadBillRequests();
+    const b = window._BILL_REQUESTS.find(x => x.id === bId);
+    if(!b) return;
+
+    // Déterminer la caisse active
+    const caisse = b.caisseName || sessionCaisseActive?.caisse || 'Caisse 1';
+    if(!VENTES_PAR_CAISSE[caisse]) VENTES_PAR_CAISSE[caisse] = [];
+
+    const payLabels = { cash:'💵 Espèces', wave:'Wave', orange:'Orange Money', card:'💳 Carte' };
+    const now = new Date();
+    const orderNum = '#ADD' + String(Date.now()).slice(-5);
+
+    const venteSaved = {
+      orderNum,
+      items: items.length ? items : [{ name: b.tableLabel, icon:'🍽️', qty:1, price: b.total }],
+      sub: b.total, tva: 0, total: b.total,
+      remisePct: 0, remiseMontant: 0,
+      payMethod,
+      payLabel: payLabels[payMethod] || '💵 Espèces',
+      payMethods: null,
+      time: now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}),
+      cashier: sessionCaisseActive?.cashier || currentUser?.prenom || 'Caissier',
+      client: b.clientNom || 'Client',
+      tableInfo: '🪑 ' + b.tableLabel,
+      note: 'Addition serveur → caisse',
+      date: now.toISOString()
+    };
+
+    VENTES_PAR_CAISSE[caisse].push(venteSaved);
+    if(typeof _saveVenteSupabase === 'function') _saveVenteSupabase(caisse, venteSaved);
+
+    // Mettre à jour les KPIs caisse
+    const caisseObj = (typeof CAISSES !== 'undefined') ? CAISSES.find(c => c.name === caisse) : null;
+    if(caisseObj) {
+      caisseObj.ca = (VENTES_PAR_CAISSE[caisse]||[]).reduce((a,v) => a + (v.total||0), 0);
+      caisseObj.orders = (VENTES_PAR_CAISSE[caisse]||[]).length;
+    }
+
+    // Déduire le stock
+    if(typeof deduireStockVente === 'function' && items.length) deduireStockVente(items);
+
+    // Imprimer ticket
+    setTimeout(() => { if(typeof printTicket === 'function') printTicket(venteSaved, caisse); }, 400);
+
+    // Sync Supabase
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      KGSync.push.ventes().catch(()=>{});
+      KGSync.push.caisses().catch(()=>{});
+    }
+    if(typeof saveSession === 'function') saveSession();
+    if(typeof refreshDashboard === 'function') refreshDashboard();
+    if(typeof renderCaisses === 'function') renderCaisses();
+
+    // Marquer l'addition comme traitée
+    b.statut = 'validee';
+    b.valideeAt = now.toISOString();
+    _saveBillRequests();
+
+    // Mettre à jour la commande QR → livree
+    if(typeof updateQRStatut === 'function') updateQRStatut(b.qrOrderId, 'livree').catch(()=>{});
+
+    _updateCaisseBillBadge();
+    showNotif('✅ Addition encaissée — ' + b.total.toLocaleString() + ' F');
+    if(typeof renderOrders === 'function') renderOrders('all');
+  };
+}
+
+function _refuserAdditionCaisse(billId) {
+  _loadBillRequests();
+  const b = window._BILL_REQUESTS.find(x => x.id === billId);
+  if(b) { b.statut = 'refusee'; _saveBillRequests(); }
+  _updateCaisseBillBadge();
+  showNotif('Addition refusée');
+}
+
+// ── Panneau Additions dans la page Commandes QR ──────────────────
+function _renderQRAdditionsPanel() {
+  const container = document.getElementById('qr-additions-panel-content');
+  if(!container) return;
+  _loadBillRequests();
+
+  const all = window._BILL_REQUESTS;
+  const enAttente = all.filter(b => b.statut === 'en_attente');
+  const traitees  = all.filter(b => b.statut !== 'en_attente').slice(-20).reverse();
+
+  const statusLabel = { validee:'✅ Encaissée', refusee:'✖ Refusée', en_attente:'⏳ En attente' };
+  const statusColor = { validee:'var(--green,#1adb6a)', refusee:'var(--red,#f04444)', en_attente:'var(--accent,#f59e2a)' };
+
+  if(!all.length) {
+    container.innerHTML = `<div class="card" style="text-align:center;padding:32px;color:var(--text2);">
+      <div style="font-size:36px;margin-bottom:10px;">💳</div>
+      <div>Aucune addition envoyée pour l'instant</div>
+      <div style="font-size:12px;margin-top:6px;color:var(--text2);">Quand une commande est prête, appuyez sur <strong style="color:var(--accent)">💳 Envoyer à la caisse</strong></div>
+    </div>`;
+    return;
+  }
+
+  let html = '';
+
+  if(enAttente.length) {
+    html += `<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">⏳ En attente (${enAttente.length})</div>`;
+    html += enAttente.map(b => `
+      <div class="card" style="border-left:3px solid var(--accent,#f59e2a);margin-bottom:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div>
+            <div style="font-size:15px;font-weight:800;color:var(--text);">🪑 ${b.tableLabel}</div>
+            <div style="font-size:12px;color:var(--text2);">👤 ${b.clientNom} · 🖥️ ${b.caisseName}</div>
+          </div>
+          <div style="font-size:22px;font-weight:900;color:var(--accent);">${b.total.toLocaleString()} F</div>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">🕐 ${new Date(b.createdAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+        <button onclick="_annulerBillRequest('${b.id}')"
+          style="padding:8px 14px;background:rgba(240,68,68,0.12);border:1px solid rgba(240,68,68,0.35);border-radius:8px;color:var(--red,#f04444);font-weight:700;font-size:12px;cursor:pointer;">✖ Annuler l'envoi</button>
+      </div>`).join('');
+  }
+
+  if(traitees.length) {
+    html += `<div style="font-size:13px;font-weight:800;color:var(--text2);margin:16px 0 10px;text-transform:uppercase;letter-spacing:1px;">Historique</div>`;
+    html += traitees.map(b => `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);">🪑 ${b.tableLabel} <span style="font-size:11px;color:var(--text2);">→ ${b.caisseName}</span></div>
+          <div style="font-size:11px;color:var(--text2);">👤 ${b.clientNom} · ${new Date(b.createdAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:15px;font-weight:900;color:var(--text);">${b.total.toLocaleString()} F</div>
+          <div style="font-size:11px;font-weight:700;color:${statusColor[b.statut]||'#888'};">${statusLabel[b.statut]||b.statut}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  container.innerHTML = html;
+}
+
+function _annulerBillRequest(billId) {
+  _loadBillRequests();
+  const b = window._BILL_REQUESTS.find(x => x.id === billId);
+  if(b && b.statut === 'en_attente') {
+    b.statut = 'annulee_serveur';
+    _saveBillRequests();
+  }
+  _updateQRAdditionsBadge();
+  _renderQRAdditionsPanel();
+  _qrToast('Addition annulée');
+}
+
+function _updateQRAdditionsBadge() {
+  _loadBillRequests();
+  const pending = window._BILL_REQUESTS.filter(b => b.statut === 'en_attente');
+  const badge = document.getElementById('qr-additions-badge');
+  if(badge) {
+    badge.textContent = pending.length;
+    badge.style.display = pending.length ? '' : 'none';
+  }
+}
+
+// ── Injecter le panneau additions dans la vue Commandes ──────────
+(function _injectBillPanelHook() {
+  const _origShowView = typeof showView === 'function' ? showView : null;
+  if(_origShowView && !window._billPanelHooked) {
+    window._billPanelHooked = true;
+    const __sv = showView;
+    showView = function(view, el) {
+      __sv(view, el);
+      if(view === 'commandes') {
+        // Injecter le panneau additions si pas déjà là
+        setTimeout(() => {
+          if(!document.getElementById('_caisse-bill-panel')) {
+            const target = document.getElementById('orders-list');
+            if(target) {
+              const div = document.createElement('div');
+              div.id = '_caisse-bill-panel';
+              div.style.display = 'none';
+              target.parentNode.insertBefore(div, target);
+            }
+          }
+          _updateCaisseBillBadge();
+        }, 100);
+      }
+    };
+  }
+  // Aussi mettre à jour le badge toutes les 30 secondes
+  setInterval(_updateCaisseBillBadge, 30000);
+  // Badge Additions côté QR
+  setInterval(_updateQRAdditionsBadge, 30000); // ✅ OPT : 15s → 30s
+})();
 
 // ── Afficher le reçu identique à celui reçu par le client ──────
 async function voirRecuClient(orderId) {
