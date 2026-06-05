@@ -1,16 +1,17 @@
 {
   "rewrites": [
-    {
-      "source": "/commander",
-      "destination": "/commander_online_beta.html"
+    { "source": "/(.*)", "destination": "/KEURGOUMAK_beta.html" }
+  ],
+  "redirects": [
+    { 
+      "source": "/commander_online_beta.html", 
+      "destination": "/", 
+      "permanent": false 
     },
-    {
-      "source": "/commander_online_beta.html",
-      "destination": "/commander_online_beta.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/KEURGOUMAK_beta.html"
+    { 
+      "source": "/commander.html", 
+      "destination": "/", 
+      "permanent": false 
     }
   ]
 }
