@@ -12986,6 +12986,10 @@ function confirmerReception() {
   if(btn) { btn.disabled = true; btn.textContent = '⏳ Validation...'; }
   try {
 
+  // ── Dépôt de destination pour la réception ──
+  const recepDepotId = document.getElementById('recep-depot')?.value || '';
+  const recepDepot = recepDepotId ? (typeof DEPOTS !== 'undefined' ? DEPOTS.find(d => d.id === recepDepotId) : null) : null;
+
   let stockMajCount = 0;
   (c.articles||[]).forEach((a, ai) => {
     const qtyInput = document.getElementById('recep-qty-' + ai);
@@ -13015,10 +13019,6 @@ function confirmerReception() {
     // Mettre à jour la qté reçue dans la commande
     a.qtyRecue = qtyRecue;
   });
-
-  // ── Dépôt de destination pour la réception ──
-  const recepDepotId = document.getElementById('recep-depot')?.value || '';
-  const recepDepot = recepDepotId ? (typeof DEPOTS !== 'undefined' ? DEPOTS.find(d => d.id === recepDepotId) : null) : null;
 
   // Paiement à la réception
   const paiement = parseFloat(document.getElementById('recep-paiement')?.value) || 0;
