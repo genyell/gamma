@@ -62,11 +62,21 @@ async function _pushClotureeSupabase(localKey, dataArray) {
 </script>
 <title>KeurGOUMAKK v49 — La plateforme tout-en-un qui transforme votre fast-food en machine à performance</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-<!-- Supabase JS SDK — gratuit, open source, temps réel -->
+<!-- ✅ FIX v5 : Chargement synchrone bloquant — garantit que supabase est disponible avant tout script -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<!-- jsQR — lecture QR Code via caméra -->
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-<!-- Supabase est initialisé dans KGSync (voir bas de page) -->
+<script>
+// Fallback si le CDN échoue (réseau indisponible)
+if(typeof supabase === 'undefined') {
+  console.warn('[KG] Supabase CDN non chargé — mode hors-ligne');
+  window.supabase = null;
+}
+if(typeof jsQR === 'undefined') {
+  console.warn('[KG] jsQR CDN non chargé');
+  window.jsQR = null;
+}
+</script>
+<!-- Supabase est initialise dans KGSync (voir bas de page) -->
 
   <!-- [KEEP ALL YOUR EXISTING HTML HERE] -->
 
@@ -5106,6 +5116,7 @@ function _syncSportVentes()       { return []; }
     <div id="view-stock" class="view fade-in">
       <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
         <button class="cat-btn active" id="stock-tab-liste" onclick="switchStockTab('liste',this)">📦 Stock actuel</button>
+        <button class="cat-btn" id="stock-tab-depots" onclick="switchStockTab('depots',this)">🏭 Dépôts</button>
         <button class="cat-btn" id="stock-tab-categories" onclick="switchStockTab('categories',this)">🗂️ Catégories</button>
         <button class="cat-btn" id="stock-tab-entrees" onclick="switchStockTab('entrees',this)">📥 Entrées stock</button>
         <button class="cat-btn" id="stock-tab-alertes" onclick="switchStockTab('alertes',this)">⚠️ Alertes</button>
@@ -5157,6 +5168,14 @@ function _syncSportVentes()       { return []; }
           <div class="card-title">Articles en alerte <span id="nb-alertes">0 articles</span></div>
           <div id="stock-alertes-list"></div>
         </div>
+      </div>
+      <!-- DÉPÔTS -->
+      <div id="stock-tab-content-depots" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+          <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;">🏭 Gestion des Dépôts</div>
+          <button class="btn btn-primary" onclick="openAddDepot()">+ Nouveau dépôt</button>
+        </div>
+        <div id="depot-list-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;"></div>
       </div>
     </div>
 
@@ -6389,28 +6408,6 @@ Revenez nous voir bient&#244;t.</textarea>
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
         <select class="form-input" style="width:auto;" id="recon-month" onchange="renderReconciliation()">
         </select>
-        <script>
-        (function(){
-          const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-          const now = new Date();
-          const curM = now.getMonth(); // 0-based
-          const curY = now.getFullYear();
-          const sel = document.getElementById('recon-month');
-          // Générer 12 mois en arrière depuis le mois courant
-          for(let i = 0; i < 12; i++) {
-            let m = curM - i;
-            let y = curY;
-            while(m < 0) { m += 12; y--; }
-            const val = String(m+1).padStart(2,'0') + '-' + y;
-            const lbl = moisNoms[m] + ' ' + y;
-            const opt = document.createElement('option');
-            opt.value = val;
-            opt.textContent = lbl;
-            if(i === 0) opt.selected = true;
-            sel.appendChild(opt);
-          }
-        })();
-        </script>
         <select class="form-input" style="width:auto;" id="recon-caisse" onchange="renderReconciliation()">
           <option value="">Toutes les caisses</option><option value="Caisse 1">Caisse 1</option><option value="Caisse 2">Caisse 2</option><option value="Caisse 3">Caisse 3</option><option value="Caisse 4">Caisse 4</option>
         </select>
@@ -6510,30 +6507,6 @@ Revenez nous voir bient&#244;t.</textarea>
             <div class="card-title" style="flex:1;">Fiches de Paie — <span id="rh-sal-mois-label"></span></div>
             <select class="form-input" id="rh-sal-mois" onchange="renderSalaires()" style="width:160px;">
             </select>
-            <script>
-            (function(){
-              const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-              const now = new Date();
-              const curM = now.getMonth();
-              const curY = now.getFullYear();
-              const sel = document.getElementById('rh-sal-mois');
-              const lbl = document.getElementById('rh-sal-mois-label');
-              // Générer 6 mois avant et 6 mois après le mois courant
-              for(let i = 6; i >= -5; i--) {
-                let m = curM - i;
-                let y = curY;
-                while(m < 0) { m += 12; y--; }
-                while(m > 11) { m -= 12; y++; }
-                const val = String(m+1).padStart(2,'0') + '-' + y;
-                const nom = moisNoms[m] + ' ' + y;
-                const opt = document.createElement('option');
-                opt.value = val;
-                opt.textContent = nom;
-                if(i === 0) { opt.selected = true; if(lbl) lbl.textContent = nom; }
-                sel.appendChild(opt);
-              }
-            })();
-            </script>
             <button class="btn btn-ghost" onclick="genererToutesPaies()">⚡ Générer toutes les fiches</button>
             <button class="btn btn-primary" onclick="imprimerPaiesTotal()">🖨️ Imprimer tout</button>
           </div>
@@ -8526,6 +8499,12 @@ Revenez nous voir bient&#244;t.</textarea>
         <span id="recep-solde-final" style="font-family:'Space Mono';color:var(--red);">0 FCFA</span>
       </div>
     </div>
+    <div class="form-group" style="margin-bottom:14px;">
+      <label class="form-label">🏭 Dépôt de destination <span style="color:var(--text2);font-weight:400;">(optionnel)</span></label>
+      <select class="form-input" id="recep-depot">
+        <option value="">— Stock général (aucun dépôt) —</option>
+      </select>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('receptionCommande')">Annuler</button>
       <button class="btn btn-primary" onclick="confirmerReception()">✅ Confirmer réception &amp; mettre à jour stock</button>
@@ -8580,9 +8559,105 @@ Revenez nous voir bient&#244;t.</textarea>
         <input class="form-input" type="date" id="es-date">
       </div>
     </div>
+    <div class="form-group">
+      <label class="form-label">🏭 Dépôt de destination <span style="color:var(--text2);font-weight:400;">(optionnel)</span></label>
+      <select class="form-input" id="es-depot">
+        <option value="">— Stock général (aucun dépôt) —</option>
+      </select>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('entreeStock')">Annuler</button>
       <button class="btn btn-primary" onclick="saveEntreeStock()">✅ Valider l'entrée</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL NOUVEAU DÉPÔT                                               -->
+<!-- ================================================================ -->
+<div class="modal-overlay" id="modal-addDepot">
+  <div class="modal" style="width:460px;">
+    <div class="modal-title" id="addDepotTitle">🏭 Nouveau Dépôt</div>
+    <input type="hidden" id="depot-edit-id" value="">
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nom du dépôt</label>
+        <input class="form-input" id="depot-nom" placeholder="Ex: Dépôt 1 — Cuisine"></div>
+      <div class="form-group"><label class="form-label">Icône / Emoji</label>
+        <input class="form-input" id="depot-icon" placeholder="🏭" style="font-size:20px;" value="🏭"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Description (optionnel)</label>
+      <input class="form-input" id="depot-desc" placeholder="Ex: Stock principal pour la cuisine"></div>
+    <div class="form-group"><label class="form-label">Responsable (optionnel)</label>
+      <input class="form-input" id="depot-responsable" placeholder="Ex: Chef Mamadou"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addDepot')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveDepot()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL ARTICLE DÉPÔT (ajouter/entrée article dans un dépôt)       -->
+<!-- ================================================================ -->
+<div class="modal-overlay" id="modal-depotArticle">
+  <div class="modal" style="width:500px;">
+    <div class="modal-title" id="depotArticle-title">📦 Ajouter un article au dépôt</div>
+    <input type="hidden" id="depotArticle-depotId" value="">
+    <input type="hidden" id="depotArticle-artIdx" value="">
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Article</label>
+        <select class="form-input" id="depotArticle-article" onchange="syncDepotArticleUnit()">
+          <option value="">— Choisir un article —</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Unité</label>
+        <select class="form-input" id="depotArticle-unit">
+          <option value="kg">kg</option><option value="g">g</option><option value="L">L</option>
+          <option value="ml">ml</option><option value="pcs">pcs</option>
+          <option value="boîtes">boîtes</option><option value="btls">btls</option><option value="sachets">sachets</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Quantité</label>
+        <input class="form-input" type="number" id="depotArticle-qty" placeholder="0" min="0" step="0.1"></div>
+      <div class="form-group"><label class="form-label">Seuil alerte</label>
+        <input class="form-input" type="number" id="depotArticle-seuil" placeholder="0" min="0" step="0.1"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('depotArticle')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveDepotArticle()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL ENTRÉE STOCK DÉPÔT (ajouter quantité à un article de dépôt)-->
+<!-- ================================================================ -->
+<div class="modal-overlay" id="modal-depotEntree">
+  <div class="modal" style="width:460px;">
+    <div class="modal-title" id="depotEntree-title">📥 Entrée stock — Dépôt</div>
+    <input type="hidden" id="depotEntree-depotId" value="">
+    <input type="hidden" id="depotEntree-artIdx" value="">
+    <div class="form-group" style="margin-bottom:14px;">
+      <div id="depotEntree-info" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;color:var(--text2);">—</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Quantité à ajouter</label>
+        <input class="form-input" type="number" id="depotEntree-qty" placeholder="0" min="0" step="0.1"></div>
+      <div class="form-group"><label class="form-label">Fournisseur</label>
+        <select class="form-input" id="depotEntree-fournisseur"><option value="">— Aucun —</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Prix unitaire (FCFA)</label>
+        <input class="form-input" type="number" id="depotEntree-prix" placeholder="0" min="0"></div>
+      <div class="form-group"><label class="form-label">Référence BL</label>
+        <input class="form-input" id="depotEntree-ref" placeholder="BL-2026-001"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('depotEntree')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveDepotEntree()">✅ Valider</button>
     </div>
   </div>
 </div>
@@ -12875,6 +12950,12 @@ function ouvrirReception(cIdx) {
   const paiEl = document.getElementById('recep-paiement');
   if(paiEl) paiEl.value = soldeRestant > 0 ? soldeRestant : '';
   updateReceptionSolde();
+  // Peupler le select dépôt de destination
+  const selRecepDepot = document.getElementById('recep-depot');
+  if(selRecepDepot) {
+    selRecepDepot.innerHTML = '<option value="">— Stock général (aucun dépôt) —</option>' +
+      (typeof DEPOTS !== 'undefined' ? DEPOTS : []).map(d => `<option value="${d.id}">${d.icon||'🏭'} ${d.nom}</option>`).join('');
+  }
   showModal('receptionCommande');
 }
 
@@ -12916,10 +12997,28 @@ function confirmerReception() {
     if(stockItem) {
       stockItem.qty = Math.round((stockItem.qty + qtyRecue) * 1000) / 1000;
       stockMajCount++;
+      // ── Mettre à jour le dépôt choisi ──
+      if(recepDepot) {
+        let depotArt = recepDepot.articles ? recepDepot.articles.find(da => da.stockId === stockItem.id || da.stockId === stockItem.sbId || da.nom === stockItem.name) : null;
+        const todayFR = new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+        if(depotArt) {
+          depotArt.qty = Math.round((Number(depotArt.qty||0) + qtyRecue) * 1000) / 1000;
+          depotArt.entrees = depotArt.entrees || [];
+          depotArt.entrees.unshift({ date: todayFR, qty: qtyRecue, unit: a.unit||stockItem.unit, fournisseur: c.fournisseur||'—', ref: c.ref||'—' });
+        } else {
+          if(!recepDepot.articles) recepDepot.articles = [];
+          recepDepot.articles.push({ stockId: stockItem.id||stockItem.sbId, nom: stockItem.name, icon: stockItem.icon||'📦', unit: a.unit||stockItem.unit, qty: qtyRecue, seuil: 0,
+            entrees: [{ date: todayFR, qty: qtyRecue, unit: a.unit||stockItem.unit, fournisseur: c.fournisseur||'—', ref: c.ref||'—' }] });
+        }
+      }
     }
     // Mettre à jour la qté reçue dans la commande
     a.qtyRecue = qtyRecue;
   });
+
+  // ── Dépôt de destination pour la réception ──
+  const recepDepotId = document.getElementById('recep-depot')?.value || '';
+  const recepDepot = recepDepotId ? (typeof DEPOTS !== 'undefined' ? DEPOTS.find(d => d.id === recepDepotId) : null) : null;
 
   // Paiement à la réception
   const paiement = parseFloat(document.getElementById('recep-paiement')?.value) || 0;
@@ -12946,12 +13045,14 @@ function confirmerReception() {
       } catch(e) {}
     }
   }
+  if(recepDepot && typeof _saveDepots === 'function') _saveDepots();
   saveSession();
   closeModal('receptionCommande');
   renderFournisseurs();
   if(typeof renderStock === 'function') renderStock();
   const soldeMsg = c.soldeRestant > 0 ? ` · Reste: ${c.soldeRestant.toLocaleString()} FCFA` : ' · Entièrement soldée';
-  showNotif(`✅ Réception confirmée · ${stockMajCount} article(s) en stock mis à jour${soldeMsg}`);
+  const depotMsg = recepDepot ? ` · 🏭 ${recepDepot.nom}` : '';
+  showNotif(`✅ Réception confirmée · ${stockMajCount} article(s) en stock mis à jour${soldeMsg}${depotMsg}`);
   } catch(e) {
     console.error('confirmerReception error:', e);
     showNotif('❌ Erreur lors de la confirmation. Réessayez.');
@@ -13181,13 +13282,466 @@ function renderStockEntrees() {
   `).join('');
 }
 
+// ================================================================
+// MODULE DÉPÔTS — Stock séparé par dépôt
+// ================================================================
+let DEPOTS = []; // [{ id, nom, icon, desc, responsable, articles: [{stockId, nom, icon, unit, qty, seuil, entrees:[]}] }]
+
+function _saveDepots() {
+  try {
+    const rid = window._KG_RESTAURANT_ID;
+    if(rid) localStorage.setItem('kg_depots_' + rid, JSON.stringify(DEPOTS));
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      KGSync.getClient()?.from('kg_sync').upsert(
+        { key: rid + ':depots_data', value: JSON.stringify({ depots: DEPOTS }), updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      ).catch(()=>{});
+    }
+  } catch(e) {}
+}
+
+function _loadDepots() {
+  try {
+    const rid = window._KG_RESTAURANT_ID;
+    const raw = rid ? localStorage.getItem('kg_depots_' + rid) : null;
+    if(raw) { const d = JSON.parse(raw); if(Array.isArray(d)) DEPOTS = d; }
+  } catch(e) {}
+  // Pull depuis Supabase si connecté
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    const rid = window._KG_RESTAURANT_ID;
+    KGSync.getClient()?.from('kg_sync').select('value').eq('key', rid + ':depots_data').single()
+      .then(({ data }) => {
+        if(data?.value) {
+          try {
+            const parsed = JSON.parse(data.value);
+            if(parsed.depots && Array.isArray(parsed.depots)) {
+              DEPOTS = parsed.depots;
+              renderDepotsTab();
+            }
+          } catch(e) {}
+        }
+      }).catch(()=>{});
+  }
+}
+
+function renderDepotsTab() {
+  const el = document.getElementById('depot-list-cards');
+  if(!el) return;
+  _loadDepots();
+  if(DEPOTS.length === 0) {
+    el.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text2);">
+      <div style="font-size:52px;margin-bottom:16px;">🏭</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:8px;">Aucun dépôt créé</div>
+      <div style="font-size:13px;">Cliquez sur <strong style="color:var(--accent);">+ Nouveau dépôt</strong> pour commencer.</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = DEPOTS.map((depot, dIdx) => {
+    const nbArticles = (depot.articles || []).length;
+    const nbAlertes = (depot.articles || []).filter(a => a.qty <= (a.seuil || 0)).length;
+    const articles = (depot.articles || []).map((a, aIdx) => {
+      const status = a.qty <= 0 ? 'critical' : a.qty <= (a.seuil || 0) ? 'low' : 'ok';
+      const colors = { ok:'var(--green)', low:'var(--accent)', critical:'var(--red)' };
+      const labels = { ok:'✅ OK', low:'⚠️ Bas', critical:'🚨 Critique' };
+      return `<div class="stock-row" style="padding:10px 12px;margin-bottom:6px;">
+        <div style="font-size:20px;text-align:center;">${a.icon||'📦'}</div>
+        <div>
+          <div style="font-weight:600;font-size:13px;">${a.nom}</div>
+          <div style="font-size:11px;color:var(--text2);">Seuil: ${a.seuil||0} ${a.unit}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input class="stock-qty-input" type="number" value="${a.qty}" step="0.1" min="0"
+            onchange="updateDepotArticleQty('${depot.id}',${aIdx},this.value)" style="width:70px;">
+          <span style="font-size:12px;color:var(--text2);">${a.unit}</span>
+        </div>
+        <div><span class="badge" style="background:${colors[status]}22;color:${colors[status]}">${labels[status]}</span></div>
+        <div style="display:flex;gap:6px;">
+          <button class="ticket-btn" style="padding:5px 9px;font-size:12px;" title="Entrée stock" onclick="openDepotEntree('${depot.id}',${aIdx})">📥</button>
+          <button class="ticket-btn" style="padding:5px 9px;font-size:12px;background:rgba(155,124,244,0.15);border-color:var(--purple);" title="Transférer vers un autre dépôt" onclick="openTransfertDepot('${depot.id}',${aIdx})">🔄</button>
+          <button class="ticket-btn" style="padding:5px 9px;font-size:12px;" title="Modifier" onclick="openEditDepotArticle('${depot.id}',${aIdx})">✏️</button>
+          <button class="caisse-btn danger" style="padding:5px 9px;font-size:12px;" title="Supprimer" onclick="deleteDepotArticle('${depot.id}',${aIdx})">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="card" style="padding:0;overflow:hidden;">
+      <div style="background:var(--gradient-accent-soft);padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+        <span style="font-size:32px;">${depot.icon||'🏭'}</span>
+        <div style="flex:1;">
+          <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;">${depot.nom}</div>
+          <div style="font-size:12px;color:var(--text2);">${depot.desc||''} ${depot.responsable ? '· 👤 '+depot.responsable : ''}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="ticket-btn" style="padding:6px 10px;" title="Modifier dépôt" onclick="openEditDepot('${depot.id}')">✏️</button>
+          <button class="caisse-btn danger" style="padding:6px 10px;" onclick="deleteDepot('${depot.id}')">🗑</button>
+        </div>
+      </div>
+      <div style="padding:14px 16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="font-size:12px;color:var(--text2);">${nbArticles} article(s) · ${nbAlertes > 0 ? '<span style="color:var(--red);">⚠️ '+nbAlertes+' alerte(s)</span>' : '<span style="color:var(--green);">✅ Aucune alerte</span>'}</div>
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" onclick="openAddDepotArticle('${depot.id}')">+ Article</button>
+        </div>
+        <div style="max-height:300px;overflow-y:auto;">${articles || '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">Aucun article. Cliquez sur <strong>+ Article</strong>.</div>'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openAddDepot() {
+  document.getElementById('addDepotTitle').textContent = '🏭 Nouveau Dépôt';
+  document.getElementById('depot-edit-id').value = '';
+  document.getElementById('depot-nom').value = '';
+  document.getElementById('depot-icon').value = '🏭';
+  document.getElementById('depot-desc').value = '';
+  document.getElementById('depot-responsable').value = '';
+  showModal('addDepot');
+}
+
+function openEditDepot(depotId) {
+  const depot = DEPOTS.find(d => d.id === depotId);
+  if(!depot) return;
+  document.getElementById('addDepotTitle').textContent = '✏️ Modifier le Dépôt';
+  document.getElementById('depot-edit-id').value = depotId;
+  document.getElementById('depot-nom').value = depot.nom;
+  document.getElementById('depot-icon').value = depot.icon || '🏭';
+  document.getElementById('depot-desc').value = depot.desc || '';
+  document.getElementById('depot-responsable').value = depot.responsable || '';
+  showModal('addDepot');
+}
+
+function saveDepot() {
+  const nom = document.getElementById('depot-nom').value.trim();
+  if(!nom) { showNotif('⚠️ Nom du dépôt requis'); return; }
+  const editId = document.getElementById('depot-edit-id').value;
+  const data = {
+    nom,
+    icon: document.getElementById('depot-icon').value || '🏭',
+    desc: document.getElementById('depot-desc').value.trim(),
+    responsable: document.getElementById('depot-responsable').value.trim()
+  };
+  if(editId) {
+    const depot = DEPOTS.find(d => d.id === editId);
+    if(depot) Object.assign(depot, data);
+    showNotif('✅ Dépôt "' + nom + '" mis à jour');
+  } else {
+    DEPOTS.push({ id: 'depot_' + Date.now(), articles: [], ...data });
+    showNotif('✅ Dépôt "' + nom + '" créé');
+  }
+  closeModal('addDepot');
+  _saveDepots();
+  renderDepotsTab();
+}
+
+function deleteDepot(depotId) {
+  const depot = DEPOTS.find(d => d.id === depotId);
+  if(!depot) return;
+  if(!confirm('Supprimer le dépôt "' + depot.nom + '" et tous ses articles ?')) return;
+  DEPOTS = DEPOTS.filter(d => d.id !== depotId);
+  _saveDepots();
+  renderDepotsTab();
+  showNotif('🗑️ Dépôt supprimé');
+}
+
+function openAddDepotArticle(depotId) {
+  document.getElementById('depotArticle-title').textContent = '📦 Ajouter un article au dépôt';
+  document.getElementById('depotArticle-depotId').value = depotId;
+  document.getElementById('depotArticle-artIdx').value = '';
+  // Peupler le select avec les articles du stock global
+  const sel = document.getElementById('depotArticle-article');
+  sel.innerHTML = '<option value="">— Choisir un article —</option>' +
+    STOCK_DATA.map((s, idx) => `<option value="${idx}">${s.icon||'📦'} ${s.name}</option>`).join('');
+  document.getElementById('depotArticle-qty').value = '';
+  document.getElementById('depotArticle-seuil').value = '';
+  showModal('depotArticle');
+}
+
+function openEditDepotArticle(depotId, artIdx) {
+  const depot = DEPOTS.find(d => d.id === depotId);
+  if(!depot || !depot.articles[artIdx]) return;
+  const a = depot.articles[artIdx];
+  document.getElementById('depotArticle-title').textContent = '✏️ Modifier — ' + a.nom;
+  document.getElementById('depotArticle-depotId').value = depotId;
+  document.getElementById('depotArticle-artIdx').value = artIdx;
+  const sel = document.getElementById('depotArticle-article');
+  sel.innerHTML = '<option value="">— Choisir un article —</option>' +
+    STOCK_DATA.map((s, idx) => `<option value="${idx}" ${s.name===a.nom?'selected':''}>${s.icon||'📦'} ${s.name}</option>`).join('');
+  document.getElementById('depotArticle-qty').value = a.qty;
+  document.getElementById('depotArticle-seuil').value = a.seuil || 0;
+  const unitEl = document.getElementById('depotArticle-unit');
+  if(unitEl) unitEl.value = a.unit || 'pcs';
+  showModal('depotArticle');
+}
+
+function syncDepotArticleUnit() {
+  const sel = document.getElementById('depotArticle-article');
+  const sIdx = parseInt(sel.value);
+  const s = STOCK_DATA[sIdx];
+  if(s) {
+    const u = document.getElementById('depotArticle-unit');
+    if(u) u.value = s.unit;
+  }
+}
+
+function saveDepotArticle() {
+  const depotId = document.getElementById('depotArticle-depotId').value;
+  const depot = DEPOTS.find(d => d.id === depotId);
+  if(!depot) return;
+  const artIdxVal = document.getElementById('depotArticle-artIdx').value;
+  const artIdx = artIdxVal !== '' ? parseInt(artIdxVal) : -1;
+  const selArt = document.getElementById('depotArticle-article');
+  const sIdx = parseInt(selArt.value);
+  const stockItem = STOCK_DATA[sIdx];
+  if(!stockItem) { showNotif('⚠️ Sélectionnez un article'); return; }
+  const qty = parseFloat(document.getElementById('depotArticle-qty').value) || 0;
+  const seuil = parseFloat(document.getElementById('depotArticle-seuil').value) || 0;
+  const unit = document.getElementById('depotArticle-unit')?.value || stockItem.unit;
+  const artData = { stockId: stockItem.id, sbStockId: stockItem.sbId || '', nom: stockItem.name, icon: stockItem.icon || '📦', unit, qty, seuil, entrees: [] };
+  if(artIdx >= 0 && depot.articles[artIdx]) {
+    artData.entrees = depot.articles[artIdx].entrees || [];
+    depot.articles[artIdx] = artData;
+    showNotif('✅ Article mis à jour dans le dépôt');
+  } else {
+    // Vérifier doublon
+    if(depot.articles.find(a => a.stockId === stockItem.id)) { showNotif('⚠️ Cet article est déjà dans ce dépôt'); return; }
+    depot.articles.push(artData);
+    showNotif('✅ ' + stockItem.name + ' ajouté au dépôt');
+  }
+  closeModal('depotArticle');
+  _saveDepots();
+  renderDepotsTab();
+}
+
+function deleteDepotArticle(depotId, artIdx) {
+  const depot = DEPOTS.find(d => d.id === depotId);
+  if(!depot || !depot.articles[artIdx]) return;
+  const nom = depot.articles[artIdx].nom;
+  if(!confirm('Supprimer "' + nom + '" du dépôt ?')) return;
+  depot.articles.splice(artIdx, 1);
+  _saveDepots();
+  renderDepotsTab();
+  showNotif('🗑️ ' + nom + ' retiré du dépôt');
+}
+
+function updateDepotArticleQty(depotId, artIdx, val) {
+  const depot = DEPOTS.find(d => d.id === depotId);
+  if(!depot || !depot.articles[artIdx]) return;
+  depot.articles[artIdx].qty = parseFloat(val) || 0;
+  _saveDepots();
+  showNotif('📦 ' + depot.articles[artIdx].nom + ' : ' + depot.articles[artIdx].qty + ' ' + depot.articles[artIdx].unit);
+}
+
+function openDepotEntree(depotId, artIdx) {
+  const depot = DEPOTS.find(d => d.id === depotId);
+  if(!depot || !depot.articles[artIdx]) return;
+  const a = depot.articles[artIdx];
+  document.getElementById('depotEntree-title').textContent = '📥 Entrée — ' + a.nom + ' (' + depot.nom + ')';
+  document.getElementById('depotEntree-depotId').value = depotId;
+  document.getElementById('depotEntree-artIdx').value = artIdx;
+  document.getElementById('depotEntree-info').innerHTML =
+    `<strong>${a.icon||'📦'} ${a.nom}</strong> · Stock actuel : <strong style="color:var(--teal);">${a.qty} ${a.unit}</strong>`;
+  document.getElementById('depotEntree-qty').value = '';
+  document.getElementById('depotEntree-prix').value = '';
+  document.getElementById('depotEntree-ref').value = '';
+  const selFourn = document.getElementById('depotEntree-fournisseur');
+  if(selFourn) selFourn.innerHTML = '<option value="">— Aucun —</option>' +
+    (typeof FOURNISSEURS !== 'undefined' ? FOURNISSEURS.map((f,i) => `<option value="${i}">${f.nom}</option>`).join('') : '');
+  showModal('depotEntree');
+}
+
+function saveDepotEntree() {
+  const depotId = document.getElementById('depotEntree-depotId').value;
+  const artIdx = parseInt(document.getElementById('depotEntree-artIdx').value);
+  const depot = DEPOTS.find(d => d.id === depotId);
+  if(!depot || !depot.articles[artIdx]) return;
+  const a = depot.articles[artIdx];
+  const qty = parseFloat(document.getElementById('depotEntree-qty').value) || 0;
+  if(!qty || qty <= 0) { showNotif('⚠️ Entrez une quantité valide'); return; }
+  const prix = parseFloat(document.getElementById('depotEntree-prix').value) || 0;
+  const ref = document.getElementById('depotEntree-ref').value || ('BL-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-4));
+  const selFourn = document.getElementById('depotEntree-fournisseur');
+  const fournNom = selFourn?.options[selFourn.selectedIndex]?.text || '—';
+  const ancienQty = a.qty;
+  a.qty = Math.round((a.qty + qty) * 1000) / 1000;
+  if(!a.entrees) a.entrees = [];
+  a.entrees.unshift({ date: new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}), qty, prix, ref, fournisseur: fournNom });
+  if(a.entrees.length > 200) a.entrees = a.entrees.slice(0,200);
+  closeModal('depotEntree');
+  _saveDepots();
+  renderDepotsTab();
+  showNotif('📥 +' + qty + ' ' + a.unit + ' de ' + a.nom + ' → ' + ancienQty + ' → ' + a.qty + ' ' + a.unit);
+}
+</script>
+
+<!-- ================================================================ -->
+<!-- MODAL TRANSFERT ENTRE DÉPÔTS                                      -->
+<!-- ================================================================ -->
+<div class="modal-overlay" id="modal-transfertDepot">
+  <div class="modal" style="width:480px;">
+    <div class="modal-title">🔄 Transfert entre Dépôts</div>
+    <input type="hidden" id="transfert-depotSrcId" value="">
+    <input type="hidden" id="transfert-artIdx" value="">
+    <div class="form-group" style="margin-bottom:14px;">
+      <div id="transfert-info" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">Article à transférer</div>
+        <div id="transfert-info-content" style="font-weight:700;">—</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+      <div style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">DÉPÔT SOURCE</div>
+        <div id="transfert-src-name" style="font-weight:700;font-size:14px;">—</div>
+        <div id="transfert-src-qty" style="font-size:12px;color:var(--teal);margin-top:4px;">—</div>
+      </div>
+      <div style="font-size:24px;">→</div>
+      <div style="flex:1;">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">DÉPÔT DESTINATION</div>
+        <select class="form-input" id="transfert-depotDest" onchange="updateTransfertDestInfo()">
+          <option value="">— Choisir le dépôt destination —</option>
+        </select>
+        <div id="transfert-dest-info" style="font-size:12px;color:var(--text2);margin-top:6px;min-height:18px;"></div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Quantité à transférer</label>
+        <input class="form-input" type="number" id="transfert-qty" placeholder="0" min="0" step="0.1" oninput="updateTransfertQtyInfo()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note (optionnel)</label>
+        <input class="form-input" id="transfert-note" placeholder="Ex: Réapprovisionnement cuisine">
+      </div>
+    </div>
+    <div id="transfert-warning" style="display:none;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);border-radius:8px;padding:10px;font-size:12px;color:var(--red);margin-bottom:12px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('transfertDepot')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveTransfertDepot()" style="background:linear-gradient(135deg,var(--purple),var(--purple2));">🔄 Confirmer le transfert</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// TRANSFERT ENTRE DÉPÔTS
+// ================================================================
+function openTransfertDepot(depotSrcId, artIdx) {
+  const depotSrc = DEPOTS.find(d => d.id === depotSrcId);
+  if(!depotSrc || !depotSrc.articles[artIdx]) return;
+  const a = depotSrc.articles[artIdx];
+
+  document.getElementById('transfert-depotSrcId').value = depotSrcId;
+  document.getElementById('transfert-artIdx').value = artIdx;
+  document.getElementById('transfert-info-content').innerHTML =
+    `${a.icon||'📦'} <strong>${a.nom}</strong> &nbsp;·&nbsp; <span style="font-family:'JetBrains Mono',monospace;">${a.unit}</span>`;
+  document.getElementById('transfert-src-name').textContent = (depotSrc.icon||'🏭') + ' ' + depotSrc.nom;
+  document.getElementById('transfert-src-qty').textContent = 'Disponible : ' + a.qty + ' ' + a.unit;
+  document.getElementById('transfert-qty').value = '';
+  document.getElementById('transfert-note').value = '';
+  document.getElementById('transfert-warning').style.display = 'none';
+
+  const sel = document.getElementById('transfert-depotDest');
+  sel.innerHTML = '<option value="">— Choisir le dépôt destination —</option>' +
+    DEPOTS.filter(d => d.id !== depotSrcId).map(d =>
+      `<option value="${d.id}">${d.icon||'🏭'} ${d.nom}</option>`
+    ).join('');
+  document.getElementById('transfert-dest-info').textContent = '';
+  showModal('transfertDepot');
+}
+
+function updateTransfertDestInfo() {
+  const depotSrcId = document.getElementById('transfert-depotSrcId').value;
+  const artIdx = parseInt(document.getElementById('transfert-artIdx').value);
+  const depotSrc = DEPOTS.find(d => d.id === depotSrcId);
+  if(!depotSrc) return;
+  const a = depotSrc.articles[artIdx];
+  const destId = document.getElementById('transfert-depotDest').value;
+  const depotDest = DEPOTS.find(d => d.id === destId);
+  const infoEl = document.getElementById('transfert-dest-info');
+  if(!depotDest) { infoEl.textContent = ''; return; }
+  const artDest = depotDest.articles.find(x => x.stockId === a.stockId || x.nom === a.nom);
+  if(artDest) {
+    infoEl.innerHTML = `Stock actuel dans ce dépôt : <strong style="color:var(--teal);">${artDest.qty} ${artDest.unit}</strong>`;
+  } else {
+    infoEl.innerHTML = `<span style="color:var(--accent);">⚠️ Article absent → sera créé automatiquement</span>`;
+  }
+}
+
+function updateTransfertQtyInfo() {
+  const depotSrcId = document.getElementById('transfert-depotSrcId').value;
+  const artIdx = parseInt(document.getElementById('transfert-artIdx').value);
+  const depotSrc = DEPOTS.find(d => d.id === depotSrcId);
+  if(!depotSrc) return;
+  const a = depotSrc.articles[artIdx];
+  const qty = parseFloat(document.getElementById('transfert-qty').value) || 0;
+  const warnEl = document.getElementById('transfert-warning');
+  if(qty > a.qty) {
+    warnEl.style.display = '';
+    warnEl.textContent = '⚠️ Quantité insuffisante ! Stock disponible : ' + a.qty + ' ' + a.unit;
+  } else {
+    warnEl.style.display = 'none';
+  }
+}
+
+function saveTransfertDepot() {
+  const depotSrcId = document.getElementById('transfert-depotSrcId').value;
+  const artIdx = parseInt(document.getElementById('transfert-artIdx').value);
+  const destId = document.getElementById('transfert-depotDest').value;
+  const qty = parseFloat(document.getElementById('transfert-qty').value) || 0;
+  const note = document.getElementById('transfert-note').value.trim();
+
+  if(!destId) { showNotif('⚠️ Choisissez le dépôt destination'); return; }
+  if(!qty || qty <= 0) { showNotif('⚠️ Entrez une quantité valide'); return; }
+
+  const depotSrc  = DEPOTS.find(d => d.id === depotSrcId);
+  const depotDest = DEPOTS.find(d => d.id === destId);
+  if(!depotSrc || !depotDest) return;
+
+  const aSrc = depotSrc.articles[artIdx];
+  if(!aSrc) return;
+  if(qty > aSrc.qty) { showNotif('❌ Stock insuffisant dans ' + depotSrc.nom); return; }
+
+  // Déduire du dépôt source
+  const ancienSrc = aSrc.qty;
+  aSrc.qty = Math.round((aSrc.qty - qty) * 1000) / 1000;
+
+  // Ajouter dans le dépôt destination
+  let aDest = depotDest.articles.find(x => x.stockId === aSrc.stockId || x.nom === aSrc.nom);
+  if(aDest) {
+    aDest.qty = Math.round((aDest.qty + qty) * 1000) / 1000;
+  } else {
+    depotDest.articles.push({
+      stockId: aSrc.stockId, sbStockId: aSrc.sbStockId || '',
+      nom: aSrc.nom, icon: aSrc.icon, unit: aSrc.unit,
+      qty: qty, seuil: aSrc.seuil || 0, entrees: []
+    });
+    aDest = depotDest.articles[depotDest.articles.length - 1];
+  }
+
+  // Historique dans le dépôt destination
+  if(!aDest.entrees) aDest.entrees = [];
+  aDest.entrees.unshift({
+    date: new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),
+    qty, prix: 0, ref: 'TRANSFERT',
+    fournisseur: 'Transfert depuis ' + depotSrc.nom + (note ? ' — ' + note : '')
+  });
+
+  closeModal('transfertDepot');
+  _saveDepots();
+  renderDepotsTab();
+  showNotif('🔄 ' + qty + ' ' + aSrc.unit + ' de ' + aSrc.nom + ' : ' +
+    depotSrc.nom + ' (' + ancienSrc + '→' + aSrc.qty + ') → ' + depotDest.nom + ' ✅');
+}
+
+// ================================================================
+// FIN MODULE DÉPÔTS
+// ================================================================
+
 function switchStockTab(tab, el) {
-  ['liste','categories','entrees','alertes'].forEach(t => {
+  ['liste','depots','categories','entrees','alertes'].forEach(t => {
     document.getElementById('stock-tab-'+t)?.classList.toggle('active', t===tab);
     const content = document.getElementById('stock-tab-content-'+t);
     if(content) content.style.display = t===tab ? '' : 'none';
   });
   if(tab === 'categories') renderStockCatManager();
+  else if(tab === 'depots') renderDepotsTab();
   else renderStock();
 }
 
@@ -13328,6 +13882,12 @@ function populateEntreeStockModal() {
   const prixEl = document.getElementById('es-prix'); if(prixEl) prixEl.value = '';
   const totEl  = document.getElementById('es-total');if(totEl)  totEl.value  = '0 FCFA';
   const refEl  = document.getElementById('es-ref');  if(refEl)  refEl.value  = '';
+  // Peupler le select dépôt
+  const selDepotES = document.getElementById('es-depot');
+  if(selDepotES) {
+    selDepotES.innerHTML = '<option value="">— Stock général (aucun dépôt) —</option>' +
+      (typeof DEPOTS !== 'undefined' ? DEPOTS : []).map(d => `<option value="${d.id}">${d.icon||'🏭'} ${d.nom}</option>`).join('');
+  }
   syncESUnit();
 }
 
@@ -13373,14 +13933,34 @@ function saveEntreeStock() {
     const fournIdxVal = document.getElementById('es-fournisseur')?.value;
     const fourn = (fournIdxVal !== '' && fournIdxVal !== null) ? FOURNISSEURS[parseInt(fournIdxVal)] : null;
 
+    // ── Dépôt de destination sélectionné ──
+    const esDepotId = document.getElementById('es-depot')?.value || '';
+    const esDepot = esDepotId ? (typeof DEPOTS !== 'undefined' ? DEPOTS.find(d => d.id === esDepotId) : null) : null;
+
     const ancienQty = s.qty;
     s.qty  = Math.round((Number(s.qty) + qty) * 1000) / 1000;
     s.unit = unit;
 
+    // ── Si dépôt choisi → mettre à jour l'article dans ce dépôt ──
+    if(esDepot) {
+      let depotArt = esDepot.articles ? esDepot.articles.find(a => a.stockId === s.id || a.stockId === s.sbId || a.nom === s.name) : null;
+      if(depotArt) {
+        depotArt.qty = Math.round((Number(depotArt.qty||0) + qty) * 1000) / 1000;
+        depotArt.entrees = depotArt.entrees || [];
+        depotArt.entrees.unshift({ date: dateAff, qty, unit, fournisseur: fourn?.nom||'—', ref });
+      } else {
+        if(!esDepot.articles) esDepot.articles = [];
+        esDepot.articles.push({ stockId: s.id||s.sbId, nom: s.name, icon: s.icon||'📦', unit, qty, seuil: 0,
+          entrees: [{ date: dateAff, qty, unit, fournisseur: fourn?.nom||'—', ref }] });
+      }
+      if(typeof _saveDepots === 'function') _saveDepots();
+    }
+
     STOCK_ENTREES.unshift({
       date: dateAff, article: s.name, qty, unit,
       fournisseur: fourn?.nom || '—', prixUnit: prix,
-      total: qty * prix, ref
+      total: qty * prix, ref,
+      depot: esDepot ? esDepot.nom : '—'
     });
     // ✅ Limiter à 500 entrées max pour éviter dépassement Supabase
     if(STOCK_ENTREES.length > 500) STOCK_ENTREES = STOCK_ENTREES.slice(0, 500);
@@ -13388,7 +13968,8 @@ function saveEntreeStock() {
     closeModal('entreeStock');
     renderStock();
     if(KGSync.isConnected) KGSync.push.stock().catch(console.warn);
-    showNotif('📥 +' + qty + ' ' + unit + ' de ' + s.name + ' — Stock : ' + ancienQty + ' → ' + s.qty + ' ' + unit);
+    const depotMsg = esDepot ? ' → 🏭 ' + esDepot.nom : '';
+    showNotif('📥 +' + qty + ' ' + unit + ' de ' + s.name + ' — Stock : ' + ancienQty + ' → ' + s.qty + ' ' + unit + depotMsg);
 
   } catch(err) {
     console.error('saveEntreeStock:', err);
@@ -19358,6 +19939,17 @@ const KGSync = (() => {
   // ── Connexion ──────────────────────────────────────────────────
   async function connect(url, key) {
     try {
+      // ✅ FIX v5 : attendre que supabase soit chargé (CDN mobile lent)
+      if(typeof supabase === 'undefined' || !supabase) {
+        await new Promise((resolve, reject) => {
+          let tries = 0;
+          const check = setInterval(() => {
+            tries++;
+            if(typeof supabase !== 'undefined' && supabase) { clearInterval(check); resolve(); }
+            else if(tries > 40) { clearInterval(check); reject(new Error('Supabase CDN non disponible après 4s')); }
+          }, 100);
+        });
+      }
       client = supabase.createClient(url, key, {
         auth: {
           persistSession: true,
@@ -20959,28 +21551,42 @@ function deduireStockVente(items) {
     const recetteSource = (item.recette && item.recette.length > 0) ? item.recette : (menuItem && menuItem.recette ? menuItem.recette : []);
     if(!recetteSource || !recetteSource.length) return;
     recetteSource.forEach(function(ligne) {
-      // ✅ FIX : matcher par id, sbId, ET par nom (robuste après pullAll)
-      // Priorité : sbStockId (UUID Supabase) > stockId > nom (robuste après sync)
+      // Priorité : sbStockId (UUID Supabase) > stockId > stockNom
       let stockItem = null;
       if(ligne.sbStockId) stockItem = STOCK_DATA.find(function(s){ return String(s.sbId)===String(ligne.sbStockId); });
       if(!stockItem && ligne.stockId) stockItem = STOCK_DATA.find(function(s){ return String(s.sbId)===String(ligne.stockId) || String(s.id)===String(ligne.stockId); });
       if(!stockItem && ligne.stockNom) stockItem = STOCK_DATA.find(function(s){ return s.name && s.name.trim().toLowerCase()===ligne.stockNom.trim().toLowerCase(); });
       if(!stockItem) {
-        console.warn('[stock] Ingrédient introuvable pour stockId:', ligne.stockId, '— article:', menuItem.name);
+        // ✅ FIX : menuItem peut être null → éviter crash JS qui bloque toute la boucle
+        console.warn('[stock] Ingrédient introuvable pour stockId:', ligne.stockId, '— article:', (menuItem ? menuItem.name : item.name));
         return;
       }
       const consommation = ligne.qty * (item.qty || 1);
       stockItem.qty = Math.max(0, Math.round((stockItem.qty - consommation) * 1000) / 1000);
       hasChanges = true;
+      // ── Déduire aussi du dépôt source si défini ──
+      if(ligne.depotId && typeof DEPOTS !== 'undefined') {
+        const depot = DEPOTS.find(d => d.id === ligne.depotId);
+        if(depot && depot.articles) {
+          const depotArt = depot.articles.find(a => a.stockId === stockItem.id || a.stockId === stockItem.sbId || a.nom === stockItem.name);
+          if(depotArt) depotArt.qty = Math.max(0, Math.round((Number(depotArt.qty||0) - consommation) * 1000) / 1000);
+        }
+      }
     });
   });
   if(hasChanges) {
     if(typeof renderStock === 'function' && document.getElementById('view-stock') && document.getElementById('view-stock').classList.contains('active')) {
       renderStock();
     }
+    // ✅ FIX : forcer la sauvegarde Supabase ET localStorage après chaque déduction
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
-      try { KGSync.push.stock(); } catch(e) {}
+      try { KGSync.push.stock(); } catch(e) { console.warn('[stock] push.stock erreur:', e); }
     }
+    // Sauvegarde localStorage en fallback (robustesse hors-ligne)
+    try {
+      const _rid = window._KG_RESTAURANT_ID;
+      if(_rid) localStorage.setItem('kg_val_' + _rid + ':stock_data', JSON.stringify({ items: STOCK_DATA, entries: STOCK_ENTREES }));
+    } catch(e) {}
   }
 }
 // ============================================================
@@ -20998,7 +21604,7 @@ function openEditIngredient(menuIdx) {
   _editIngLines = (item.recette || []).map(l => {
     // Normaliser : résoudre le stockId vers l'id local
     const stock = STOCK_DATA.find(x => x.id == l.stockId || x.sbId == l.stockId || String(x.id) === String(l.stockId));
-    return { stockId: stock ? stock.id : l.stockId, qty: l.qty };
+    return { stockId: stock ? stock.id : l.stockId, qty: l.qty, depotId: l.depotId || '' };
   });
   _drawIngredientLines();
   showModal('editIngredient');
@@ -21020,24 +21626,34 @@ function _drawIngredientLines() {
     const opts = STOCK_DATA.map(s =>
       '<option value="' + s.id + '"' + (String(s.id) === String(line.stockId) || String(s.sbId) === String(line.stockId) ? ' selected' : '') + '>' + s.icon + ' ' + s.name + ' (' + s.unit + ')</option>'
     ).join('');
-    return '<div style="display:flex;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">' +
-      '<select style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12px;" ' +
-        'data-line="' + i + '" ' +
-        'onchange="_editIngLines[' + i + '].stockId=this.value||null;_updateUnitLabel(\\"ing-unit-\\"+' + i + ',this.value)">' +
-        '<option value="">— Article de stock —</option>' + opts +
+    const depotOpts = '<option value="">🏭 Stock général</option>' +
+      (typeof DEPOTS !== 'undefined' ? DEPOTS : []).map(d =>
+        '<option value="' + d.id + '"' + (line.depotId === d.id ? ' selected' : '') + '>' + (d.icon||'🏭') + ' ' + d.nom + '</option>'
+      ).join('');
+    return '<div style="display:flex;flex-direction:column;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">' +
+      '<div style="display:flex;gap:8px;align-items:center;">' +
+        '<select style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12px;" ' +
+          'data-line="' + i + '" ' +
+          'onchange="_editIngLines[' + i + '].stockId=this.value||null;_updateUnitLabel(\"ing-unit-\"+' + i + ',this.value)">' +
+          '<option value="">— Article de stock —</option>' + opts +
+        '</select>' +
+        '<input type="number" min="0.01" step="0.01" value="' + (line.qty || '') + '" placeholder="Qté" ' +
+          'style="width:72px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12px;" ' +
+          'oninput="_editIngLines[' + i + '].qty=parseFloat(this.value)||0">' +
+        '<span id="ing-unit-' + i + '" style="font-size:11px;color:var(--text2);min-width:36px;">' + unit + '</span>' +
+        '<button type="button" onclick="_removeIngLine(' + i + ')" ' +
+          'style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.3);border-radius:6px;color:var(--red);padding:5px 10px;cursor:pointer;font-weight:700;">&#10005;</button>' +
+      '</div>' +
+      '<select style="width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--text2);padding:5px 8px;font-size:11px;" ' +
+        'onchange="_editIngLines[' + i + '].depotId=this.value">' +
+        depotOpts +
       '</select>' +
-      '<input type="number" min="0.01" step="0.01" value="' + (line.qty || '') + '" placeholder="Qt\u00e9" ' +
-        'style="width:72px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12px;" ' +
-        'oninput="_editIngLines[' + i + '].qty=parseFloat(this.value)||0">' +
-      '<span id="ing-unit-' + i + '" style="font-size:11px;color:var(--text2);min-width:36px;">' + unit + '</span>' +
-      '<button type="button" onclick="_removeIngLine(' + i + ')" ' +
-        'style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.3);border-radius:6px;color:var(--red);padding:5px 10px;cursor:pointer;font-weight:700;">&#10005;</button>' +
     '</div>';
   }).join('');
 }
 
 function addIngredientLine() {
-  _editIngLines.push({ stockId: null, qty: 0 });
+  _editIngLines.push({ stockId: null, qty: 0, depotId: '' });
   _drawIngredientLines();
 }
 
@@ -21057,8 +21673,13 @@ function saveIngredients() {
     _container.querySelectorAll('input[type="number"]').forEach((inp, i) => {
       if(_editIngLines[i] !== undefined) _editIngLines[i].qty = parseFloat(inp.value) || _editIngLines[i].qty || 0;
     });
-    _container.querySelectorAll('select').forEach((sel, i) => {
-      if(_editIngLines[i] !== undefined && sel.value) _editIngLines[i].stockId = sel.value;
+    // Chaque ligne a 2 selects : [0]=article, [1]=dépôt
+    const allSelects = _container.querySelectorAll('select');
+    _editIngLines.forEach((line, i) => {
+      const artSel = allSelects[i * 2];
+      const depotSel = allSelects[i * 2 + 1];
+      if(artSel && artSel.value) line.stockId = artSel.value;
+      if(depotSel !== undefined) line.depotId = depotSel.value || '';
     });
   }
   item.recette = _editIngLines.filter(l => l.stockId && l.qty > 0).map(l => {
@@ -21071,7 +21692,8 @@ function saveIngredients() {
       sbStockId: stock ? stock.sbId : null,
       stockNom:  stock ? stock.name : null,
       unit:      stock ? stock.unit : null,
-      qty: l.qty
+      qty: l.qty,
+      depotId:   l.depotId || ''
     };
   });
   closeModal('editIngredient');
@@ -23372,6 +23994,8 @@ renderQuickUsers();
 setTimeout(() => {
   // ✅ OPT EGRESS : dépenses chargées via pullAll au login — pas besoin de SELECT séparé au démarrage
   if(typeof loadStockFromSupabase === 'function') loadStockFromSupabase().catch(()=>{});
+  // Charger les dépôts
+  if(typeof _loadDepots === 'function') _loadDepots();
 }, 1000);
 
 // Supabase connecté automatiquement au démarrage
@@ -28064,13 +28688,20 @@ function _validerAdditionCaisse(billId) {
   // Trouver la commande QR originale pour récupérer les articles
   const qrOrder = (typeof _qrOrders !== 'undefined') ? _qrOrders.find(o => o.id === bill.qrOrderId) : null;
   const rawSrc = qrOrder ? ((Array.isArray(qrOrder.items) && qrOrder.items.length) ? qrOrder.items : (Array.isArray(qrOrder.lignes) && qrOrder.lignes.length) ? qrOrder.lignes : []) : [];
-  const items = rawSrc.map(it => ({
-    id: it.id || null, sbId: it.sbId || null,
-    name: it.name || it.nom || 'Article',
-    icon: it.icon || '🍽️',
-    qty:  it.qty  || 1,
-    price: it.price || it.prix || 0
-  }));
+  const items = rawSrc.map(it => {
+    // Chercher la recette dans le MENU si l'item ne l'a pas
+    const menuItem = (typeof MENU !== 'undefined') ? MENU.find(function(m) {
+      return m.id === it.id || m.sbId === it.id || m.id === it.sbId || m.sbId === it.sbId || m.name === (it.name || it.nom);
+    }) : null;
+    return {
+      id: it.id || null, sbId: it.sbId || null,
+      name: it.name || it.nom || 'Article',
+      icon: it.icon || '🍽️',
+      qty:  it.qty  || 1,
+      price: it.price || it.prix || 0,
+      recette: (it.recette && it.recette.length > 0) ? it.recette : (menuItem && menuItem.recette ? menuItem.recette : [])
+    };
+  });
 
   // Demander mode de paiement
   const overlay = document.createElement('div');
@@ -32069,6 +32700,45 @@ if(typeof showView === 'function') {
 // ═══════════════════════════════════════════════════════════════
 //  FIN MODULE SALLE DE SPORT
 // ═══════════════════════════════════════════════════════════════
+
+// ✅ FIX : Initialisation des selects de mois (déplacé depuis HTML inline)
+document.addEventListener('DOMContentLoaded', function() {
+  const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const now = new Date();
+  const curM = now.getMonth();
+  const curY = now.getFullYear();
+
+  // Select réconciliation mensuelle
+  const selRecon = document.getElementById('recon-month');
+  if(selRecon && selRecon.options.length === 0) {
+    for(let i = 0; i < 12; i++) {
+      let m = curM - i, y = curY;
+      while(m < 0) { m += 12; y--; }
+      const opt = document.createElement('option');
+      opt.value = String(m+1).padStart(2,'0') + '-' + y;
+      opt.textContent = moisNoms[m] + ' ' + y;
+      if(i === 0) opt.selected = true;
+      selRecon.appendChild(opt);
+    }
+  }
+
+  // Select fiches de paie RH
+  const selSal = document.getElementById('rh-sal-mois');
+  const lblSal = document.getElementById('rh-sal-mois-label');
+  if(selSal && selSal.options.length === 0) {
+    for(let i = 6; i >= -5; i--) {
+      let m = curM - i, y = curY;
+      while(m < 0) { m += 12; y--; }
+      while(m > 11) { m -= 12; y++; }
+      const nom = moisNoms[m] + ' ' + y;
+      const opt = document.createElement('option');
+      opt.value = String(m+1).padStart(2,'0') + '-' + y;
+      opt.textContent = nom;
+      if(i === 0) { opt.selected = true; if(lblSal) lblSal.textContent = nom; }
+      selSal.appendChild(opt);
+    }
+  }
+});
 </script>
 </html>
 
