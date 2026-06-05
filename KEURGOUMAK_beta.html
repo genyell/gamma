@@ -33133,127 +33133,179 @@ function imprimerTicketAttente(ticketId) {
   const footerMsg   = (typeof TICKET_CONFIG   !== 'undefined' && TICKET_CONFIG.footerMsg) || 'Merci pour votre visite !';
   const wifiSSID    = (typeof TICKET_CONFIG   !== 'undefined' && TICKET_CONFIG.showWifi && TICKET_CONFIG.wifiSSID) ? TICKET_CONFIG.wifiSSID : '';
   const wifiPwd     = (typeof TICKET_CONFIG   !== 'undefined' && TICKET_CONFIG.wifiPwd)  || '';
-  const accentColor = (typeof TICKET_CONFIG   !== 'undefined' && TICKET_CONFIG.accentColor) || '#f5a623';
   const showCashier = !(typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.showCashier === false);
 
-  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Ticket ${ticket.id}</title>
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Commande ${ticket.id}</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#1a1a1a; background:#fff; width:302px; margin:0 auto; line-height:1.5; overflow:visible; }
-  .header { background:#111; color:#fff; padding:8px 10px 6px; text-align:center; }
-  .header-logo-img { max-width:80px; max-height:60px; object-fit:contain; border-radius:6px; margin-bottom:5px; }
-  .header-name { font-size:18px; font-weight:900; letter-spacing:2px; text-transform:uppercase; color:${accentColor}; margin-bottom:1px; }
-  .header-addr { font-size:10px; color:#ccc; line-height:1.4; }
-  .header-tel  { font-size:10px; color:${accentColor}; font-weight:700; margin-top:1px; }
-  .ticket-band { background:${accentColor}; color:#000; text-align:center; padding:4px 0 3px; display:flex; align-items:center; justify-content:center; gap:8px; }
-  .ticket-band-lbl { font-size:9px; font-weight:700; letter-spacing:2px; text-transform:uppercase; opacity:.7; }
-  .ticket-band-num { font-size:20px; font-weight:900; letter-spacing:3px; }
-  .meta-block { background:#f8f8f8; padding:5px 10px; border-bottom:1px dashed #ddd; }
-  .meta-row { display:flex; justify-content:space-between; font-size:11px; padding:2px 0; color:#333; }
-  .meta-row .lbl { color:#777; } .meta-row .val { font-weight:700; color:#111; }
+
+  /* ══ BANDEAU SUPÉRIEUR ATTENTE — identité visuelle claire ══ */
+  .top-attente-band {
+    background: repeating-linear-gradient(
+      45deg,
+      #000 0px, #000 8px,
+      #f5c800 8px, #f5c800 16px
+    );
+    padding: 10px 0 8px;
+    text-align: center;
+  }
+  .top-attente-inner {
+    background: #f5c800;
+    display: inline-block;
+    padding: 5px 18px;
+    border-radius: 4px;
+  }
+  .top-attente-title { font-size:14px; font-weight:900; color:#000; letter-spacing:3px; text-transform:uppercase; }
+  .top-attente-sub   { font-size:10px; font-weight:700; color:#555; letter-spacing:1px; margin-top:1px; }
+
+  /* ══ EN-TÊTE restaurant ══ */
+  .header { background:#fff; border-bottom:2px dashed #ccc; padding:8px 10px 6px; text-align:center; }
+  .header-logo-img { max-width:70px; max-height:50px; object-fit:contain; border-radius:4px; margin-bottom:4px; }
+  .header-name { font-size:15px; font-weight:900; letter-spacing:2px; text-transform:uppercase; color:#111; margin-bottom:1px; }
+  .header-addr { font-size:10px; color:#666; line-height:1.4; }
+  .header-tel  { font-size:10px; color:#111; font-weight:700; margin-top:1px; }
+
+  /* ══ NUMÉRO COMMANDE ══ */
+  .cmd-band { background:#111; color:#fff; text-align:center; padding:6px 0 5px; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .cmd-band-lbl { font-size:9px; font-weight:700; letter-spacing:2px; text-transform:uppercase; opacity:.6; }
+  .cmd-band-num { font-size:22px; font-weight:900; letter-spacing:3px; }
+
+  /* ══ MÉTA ══ */
+  .meta-block { background:#fffbe6; border-bottom:1px dashed #e0c800; padding:5px 10px; }
+  .meta-row { display:flex; justify-content:space-between; font-size:11px; padding:2px 0; }
+  .meta-row .lbl { color:#888; }
+  .meta-row .val { font-weight:700; color:#111; }
+
+  /* ══ ARTICLES ══ */
   .articles-section { padding:6px 10px; }
-  .articles-title { font-size:9px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:#777; margin-bottom:5px; padding-bottom:4px; border-bottom:1px solid #ddd; }
-  .article-item { display:flex; align-items:flex-start; gap:6px; padding:4px 0; border-bottom:1px solid #eee; }
+  .articles-title { font-size:9px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:#888; margin-bottom:5px; padding-bottom:4px; border-bottom:1px solid #ddd; }
+  .article-item { display:flex; align-items:flex-start; gap:6px; padding:4px 0; border-bottom:1px solid #f0f0f0; }
   .article-item:last-child { border-bottom:none; }
   .article-qty-badge { background:#111; color:#fff; font-size:11px; font-weight:800; min-width:20px; height:20px; border-radius:3px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
   .article-name  { font-size:12px; font-weight:700; color:#111; }
+  .article-sub   { font-size:10px; color:#aaa; }
   .article-total { font-size:12px; font-weight:800; color:#111; white-space:nowrap; text-align:right; min-width:55px; }
-  .remise-row { display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:#e74c3c; padding:3px 10px; background:#fff5f5; }
+  .remise-row { display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:#c0392b; padding:3px 10px; background:#fff5f5; border-top:1px dashed #ddd; }
+
+  /* ══ SOUS-TOTAUX ══ */
   .totaux-section { padding:5px 10px 0; border-top:1px dashed #ddd; }
-  .subtotal-row { display:flex; justify-content:space-between; font-size:11px; color:#666; padding:2px 0; }
-  .total-final { margin:5px 10px; background:#111; color:#fff; border-radius:6px; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; }
-  .total-final-label { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; }
-  .total-final-amount { font-size:20px; font-weight:900; color:${accentColor}; }
-  /* ══ BANDEAU ATTENTE — bien visible ══ */
-  .attente-band { margin:8px 10px; border:2.5px dashed ${accentColor}; border-radius:8px; padding:12px 10px; text-align:center; background:#111; }
-  .attente-icon { font-size:28px; margin-bottom:4px; }
-  .attente-label { font-size:13px; font-weight:900; color:${accentColor}; letter-spacing:2px; text-transform:uppercase; }
-  .attente-montant { font-size:24px; font-weight:900; color:#fff; margin:6px 0 2px; font-family:monospace; }
-  .attente-sub { font-size:10px; color:#888; margin-top:2px; }
-  /* ══ MODES DE PAIEMENT ACCEPTÉS ══ */
-  .pay-modes { margin:0 10px 6px; background:#f8f8f8; border-radius:5px; padding:6px 10px; }
-  .pay-modes-title { font-size:9px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:#999; margin-bottom:5px; }
-  .pay-modes-list { display:flex; gap:6px; flex-wrap:wrap; }
-  .pay-mode-badge { display:flex; align-items:center; gap:4px; background:#fff; border:1px solid #ddd; border-radius:4px; padding:3px 7px; font-size:10px; font-weight:700; color:#333; }
-  /* ══ WIFI ══ */
-  .wifi-section { margin:4px 10px; padding:5px 10px; border:1px dashed #ddd; border-radius:5px; text-align:center; font-size:10px; color:#555; }
+  .subtotal-row { display:flex; justify-content:space-between; font-size:11px; color:#777; padding:2px 0; }
+
+  /* ══ MONTANT À PAYER — grand et central ══ */
+  .montant-a-payer {
+    margin: 8px 0 0;
+    background: #f5c800;
+    padding: 10px 12px 8px;
+    text-align: center;
+  }
+  .map-label { font-size:9px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:#555; margin-bottom:3px; }
+  .map-amount { font-size:28px; font-weight:900; color:#000; font-family:monospace; letter-spacing:2px; }
+  .map-currency { font-size:13px; font-weight:700; color:#333; }
+
+  /* ══ MODES DE PAIEMENT ══ */
+  .pay-modes { padding:6px 10px; background:#f8f8f8; border-top:1px dashed #ddd; }
+  .pay-modes-title { font-size:9px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:#aaa; margin-bottom:4px; }
+  .pay-modes-list { display:flex; gap:5px; flex-wrap:wrap; }
+  .pay-mode-badge { background:#fff; border:1px solid #ddd; border-radius:4px; padding:3px 7px; font-size:10px; font-weight:700; color:#333; }
+
+  /* ══ BANDEAU BAS ATTENTE ══ */
+  .bottom-attente-band {
+    background: repeating-linear-gradient(
+      45deg,
+      #000 0px, #000 8px,
+      #f5c800 8px, #f5c800 16px
+    );
+    padding: 5px 0;
+    text-align: center;
+  }
+  .bottom-attente-txt { background:#000; display:inline-block; padding:3px 14px; border-radius:3px; font-size:10px; font-weight:800; letter-spacing:2px; color:#f5c800; text-transform:uppercase; }
+
+  /* ══ WIFI / FOOTER ══ */
+  .wifi-section { padding:5px 10px; border-top:1px dashed #ddd; text-align:center; font-size:10px; color:#555; }
   .wifi-title { font-weight:800; font-size:11px; margin-bottom:1px; }
-  .footer-section { background:#f8f8f8; border-top:2px solid ${accentColor}; padding:6px 10px 8px; text-align:center; }
-  .footer-msg { font-size:12px; font-weight:700; color:#111; line-height:1.5; }
-  ${ninea ? `.footer-ninea { display:inline-block; background:#111; color:${accentColor}; font-size:10px; font-weight:700; padding:1px 6px; border-radius:3px; letter-spacing:1px; margin-top:2px; }` : ''}
+  .footer-section { border-top:1px dashed #ddd; padding:6px 10px 8px; text-align:center; background:#fff; }
+  .footer-msg { font-size:11px; color:#777; line-height:1.5; }
+  .footer-ninea { display:inline-block; background:#111; color:#f5c800; font-size:10px; font-weight:700; padding:1px 6px; border-radius:3px; letter-spacing:1px; margin-top:3px; }
+
   .no-print { padding:8px; display:flex; gap:8px; justify-content:center; background:#f0f0f0; border-bottom:1px solid #ddd; }
   .no-print button { padding:7px 18px; border:none; border-radius:6px; font-size:13px; font-weight:700; cursor:pointer; }
+
   @media print {
     .no-print { display:none !important; }
     @page { size:302px auto; margin:0 !important; }
     * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
     body { width:302px !important; }
-    .header { background:#fff !important; border-bottom:2px solid #000 !important; }
-    .header-name { color:#000 !important; }
-    .header-addr, .header-tel { color:#000 !important; }
-    .ticket-band { background:#000 !important; color:#fff !important; }
-    .total-final { background:#000 !important; }
-    .total-final-amount { color:#fff !important; }
-    .attente-band { background:#fff !important; border:2px solid #000 !important; }
-    .attente-label { color:#000 !important; }
-    .attente-montant { color:#000 !important; }
-    .footer-section { border-top:2px solid #000 !important; }
+    .top-attente-band,
+    .bottom-attente-band { background: repeating-linear-gradient(45deg,#000 0px,#000 8px,#f5c800 8px,#f5c800 16px) !important; }
+    .montant-a-payer { background:#f5c800 !important; }
   }
 </style></head><body>
+
 <div class="no-print">
-  <button onclick="window.print()" style="background:${accentColor};color:#000;font-weight:800;">🖨️ Imprimer</button>
+  <button onclick="window.print()" style="background:#f5c800;color:#000;font-weight:800;">🖨️ Imprimer</button>
   <button onclick="window.close()" style="background:#333;color:#fff;">✕ Fermer</button>
 </div>
-<!-- EN-TÊTE -->
+
+<!-- BANDEAU SUPÉRIEUR ATTENTE -->
+<div class="top-attente-band">
+  <div class="top-attente-inner">
+    <div class="top-attente-title">⏳ EN ATTENTE</div>
+    <div class="top-attente-sub">Commande à régler en caisse</div>
+  </div>
+</div>
+
+<!-- EN-TÊTE RESTAURANT -->
 <div class="header">
   ${logoSrc ? `<div><img src="${logoSrc}" class="header-logo-img" alt="logo"></div>` : ''}
   <div class="header-name">${restaurant}</div>
   <div class="header-addr">${adresse}${email ? '<br>'+email : ''}</div>
   ${tel ? `<div class="header-tel">📞 ${tel}</div>` : ''}
 </div>
-<!-- BANDEAU TICKET -->
-<div class="ticket-band">
-  <span class="ticket-band-lbl">Ticket</span>
-  <span class="ticket-band-num">${ticket.id}</span>
+
+<!-- NUMÉRO COMMANDE -->
+<div class="cmd-band">
+  <span class="cmd-band-lbl">Commande N°</span>
+  <span class="cmd-band-num">${ticket.id}</span>
 </div>
+
 <!-- MÉTA INFO -->
 <div class="meta-block">
-  <div class="meta-row"><span class="lbl">Client</span><span class="val">${ticket.client||'Client'}</span></div>
+  <div class="meta-row"><span class="lbl">Client</span><span class="val">${ticket.client||'—'}</span></div>
+  <div class="meta-row"><span class="lbl">Date / Heure</span><span class="val">${ticket.date||'—'} · ${ticket.time||'—'}</span></div>
+  ${showCashier ? `<div class="meta-row"><span class="lbl">Servi par</span><span class="val">${ticket.cashier||'—'}</span></div>` : ''}
   <div class="meta-row"><span class="lbl">Caisse</span><span class="val">${ticket.caisse||'—'}</span></div>
-  <div class="meta-row"><span class="lbl">Heure</span><span class="val">${ticket.time||'—'}</span></div>
-  ${showCashier ? `<div class="meta-row"><span class="lbl">Caissier</span><span class="val">${ticket.cashier||'—'}</span></div>` : ''}
 </div>
+
 <!-- ARTICLES -->
 <div class="articles-section">
-  <div class="articles-title">Articles commandés</div>
+  <div class="articles-title">Détail de la commande</div>
   ${(ticket.items||[]).map(i => `
   <div class="article-item">
     <div class="article-qty-badge">${i.qty||1}</div>
-    <div style="flex:1;"><div class="article-name">${_safeIconText(i.icon,'🍽️')} ${i.name||i.nom||''}</div>
-      <div style="font-size:10px;color:#999;">${(i.price||0).toLocaleString()} F × ${i.qty||1}</div>
+    <div style="flex:1;">
+      <div class="article-name">${_safeIconText(i.icon,'🍽️')} ${i.name||i.nom||''}</div>
+      <div class="article-sub">${(i.price||0).toLocaleString()} F × ${i.qty||1}</div>
     </div>
     <div class="article-total">${((i.price||0)*(i.qty||1)).toLocaleString()} F</div>
   </div>`).join('')}
 </div>
-${(ticket.remiseMontant||0) > 0 ? `<div class="remise-row"><span>🏷️ Remise (${ticket.remisePct}%)</span><span>− ${ticket.remiseMontant.toLocaleString()} F</span></div>` : ''}
+
+${(ticket.remiseMontant||0) > 0 ? `<div class="remise-row"><span>🏷️ Remise ${ticket.remisePct}%</span><span>− ${ticket.remiseMontant.toLocaleString()} F</span></div>` : ''}
+
 <!-- SOUS-TOTAUX -->
 <div class="totaux-section">
-  <div class="subtotal-row"><span>Montant HT</span><span>${(ticket.sub||0).toLocaleString()} F</span></div>
+  <div class="subtotal-row"><span>Sous-total HT</span><span>${(ticket.sub||0).toLocaleString()} F</span></div>
   <div class="subtotal-row"><span>TVA 18% (incluse)</span><span>${(ticket.tva||0).toLocaleString()} F</span></div>
 </div>
-<!-- TOTAL -->
-<div class="total-final">
-  <span class="total-final-label">Total TTC</span>
-  <span class="total-final-amount">${ticket.total.toLocaleString()} F</span>
+
+<!-- MONTANT À PAYER -->
+<div class="montant-a-payer">
+  <div class="map-label">Montant à payer</div>
+  <div class="map-amount">${ticket.total.toLocaleString()} <span class="map-currency">FCFA</span></div>
 </div>
-<!-- BANDEAU EN ATTENTE — MONTANT À PAYER BIEN VISIBLE -->
-<div class="attente-band">
-  <div class="attente-icon">⏳</div>
-  <div class="attente-label">EN ATTENTE DE PAIEMENT</div>
-  <div class="attente-montant">${ticket.total.toLocaleString()} FCFA</div>
-  <div class="attente-sub">Montant à régler lors du passage en caisse</div>
-</div>
-<!-- MODES DE PAIEMENT ACCEPTÉS -->
+
+<!-- MODES DE PAIEMENT -->
 <div class="pay-modes">
   <div class="pay-modes-title">Modes de paiement acceptés</div>
   <div class="pay-modes-list">
@@ -33264,12 +33316,20 @@ ${(ticket.remiseMontant||0) > 0 ? `<div class="remise-row"><span>🏷️ Remise 
     <div class="pay-mode-badge">🔀 Mixte</div>
   </div>
 </div>
+
 ${wifiSSID ? `<div class="wifi-section"><div class="wifi-title">📶 WiFi</div><div>Réseau : <strong>${wifiSSID}</strong></div><div>Mot de passe : <strong>${wifiPwd}</strong></div></div>` : ''}
+
 <!-- PIED DE PAGE -->
 <div class="footer-section">
   <div class="footer-msg">${footerMsg.replace(/\n/g,'<br>')}</div>
   ${ninea ? `<div class="footer-ninea">NINEA : ${ninea}</div>` : ''}
 </div>
+
+<!-- BANDEAU BAS ATTENTE -->
+<div class="bottom-attente-band">
+  <span class="bottom-attente-txt">⏳ À RÉGLER EN CAISSE</span>
+</div>
+
 </body></html>`;
 
   const win = window.open('', '_blank', 'width=420,height=750,scrollbars=yes');
