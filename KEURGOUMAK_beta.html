@@ -8306,6 +8306,10 @@ Revenez nous voir bient&#244;t.</textarea>
       <label class="form-label">Client (optionnel)</label>
       <input class="form-input" id="ticket-client" placeholder="Nom du client ou numéro de table...">
     </div>
+    <div class="form-group">
+      <label class="form-label">👤 Serveur (optionnel)</label>
+      <input class="form-input" id="ticket-serveur" placeholder="Nom du serveur...">
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('confirmTicket')">✕ Annuler</button>
       <button class="btn btn-primary" onclick="validateOrder()" style="min-width:160px;">🧾 Valider & Imprimer</button>
@@ -10053,6 +10057,18 @@ ${f.notes ? `<div class="notes-block">📝 <strong>Notes / Conditions :</strong>
     </div>
   </div>
 
+
+<!-- ── Modal nom du serveur (ticket en attente) ── -->
+<div id="modal-serveur-attente" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:320px;max-width:90vw;">
+    <div style="font-size:16px;font-weight:800;margin-bottom:16px;text-align:center;">👤 Nom du serveur</div>
+    <input id="modal-serveur-input" class="form-input" placeholder="Nom du serveur..." style="width:100%;margin-bottom:16px;" onkeydown="if(event.key==='Enter') _validerServeur()">
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" style="flex:1;" onclick="_confirmerEtCreerTicket('')">Ignorer</button>
+      <button class="btn btn-primary" style="flex:2;" onclick="_validerServeur()">✅ Confirmer & Imprimer</button>
+    </div>
+  </div>
+</div>
 </body></html>`;
 
   // Afficher dans un overlay (comme le ticket de caisse)
@@ -32951,6 +32967,43 @@ function spImprimerMembre(id) {
   setTimeout(() => win.print(), 500);
 }
 
+
+// ── Modal serveur ticket en attente ──
+let _attenteServeurTicketId = null;
+let _attenteServeurCashier  = null;
+
+function _ouvrirModalServeurAttente(ticketId, cashier) {
+  _attenteServeurTicketId = ticketId;
+  _attenteServeurCashier  = cashier;
+  const input = document.getElementById('modal-serveur-input');
+  if(input) input.value = '';
+  const modal = document.getElementById('modal-serveur-attente');
+  if(modal) { modal.style.display = 'flex'; setTimeout(() => input?.focus(), 100); }
+}
+
+function _confirmerServeurAttente(forceVal) {
+  const modal = document.getElementById('modal-serveur-attente');
+  if(modal) modal.style.display = 'none';
+
+  const nomSaisi = forceVal !== undefined ? forceVal : (document.getElementById('modal-serveur-input')?.value || '').trim();
+  const serveur  = nomSaisi || _attenteServeurCashier || '';
+
+  if(!_attenteServeurTicketId || !serveur) return;
+
+  // Mettre à jour le ticket local avec le nom du serveur
+  _loadTicketsAttente();
+  const ticket = TICKETS_ATTENTE.find(t => t.id === _attenteServeurTicketId);
+  if(ticket) {
+    ticket.serveur = serveur;
+    _saveTicketsAttente();
+    // Pousser vers Supabase avec le serveur
+    _pushTicketAttenteSupabase(ticket);
+    // Réimprimer avec le nom du serveur
+    imprimerTicketAttente(_attenteServeurTicketId);
+  }
+  _attenteServeurTicketId = null;
+}
+
 // ── Modal nouveau membre ──
 function spOpenModalMembre(id) {
   spLoad();
@@ -33311,6 +33364,7 @@ async function _pushTicketAttenteSupabase(ticket) {
       restaurant_id:  rid,
       caisse:         ticket.caisse,
       cashier:        ticket.cashier,
+      serveur:        ticket.serveur || '',
       client:         ticket.client,
       items:          ticket.items,
       total:          ticket.total,
@@ -33386,14 +33440,26 @@ function mettreEnAttente() {
   if(!sessionCaisseActive) { showNotif('🔒 Ouvrez une caisse avant de mettre en attente !'); return; }
   if(typeof cart === 'undefined' || cart.length === 0) { showNotif('⚠️ Panier vide — rien à mettre en attente'); return; }
 
-  // ✅ Demander le nom du serveur
-  const _defaultServeur = currentUser ? `${currentUser.prenom||''} ${currentUser.nom||''}`.trim() : '';
-  const _nomServeur = prompt('👤 Nom du serveur (figurera sur le reçu) :', _defaultServeur);
-  if(_nomServeur === null) return; // Annulé
+  // ✅ Afficher le modal serveur d'abord — le ticket sera créé après confirmation
+  const modal = document.getElementById('modal-serveur-attente');
+  const input = document.getElementById('modal-serveur-input');
+  if(input) input.value = '';
+  if(modal) { modal.style.display = 'flex'; setTimeout(() => input?.focus(), 100); }
+}
+
+// Appelé quand l'utilisateur confirme le nom du serveur
+function _validerServeur() {
+  const val = document.getElementById('modal-serveur-input')?.value || '';
+  _confirmerEtCreerTicket(val);
+}
+
+function _confirmerEtCreerTicket(nomServeur) {
+  const modal = document.getElementById('modal-serveur-attente');
+  if(modal) modal.style.display = 'none';
 
   const caisse = sessionCaisseActive?.caisse || 'Caisse 1';
   const cashier = sessionCaisseActive?.cashier || (currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Caissier');
-  const serveur = (_nomServeur || '').trim() || cashier;
+  const serveur = (nomServeur || '').trim() || cashier;
 
   const totalAvantRemise = cart.reduce((a,c) => {
     const p = c.discount > 0 ? Math.round((c.priceOriginal||c.price)*(1-c.discount/100)) : c.price;
@@ -33431,15 +33497,13 @@ function mettreEnAttente() {
   _saveTicketsAttente();
   _pushTicketAttenteSupabase(_newTicket);
 
-  // 🖨️ Imprimer immédiatement le ticket d'attente
+  // 🖨️ Imprimer avec le nom du serveur déjà inclus
   imprimerTicketAttente(ticketId);
 
   // Vider le panier
   cart = [];
   if(document.getElementById('remise-cmd-input')) document.getElementById('remise-cmd-input').value = '';
   renderCart();
-
-  // Reset ticket-client
   if(document.getElementById('ticket-client')) document.getElementById('ticket-client').value = '';
 
   showNotif(`⏳ Ticket ${ticketId} mis en attente · 🖨️ Ticket imprimé`);
@@ -33794,7 +33858,7 @@ function imprimerTicketAttente(ticketId) {
 <div class="meta-block">
   <div class="meta-row"><span class="meta-lbl">Client</span><span class="meta-val">${ticket.client||'—'}</span></div>
   <div class="meta-row"><span class="meta-lbl">Date</span><span class="meta-val">${ticket.date||'—'} ${ticket.time||''}</span></div>
-  ${ticket.serveur ? `<div class="meta-row"><span class="meta-lbl" style="font-weight:800;">👤 Serveur</span><span class="meta-val" style="font-weight:900;font-size:13px;">${ticket.serveur}</span></div>` : ''}
+  ${ticket.serveur ? `<div class="meta-row" style="background:#f5f5f5;border-radius:4px;padding:4px 6px;margin:2px 0;"><span class="meta-lbl" style="font-weight:800;font-size:12px;">👤 SERVEUR</span><span class="meta-val" style="font-weight:900;font-size:14px;text-transform:uppercase;letter-spacing:1px;">${ticket.serveur}</span></div>` : ''}
   ${showCashier ? `<div class="meta-row"><span class="meta-lbl">Caissier</span><span class="meta-val">${ticket.cashier||'—'}</span></div>` : ''}
   <div class="meta-row"><span class="meta-lbl">Caisse</span><span class="meta-val">${ticket.caisse||'—'}</span></div>
 </div>
@@ -34044,5 +34108,17 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
-</html>
 
+<!-- ── Modal nom du serveur (ticket en attente) ── -->
+<div id="modal-serveur-attente" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:320px;max-width:90vw;">
+    <div style="font-size:16px;font-weight:800;margin-bottom:16px;text-align:center;">👤 Nom du serveur</div>
+    <input id="modal-serveur-input" class="form-input" placeholder="Nom du serveur..." style="width:100%;margin-bottom:16px;" onkeydown="if(event.key==='Enter') _validerServeur()">
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-ghost" style="flex:1;" onclick="_confirmerEtCreerTicket('')">Ignorer</button>
+      <button class="btn btn-primary" style="flex:2;" onclick="_validerServeur()">✅ Confirmer & Imprimer</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
