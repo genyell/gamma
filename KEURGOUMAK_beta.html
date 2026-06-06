@@ -10930,6 +10930,13 @@ async function validateOrder() {
     await _loadVentesSupabase(caisse);
   }
 
+  // ✅ FIX doublon tickets en attente : vérifier que cet orderNum n'existe pas déjà
+  if(VENTES_PAR_CAISSE[caisse].find(v => v.orderNum === orderNum)) {
+    showNotif('⚠️ Cette commande a déjà été enregistrée (doublon évité).');
+    _validateOrderInProgress = false;
+    return;
+  }
+
   // ✅ FIX v42 : Calcul payMethods si mode mixte
   let payMethodsData = null;
   if(confirmPayMethod === 'mixed') {
@@ -12565,46 +12572,30 @@ function filterOrders(status, el) {
 }
 
 function renderOrders(status) {
-  // Afficher les commandes de TOUTES les caisses actives (ouvertes)
-  // Récupérer les noms des caisses actuellement ouvertes
-  const caissesOuvertes = (typeof CAISSES !== 'undefined' ? CAISSES : [])
-    .filter(c => c.status === 'open')
-    .map(c => c.name);
-
+  // ✅ FIX : afficher TOUTES les ventes du jour, quelle que soit le statut de la caisse
+  // (le filtre c.status==='open' cachait les tickets des caisses temporairement fermées)
+  const _todayISO = new Date().toISOString().split('T')[0];
   let allOrders = [];
 
-  if(caissesOuvertes.length > 0) {
-    // Afficher les commandes de toutes les caisses ouvertes
-    caissesOuvertes.forEach(caisseName => {
-      const ventes = VENTES_PAR_CAISSE[caisseName] || [];
-      ventes.forEach(v => {
-        allOrders.push({
-          id: v.orderNum,
-          client: v.client && v.client !== 'undefined' ? v.client : 'Client',
-          items: (v.items||[]).map(i => `${_safeIconText(i.icon)} ${i.name||i.nom||''} x${i.qty||1}`).join(', '),
-          price: v.total, time: v.time, status: 'done',
-          payLabel: v.payLabel,
-          caisse: caissesOuvertes.length > 1 ? caisseName : '',
-          vente: v
-        });
+  const _nbCaisses = Object.keys(VENTES_PAR_CAISSE).length;
+  Object.entries(VENTES_PAR_CAISSE).forEach(([caisseName, ventes]) => {
+    (ventes || []).forEach(v => {
+      // Inclure toutes les ventes du jour (exclure les ventes d'autres jours si présentes)
+      if(v.date && v.date < _todayISO) return;
+      allOrders.push({
+        id: v.orderNum,
+        client: v.client && v.client !== 'undefined' ? v.client : 'Client',
+        items: (v.items||[]).map(i => `${_safeIconText(i.icon)} ${i.name||i.nom||''} x${i.qty||1}`).join(', '),
+        price: v.total, time: v.time, status: 'done',
+        payLabel: v.payLabel,
+        caisse: _nbCaisses > 1 ? caisseName : '',
+        vente: v
       });
     });
-    // Trier par heure décroissante (plus récent en haut)
-    allOrders.sort((a, b) => (b.id||'').localeCompare(a.id||''));
-  } else {
-    // Aucune caisse ouverte : afficher quand même toutes les ventes de session
-    Object.entries(VENTES_PAR_CAISSE).forEach(([caisseName, ventes]) => {
-      ventes.forEach(v => {
-        allOrders.push({
-          id: v.orderNum,
-          client: v.client && v.client !== 'undefined' ? v.client : 'Client',
-          items: (v.items||[]).map(i => `${_safeIconText(i.icon)} ${i.name||i.nom||''} x${i.qty||1}`).join(', '),
-          price: v.total, time: v.time, status: 'done',
-          payLabel: v.payLabel, caisse: caisseName, vente: v
-        });
-      });
-    });
-  }
+  });
+
+  // Trier par numéro de commande décroissant (plus récent en haut)
+  allOrders.sort((a, b) => (b.id||'').localeCompare(a.id||''));
 
   // Mettre à jour les compteurs des tabs
   const _tabAll = document.getElementById('tab-all');
@@ -33695,7 +33686,13 @@ async function validerTicketAttente() {
 
   _updateAttenteCounter();
   refreshDashboard();
-  saveSession();
+  // ✅ FIX doublon : _saveVenteSupabase a déjà pushé la vente — on sauvegarde
+  // uniquement en localStorage (sans re-push Supabase) pour éviter le double enregistrement
+  _saveSessionImmediate();
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    KGSync.push.caisses().catch(e => console.warn('push.caisses attente:', e));
+    if(_saveSessionTimer) { clearTimeout(_saveSessionTimer); _saveSessionTimer = null; }
+  }
   renderOrders('all');
 }
 
@@ -33984,7 +33981,8 @@ renderOrders = function(status) {
     // Update tab counts
     const _tabAll = document.getElementById('tab-all');
     const _tabDone = document.getElementById('tab-done');
-    const allOrders = Object.values(VENTES_PAR_CAISSE||{}).flat();
+    const _td2 = new Date().toISOString().split('T')[0];
+    const allOrders = Object.values(VENTES_PAR_CAISSE||{}).flat().filter(v => !v.date || v.date >= _td2);
     if(_tabAll) _tabAll.textContent = 'Toutes (' + (allOrders.length + attenteList.length) + ')';
     if(_tabDone) _tabDone.textContent = '🎉 Encaissé (' + allOrders.length + ')';
 
@@ -34027,8 +34025,9 @@ renderOrders = function(status) {
     const list = document.getElementById('orders-list');
     if(!list) return;
 
-    // Update all count
-    const allVentes = Object.values(VENTES_PAR_CAISSE||{}).flat();
+    // ✅ FIX : compter uniquement les ventes du jour (cohérent avec renderOrders)
+    const _td = new Date().toISOString().split('T')[0];
+    const allVentes = Object.values(VENTES_PAR_CAISSE||{}).flat().filter(v => !v.date || v.date >= _td);
     const _tabAll = document.getElementById('tab-all');
     if(_tabAll) _tabAll.textContent = 'Toutes (' + (allVentes.length + attenteList.length) + ')';
     const _tabDone = document.getElementById('tab-done');
