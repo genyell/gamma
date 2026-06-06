@@ -21134,10 +21134,7 @@ const KGSync = (() => {
               _newMenu.push(item);
             }
           });
-          // ✅ FIX v43 RECETTE : préserver les recettes du MENU précédent
-          // Si un article dans _newMenu n'a pas de recette (ou recette vide) mais que
-          // l'ancien MENU en avait une (sauvée localement), on la réinjecte.
-          // Cela évite que le pullAll efface les recettes qu'on vient de lier.
+          // ✅ FIX RECETTE : préserver les recettes du MENU local si Supabase n'en a pas
           if(Array.isArray(MENU)) {
             _newMenu.forEach(newItem => {
               if(!newItem.recette || newItem.recette.length === 0) {
@@ -21153,6 +21150,36 @@ const KGSync = (() => {
             });
           }
           MENU = _newMenu;
+
+          // ✅ FIX CRITIQUE : charger les recettes depuis menu_items Supabase directement
+          // kg_sync/menu_data ne contient pas recette si le navigateur a été vidé
+          // On lit recette depuis menu_items pour tous les articles qui n'en ont pas
+          (async () => {
+            try {
+              const _sbR = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+              const _ridR = window._KG_RESTAURANT_ID;
+              if(!_sbR || !_ridR) return;
+              const { data: rows } = await _sbR
+                .from('menu_items')
+                .select('id, recette')
+                .eq('restaurant_id', _ridR)
+                .not('recette', 'is', null);
+              if(!rows || !rows.length) return;
+              let changed = false;
+              rows.forEach(row => {
+                if(!row.recette || !row.recette.length) return;
+                const menuItem = MENU.find(m => m.sbId === row.id || m.id === row.id || m.id === 'sb_' + row.id);
+                if(menuItem) {
+                  menuItem.recette = row.recette;
+                  changed = true;
+                }
+              });
+              if(changed) {
+                console.log('[pullAll] ✅ Recettes chargées depuis menu_items Supabase');
+                if(typeof renderMenu === 'function') renderMenu(currentMenuCat || 'all');
+              }
+            } catch(e) { console.warn('[pullAll] recettes menu_items:', e); }
+          })();
           // ✅ Re-sync cart image_url now that MENU is populated
           if(Array.isArray(cart)) {
             cart.forEach(cartItem => {
@@ -21597,11 +21624,11 @@ const KGSync = (() => {
   let _rtChannel = null;
   function _isHeureActive() {
     const h = new Date().getHours();
-    return h >= 18 && h < 24; // ✅ Actif 18h-23h59 seulement
+    return h >= 18 || h < 2; // ✅ Actif 18h-01h59 (minuit inclus, jusqu'à 2h)
   }
   function _startRealtime() {
     if(!client || !syncEnabled) return;
-    // ✅ FIX EGRESS : bloquer hors 18h-23h59
+    // ✅ FIX EGRESS : bloquer hors 18h-01h59
     if(!_isHeureActive()) {
       console.log('⛔ KGSync bloqué — hors horaires');
       clearTimeout(_rtTimeout);
@@ -32854,6 +32881,7 @@ function spRenderMembres() {
       <!-- Actions -->
       <div style="display:flex;gap:6px;flex-shrink:0;">
         <button title="Voir QR Code" onclick="spShowQR('${m.id}')" style="background:var(--teal)22;border:1px solid var(--teal)44;color:var(--teal);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:14px;">📱</button>
+        <button title="Imprimer reçu" onclick="spImprimerMembre('${m.id}')" style="background:rgba(100,149,237,0.12);border:1px solid rgba(100,149,237,0.35);color:#6495ed;border-radius:8px;padding:7px 10px;cursor:pointer;font-size:14px;">🖨️</button>
         <button title="Modifier" onclick="spOpenModalMembre('${m.id}')" style="background:var(--surface3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:14px;">✏️</button>
         <button title="Renouveler" onclick="spRenouveler('${m.id}')" style="background:var(--accent)22;border:1px solid var(--accent)44;color:var(--accent);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:14px;">🔄</button>
         <button title="Supprimer" onclick="spDeleteMembre('${m.id}')" style="background:var(--red)11;border:1px solid var(--red)33;color:var(--red);border-radius:8px;padding:7px 10px;cursor:pointer;font-size:14px;">🗑️</button>
@@ -32861,6 +32889,66 @@ function spRenderMembres() {
     </div>`;
   }).join('');
   spUpdateKPI();
+}
+
+// ── Imprimer reçu membre ──
+function spImprimerMembre(id) {
+  spLoad();
+  const m = SP_MEMBRES.find(x => x.id === id);
+  if(!m) return;
+  const cfg = spGetConfig();
+  const nomSalle = cfg.nomSalle || 'Salle de Sport';
+  const typeLabel = {mensuel:'1 mois',trimestriel:'3 mois',semestriel:'6 mois',annuel:'12 mois'}[m.typeAbo] || m.typeAbo || '—';
+  const modeLabel = {especes:'Espèces',wave:'Wave',orange_money:'Orange Money',carte:'Carte bancaire'}[m.modePaiement] || m.modePaiement || '—';
+  const actif = spIsActif(m);
+  const statLabel = actif ? '✅ Actif' : '❌ Expiré';
+  const now = new Date().toLocaleDateString('fr-FR');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Reçu — ${m.nom}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; font-size:13px; padding:20px; max-width:320px; margin:auto; }
+    .header { text-align:center; border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:14px; }
+    .header h2 { font-size:18px; font-weight:800; }
+    .header p { font-size:11px; color:#666; margin-top:4px; }
+    .title { text-align:center; font-size:14px; font-weight:700; margin-bottom:14px; text-transform:uppercase; letter-spacing:1px; }
+    .row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dashed #ddd; }
+    .row .label { color:#666; }
+    .row .val { font-weight:600; text-align:right; }
+    .montant { text-align:center; margin:16px 0; padding:12px; border:2px solid #333; border-radius:8px; }
+    .montant .amt { font-size:22px; font-weight:800; }
+    .footer { text-align:center; margin-top:16px; font-size:11px; color:#888; border-top:1px dashed #ddd; padding-top:10px; }
+    @media print { body { padding:5px; } }
+  </style></head><body>
+  <div class="header">
+    <h2>💪 ${nomSalle}</h2>
+    <p>Reçu d'abonnement</p>
+  </div>
+  <div class="title">REÇU MEMBRE</div>
+  <div class="row"><span class="label">Membre</span><span class="val">${m.nom}</span></div>
+  ${m.tel ? `<div class="row"><span class="label">Téléphone</span><span class="val">${m.tel}</span></div>` : ''}
+  <div class="row"><span class="label">Abonnement</span><span class="val">${typeLabel}</span></div>
+  <div class="row"><span class="label">Début</span><span class="val">${spFmtDate(m.dateDebut)}</span></div>
+  <div class="row"><span class="label">Fin</span><span class="val">${spFmtDate(m.dateFin)}</span></div>
+  <div class="row"><span class="label">Statut</span><span class="val">${statLabel}</span></div>
+  <div class="row"><span class="label">Paiement</span><span class="val">${modeLabel}</span></div>
+  <div class="montant">
+    <div style="font-size:11px;color:#666;margin-bottom:4px;">MONTANT PAYÉ</div>
+    <div class="amt">${(m.montant||0).toLocaleString('fr-FR')} F CFA</div>
+  </div>
+  ${m.notes ? `<div style="font-size:11px;color:#666;text-align:center;margin-bottom:10px;">Note : ${m.notes}</div>` : ''}
+  <div class="footer">
+    <p>Imprimé le ${now}</p>
+    <p>Merci de votre confiance ! 💪</p>
+  </div>
+  </body></html>`;
+
+  const win = window.open('', '_blank', 'width=380,height:620,scrollbars=yes');
+  if(!win) { showNotif('⚠️ Autorisez les popups pour imprimer'); return; }
+  win.document.write(html);
+  win.document.close();
+  setTimeout(() => win.print(), 500);
 }
 
 // ── Modal nouveau membre ──
@@ -33524,6 +33612,12 @@ async function validerTicketAttente() {
 
 // ── Supprimer un ticket en attente ──
 function supprimerTicketAttente(ticketId) {
+  // ✅ Seuls gérant, superviseur et administrateur peuvent supprimer un ticket
+  const _isManager = currentUser && (currentUser.role === 'gerant' || currentUser.role === 'superviseur' || currentUser.role === 'administrateur');
+  if(!_isManager) {
+    showNotif('🔒 Seul le gérant, superviseur ou administrateur peut supprimer un ticket.');
+    return;
+  }
   if(!confirm('Supprimer ce ticket en attente ?')) return;
   _loadTicketsAttente();
   TICKETS_ATTENTE = TICKETS_ATTENTE.filter(t => t.id !== ticketId);
@@ -33733,6 +33827,12 @@ ${wifiSSID ? `<div class="wifi-section"><div class="wifi-title">WiFi : ${wifiSSI
 
 // ── Rouvrir un ticket en attente pour modification ──
 function rouvrirTicketAttente(ticketId) {
+  // ✅ Seuls gérant, superviseur et administrateur peuvent modifier un ticket validé
+  const _isManager = currentUser && (currentUser.role === 'gerant' || currentUser.role === 'superviseur' || currentUser.role === 'administrateur');
+  if(!_isManager) {
+    showNotif('🔒 Seul le gérant, superviseur ou administrateur peut modifier un ticket.');
+    return;
+  }
   if(!sessionCaisseActive) {
     showNotif('🔒 Ouvrez une caisse pour modifier ce ticket');
     return;
@@ -33813,7 +33913,7 @@ renderOrders = function(status) {
         <div class="badge" style="background:rgba(245,158,42,0.15);color:var(--accent);border:1px solid rgba(245,158,42,0.4);font-size:10px;white-space:nowrap;">⏳ En attente</div>
         <div style="display:flex;gap:5px;margin-left:6px;">
           <button onclick="imprimerTicketAttente('${t.id}')" title="Imprimer ticket d'attente" style="font-size:11px;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2);">🖨️</button>
-          <button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / ajouter articles" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>
+          ${(currentUser && (currentUser.role==='gerant'||currentUser.role==='superviseur'||currentUser.role==='administrateur')) ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / ajouter articles" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
           <button onclick="ouvrirPaiementAttente('${t.id}')" style="font-size:11px;padding:5px 10px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:6px;cursor:pointer;color:#fff;font-weight:700;">💳 Encaisser</button>
           <button onclick="supprimerTicketAttente('${t.id}')" title="Supprimer" style="font-size:11px;padding:5px 8px;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);border-radius:6px;cursor:pointer;color:var(--red);">🗑</button>
         </div>
@@ -33851,9 +33951,9 @@ renderOrders = function(status) {
           <div class="badge" style="background:rgba(245,158,42,0.15);color:var(--accent);border:1px solid rgba(245,158,42,0.4);font-size:10px;white-space:nowrap;">⏳ En attente</div>
           <div style="display:flex;gap:5px;margin-left:6px;">
             <button onclick="imprimerTicketAttente('${t.id}')" title="Imprimer" style="font-size:11px;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2);">🖨️</button>
-            <button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / ajouter articles" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>
+            ${(currentUser && (currentUser.role==='gerant'||currentUser.role==='superviseur'||currentUser.role==='administrateur')) ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / ajouter articles" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
             <button onclick="ouvrirPaiementAttente('${t.id}')" style="font-size:11px;padding:5px 10px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:6px;cursor:pointer;color:#fff;font-weight:700;">💳 Encaisser</button>
-            <button onclick="supprimerTicketAttente('${t.id}')" title="Supprimer" style="font-size:11px;padding:5px 8px;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);border-radius:6px;cursor:pointer;color:var(--red);">🗑</button>
+            ${(currentUser && (currentUser.role==='gerant'||currentUser.role==='superviseur'||currentUser.role==='administrateur')) ? `<button onclick="supprimerTicketAttente('${t.id}')" title="Supprimer" style="font-size:11px;padding:5px 8px;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);border-radius:6px;cursor:pointer;color:var(--red);">🗑</button>` : ''}
           </div>
         </div>
       `).join('');
