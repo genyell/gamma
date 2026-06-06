@@ -22052,8 +22052,16 @@ function _removeIngLine(i) {
 }
 
 function saveIngredients() {
-  const menuIdx = parseInt(document.getElementById('editIngredient-itemId').value);
-  const item = MENU[menuIdx];
+  const _rawIdx = document.getElementById('editIngredient-itemId').value;
+  let menuIdx, item;
+  // ✅ FIX : supporter id stable (string) ou index numérique
+  if(isNaN(_rawIdx) || String(_rawIdx).includes('-') || String(_rawIdx).startsWith('sb_') || String(_rawIdx).startsWith('local_')) {
+    menuIdx = MENU.findIndex(m => m.id === _rawIdx || m.sbId === _rawIdx);
+    item = MENU[menuIdx];
+  } else {
+    menuIdx = parseInt(_rawIdx);
+    item = MENU[menuIdx];
+  }
   if(!item) return;
   // ✅ FIX v43 : lire les valeurs actuelles du DOM (qty ET stockId) avant de sauver
   // oninput/onchange peuvent ne pas avoir encore déclenché si l'user n'a pas quitté le champ
@@ -22088,8 +22096,8 @@ function saveIngredients() {
   closeModal('editIngredient');
   renderMenu(currentMenuCat || 'all');
 
-  // ✅ FIX v43 : mettre à jour la colonne recette dans menu_items Supabase directement
-  // Sans ça, le pullAll recharge menu_items sans la recette et écrase kg_sync
+  // ✅ FIX : mettre à jour la colonne recette dans menu_items Supabase directement
+  console.log('[saveIngredients] item:', item?.name, '| sbId:', item?.sbId, '| recette:', item?.recette?.length, 'lignes');
   if(typeof KGSync !== 'undefined' && KGSync.isConnected && item.sbId) {
     const _sb = KGSync.getClient();
     const _rid = window._KG_RESTAURANT_ID;
