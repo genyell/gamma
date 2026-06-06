@@ -25040,12 +25040,17 @@ async function saveDepense() {
       KGSync.push.depenses().catch(()=>{});
     }
     closeModal('addDepense');
-    document.getElementById('dep-libelle').value = '';
-    document.getElementById('dep-montant').value = '';
-    document.getElementById('dep-source-info').style.display = 'none';
+    // ✅ FIX : reset du formulaire multi-lignes (dep-libelle/dep-montant n'existent plus)
+    const _lignesCont = document.getElementById('dep-lignes-container');
+    if(_lignesCont) _lignesCont.innerHTML = '';
+    _depLigneCount = 0;
+    const _totDisp = document.getElementById('dep-total-display');
+    if(_totDisp) _totDisp.textContent = '0 F CFA';
+    const _srcInfo = document.getElementById('dep-source-info');
+    if(_srcInfo) _srcInfo.style.display = 'none';
     // Reset TVA checkbox
     const cbTVA = document.getElementById('dep-avec-tva');
-    if(cbTVA) { cbTVA.checked = false; toggleDepTVA(); }
+    if(cbTVA) { cbTVA.checked = false; if(typeof toggleDepTVA === 'function') toggleDepTVA(); }
     renderDepenses();
     // ✅ FIX v41 : Si dépense sur caisse active → rafraîchir session POS et dashboard
     if(isCaisse && sessionCaisseActive?.caisse === caisse) {
