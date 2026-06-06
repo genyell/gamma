@@ -24996,7 +24996,8 @@ async function saveDepense() {
   if(lignes.length === 0) { showNotif('⚠️ Ajoutez au moins une ligne avec libellé et montant.'); return; }
 
   const libelle = lignes[0].libelle; // pour compatibilité champs legacy
-  const montant = parseInt(document.getElementById('dep-montant').value) || 0;
+  // ✅ FIX : calculer le montant total depuis les lignes (champ dep-montant legacy peut être absent)
+  const montant = lignes.reduce((s, l) => s + l.montant, 0);
   const date = document.getElementById('dep-date').value;
   if (!libelle) { showNotif('⚠️ Veuillez saisir un libellé.'); return; }
   if (!montant || montant <= 0) { showNotif('⚠️ Veuillez saisir un montant valide.'); return; }
