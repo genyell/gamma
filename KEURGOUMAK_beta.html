@@ -12513,10 +12513,11 @@ function renderMenu(cat) {
                 // Fallback par nom si le stock a été supprimé et recréé
                 if(!s && r.stockNom) s = STOCK_DATA.find(x=>x.name&&x.name.trim().toLowerCase()===r.stockNom.trim().toLowerCase());
                 const nom=s?s.name:(r.stockNom||"?");const icon=s?s.icon:"📦";const unit=s?s.unit:(r.unit||"");
-                return `<span style="font-size:10px;background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.25);border-radius:20px;padding:2px 8px;color:var(--teal);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})" title="Modifier les ingrédients">${icon} ${r.qty} ${unit} ${nom}</span>`;}).join("")}
-              ${isManager ? `<span style="font-size:10px;background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);border-radius:20px;padding:2px 8px;color:var(--accent);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})">&#9998; modifier</span>` : ''}
+                const _stableId = item.id || item.sbId || menuIdx;
+                return `<span style="font-size:10px;background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.25);border-radius:20px;padding:2px 8px;color:var(--teal);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient('${_stableId}')" title="Modifier les ingrédients">${icon} ${r.qty} ${unit} ${nom}</span>`;}).join("")}
+              ${isManager ? `<span style="font-size:10px;background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);border-radius:20px;padding:2px 8px;color:var(--accent);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient('${item.id || item.sbId || menuIdx}')">&#9998; modifier</span>` : ''}
             </div>`
-          : isManager ? `<span style="font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:2px 8px;color:var(--text2);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient(${menuIdx})">+ Lier des ingr&eacute;dients</span>` : ''
+          : isManager ? `<span style="font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:2px 8px;color:var(--text2);cursor:pointer;" onclick="event.stopPropagation();openEditIngredient('${item.id || item.sbId || menuIdx}')">+ Lier des ingr&eacute;dients</span>` : ''
           }
         </div>
         <div class="menu-footer">
@@ -21977,10 +21978,18 @@ function deduireStockVente(items) {
 let _editIngLines = [];
 
 function openEditIngredient(menuIdx) {
-  const item = MENU[menuIdx];
+  // ✅ FIX : résoudre par id stable (sbId ou id) pour éviter collision d'index après filtre catégorie
+  let item = null;
+  let realIdx = menuIdx;
+  // Essayer d'abord comme id stable (string avec tiret ou 'sb_')
+  if(typeof menuIdx === 'string' && (menuIdx.includes('-') || menuIdx.startsWith('sb_') || menuIdx.startsWith('local_'))) {
+    realIdx = MENU.findIndex(m => m.id === menuIdx || m.sbId === menuIdx);
+    item = MENU[realIdx];
+  }
+  if(!item) { realIdx = menuIdx; item = MENU[menuIdx]; }
   if(!item) return;
   document.getElementById('editIngredient-title').textContent = '🍳 ' + (item.icon||'') + ' ' + item.name + ' — Ingrédients';
-  document.getElementById('editIngredient-itemId').value = menuIdx;
+  document.getElementById('editIngredient-itemId').value = realIdx;
   _editIngLines = (item.recette || []).map(l => {
     // Normaliser : résoudre le stockId vers l'id local
     const stock = STOCK_DATA.find(x => x.id == l.stockId || x.sbId == l.stockId || String(x.id) === String(l.stockId));
