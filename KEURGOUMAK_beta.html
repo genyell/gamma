@@ -33350,24 +33350,33 @@ async function _pullTicketsAttenteSupabase() {
       .eq('restaurant_id', rid)
       .eq('ticket_date', today)   // seulement les tickets du jour
       .order('created_at', { ascending: false });
-    if(data && data.length > 0) {
-      TICKETS_ATTENTE = data.map(r => ({
-        id:           r.id,
-        caisse:       r.caisse,
-        cashier:      r.cashier,
-        client:       r.client,
-        items:        r.items,
-        total:        r.total,
-        sub:          r.sub,
-        tva:          r.tva,
-        remisePct:    r.remise_pct,
-        remiseMontant:r.remise_montant,
-        time:         r.ticket_time,
-        date:         r.ticket_date,
-        createdAt:    r.created_at
-      }));
+    if(data) {
+      // ✅ FIX : ne pas réintroduire un ticket déjà validé localement
+      // On garde uniquement les tickets Supabase qui ne sont PAS dans une liste noire locale
+      let _blacklist = [];
+      try { _blacklist = JSON.parse(localStorage.getItem('kg-tickets-valides') || '[]'); } catch(e) {}
+
+      TICKETS_ATTENTE = data
+        .filter(r => !_blacklist.includes(r.id))  // exclure les tickets déjà encaissés
+        .map(r => ({
+          id:           r.id,
+          caisse:       r.caisse,
+          cashier:      r.cashier,
+          serveur:      r.serveur || '',
+          client:       r.client,
+          items:        r.items,
+          total:        r.total,
+          sub:          r.sub,
+          tva:          r.tva,
+          remisePct:    r.remise_pct,
+          remiseMontant:r.remise_montant,
+          time:         r.ticket_time,
+          date:         r.ticket_date,
+          createdAt:    r.created_at
+        }));
       _saveTicketsAttente();
       _updateAttenteCounter();
+      if(typeof renderOrders === 'function') renderOrders('all');
     }
   } catch(e) { console.warn('[tickets_attente pull]', e); }
 }
@@ -33377,8 +33386,14 @@ function mettreEnAttente() {
   if(!sessionCaisseActive) { showNotif('🔒 Ouvrez une caisse avant de mettre en attente !'); return; }
   if(typeof cart === 'undefined' || cart.length === 0) { showNotif('⚠️ Panier vide — rien à mettre en attente'); return; }
 
+  // ✅ Demander le nom du serveur
+  const _defaultServeur = currentUser ? `${currentUser.prenom||''} ${currentUser.nom||''}`.trim() : '';
+  const _nomServeur = prompt('👤 Nom du serveur (figurera sur le reçu) :', _defaultServeur);
+  if(_nomServeur === null) return; // Annulé
+
   const caisse = sessionCaisseActive?.caisse || 'Caisse 1';
   const cashier = sessionCaisseActive?.cashier || (currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Caissier');
+  const serveur = (_nomServeur || '').trim() || cashier;
 
   const totalAvantRemise = cart.reduce((a,c) => {
     const p = c.discount > 0 ? Math.round((c.priceOriginal||c.price)*(1-c.discount/100)) : c.price;
@@ -33403,6 +33418,7 @@ function mettreEnAttente() {
   const _newTicket = {
     id: ticketId,
     caisse, cashier,
+    serveur,
     client: clientName,
     items: itemsSaved,
     total: totalTTC, sub: ht, tva: tvaIncluse,
@@ -33597,6 +33613,14 @@ async function validerTicketAttente() {
   const _paidId = _attenteCurrentId;
   TICKETS_ATTENTE = TICKETS_ATTENTE.filter(t => t.id !== _paidId);
   _saveTicketsAttente();
+  // ✅ FIX : blacklister cet ID pour qu'un pull Supabase tardif ne le réintroduise pas
+  try {
+    const _bl = JSON.parse(localStorage.getItem('kg-tickets-valides') || '[]');
+    _bl.push(_paidId);
+    // Garder seulement les 100 derniers pour ne pas grossir indéfiniment
+    if(_bl.length > 100) _bl.splice(0, _bl.length - 100);
+    localStorage.setItem('kg-tickets-valides', JSON.stringify(_bl));
+  } catch(e) {}
   _deleteTicketAttenteSupabase(_paidId);
 
   document.getElementById('modal-valider-attente').style.display = 'none';
@@ -33622,6 +33646,12 @@ function supprimerTicketAttente(ticketId) {
   _loadTicketsAttente();
   TICKETS_ATTENTE = TICKETS_ATTENTE.filter(t => t.id !== ticketId);
   _saveTicketsAttente();
+  // ✅ Blacklister aussi les tickets supprimés manuellement
+  try {
+    const _bl = JSON.parse(localStorage.getItem('kg-tickets-valides') || '[]');
+    if(!_bl.includes(ticketId)) { _bl.push(ticketId); if(_bl.length > 100) _bl.splice(0,_bl.length-100); }
+    localStorage.setItem('kg-tickets-valides', JSON.stringify(_bl));
+  } catch(e) {}
   _deleteTicketAttenteSupabase(ticketId);
   _updateAttenteCounter();
   renderOrders('all');
@@ -33764,6 +33794,7 @@ function imprimerTicketAttente(ticketId) {
 <div class="meta-block">
   <div class="meta-row"><span class="meta-lbl">Client</span><span class="meta-val">${ticket.client||'—'}</span></div>
   <div class="meta-row"><span class="meta-lbl">Date</span><span class="meta-val">${ticket.date||'—'} ${ticket.time||''}</span></div>
+  ${ticket.serveur ? `<div class="meta-row"><span class="meta-lbl" style="font-weight:800;">👤 Serveur</span><span class="meta-val" style="font-weight:900;font-size:13px;">${ticket.serveur}</span></div>` : ''}
   ${showCashier ? `<div class="meta-row"><span class="meta-lbl">Caissier</span><span class="meta-val">${ticket.cashier||'—'}</span></div>` : ''}
   <div class="meta-row"><span class="meta-lbl">Caisse</span><span class="meta-val">${ticket.caisse||'—'}</span></div>
 </div>
