@@ -5936,7 +5936,7 @@ function _syncSportVentes()       { return []; }
           <option value="cloturee">🔒 Clôturées</option>
         </select>
         <button class="btn btn-ghost" onclick="['dep-filtre-statut','dep-filtre-cat','dep-filtre-caisse','dep-filtre-debut','dep-filtre-fin'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});renderDepenses();" style="font-size:12px;" title="Réinitialiser les filtres">🔄 Reset filtres</button>
-        <button class="btn btn-primary" style="margin-left:auto;" onclick="(function(){ document.getElementById('dep-libelle').value=''; document.getElementById('dep-montant').value=''; document.getElementById('dep-date').value=new Date().toISOString().split('T')[0]; document.getElementById('dep-source-info').style.display='none'; showModal('addDepense'); })()">+ Ajouter dépense</button>
+        <button class="btn btn-primary" style="margin-left:auto;" onclick="(function(){ document.getElementById('dep-date').value=new Date().toISOString().split('T')[0]; document.getElementById('dep-source-info').style.display='none'; document.getElementById('dep-lignes-container').innerHTML=''; _depLigneCount=0; document.getElementById('dep-total-display').textContent='0 F CFA'; showModal('addDepense'); depAddLigne(); })()">+ Ajouter dépense</button>
         <button class="btn btn-ghost" onclick="exportDepensesCSV()" style="font-size:12px;">📥 Export CSV</button>
         <button class="btn btn-ghost" onclick="cloturerDepensesFondsPropres()" style="font-size:12px;border-color:var(--orange,#f39c12);color:var(--orange,#f39c12);" title="Clôturer les dépenses fonds propres du mois">🔒 Clôturer fonds propres</button>
       </div>
@@ -7745,20 +7745,24 @@ Revenez nous voir bient&#244;t.</textarea>
 
 <!-- MODAL NOUVEL UTILISATEUR -->
 <div class="modal-overlay" id="modal-addDepense">
-  <div class="modal" style="width:500px;">
-    <div class="modal-title">💸 Ajouter une dépense</div>
-    <div class="form-group">
-      <label class="form-label">Libellé *</label>
-      <input class="form-input" id="dep-libelle" placeholder="Ex: Achat huile, Salaire caissier...">
-    </div>
+  <div class="modal" style="width:520px;max-height:90vh;overflow-y:auto;">
+    <div class="modal-title">💸 Ajouter des dépenses</div>
+
+    <!-- Infos communes à toutes les lignes -->
     <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div class="form-group">
-        <label class="form-label">Montant (F CFA) *</label>
-        <input class="form-input" id="dep-montant" type="number" min="0" placeholder="0">
-      </div>
       <div class="form-group">
         <label class="form-label">Date *</label>
         <input class="form-input" id="dep-date" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mode de paiement</label>
+        <select class="form-input" id="dep-mode">
+          <option value="Espèces">Espèces</option>
+          <option value="Wave">Wave</option>
+          <option value="Orange Money">Orange Money</option>
+          <option value="Carte bancaire">Carte bancaire</option>
+          <option value="Virement">Virement</option>
+        </select>
       </div>
     </div>
     <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -7777,40 +7781,28 @@ Revenez nous voir bient&#244;t.</textarea>
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Mode de paiement</label>
-        <select class="form-input" id="dep-mode">
-          <option value="Espèces">Espèces</option>
-          <option value="Wave">Wave</option>
-          <option value="Orange Money">Orange Money</option>
-          <option value="Carte bancaire">Carte bancaire</option>
-          <option value="Virement">Virement</option>
+        <label class="form-label">Caisse / Source</label>
+        <select class="form-input" id="dep-caisse" onchange="updateDepSourceInfo()">
+          <option value="Fonds propres">💼 Fonds propres</option>
+          <option value="Caisse 1">🖥️ Caisse 1</option>
+          <option value="Caisse 2">🖥️ Caisse 2</option>
+          <option value="Caisse 3">🖥️ Caisse 3</option>
+          <option value="Caisse 4">🖥️ Caisse 4</option>
         </select>
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Caisse / Source</label>
-      <select class="form-input" id="dep-caisse" onchange="updateDepSourceInfo()">
-        <option value="Fonds propres">💼 Fonds propres</option>
-        <option value="Caisse 1">🖥️ Caisse 1</option>
-        <option value="Caisse 2">🖥️ Caisse 2</option>
-        <option value="Caisse 3">🖥️ Caisse 3</option>
-        <option value="Caisse 4">🖥️ Caisse 4</option>
-      </select>
-      <div id="dep-source-info" style="margin-top:6px;font-size:12px;color:var(--text2);padding:6px 10px;background:var(--surface2);border-radius:6px;display:none;"></div>
-    </div>
-    <!-- ✅ v12 : Champ TVA déductible sur dépenses -->
-    <div style="padding:10px 14px;background:rgba(155,124,244,0.08);border:1px solid rgba(155,124,244,0.25);border-radius:10px;margin-top:4px;">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:13px;color:var(--text);">
-          <input type="checkbox" id="dep-avec-tva" onchange="toggleDepTVA()" style="width:16px;height:16px;accent-color:var(--purple);cursor:pointer;">
-          Dépense avec TVA (18%)
-        </label>
-        <span style="font-size:11px;color:var(--text2);">Fournisseur assujetti à la TVA</span>
-      </div>
-      <div id="dep-tva-detail" style="display:none;margin-top:10px;display:none;">
+    <div id="dep-source-info" style="margin-bottom:8px;font-size:12px;color:var(--text2);padding:6px 10px;background:var(--surface2);border-radius:6px;display:none;"></div>
+
+    <!-- TVA globale -->
+    <div style="padding:8px 14px;background:rgba(155,124,244,0.08);border:1px solid rgba(155,124,244,0.25);border-radius:10px;margin-bottom:12px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:13px;color:var(--text);">
+        <input type="checkbox" id="dep-avec-tva" onchange="toggleDepTVA()" style="width:16px;height:16px;accent-color:var(--purple);cursor:pointer;">
+        Dépenses avec TVA (18%) — Fournisseur assujetti
+      </label>
+      <div id="dep-tva-detail" style="display:none;margin-top:10px;">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;">
           <div style="background:var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;">
-            <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Montant HT</div>
+            <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Total HT</div>
             <div id="dep-ht-display" style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--text);margin-top:2px;">0 F</div>
           </div>
           <div style="background:rgba(155,124,244,0.1);border-radius:8px;padding:8px 10px;text-align:center;">
@@ -7818,16 +7810,37 @@ Revenez nous voir bient&#244;t.</textarea>
             <div id="dep-tva-display" style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--purple);margin-top:2px;">0 F</div>
           </div>
           <div style="background:var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;">
-            <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Montant TTC</div>
+            <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Total TTC</div>
             <div id="dep-ttc-display" style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--accent);margin-top:2px;">0 F</div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--purple);margin-top:6px;">✅ La TVA sera déduite de votre déclaration mensuelle</div>
       </div>
     </div>
+
+    <!-- Lignes de dépense -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <label class="form-label" style="margin:0;">Lignes de dépense *</label>
+      <button onclick="depAddLigne()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;">+ Ajouter ligne</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 70px 110px 38px;gap:6px;padding:0 0 4px 0;">
+      <span style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Libellé</span>
+      <span style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;text-align:center;">Qté</span>
+      <span style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;text-align:right;">Prix unit.</span>
+      <span></span>
+    </div>
+    <div id="dep-lignes-container">
+      <!-- Lignes générées par depAddLigne() -->
+    </div>
+
+    <!-- Total -->
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:10px;padding:10px 14px;background:var(--surface2);border-radius:10px;">
+      <span style="font-size:13px;color:var(--text2);">TOTAL</span>
+      <span id="dep-total-display" style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--accent);">0 F CFA</span>
+    </div>
+
     <div class="modal-actions" style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
       <button class="btn btn-ghost" onclick="closeModal('addDepense')">Annuler</button>
-      <button class="btn btn-primary" onclick="saveDepense()">💾 Enregistrer</button>
+      <button class="btn btn-primary" onclick="saveDepense()">💾 Enregistrer tout</button>
     </div>
   </div>
 </div>
@@ -8544,6 +8557,56 @@ Revenez nous voir bient&#244;t.</textarea>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('commandeFournisseur')">Annuler</button>
       <button class="btn btn-primary" onclick="saveCommandeFournisseur()">📤 Envoyer la commande</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MINI-MODAL CRÉATION RAPIDE ARTICLE STOCK (depuis commande fourn) -->
+<!-- ================================================================ -->
+<div id="cf-create-article-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px 20px;width:340px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
+    <div style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+      <span>📦</span> Nouvel article stock
+      <span style="font-size:11px;font-weight:400;color:var(--text2);margin-left:auto;">sera ajouté au stock</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <div style="flex:1;">
+        <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Nom *</label>
+        <input id="cf-new-art-nom" class="form-input" placeholder="ex: Huile végétale" style="width:100%;"
+          onkeydown="if(event.key==='Enter') cfSaveNewArticle()">
+      </div>
+      <div style="width:70px;">
+        <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Icône</label>
+        <input id="cf-new-art-icon" class="form-input" value="📦" style="text-align:center;">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Unité</label>
+        <select id="cf-new-art-unit" class="form-input">
+          <option value="kg">kg</option>
+          <option value="g">g</option>
+          <option value="L">L</option>
+          <option value="ml">ml</option>
+          <option value="pcs">pcs</option>
+          <option value="boîtes">boîtes</option>
+          <option value="btls">btls</option>
+          <option value="sachets">sachets</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Stock actuel</label>
+        <input id="cf-new-art-qty" class="form-input" type="number" value="0" min="0" step="0.1">
+      </div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Catégorie</label>
+      <select id="cf-new-art-cat" class="form-input"></select>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="cfClosCreateArticle()" class="btn btn-ghost" style="flex:1;">Annuler</button>
+      <button onclick="cfSaveNewArticle()" class="btn btn-primary" style="flex:2;">✅ Créer et sélectionner</button>
     </div>
   </div>
 </div>
@@ -10031,10 +10094,27 @@ window.addEventListener('popstate', function(e) {
 
 function renderPOS() {
   const catsEl = document.getElementById('pos-cats');
+  // ✅ FIX PC : préserver la recherche et le focus lors d'un re-render
+  const searchEl = document.getElementById('pos-search');
+  const savedQuery = searchEl ? searchEl.value : '';
+  const hadFocus   = searchEl && document.activeElement === searchEl;
+
   catsEl.innerHTML = CATS.map(c =>
-    `<button class="cat-btn ${c.id==='all'?'active':''}" data-cat="${c.id}" onclick="filterPOS('${c.id}',event)">${c.label}</button>`
+    `<button class="cat-btn ${c.id===_posCurCat?'active':''}" data-cat="${c.id}" onclick="filterPOS('${c.id}',event)">${c.label}</button>`
   ).join('');
-  filterPOS('all', {currentTarget: catsEl.children[0]});
+
+  // Restaurer la grille avec la catégorie et la recherche actives
+  _renderPOSGrid(_posCurCat, savedQuery);
+
+  // Restaurer le focus et la valeur dans le champ
+  if(searchEl) {
+    searchEl.value = savedQuery;
+    if(hadFocus) {
+      const len = savedQuery.length;
+      searchEl.focus();
+      try { searchEl.setSelectionRange(len, len); } catch(e) {}
+    }
+  }
 }
 
 // Garde la catégorie active pour que la recherche ne la perde pas
@@ -10046,10 +10126,10 @@ function filterPOS(cat, ev) {
   document.querySelectorAll('#pos-cats .cat-btn').forEach(b => b.classList.remove('active'));
   if(el) el.classList.add('active');
   _posCurCat = cat;
-  // Réinitialiser la recherche quand on change de catégorie
+  // ✅ FIX PC : conserver la recherche en cours quand on change de catégorie
   const searchEl = document.getElementById('pos-search');
-  if(searchEl) searchEl.value = '';
-  _renderPOSGrid(cat, '');
+  const currentQuery = searchEl ? searchEl.value : '';
+  _renderPOSGrid(cat, currentQuery);
 }
 
 function filterPOSSearch(query) {
@@ -10853,7 +10933,16 @@ async function validateOrder() {
     orderNum, items: itemsSaved, sub: ht, tva: tvaIncluse, total: totalTTC,
     remisePct, remiseMontant,
     payMethod: confirmPayMethod,
-    payLabel: confirmPayMethod === 'mixed' ? '🔀 Mixte' : (payLabels[confirmPayMethod] || 'Espèces'),
+    payLabel: (function() {
+      if(confirmPayMethod !== 'mixed') return payLabels[confirmPayMethod] || 'Espèces';
+      if(!payMethodsData) return '🔀 Mixte';
+      const parts = [];
+      if(payMethodsData.cash   > 0) parts.push('Esp: '   + payMethodsData.cash.toLocaleString()   + ' F');
+      if(payMethodsData.wave   > 0) parts.push('Wave: '  + payMethodsData.wave.toLocaleString()   + ' F');
+      if(payMethodsData.orange > 0) parts.push('OM: '    + payMethodsData.orange.toLocaleString() + ' F');
+      if(payMethodsData.card   > 0) parts.push('Carte: ' + payMethodsData.card.toLocaleString()   + ' F');
+      return '🔀 ' + (parts.join(' + ') || 'Mixte');
+    })(),
     payMethods: payMethodsData,
     time: now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
     // ✅ FIX v15 FINAL : date ISO indispensable pour filtres dashboard/rapportX/inPeriode
@@ -10892,12 +10981,12 @@ async function validateOrder() {
   }
   showNotif(`🎉 ${orderNum} — ${totalTTC.toLocaleString()} FCFA · ${confirmPayMethod === 'mixed' ? '🔀 Mixte' : (payLabels[confirmPayMethod]||'Espèces')} · 🖨️ Ticket imprimé`);
   refreshDashboard();
-  saveSession();
-  // Sync Supabase — push immédiat après chaque vente (bypass throttle)
+  _saveSessionImmediate(); // localStorage uniquement — pas de push Supabase immédiat
+  // ✅ OPT REALTIME : 1 seul push Supabase après vente (au lieu de 2 : saveSession + direct)
   if(KGSync.isConnected) {
-    saveSession._lastPush = 0; // ✅ FIX v24 : reset throttle pour forcer le push immédiat
     KGSync.push.ventes().catch(e => console.error('push.ventes vente:', e));
     KGSync.push.caisses().catch(e => console.error('push.caisses vente:', e));
+    if(_saveSessionTimer) { clearTimeout(_saveSessionTimer); _saveSessionTimer = null; }
   }
   } catch(e) {
     console.error('validateOrder error:', e);
@@ -12871,6 +12960,73 @@ function openCommandeFourn(fIdx) {
 
 function updateCFArticles() { updateCFTotal(); }
 
+// ✅ NOUVEAU : Créer un article stock directement depuis la commande fournisseur
+// Sans quitter le modal, sans perdre la saisie en cours
+let _cfCreateForLine = -1; // index de la ligne qui attend le nouvel article
+
+function cfOpenCreateArticle(lineIdx) {
+  _cfCreateForLine = lineIdx;
+  // Pré-remplir le mini-modal
+  document.getElementById('cf-new-art-nom').value   = '';
+  document.getElementById('cf-new-art-icon').value  = '📦';
+  document.getElementById('cf-new-art-unit').value  = 'kg';
+  document.getElementById('cf-new-art-qty').value   = '0';
+  // Peupler le select catégorie
+  const catSel = document.getElementById('cf-new-art-cat');
+  if(catSel) {
+    const cats = (typeof STOCK_CATEGORIES !== 'undefined' ? STOCK_CATEGORIES : []);
+    catSel.innerHTML = '<option value="">— Aucune catégorie —</option>' +
+      cats.map(c => `<option value="${c.id}">${c.label}</option>`).join('');
+  }
+  document.getElementById('cf-create-article-modal').style.display = 'flex';
+  setTimeout(() => { document.getElementById('cf-new-art-nom').focus(); }, 100);
+}
+
+function cfClosCreateArticle() {
+  document.getElementById('cf-create-article-modal').style.display = 'none';
+  _cfCreateForLine = -1;
+}
+
+function cfSaveNewArticle() {
+  const nom = document.getElementById('cf-new-art-nom').value.trim();
+  if(!nom) { showNotif('⚠️ Nom requis'); return; }
+  const newItem = {
+    id:         'local_' + Date.now(),
+    name:       nom,
+    icon:       document.getElementById('cf-new-art-icon').value || '📦',
+    unit:       document.getElementById('cf-new-art-unit').value || 'kg',
+    qty:        parseFloat(document.getElementById('cf-new-art-qty').value) || 0,
+    max:        100,
+    seuil:      10,
+    stockCatId: document.getElementById('cf-new-art-cat').value,
+    cat:        document.getElementById('cf-new-art-cat').value,
+  };
+  STOCK_DATA.push(newItem);
+  saveSession();
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    KGSync.push.stock().catch(()=>{});
+    try {
+      const _sb = KGSync.getClient(); const _rid = window._KG_RESTAURANT_ID;
+      if(_sb && _rid) {
+        _sb.from('stock_items').upsert({
+          restaurant_id: _rid, name: newItem.name, icon: newItem.icon,
+          qty: newItem.qty, max_qty: newItem.max, seuil_alerte: newItem.seuil,
+          unit: newItem.unit, categorie: newItem.stockCatId || ''
+        }).catch(()=>{});
+      }
+    } catch(e) {}
+  }
+  // Sélectionner automatiquement le nouvel article sur la ligne en cours
+  if(_cfCreateForLine >= 0 && cfArticleLines[_cfCreateForLine] !== undefined) {
+    cfArticleLines[_cfCreateForLine].stockId = newItem.id;
+    cfArticleLines[_cfCreateForLine].article = newItem.name;
+    cfArticleLines[_cfCreateForLine].unit    = newItem.unit;
+  }
+  cfClosCreateArticle();
+  renderCFArticles();
+  showNotif(`✅ "${nom}" créé et sélectionné !`);
+}
+
 function addCFArticleLine() {
   cfArticleLines.push({ id: Date.now(), article:'', qty:1, unit:'kg', prix:0 });
   renderCFArticles();
@@ -12885,10 +13041,13 @@ function renderCFArticles() {
     const sousColor = sous > 0 ? 'var(--accent)' : 'var(--text3)';
     return `
     <div style="display:grid;grid-template-columns:2fr 72px 80px 100px 90px 30px;gap:6px;align-items:center;margin-bottom:8px;" data-line="${i}">
-      <select class="form-input" onchange="cfSelectStockItem(${i}, this.value)" style="font-size:12px;">
-        <option value="">— Choisir un produit —</option>
-        ${STOCK_DATA.map(s => `<option value="${s.id}" ${s.id==line.stockId?'selected':''}>${s.icon||'📦'} ${s.name}</option>`).join('')}
-      </select>
+      <div style="display:flex;gap:4px;align-items:center;">
+        <select class="form-input" onchange="cfSelectStockItem(${i}, this.value)" style="font-size:12px;flex:1;">
+          <option value="">— Choisir un produit —</option>
+          ${STOCK_DATA.map(s => `<option value="${s.id}" ${s.id==line.stockId?'selected':''}>${s.icon||'📦'} ${s.name}</option>`).join('')}
+        </select>
+        <button onclick="cfOpenCreateArticle(${i})" title="Créer un nouvel article" style="flex-shrink:0;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">+ Créer</button>
+      </div>
       <input class="form-input" type="number" placeholder="Qté" value="${line.qty}" min="0" step="0.1"
         oninput="cfArticleLines[${i}].qty=parseFloat(this.value)||0;cfUpdateLineTotal(${i});updateCFTotal();updateCFSolde()"
         style="font-size:12px;text-align:center;">
@@ -15269,8 +15428,18 @@ function printRapportXCaisse(name) {
   const ticketRows = ventes.map(v=>{
     const heure = v.time || (v.date ? new Date(v.date).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—');
     const plats = (v.items||[]).map(i=>(i.qty>1?i.qty+'× ':'')+i.name).join(', ') || v.label || '—';
-    const payLabel = v.payMethod==='mixed' ? '🔀 Mixte' : (v.payLabel||v.payMethod||'—');
-    return `<tr><td>#${v.num||v.id||'—'}</td><td>${heure}</td><td>${plats}</td><td>${payLabel}</td><td style="text-align:right;font-weight:700">${(v.total||0).toLocaleString()} F</td></tr>`;
+    let payLabel;
+    if(v.payMethod==='mixed' && v.payMethods) {
+      const parts = [];
+      if(v.payMethods.cash  > 0) parts.push('Esp: '   + v.payMethods.cash.toLocaleString()   + ' F');
+      if(v.payMethods.wave  > 0) parts.push('Wave: '  + v.payMethods.wave.toLocaleString()   + ' F');
+      if(v.payMethods.orange> 0) parts.push('OM: '    + v.payMethods.orange.toLocaleString() + ' F');
+      if(v.payMethods.card  > 0) parts.push('Carte: ' + v.payMethods.card.toLocaleString()   + ' F');
+      payLabel = '🔀 ' + (parts.join(' + ') || 'Mixte');
+    } else {
+      payLabel = v.payLabel || v.payMethod || '—';
+    }
+    return `<tr><td>#${v.num||v.id||'—'}</td><td>${heure}</td><td>${plats}</td><td style="font-size:11px">${payLabel}</td><td style="text-align:right;font-weight:700">${(v.total||0).toLocaleString()} F</td></tr>`;
   }).join('');
 
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
@@ -15981,6 +16150,26 @@ async function _kgRegisterSessionToken(userId, restaurantId) {
       { onConflict: 'key' }
     );
     console.log('[Session unique] ✅ Token enregistré:', window._KG_SESSION_TOKEN.slice(0,16));
+    // ✅ Envoyer un broadcast avec le token pour que les autres appareils se déconnectent immédiatement
+    // Sans ça, l'ancien appareil ne sait pas qu'un nouveau vient de se connecter
+    if(typeof _broadcastSync === 'function') {
+      // On envoie directement via le channel si disponible
+      try {
+        const _ch = KGSync?._rtChannel || null;
+        if(_ch) {
+          _ch.send({
+            type: 'broadcast',
+            event: 'sync',
+            payload: {
+              key: restaurantId + ':_active_session_' + userId,
+              token: window._KG_SESSION_TOKEN,
+              ts: Date.now()
+            }
+          });
+          console.log('[Session unique] 📡 Broadcast envoyé — autres appareils seront déconnectés');
+        }
+      } catch(be) { console.warn('[Session unique] Broadcast erreur:', be); }
+    }
   } catch(e) { console.warn('[Session unique] Erreur enregistrement:', e); }
 }
 
@@ -16272,6 +16461,8 @@ async function doLogin() {
     }
     // ✅ FIX v33 : Sync compteur tickets au login
     _syncOrderCounterFromSupabase();
+    // ✅ Charger les tickets en attente depuis Supabase après login (KGSync est prêt)
+    if(typeof _pullTicketsAttenteSupabase === 'function') _pullTicketsAttenteSupabase().catch(()=>{});
 
     // ✅ FIX v33 NETTOYAGE AUTO : Au login, marquer cloturee=true toutes les ventes
     // des caisses qui sont actuellement CLOSED dans Supabase.
@@ -16437,18 +16628,57 @@ function openUserMenuOrUtilisateurs() {
     _mainTimer = setTimeout(_showWarning, INACTIVITY_MS - WARNING_BEFORE);
   }
 
-  function _startAutoLogout() {
-    const evts = ['mousemove','mousedown','keydown','touchstart','scroll','click'];
-    evts.forEach(ev => document.addEventListener(ev, _resetTimer, { passive: true }));
+  // ✅ FIX : utiliser isTrusted pour ignorer les événements programmatiques
+  // (scroll auto, animations JS) qui réinitialisaient le timer en permanence
+  function _onUserActivity(e) {
+    // isTrusted = true → vrai geste utilisateur / false → déclenché par JS
+    if(e && e.isTrusted === false) return;
     _resetTimer();
+  }
+
+  function _startAutoLogout() {
+    // mousemove non fiable (scroll auto peut le déclencher) → on le retire
+    const evts = ['mousedown','keydown','keypress','touchstart','touchmove','click','pointerdown'];
+    evts.forEach(ev => document.addEventListener(ev, _onUserActivity, { passive: true }));
+    _resetTimer();
+    console.log('[AutoLogout] ✅ Timer 15min démarré — événements réels uniquement');
   }
 
   function _stopAutoLogout() {
     if(_mainTimer) { clearTimeout(_mainTimer); _mainTimer = null; }
     _hideWarning();
-    const evts = ['mousemove','mousedown','keydown','touchstart','scroll','click'];
-    evts.forEach(ev => document.removeEventListener(ev, _resetTimer));
+    const evts = ['mousedown','keydown','keypress','touchstart','touchmove','click','pointerdown'];
+    evts.forEach(ev => document.removeEventListener(ev, _onUserActivity));
+    console.log('[AutoLogout] ⏹ Timer arrêté');
   }
+
+  // ✅ FIX : quand l'onglet revient au premier plan, vérifier si le délai est dépassé
+  // Cas : onglet laissé ouvert 2h en arrière-plan → les setTimeout sont gelés par le navigateur
+  // Au retour, on vérifie si l'heure d'inactivité est dépassée et on déconnecte immédiatement
+  let _lastActiveTs = Date.now();
+
+  function _onUserActivityTs(e) {
+    if(e && e.isTrusted === false) return;
+    _lastActiveTs = Date.now();
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible') {
+      const elapsed = Date.now() - _lastActiveTs;
+      console.log('[AutoLogout] Tab redevenu visible — inactivité:', Math.round(elapsed/1000)+'s');
+      if(elapsed >= INACTIVITY_MS && currentUser) {
+        console.warn('[AutoLogout] ⏰ Délai dépassé pendant inactivité — déconnexion');
+        _doAutoLogout();
+      } else if(elapsed >= (INACTIVITY_MS - WARNING_BEFORE) && currentUser) {
+        _showWarning();
+      }
+    }
+  });
+
+  // Tracker l'horodatage de la dernière activité (pour visibilitychange)
+  ['mousedown','keydown','touchstart','click','pointerdown'].forEach(ev => {
+    document.addEventListener(ev, _onUserActivityTs, { passive: true });
+  });
 
   window._kgStartAutoLogout = _startAutoLogout;
   window._kgStopAutoLogout  = _stopAutoLogout;
@@ -16972,13 +17202,8 @@ function _refreshAllViews() {
   try {
     if(v === 'dashboard')    refreshDashboard();
     if(v === 'caisse') {
-      const _activeCatBtn = document.querySelector('#pos-cats .cat-btn.active');
-      const _activeCat = _activeCatBtn ? _activeCatBtn.dataset.cat : 'all';
+      // ✅ FIX PC : renderPOS préserve déjà la recherche et la catégorie active (_posCurCat)
       renderPOS();
-      if(_activeCat && _activeCat !== 'all') {
-        const _btn = document.querySelector(`#pos-cats .cat-btn[data-cat="${_activeCat}"]`);
-        if(_btn) filterPOS(_activeCat, { currentTarget: _btn });
-      }
     }
     if(v === 'menu')         renderMenu('all');
     if(v === 'stock')        renderStock();
@@ -18725,7 +18950,16 @@ async function cloturerCaisse() {
 
       const lignesTickets = ventes.map(function(v){
         var platNoms = (v.items && v.items.length > 0) ? v.items.map(function(i){ return (i.qty > 1 ? i.qty+'× ' : '') + i.name; }).join(', ') : (v.client || '');
-        return '<tr><td>'+(v.orderNum||'')+'</td><td>'+(v.time||'')+'</td><td>'+platNoms+'</td><td>'+(v.payLabel||'')+'</td><td style="text-align:right">'+(v.total||0).toLocaleString()+' F</td></tr>';
+        var payDetail = v.payLabel || '';
+        if(v.payMethod === 'mixed' && v.payMethods) {
+          var parts = [];
+          if(v.payMethods.cash   > 0) parts.push('Esp: '   + v.payMethods.cash.toLocaleString()   + ' F');
+          if(v.payMethods.wave   > 0) parts.push('Wave: '  + v.payMethods.wave.toLocaleString()   + ' F');
+          if(v.payMethods.orange > 0) parts.push('OM: '    + v.payMethods.orange.toLocaleString() + ' F');
+          if(v.payMethods.card   > 0) parts.push('Carte: ' + v.payMethods.card.toLocaleString()   + ' F');
+          if(parts.length > 0) payDetail = '🔀 ' + parts.join(' + ');
+        }
+        return '<tr><td>'+(v.orderNum||'')+'</td><td>'+(v.time||'')+'</td><td>'+platNoms+'</td><td style="font-size:11px">'+payDetail+'</td><td style="text-align:right">'+(v.total||0).toLocaleString()+' F</td></tr>';
       }).join('');
 
       const lignesTop = topProds.map(function(p){
@@ -19371,7 +19605,23 @@ function initTheme() {
 // PERSISTANCE SESSION — localStorage
 // ================================================================
 
+// ✅ OPT REALTIME : debounce saveSession — 48 appels → 1 seul upsert toutes les 3s
+let _saveSessionTimer = null;
+const _saveSessionRaw = null; // placeholder
 function saveSession() {
+  // Sauvegarder en localStorage immédiatement (pas de délai pour la persistance locale)
+  _saveSessionImmediate();
+  // Debounce le push Supabase pour éviter les rafales de messages Realtime
+  if(_saveSessionTimer) clearTimeout(_saveSessionTimer);
+  _saveSessionTimer = setTimeout(() => {
+    _saveSessionTimer = null;
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      KGSync.push.ventes().catch(e => console.warn('saveSession push.ventes:', e));
+      KGSync.push.caisses().catch(e => console.warn('saveSession push.caisses:', e));
+    }
+  }, 4000); // ✅ 4s debounce — regroupe toutes les actions rapides en 1 seul push
+}
+function _saveSessionImmediate() {
   try {
     if(!currentUser) return;
     // ✅ FIX v29 : resync TOUS les modules avant sauvegarde pour ne jamais perdre les ventes
@@ -19458,14 +19708,14 @@ function saveSession() {
     try { localStorage.setItem('kg-factures', JSON.stringify(data.FACTURES)); } catch(e) {}
     try { localStorage.setItem('kg-inventaires', JSON.stringify(INVENTAIRES)); } catch(e) {}
 
-    // ✅ FIX SYNC v24 : Push vers Supabase — throttlé toutes les 3s (était 8s → trop lent)
+    // ✅ OPT REALTIME v7-4 : les pushes Supabase sont maintenant gérés par le debounce
+    // de saveSession (4s) — on ne push plus ici pour éviter les rafales de messages Realtime
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
       const _now = Date.now();
-      if(!saveSession._lastPush || (_now - saveSession._lastPush) >= 1500) {
-        saveSession._lastPush = _now;
+      if(!_saveSessionImmediate._lastPush || (_now - _saveSessionImmediate._lastPush) >= 30000) {
+        _saveSessionImmediate._lastPush = _now;
         try {
-          KGSync.push.ventes().catch(e => console.warn('push.ventes saveSession:', e));
-          KGSync.push.caisses().catch(e => console.warn('push.caisses saveSession:', e));
+          // Push uniquement les données critiques non-couvertes par le debounce
           if(HISTORIQUE_CLOTURES && HISTORIQUE_CLOTURES.length > 0) {
             KGSync.push.clotures().catch(e => console.warn('push.clotures saveSession:', e));
           }
@@ -20091,6 +20341,19 @@ const KGSync = (() => {
     return rid + ':' + key;
   }
 
+  // ✅ OPT EGRESS : broadcast un signal minuscule après chaque upsert
+  // Les autres appareils reçoivent {key, ts} (~50 bytes) au lieu du row complet (jusqu'à 500KB)
+  function _broadcastSync(key) {
+    if(!_rtChannel || !window._KG_RESTAURANT_ID) return;
+    try {
+      _rtChannel.send({
+        type: 'broadcast',
+        event: 'sync',
+        payload: { key: window._KG_RESTAURANT_ID + ':' + key, ts: Date.now() }
+      });
+    } catch(e) {} // silencieux — le pullAll polling prend le relais si ça échoue
+  }
+
   async function upsert(key, data) {
     if(!client || !syncEnabled) return;
     try {
@@ -20098,6 +20361,8 @@ const KGSync = (() => {
         { key: _rkey(key), value: enc(data), updated_at: new Date().toISOString(), restaurant_id: window._KG_RESTAURANT_ID },
         { onConflict: 'key' }
       );
+      // Signal broadcast léger après chaque upsert (pas de value dans le message)
+      _broadcastSync(key);
     } catch(e) { console.warn('KGSync upsert error:', key, e); }
   }
 
@@ -20121,7 +20386,7 @@ const KGSync = (() => {
   async function pushVentes() {
     // ✅ OPT EGRESS : debounce 2s pour éviter les pushes répétés en rafale
     if(_pushVentesTimer) return;
-    _pushVentesTimer = setTimeout(() => { _pushVentesTimer = null; }, 2000);
+    _pushVentesTimer = setTimeout(() => { _pushVentesTimer = null; }, 5000); // ✅ OPT REALTIME : 2s → 5s
     // ✅ FIX v31 : resync TOUS les modules avant push — source de vérité locale
     if(typeof _syncTerrainVentes === 'function') _syncTerrainVentes();
     if(typeof _syncPiscineVentes === 'function') _syncPiscineVentes();
@@ -20162,7 +20427,7 @@ const KGSync = (() => {
     }
   }
   async function pushStock()          { _invalidateCache('stock_data'); _debouncedUpsert('stock_data', () => ({ items: STOCK_DATA, entries: STOCK_ENTREES }), 3000); }
-  async function pushCaisses()        { _debouncedUpsert('caisses_data', () => ({ items: CAISSES, sessionActive: sessionCaisseActive }), 2000); }
+  async function pushCaisses()        { _debouncedUpsert('caisses_data', () => ({ items: CAISSES, sessionActive: sessionCaisseActive }), 5000); }
 
   // ✅ FIX v31 MULTI-NAVIGATEURS : synchroniser les états complets des modules (C4-C8) vers Supabase
   // Sans ça, un 2ème navigateur ne voit jamais les ventes des modules — il reçoit juste VENTES_PAR_CAISSE
@@ -20300,7 +20565,10 @@ const KGSync = (() => {
         { onConflict: 'key' }
       );
       if(error) console.warn('KGSync pushPing error:', error);
-      else console.log('✅ KGSync pushPing — tous les appareils notifiés');
+      else {
+        console.log('✅ KGSync pushPing — tous les appareils notifiés');
+        _broadcastSync('_cloture_ping'); // signal broadcast léger
+      }
     } catch(e) { console.warn('KGSync pushPing error:', e); }
   }
 
@@ -21368,18 +21636,20 @@ const KGSync = (() => {
       return;
     }
     try {
-      _rtChannel = client.channel('kg_rt_v36')
-        .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, payload => {
+      // ✅✅ OPT EGRESS MAJEUR v7-4 : Broadcast au lieu de postgres_changes
+      // postgres_changes envoie le ROW COMPLET (value = jusqu'à 500KB) à chaque update
+      // Broadcast = on envoie NOUS-MÊMES un signal minuscule {key, ts} = ~50 bytes
+      // Réduction egress Realtime estimée : ×100 à ×1000
+      _rtChannel = client.channel('kg_broadcast_v1_' + (window._KG_RESTAURANT_ID || 'default'))
+        .on('broadcast', { event: 'sync' }, (msg) => {
           try {
-            var key = payload.new && payload.new.key;
-            if(!key || key === '_ping') return;
+            var key = msg && msg.payload && msg.payload.key;
             var _rid = window._KG_RESTAURANT_ID;
-            if(_rid && !key.startsWith(_rid + ':')) return;
-            // ✅ SESSION UNIQUE : détecter si un autre appareil a pris la main (via Realtime, 0 requête)
+            // SESSION UNIQUE : détecter autre appareil via broadcast (token dans payload)
             if(currentUser && key === _rid + ':_active_session_' + currentUser.id) {
               try {
-                var _sess = JSON.parse((payload.new && payload.new.value) || '{}');
-                if(_sess.token && _sess.token !== window._KG_SESSION_TOKEN) {
+                var _tok = msg.payload && msg.payload.token;
+                if(_tok && _tok !== window._KG_SESSION_TOKEN) {
                   console.warn('[Session unique] ⚠️ Autre appareil détecté — déconnexion');
                   _kgForceLogout(); return;
                 }
@@ -21453,6 +21723,8 @@ const KGSync = (() => {
     startRealtime: _startRealtime,
     _stopRealtime: _stopRealtime,
     _startRealtime: _startRealtime,
+    // ✅ Exposer _rtChannel pour que _kgRegisterSessionToken puisse broadcaster le token
+    get _rtChannel() { return _rtChannel; },
     getClient,
     saveConfig,
     loadConfig,
@@ -21623,7 +21895,8 @@ function deduireStockVente(items) {
     const menuItem = MENU.find(function(m) {
       return m.id === item.id || m.sbId === item.id || m.id === item.sbId || m.sbId === item.sbId || m.name === item.name;
     });
-    const recetteSource = (item.recette && item.recette.length > 0) ? item.recette : (menuItem && menuItem.recette ? menuItem.recette : []);
+    // ✅ FIX : priorité au MENU (normalisé après pull) plutôt qu'à la copie du cart (peut avoir de vieux IDs)
+    const recetteSource = (menuItem && menuItem.recette && menuItem.recette.length > 0) ? menuItem.recette : (item.recette || []);
     if(!recetteSource || !recetteSource.length) return;
     recetteSource.forEach(function(ligne) {
       // Priorité : sbStockId (UUID Supabase) > stockId > stockNom
@@ -21653,9 +21926,41 @@ function deduireStockVente(items) {
     if(typeof renderStock === 'function' && document.getElementById('view-stock') && document.getElementById('view-stock').classList.contains('active')) {
       renderStock();
     }
-    // ✅ FIX : forcer la sauvegarde Supabase ET localStorage après chaque déduction
-    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
-      try { KGSync.push.stock(); } catch(e) { console.warn('[stock] push.stock erreur:', e); }
+    // ✅ FIX SYNC : mise à jour directe dans stock_items + gestion hors-ligne
+    const _isOnline = typeof KGSync !== 'undefined' && KGSync.isConnected && navigator.onLine;
+    if(_isOnline) {
+      try {
+        const _sb  = KGSync.getClient();
+        const _rid = window._KG_RESTAURANT_ID;
+        if(_sb && _rid) {
+          // Mise à jour directe ligne par ligne dans stock_items → Supabase = local immédiatement
+          const _updates = STOCK_DATA.filter(s => s.sbId).map(s =>
+            _sb.from('stock_items')
+              .update({ qty: s.qty, updated_at: new Date().toISOString() })
+              .eq('id', s.sbId)
+              .eq('restaurant_id', _rid)
+              .catch(e => console.warn('[stock] update stock_items:', s.name, e))
+          );
+          Promise.all(_updates).catch(()=>{});
+        }
+        // kg_sync en parallèle pour les autres appareils
+        KGSync.push.stock();
+        // Vider les déductions en attente si elles avaient été sauvées hors-ligne
+        try { const _rid2 = window._KG_RESTAURANT_ID; if(_rid2) localStorage.removeItem('kg_stock_pending_' + _rid2); } catch(e) {}
+      } catch(e) { console.warn('[stock] push.stock erreur:', e); }
+    } else {
+      // ✅ HORS-LIGNE : sauvegarder l'état complet du stock localement
+      // Au retour en ligne, on pushera AVANT de puller Supabase
+      try {
+        const _rid = window._KG_RESTAURANT_ID;
+        if(_rid) {
+          localStorage.setItem('kg_stock_pending_' + _rid, JSON.stringify({
+            items: STOCK_DATA,
+            savedAt: new Date().toISOString()
+          }));
+          console.log('[stock] Hors-ligne — déductions sauvées localement, push au retour réseau');
+        }
+      } catch(e) {}
     }
     // Sauvegarde localStorage en fallback (robustesse hors-ligne)
     try {
@@ -24032,37 +24337,8 @@ initTheme();
 initDashboard();
 renderQuickUsers();
 
-// ✅ AUTO-DÉCONNEXION après 15min d'inactivité → zéro egress
-(function _initInactivityWatcher() {
-  const INACTIVITY_MS = 15 * 60 * 1000; // 15 minutes
-  let _inactivityTimer = null;
-
-  function _resetTimer() {
-    clearTimeout(_inactivityTimer);
-    // Si déconnecté → reconnecter si dans les horaires
-    if(typeof KGSync !== 'undefined' && !KGSync.isConnected) {
-      const h = new Date().getHours();
-      if(h >= 18 && h < 24 && typeof connectSupabase === 'function') {
-        connectSupabase().catch(()=>{});
-      }
-    }
-    _inactivityTimer = setTimeout(() => {
-      if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
-        KGSync._stopRealtime();
-        console.log('⏱️ Auto-déconnexion Supabase — 15min inactif');
-        // Afficher toast
-        if(typeof showToast === 'function') showToast('💤 Connexion mise en veille — 15min inactif');
-      }
-    }, INACTIVITY_MS);
-  }
-
-  // Écouter toute activité utilisateur
-  ['mousemove','mousedown','keydown','touchstart','scroll','click'].forEach(evt => {
-    document.addEventListener(evt, _resetTimer, { passive: true });
-  });
-
-  _resetTimer(); // Démarrer le timer au chargement
-})();
+// ✅ OPT v7-4 : 2ème timer supprimé — le système principal (ligne ~16546) gère tout
+// L'ancien 2ème timer causait des conflits et empêchait la déconnexion effective
 // ✅ FIX DÉFINITIF : purger immédiatement les dépenses clôturées de la mémoire
 // puis recharger depuis Supabase (source de vérité)
 // ✅ Charger dépenses depuis Supabase au démarrage (après déclaration de la fonction)
@@ -24095,8 +24371,32 @@ setInterval(checkOnlineStatus, 30000); // ✅ OPT : 10s → 30s (vérif locale)
 
 // Écouter les événements réseau natifs
 window.addEventListener('online',  () => {
-  // ✅ OPT EGRESS : pullAll seulement si > 2 min depuis dernier pull (évite rafales reconnexion)
-  setTimeout(() => {
+  setTimeout(async () => {
+    // ✅ FIX HORS-LIGNE : pusher les déductions en attente AVANT de puller Supabase
+    // Sans ça, pullAll écraserait le stock local avec l'ancienne qty Supabase
+    try {
+      const _rid = window._KG_RESTAURANT_ID;
+      const _pending = _rid ? localStorage.getItem('kg_stock_pending_' + _rid) : null;
+      if(_pending && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+        const { items } = JSON.parse(_pending);
+        const _sb = KGSync.getClient();
+        if(_sb && _rid && items && items.length) {
+          console.log('[stock] Retour en ligne — push des déductions hors-ligne vers Supabase');
+          const _updates = items.filter(s => s.sbId).map(s =>
+            _sb.from('stock_items')
+              .update({ qty: s.qty, updated_at: new Date().toISOString() })
+              .eq('id', s.sbId)
+              .eq('restaurant_id', _rid)
+              .catch(e => console.warn('[stock] push hors-ligne:', s.name, e))
+          );
+          await Promise.all(_updates);
+          localStorage.removeItem('kg_stock_pending_' + _rid);
+          console.log('[stock] ✅ Déductions hors-ligne synchronisées');
+        }
+      }
+    } catch(e) { console.warn('[stock] erreur push hors-ligne:', e); }
+
+    // Maintenant puller Supabase (stock_items est déjà à jour)
     const _sinceLastPull = Date.now() - (window._lastPullAllTs || 0);
     if(_sinceLastPull > 120000) { KGSync.pullAll().then(checkOnlineStatus); }
     else { checkOnlineStatus(); }
@@ -24469,25 +24769,54 @@ async function loadStockFromSupabase() {
     const { data, error } = await sb.from('stock_items')
       .select('*').eq('restaurant_id', rid).order('name');
     if(error || !data || data.length === 0) return;
-    const existingIds = new Set(STOCK_DATA.map(s => s.sbId).filter(Boolean));
-    const existingNames = new Set(STOCK_DATA.map(s => s.name.toLowerCase()));
+    // ✅ FIX FUSION COMPLÈTE : chaque article Supabase est garanti dans STOCK_DATA
+    // Matching : sbId > nom (insensible casse) — lie aussi les articles créés hors-ligne
     data.forEach(d => {
-      if(existingIds.has(d.id)) {
-        // Mettre à jour l'existant
-        const idx = STOCK_DATA.findIndex(s => s.sbId === d.id);
-        if(idx >= 0) { STOCK_DATA[idx].qty = parseFloat(d.qty)||0; STOCK_DATA[idx].sbId = d.id; }
-      } else if(!existingNames.has(d.name.toLowerCase())) {
+      let idx = STOCK_DATA.findIndex(s => s.sbId === d.id);
+      if(idx < 0) idx = STOCK_DATA.findIndex(s => s.name.trim().toLowerCase() === d.name.trim().toLowerCase());
+      if(idx >= 0) {
+        // Mettre à jour : lier sbId, normaliser id, prendre qty Supabase (source de vérité)
+        STOCK_DATA[idx].sbId       = d.id;
+        STOCK_DATA[idx].id         = 'sb_' + d.id;
+        STOCK_DATA[idx].qty        = parseFloat(d.qty) || 0;  // Supabase = source de vérité
+        STOCK_DATA[idx].max        = parseFloat(d.max_qty) || STOCK_DATA[idx].max || 100;
+        STOCK_DATA[idx].seuil      = parseFloat(d.seuil_alerte) || STOCK_DATA[idx].seuil || 10;
+        STOCK_DATA[idx].unit       = d.unit || STOCK_DATA[idx].unit || 'pcs';
+        STOCK_DATA[idx].icon       = d.icon || STOCK_DATA[idx].icon || '📦';
+        STOCK_DATA[idx].stockCatId = d.categorie || STOCK_DATA[idx].stockCatId || '';
+        STOCK_DATA[idx].cat        = d.categorie || STOCK_DATA[idx].cat || '';
+      } else {
+        // Nouvel article Supabase inconnu localement → ajouter
         STOCK_DATA.push({
           id: 'sb_'+d.id, sbId: d.id, icon: d.icon||'📦', name: d.name,
           qty: parseFloat(d.qty)||0, max: parseFloat(d.max_qty)||100,
           seuil: parseFloat(d.seuil_alerte)||10, unit: d.unit||'pcs',
           stockCatId: d.categorie||'', cat: d.categorie||''
         });
-        existingNames.add(d.name.toLowerCase());
       }
     });
+    // ✅ FIX : normaliser les stockId dans les recettes du MENU après rechargement depuis stock_items
+    // Sans ça, un article créé hors-ligne (id='local_XXX') ne sera jamais trouvé après le pull (id='sb_UUID')
+    (typeof MENU !== 'undefined' ? MENU : []).forEach(function(menuItem) {
+      if(!menuItem.recette || !menuItem.recette.length) return;
+      menuItem.recette.forEach(function(ligne) {
+        const stock = STOCK_DATA.find(function(s) {
+          return String(s.id)    === String(ligne.stockId)
+              || String(s.sbId)  === String(ligne.stockId)
+              || String(s.id)    === String(ligne.sbStockId)
+              || String(s.sbId)  === String(ligne.sbStockId)
+              || (ligne.stockNom && s.name && s.name.trim().toLowerCase() === ligne.stockNom.trim().toLowerCase());
+        });
+        if(stock) {
+          ligne.stockId   = stock.id;
+          ligne.sbStockId = stock.sbId || ligne.sbStockId;
+          if(!ligne.stockNom) ligne.stockNom = stock.name;
+          if(!ligne.unit)     ligne.unit     = stock.unit;
+        }
+      });
+    });
     if(typeof renderStock === 'function') renderStock();
-    console.log('[Stock] Charge', data.length, 'articles depuis stock_items');
+    console.log('[Stock] Charge', data.length, 'articles depuis stock_items — recettes normalisées');
   } catch(e) { console.warn('[Stock] Erreur:', e); }
 }
 
@@ -24526,15 +24855,87 @@ function _updateDepTVADisplay() {
   if(ttcEl) ttcEl.textContent = montant.toLocaleString('fr-FR') + ' F';
 }
 
-// Écouter le changement de montant pour recalculer
-document.addEventListener('DOMContentLoaded', () => {
-  const depMontant = document.getElementById('dep-montant');
-  if(depMontant) depMontant.addEventListener('input', _updateDepTVADisplay);
-});
+// ✅ Multi-lignes : gestion des lignes de dépense
+let _depLigneCount = 0;
+
+function depAddLigne() {
+  const container = document.getElementById('dep-lignes-container');
+  if(!container) return;
+  const idx = _depLigneCount++;
+  const div = document.createElement('div');
+  div.id = 'dep-ligne-' + idx;
+  div.style.cssText = 'display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;margin-bottom:8px;';
+  div.style.cssText = 'margin-bottom:8px;';
+  div.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 70px 110px auto;gap:6px;align-items:center;">
+      <input class="form-input" id="dep-lib-${idx}" placeholder="Libellé..." style="min-width:0;">
+      <input class="form-input" id="dep-qty-${idx}" type="number" min="1" value="1" placeholder="Qté" style="text-align:center;" oninput="depCalcLigne(${idx})">
+      <input class="form-input" id="dep-mnt-${idx}" type="number" min="0" placeholder="Prix unit." style="text-align:right;" oninput="depCalcLigne(${idx})">
+      <button onclick="depRemoveLigne(${idx})" style="background:rgba(231,76,60,0.15);color:#e74c3c;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px;line-height:1;">✕</button>
+    </div>
+    <div style="text-align:right;font-size:11px;color:var(--text2);margin-top:2px;padding-right:40px;">
+      Total ligne : <span id="dep-sub-${idx}" style="color:var(--accent);font-weight:600;">0 F</span>
+    </div>
+  `;
+  container.appendChild(div);
+  depUpdateTotal();
+  document.getElementById('dep-lib-' + idx)?.focus();
+}
+
+function depRemoveLigne(idx) {
+  const el = document.getElementById('dep-ligne-' + idx);
+  if(el) el.remove();
+  depUpdateTotal();
+}
+
+function depCalcLigne(idx) {
+  const qty  = parseFloat(document.getElementById('dep-qty-' + idx)?.value) || 1;
+  const prix = parseFloat(document.getElementById('dep-mnt-' + idx)?.value) || 0;
+  const sub  = qty * prix;
+  const subEl = document.getElementById('dep-sub-' + idx);
+  if(subEl) subEl.textContent = sub.toLocaleString('fr-FR') + ' F';
+  depUpdateTotal();
+}
+
+function depUpdateTotal() {
+  let total = 0;
+  document.querySelectorAll('[id^="dep-sub-"]').forEach(el => {
+    total += parseFloat(el.textContent.replace(/[^0-9]/g, '')) || 0;
+  });
+  const el = document.getElementById('dep-total-display');
+  if(el) el.textContent = total.toLocaleString('fr-FR') + ' F CFA';
+  // Recalculer TVA sur le total
+  const avecTVA = document.getElementById('dep-avec-tva')?.checked;
+  if(avecTVA) {
+    const ht  = Math.round(total / 1.18);
+    const tva = total - ht;
+    const htEl  = document.getElementById('dep-ht-display');
+    const tvaEl = document.getElementById('dep-tva-display');
+    const ttcEl = document.getElementById('dep-ttc-display');
+    if(htEl)  htEl.textContent  = ht.toLocaleString('fr-FR') + ' F';
+    if(tvaEl) tvaEl.textContent = tva.toLocaleString('fr-FR') + ' F';
+    if(ttcEl) ttcEl.textContent = total.toLocaleString('fr-FR') + ' F';
+  }
+}
+
+function _updateDepTVADisplay() { depUpdateTotal(); }
 
 async function saveDepense() {
   if(!KGSync.isConnected) { showNotif('❌ Connexion Supabase requise pour enregistrer une dépense.'); return; }
-  const libelle = document.getElementById('dep-libelle').value.trim();
+
+  // Collecter toutes les lignes valides
+  const lignes = [];
+  document.querySelectorAll('[id^="dep-ligne-"]').forEach(row => {
+    const idx  = row.id.replace('dep-ligne-', '');
+    const lib  = document.getElementById('dep-lib-' + idx)?.value.trim();
+    const qty  = parseFloat(document.getElementById('dep-qty-' + idx)?.value) || 1;
+    const prix = parseFloat(document.getElementById('dep-mnt-' + idx)?.value) || 0;
+    const mnt  = Math.round(qty * prix);
+    if(lib && mnt > 0) lignes.push({ libelle: lib, montant: mnt, qty, prix_unitaire: prix });
+  });
+  if(lignes.length === 0) { showNotif('⚠️ Ajoutez au moins une ligne avec libellé et montant.'); return; }
+
+  const libelle = lignes[0].libelle; // pour compatibilité champs legacy
   const montant = parseInt(document.getElementById('dep-montant').value) || 0;
   const date = document.getElementById('dep-date').value;
   if (!libelle) { showNotif('⚠️ Veuillez saisir un libellé.'); return; }
@@ -32835,7 +33236,7 @@ async function _deleteTicketAttenteSupabase(ticketId) {
 // ── Charger tickets en attente depuis Supabase au démarrage ──
 async function _pullTicketsAttenteSupabase() {
   try {
-    const sb  = KGSync?.getClient?.();
+    const sb  = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
     const rid = window._KG_RESTAURANT_ID;
     if(!sb || !rid) return;
     const today = new Date().toISOString().split('T')[0];
@@ -33448,8 +33849,8 @@ renderOrders = function(status) {
 document.addEventListener('DOMContentLoaded', function() {
   _loadTicketsAttente();
   _updateAttenteCounter();
-  // Synchroniser avec Supabase au démarrage (remplace les données locales si plus récent)
-  _pullTicketsAttenteSupabase();
+  // ✅ FIX : ne pas appeler au DOMContentLoaded — KGSync pas encore connecté
+  // _pullTicketsAttenteSupabase est appelé après login dans doLogin()
 });
 
 // ═══════════════════════════════════════════════════════════════
