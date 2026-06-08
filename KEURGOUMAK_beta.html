@@ -5936,7 +5936,7 @@ function _syncSportVentes()       { return []; }
           <option value="cloturee">🔒 Clôturées</option>
         </select>
         <button class="btn btn-ghost" onclick="['dep-filtre-statut','dep-filtre-cat','dep-filtre-caisse','dep-filtre-debut','dep-filtre-fin'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});renderDepenses();" style="font-size:12px;" title="Réinitialiser les filtres">🔄 Reset filtres</button>
-        <button class="btn btn-primary" style="margin-left:auto;" onclick="(function(){ document.getElementById('dep-date').value=new Date().toISOString().split('T')[0]; document.getElementById('dep-source-info').style.display='none'; document.getElementById('dep-lignes-container').innerHTML=''; _depLigneCount=0; document.getElementById('dep-total-display').textContent='0 F CFA'; showModal('addDepense'); depAddLigne(); })()">+ Ajouter dépense</button>
+        <button class="btn btn-primary" style="margin-left:auto;" onclick="(function(){ document.getElementById('dep-date').value=new Date().toISOString().split('T')[0]; const _glbInp=document.getElementById('dep-libelle-global'); if(_glbInp) _glbInp.value=''; document.getElementById('dep-source-info').style.display='none'; document.getElementById('dep-lignes-container').innerHTML=''; _depLigneCount=0; document.getElementById('dep-total-display').textContent='0 F CFA'; showModal('addDepense'); depAddLigne(); })()">+ Ajouter dépense</button>
         <button class="btn btn-ghost" onclick="exportDepensesCSV()" style="font-size:12px;">📥 Export CSV</button>
         <button class="btn btn-ghost" onclick="cloturerDepensesFondsPropres()" style="font-size:12px;border-color:var(--orange,#f39c12);color:var(--orange,#f39c12);" title="Clôturer les dépenses fonds propres du mois">🔒 Clôturer fonds propres</button>
       </div>
@@ -5973,29 +5973,24 @@ function _syncSportVentes()       { return []; }
         </div>
       </div>
 
-      <!-- Tableau -->
-      <div class="card">
-        <div style="overflow-x:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead>
-              <tr style="border-bottom:2px solid var(--border);">
-                <th style="padding:10px 8px;text-align:left;color:var(--text2);font-weight:500;">Date</th>
-                <th style="padding:10px 8px;text-align:left;color:var(--text2);font-weight:500;">Libellé</th>
-                <th style="padding:10px 8px;text-align:left;color:var(--text2);font-weight:500;">Catégorie</th>
-                <th style="padding:10px 8px;text-align:right;color:var(--text2);font-weight:500;">Montant</th>
-                <th style="padding:10px 8px;text-align:left;color:var(--text2);font-weight:500;">Source</th>
-                <th style="padding:10px 8px;text-align:left;color:var(--text2);font-weight:500;">Mode paiement</th>
-                <th style="padding:10px 8px;text-align:center;color:var(--text2);font-weight:500;">Impact CA</th>
-                <th style="padding:10px 8px;text-align:center;color:var(--text2);font-weight:500;">Statut</th>
-                <th style="padding:10px 8px;text-align:center;color:var(--text2);font-weight:500;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="dep-tbody">
-              <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text2);">Aucune dépense enregistrée</td></tr>
-            </tbody>
-          </table>
+      <!-- Tableau Dépenses — en-tête sticky + cartes mobile -->
+      <div class="card" style="padding:0;overflow:hidden;">
+
+        <!-- En-tête sticky colonnes (desktop) -->
+        <div id="dep-thead" style="display:grid;grid-template-columns:90px 1fr 110px 110px 120px 90px 40px;align-items:center;gap:0;background:var(--surface2);border-bottom:2px solid var(--border);padding:10px 14px;position:sticky;top:0;z-index:10;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);">Date</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);">Libellé</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);">Catégorie</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);text-align:right;">Montant</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);">Source</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);">Statut</div>
+          <div></div>
         </div>
 
+        <!-- Liste des dépenses (injectée par renderDepenses) -->
+        <div id="dep-tbody">
+          <div style="text-align:center;padding:30px;color:var(--text2);">Aucune dépense enregistrée</div>
+        </div>
 
       </div>
     </div>
@@ -7749,6 +7744,10 @@ Revenez nous voir bient&#244;t.</textarea>
     <div class="modal-title">💸 Ajouter des dépenses</div>
 
     <!-- Infos communes à toutes les lignes -->
+    <div class="form-group" style="margin-bottom:10px;">
+      <label class="form-label">📝 Description / Objet de la dépense *</label>
+      <input class="form-input" id="dep-libelle-global" type="text" placeholder="Ex: Achat matières premières, Facture électricité...">
+    </div>
     <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="form-group">
         <label class="form-label">Date *</label>
@@ -9031,6 +9030,11 @@ Revenez nous voir bient&#244;t.</textarea>
   }
 })();
 // MENU chargé depuis Supabase après connexion
+// ✅ FLAG REDÉMARRAGE : true uniquement au 1er chargement de la page
+// Permet de détecter un vrai redémarrage machine vs navigation entre onglets
+// Consomme 0 requête Supabase lors des clics onglets normaux
+window._kgPageJustLoaded = true;
+
 let MENU = [];
 
 // CATS mis à jour dynamiquement depuis le menu Supabase
@@ -9095,7 +9099,23 @@ function showView(id, el, pushState) {
     }
   }
 
-  if(id === 'caisse') { renderPOS(); setTimeout(_updatePosOverlay, 60); }
+  if(id === 'caisse') {
+    renderPOS();
+    setTimeout(_updatePosOverlay, 60);
+    // ✅ FIX ANTI-DOUBLON v2 OPTIMISÉ : sync Supabase seulement si redémarrage détecté
+    // window._kgPageJustLoaded = true est mis au chargement initial de la page (1 seule fois)
+    // Après navigation entre onglets → flag est false → 0 requête Supabase
+    if(window._kgPageJustLoaded) {
+      window._kgPageJustLoaded = false; // consommer le flag : ne se déclenche qu'1 fois par démarrage
+      (async () => {
+        const _activeCaisses = (typeof CAISSES !== 'undefined' ? CAISSES : []).filter(c => c.status === 'open');
+        for(const _c of _activeCaisses) {
+          await _loadVentesSupabase(_c.name);
+        }
+        await _syncOrderCounterFromSupabase();
+      })();
+    }
+  }
   if(id === 'dashboard') refreshDashboard();
   if(id === 'menu') renderMenu('all');
   if(id === 'commandes') renderOrders('all');
@@ -9120,7 +9140,6 @@ function showView(id, el, pushState) {
   }
   if(id === 'settings') setTimeout(_initPhotosPreviews, 200);
   if(id === 'livreurs') afficherListeLivreurs();
-  if(id === 'stock') { switchStockTab('liste', document.getElementById('stock-tab-liste')); renderStock(); }
   if(id === 'inventaire') { initInvDate(); renderInvSaisie(); }
   if(id === 'preparation') { renderPreparation(); }
   if(id === 'clients') renderClients();
@@ -9239,16 +9258,40 @@ function showView(id, el, pushState) {
     renderRH();
   }
   if(id === 'fournisseurs') {
+    // ✅ FIX AFFICHAGE IMMÉDIAT : pré-remplir depuis le cache localStorage AVANT Supabase
+    // Evite l'écran vide quand la connexion Supabase est lente au démarrage
+    if(FOURNISSEURS.length === 0) {
+      try {
+        const _rid = window._KG_RESTAURANT_ID;
+        const _cached = _rid ? JSON.parse(localStorage.getItem('kg_val_' + _rid + ':commandes_fourn_data') || 'null') : null;
+        const _val = _cached ? (_cached.value || _cached) : null;
+        if(_val && _val.fournisseurs && _val.fournisseurs.length > 0) FOURNISSEURS = _val.fournisseurs;
+        if(_val && _val.items && _val.items.length > 0) COMMANDES_FOURNISSEURS = _val.items;
+      } catch(e) {}
+    }
     renderFournisseurs();
-    // ✅ FIX v50 : Si liste vide et Supabase connecté → forcer pullAll
-    if(typeof FOURNISSEURS !== 'undefined' && FOURNISSEURS.length === 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    // Rafraîchir depuis Supabase en arrière-plan si liste toujours vide
+    if(FOURNISSEURS.length === 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
       KGSync.pullAll().catch(()=>{});
     }
   }
   if(id === 'stock') {
+    // ✅ FIX AFFICHAGE IMMÉDIAT : pré-remplir depuis le cache localStorage AVANT Supabase
+    if(STOCK_DATA.length === 0) {
+      try {
+        const _rid2 = window._KG_RESTAURANT_ID;
+        const _cached2 = _rid2 ? JSON.parse(localStorage.getItem('kg_val_' + _rid2 + ':stock_data') || 'null') : null;
+        const _val2 = _cached2 ? (_cached2.value || _cached2) : null;
+        if(_val2 && _val2.items && _val2.items.length > 0) {
+          STOCK_DATA = _val2.items;
+          if(_val2.entries) STOCK_ENTREES = _val2.entries;
+        }
+      } catch(e) {}
+    }
+    switchStockTab('liste', document.getElementById('stock-tab-liste'));
     renderStock();
-    // ✅ FIX v50 : Si stock vide et Supabase connecté → forcer pullAll
-    if(typeof STOCK_ITEMS !== 'undefined' && STOCK_ITEMS.length === 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    // Rafraîchir depuis Supabase en arrière-plan si toujours vide
+    if(STOCK_DATA.length === 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
       KGSync.pullAll().catch(()=>{});
     }
   }
@@ -10412,7 +10455,23 @@ async function _loadVentesSupabase(caisse) {
     const _localOnly = (VENTES_PAR_CAISSE[caisse] || []).filter(
       lv => !_remoteVentes.find(rv => rv.orderNum === lv.orderNum)
     );
-    VENTES_PAR_CAISSE[caisse] = [..._remoteVentes, ..._localOnly];
+    // ✅ FIX ANTI-RETOUR : charger la liste noire depuis localStorage
+    let _deletedSet = new Set();
+    try {
+      const _rid3 = window._KG_RESTAURANT_ID;
+      const _delRaw = JSON.parse(localStorage.getItem('kg_deleted_orders_' + _rid3) || '{}');
+      (_delRaw[caisse] || []).forEach(n => _deletedSet.add(n));
+      // Aussi depuis la mémoire live
+      if(window._KG_DELETED_ORDERS && window._KG_DELETED_ORDERS[caisse]) {
+        window._KG_DELETED_ORDERS[caisse].forEach(n => _deletedSet.add(n));
+      }
+    } catch(e) {}
+    // Filtrer les ventes supprimées par l'admin
+    const _filteredRemote = _deletedSet.size > 0
+      ? _remoteVentes.filter(v => !_deletedSet.has(v.orderNum))
+      : _remoteVentes;
+    if(_deletedSet.size > 0) console.log('[ventes_caisse] 🗑️ ' + _deletedSet.size + ' ventes supprimées filtrées');
+    VENTES_PAR_CAISSE[caisse] = [..._filteredRemote, ..._localOnly];
     if(_localOnly.length > 0) console.log('[ventes_caisse] ⚡ ' + _localOnly.length + ' ventes locales conservées (non encore pushées)');
     // Mettre à jour les KPIs
     const cObj = typeof CAISSES !== 'undefined' ? CAISSES.find(c => c.name === caisse) : null;
@@ -10742,9 +10801,18 @@ async function confirmerOuverture() {
       showView('caisse', null, true);
     }
     saveSession();
+    // ✅ FIX ANTI-DOUBLON v3 OPTIMISÉ : sync Supabase uniquement si redémarrage machine
+    // _kgPageJustLoaded = true seulement au 1er chargement → 0 requête lors des réouvertures normales
+    if(window._kgPageJustLoaded) {
+      window._kgPageJustLoaded = false;
+      try {
+        // 1 seule requête : _loadVentesSupabase met déjà à jour le compteur de tickets
+        await _loadVentesSupabase(caisse);
+        console.log('[ouvertureSession] ✅ Ventes rechargées (redémarrage), prochain ticket :', orderCounter);
+      } catch(_e) { console.warn('[ouvertureSession] Sync Supabase:', _e); }
+    }
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
       // ✅ FIX v9 : push caisses toujours + ventes seulement si vraie clôture Z
-      // (évite d'écraser les ventes en cours sur Supabase lors d'une simple réouverture)
       try {
         await KGSync.push.caisses();
         if(_estVraieCloture) { await KGSync.push.ventes(); }
@@ -10925,16 +10993,9 @@ async function validateOrder() {
   }));
 
   if(!VENTES_PAR_CAISSE[caisse]) VENTES_PAR_CAISSE[caisse] = [];
-  // ✅ Charger les ventes du jour depuis Supabase au premier accès
+  // Charger depuis Supabase seulement si liste vide (ex: premier accès ou redémarrage)
   if(VENTES_PAR_CAISSE[caisse].length === 0) {
     await _loadVentesSupabase(caisse);
-  }
-
-  // ✅ FIX doublon tickets en attente : vérifier que cet orderNum n'existe pas déjà
-  if(VENTES_PAR_CAISSE[caisse].find(v => v.orderNum === orderNum)) {
-    showNotif('⚠️ Cette commande a déjà été enregistrée (doublon évité).');
-    _validateOrderInProgress = false;
-    return;
   }
 
   // ✅ FIX v42 : Calcul payMethods si mode mixte
@@ -12573,15 +12634,11 @@ function filterOrders(status, el) {
 
 function renderOrders(status) {
   // ✅ FIX : afficher TOUTES les ventes du jour, quelle que soit le statut de la caisse
-  // (le filtre c.status==='open' cachait les tickets des caisses temporairement fermées)
-  const _todayISO = new Date().toISOString().split('T')[0];
   let allOrders = [];
-
   const _nbCaisses = Object.keys(VENTES_PAR_CAISSE).length;
   Object.entries(VENTES_PAR_CAISSE).forEach(([caisseName, ventes]) => {
     (ventes || []).forEach(v => {
-      // Inclure toutes les ventes du jour (exclure les ventes d'autres jours si présentes)
-      if(v.date && v.date < _todayISO) return;
+      // ✅ FIX : ne pas filtrer par date — VENTES_PAR_CAISSE contient déjà la session courante
       allOrders.push({
         id: v.orderNum,
         client: v.client && v.client !== 'undefined' ? v.client : 'Client',
@@ -12593,8 +12650,6 @@ function renderOrders(status) {
       });
     });
   });
-
-  // Trier par numéro de commande décroissant (plus récent en haut)
   allOrders.sort((a, b) => (b.id||'').localeCompare(a.id||''));
 
   // Mettre à jour les compteurs des tabs
@@ -12625,6 +12680,7 @@ function renderOrders(status) {
       <div class="order-price">${o.price.toLocaleString()} F</div>
       <div class="badge badge-done">🎉 Livré</div>
       <button class="ticket-btn" style="font-size:11px;padding:5px 10px;margin-left:6px;" onclick="reprintTicket('${o.id}')">🖨️ Ticket</button>
+      ${(currentUser && currentUser.role === 'administrateur') ? '<button onclick="supprimerVenteAdmin(\'' + o.id + '\')" style="background:rgba(220,53,69,0.15);color:#dc3545;border:1px solid rgba(220,53,69,0.4);border-radius:8px;font-size:11px;padding:5px 10px;margin-left:4px;cursor:pointer;" title="Supprimer ce ticket (erreur)">🗑️</button>' : ''}
     </div>
   `).join('');
 }
@@ -12640,6 +12696,130 @@ function reprintTicket(orderNum) {
   if(!vente) { showNotif('⚠️ Vente introuvable'); return; }
   printTicket(vente, caisseName);
   showNotif(`🖨️ Ticket ${orderNum} réimprimé`);
+}
+
+// ===== SUPPRESSION TICKET ADMIN =====
+async function supprimerVenteAdmin(orderNum) {
+  // Vérification rôle
+  if(!currentUser || currentUser.role !== 'administrateur') {
+    showNotif('🔒 Réservé à l\'administrateur'); return;
+  }
+
+  // Retrouver la vente
+  let vente = null, caisseName = '', venteIdx = -1;
+  for(const [c, ventes] of Object.entries(VENTES_PAR_CAISSE)) {
+    const idx = ventes.findIndex(v => v.orderNum === orderNum);
+    if(idx !== -1) { vente = ventes[idx]; caisseName = c; venteIdx = idx; break; }
+  }
+  if(!vente) { showNotif('⚠️ Ticket introuvable'); return; }
+
+  // Modal de confirmation
+  const montantStr = (vente.total||0).toLocaleString('fr-FR');
+  const itemsStr = (vente.items||[]).map(i => `${i.name||i.nom||''} ×${i.qty||1}`).join(', ');
+  const confirmed = await new Promise(resolve => {
+    const mid = 'modal-delete-ticket-' + Date.now();
+    const overlay = document.createElement('div');
+    overlay.id = mid;
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.innerHTML = `
+      <div style="background:var(--bg2,#1a1a2e);border:1px solid rgba(220,53,69,0.4);border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+        <div style="text-align:center;margin-bottom:16px;">
+          <div style="font-size:40px;margin-bottom:8px;">🗑️</div>
+          <div style="font-size:16px;font-weight:700;color:#dc3545;">Supprimer ce ticket ?</div>
+          <div style="font-size:12px;color:var(--text2,#aaa);margin-top:4px;">Cette action est irréversible</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:12px;margin-bottom:16px;font-size:13px;">
+          <div style="font-weight:700;color:var(--accent,#f59e2a);margin-bottom:4px;">Ticket ${orderNum}</div>
+          <div style="color:var(--text2,#aaa);font-size:11px;margin-bottom:4px;">${itemsStr}</div>
+          <div style="color:#dc3545;font-weight:700;">${montantStr} F CFA</div>
+          <div style="font-size:11px;color:var(--text2,#aaa);margin-top:4px;">Caisse : ${caisseName} · ${vente.time||''}</div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button id="${mid}-cancel" style="flex:1;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:var(--text,#fff);font-size:14px;cursor:pointer;">Annuler</button>
+          <button id="${mid}-confirm" style="flex:1;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#dc3545,#c82333);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">🗑️ Supprimer</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById(mid+'-cancel').onclick  = () => { overlay.remove(); resolve(false); };
+    document.getElementById(mid+'-confirm').onclick = () => { overlay.remove(); resolve(true); };
+    overlay.onclick = e => { if(e.target===overlay){ overlay.remove(); resolve(false); } };
+  });
+
+  if(!confirmed) return;
+
+  // ── Suppression locale ──
+  VENTES_PAR_CAISSE[caisseName].splice(venteIdx, 1);
+
+  // ── Restauration du stock ──
+  if(typeof deduireStockVente === 'function') {
+    // Inverser : remettre les quantités
+    (vente.items||[]).forEach(item => {
+      const menuItem = MENU.find(m => m.id===item.id||m.sbId===item.id||m.name===item.name||m.nom===item.name);
+      const recette = (menuItem && menuItem.recette && menuItem.recette.length) ? menuItem.recette : (item.recette||[]);
+      recette.forEach(ligne => {
+        let s = null;
+        if(ligne.sbStockId) s = STOCK_DATA.find(x=>String(x.sbId)===String(ligne.sbStockId));
+        if(!s && ligne.stockId) s = STOCK_DATA.find(x=>String(x.sbId)===String(ligne.stockId)||String(x.id)===String(ligne.stockId));
+        if(s) {
+          const consumed = (ligne.qty||1) * (item.qty||1);
+          s.qty = (s.qty||0) + consumed;
+        }
+      });
+    });
+    // Push stock Supabase
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.stock();
+  }
+
+  // ── Journal ──
+  const now = new Date();
+  JOURNAL.unshift({
+    user: `${currentUser.prenom} ${currentUser.nom}`,
+    role: currentUser.role,
+    action: `Suppression ticket ${orderNum} (${montantStr} F — ${caisseName})`,
+    module: 'Commandes',
+    date: now.toLocaleDateString('fr-FR').slice(0,8),
+    heure: now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
+    ip: '—'
+  });
+
+  // ── Supabase : supprimer la vente de ventes_caisse ──
+  try {
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      const _sb  = KGSync.getClient();
+      const _rid = window._KG_RESTAURANT_ID;
+      if(_sb && _rid) {
+        // ✅ FIX : supprimer depuis ventes_caisse (vraie table des ventes)
+        await _sb.from('ventes_caisse')
+          .delete()
+          .eq('restaurant_id', _rid)
+          .eq('caisse', caisseName)
+          .eq('order_num', orderNum);
+        // Aussi depuis ventes (legacy) si sbId présent
+        if(vente.sbId) {
+          await _sb.from('ventes').delete().eq('id', vente.sbId).eq('restaurant_id', _rid).catch(()=>{});
+        }
+      }
+      // ✅ FIX ANTI-RETOUR : mémoriser l'orderNum supprimé pour bloquer le rechargement Supabase
+      if(!window._KG_DELETED_ORDERS) window._KG_DELETED_ORDERS = {};
+      if(!window._KG_DELETED_ORDERS[caisseName]) window._KG_DELETED_ORDERS[caisseName] = new Set();
+      window._KG_DELETED_ORDERS[caisseName].add(orderNum);
+      // Persister en localStorage pour survivre aux actualisations
+      try {
+        const _rid2 = window._KG_RESTAURANT_ID;
+        const _key = 'kg_deleted_orders_' + _rid2;
+        const _existing = JSON.parse(localStorage.getItem(_key) || '{}');
+        if(!_existing[caisseName]) _existing[caisseName] = [];
+        if(!_existing[caisseName].includes(orderNum)) _existing[caisseName].push(orderNum);
+        localStorage.setItem(_key, JSON.stringify(_existing));
+      } catch(e) {}
+      KGSync.push.caisses();
+    }
+  } catch(e) { console.warn('[admin] delete vente supabase:', e); }
+
+  saveSession();
+  refreshDashboard();
+  renderOrders('all');
+  showNotif(`✅ Ticket ${orderNum} supprimé avec succès`);
 }
 
 // ===== DONNÉES STOCK =====
@@ -20434,7 +20614,7 @@ const KGSync = (() => {
       await upsert('ventes_' + caisse.replace(/\s+/g,'_'), { caisse, ventes, orderCounter, caisseStatus: _caisseStatus, moduleActive: _moduleActive });
     }
   }
-  async function pushStock()          { _invalidateCache('stock_data'); _debouncedUpsert('stock_data', () => ({ items: STOCK_DATA, entries: STOCK_ENTREES }), 3000); }
+  async function pushStock()          { _invalidateCache('stock_data'); _debouncedUpsert('stock_data', () => ({ items: STOCK_DATA, entries: STOCK_ENTREES }), 8000); } // ✅ FIX EGRESS : 3s→8s debounce stock
   async function pushCaisses()        { _debouncedUpsert('caisses_data', () => ({ items: CAISSES, sessionActive: sessionCaisseActive }), 5000); }
 
   // ✅ FIX v31 MULTI-NAVIGATEURS : synchroniser les états complets des modules (C4-C8) vers Supabase
@@ -20452,7 +20632,7 @@ const KGSync = (() => {
       updatedAt: new Date().toISOString()
     }), 2000);
   }
-  async function pushClients()        { _debouncedUpsert('clients_data', () => ({ items: CLIENTS }), 3000); }
+  async function pushClients()        { _debouncedUpsert('clients_data', () => ({ items: CLIENTS }), 8000); }
   async function pushCommandesFourn() { _debouncedUpsert('commandes_fourn_data', () => ({ items: COMMANDES_FOURNISSEURS, fournisseurs: FOURNISSEURS }), 3000); }
   async function pushClotures()       { _invalidateCache('clotures_data'); _debouncedUpsert('clotures_data', () => ({ items: HISTORIQUE_CLOTURES }), 2000); }
   // ✅ FIX iOS : cache mémoire en complément localStorage (Safari navigation privée bloque localStorage)
@@ -20488,12 +20668,12 @@ const KGSync = (() => {
   }
   async function pushUsers()          { _invalidateCache('users_data'); _debouncedUpsert('users_data', () => ({ items: USERS.map(u => ({...u})) }), 3000); }
   async function pushRestaurantInfo() { _invalidateCache('restaurant_info'); _debouncedUpsert('restaurant_info', () => ({ info: RESTAURANT_INFO }), 3000); }
-  async function pushDepenses()        { _invalidateCache('depenses_data'); _debouncedUpsert('depenses_data', () => ({ items: DEPENSES }), 3000); }
-  async function pushJournal()         { _invalidateCache('journal_data'); _debouncedUpsert('journal_data', () => ({ items: (JOURNAL||[]).slice(0,200) }), 3000); }
+  async function pushDepenses()        { _invalidateCache('depenses_data'); _debouncedUpsert('depenses_data', () => ({ items: DEPENSES }), 8000); }
+  async function pushJournal()         { _invalidateCache('journal_data'); _debouncedUpsert('journal_data', () => ({ items: (JOURNAL||[]).slice(0,200) }), 10000); }
   async function pushCategories()      { _invalidateCache('categories_data'); _debouncedUpsert('categories_data', () => ({ items: (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []) }), 3000); }
   async function pushStockCategories() { _invalidateCache('stock_categories_data'); _debouncedUpsert('stock_categories_data', () => ({ items: (typeof STOCK_CATEGORIES !== 'undefined' ? STOCK_CATEGORIES : []) }), 3000); }
   // ✅ FIX v39 : Factures & RH via kg_sync (realtime sur tous les navigateurs)
-  async function pushFactures()  { _invalidateCache('factures_data'); _debouncedUpsert('factures_data', () => ({ items: (typeof FACTURES !== 'undefined' ? FACTURES : []) }), 3000); }
+  async function pushFactures()  { _invalidateCache('factures_data'); _debouncedUpsert('factures_data', () => ({ items: (typeof FACTURES !== 'undefined' ? FACTURES : []) }), 8000); }
   async function pushRH()        {
     _invalidateCache('rh_data');
     const _rhPayload = { employes: (typeof RH_EMPLOYES !== 'undefined' ? RH_EMPLOYES : []), paies: (typeof RH_PAIES !== 'undefined' ? RH_PAIES : []), conges: (typeof RH_CONGES !== 'undefined' ? RH_CONGES : []), avances: (typeof RH_AVANCES !== 'undefined' ? RH_AVANCES : []) };
@@ -20502,7 +20682,7 @@ const KGSync = (() => {
     try { localStorage.setItem('kg-rh-paies',    JSON.stringify(_rhPayload.paies));    } catch(e) {}
     try { localStorage.setItem('kg-rh-conges',   JSON.stringify(_rhPayload.conges));   } catch(e) {}
     try { localStorage.setItem('kg-rh-avances',  JSON.stringify(_rhPayload.avances));  } catch(e) {}
-    _debouncedUpsert('rh_data', _rhPayload, 3000);
+    _debouncedUpsert('rh_data', _rhPayload, 8000);
   }
   async function pushInventaires() { _invalidateCache('inventaires_data'); _debouncedUpsert('inventaires_data', () => ({ items: (typeof INVENTAIRES !== 'undefined' ? INVENTAIRES : []) }), 3000); } // ✅ FIX v39
   // ✅ FIX v40 RESERVATIONS : Synchroniser les réservations Terrain et Location
@@ -20598,7 +20778,13 @@ const KGSync = (() => {
 
   // ── Pull toutes les données ────────────────────────────────────
   async function _pullAll() {
-    window._lastPullAllTs = Date.now(); // ✅ OPT EGRESS : tracker pour éviter pulls redondants
+    // ✅ FIX EGRESS : throttle global — 1 pull max toutes les 8 secondes
+    const _nowTs = Date.now();
+    if((_nowTs - (window._lastPullAllTs || 0)) < 8000) {
+      console.log('[egress] _pullAll ignoré — throttle 8s');
+      return;
+    }
+    window._lastPullAllTs = _nowTs;
     if(!client || !syncEnabled) return;
     // Bloquer uniquement si clôture ACTIVE en cours (pas de verrou post-clôture)
     if(typeof _CLOTURE_EN_COURS !== 'undefined' && _CLOTURE_EN_COURS) {
@@ -21690,6 +21876,13 @@ const KGSync = (() => {
                 }
               } catch(se) {}
             }
+            // ✅ FIX EGRESS : throttle 10s minimum entre 2 pulls déclenchés par broadcast
+            const _now = Date.now();
+            const _sinceLast = _now - (window._lastPullAllTs || 0);
+            if(_sinceLast < 10000) {
+              console.log('[egress] pull throttlé — dernier pull il y a', Math.round(_sinceLast/1000) + 's');
+              return;
+            }
             clearTimeout(_rtTimeout);
             _rtTimeout = setTimeout(function(){ _pullAll().catch(function(){}); }, 300);
           } catch(pe) {}
@@ -21968,15 +22161,28 @@ function deduireStockVente(items) {
         const _sb  = KGSync.getClient();
         const _rid = window._KG_RESTAURANT_ID;
         if(_sb && _rid) {
-          // Mise à jour directe ligne par ligne dans stock_items → Supabase = local immédiatement
-          const _updates = STOCK_DATA.filter(s => s.sbId).map(s =>
+          // ✅ FIX CRITIQUE : pousser UNIQUEMENT les articles modifiés par cette vente
+          // (pousser tout le stock écrasait les déductions des autres appareils)
+          const _modifiedIds = new Set();
+          items.forEach(function(item2) {
+            const mi = MENU.find(function(m){ return m.id===item2.id||m.sbId===item2.id||m.id===item2.sbId||m.sbId===item2.sbId||m.name===item2.name; });
+            const rec = (mi && mi.recette && mi.recette.length) ? mi.recette : (item2.recette||[]);
+            rec.forEach(function(l){
+              let s = null;
+              if(l.sbStockId) s = STOCK_DATA.find(function(x){return String(x.sbId)===String(l.sbStockId);});
+              if(!s && l.stockId) s = STOCK_DATA.find(function(x){return String(x.sbId)===String(l.stockId)||String(x.id)===String(l.stockId);});
+              if(!s && l.stockNom) s = STOCK_DATA.find(function(x){return x.name&&x.name.trim().toLowerCase()===l.stockNom.trim().toLowerCase();});
+              if(s && s.sbId) _modifiedIds.add(s.sbId);
+            });
+          });
+          const _updates = STOCK_DATA.filter(s => s.sbId && _modifiedIds.has(s.sbId)).map(s =>
             _sb.from('stock_items')
               .update({ qty: s.qty, updated_at: new Date().toISOString() })
               .eq('id', s.sbId)
               .eq('restaurant_id', _rid)
               .catch(e => console.warn('[stock] update stock_items:', s.name, e))
           );
-          Promise.all(_updates).catch(()=>{});
+          if(_updates.length) Promise.all(_updates).catch(()=>{});
         }
         // kg_sync en parallèle pour les autres appareils
         KGSync.push.stock();
@@ -24778,6 +24984,8 @@ async function loadDepensesFromSupabase() {
       const local = localMap[d.id];
       return {
         id: d.id, sbId: d.id, libelle: d.libelle || '',
+        // ✅ FIX LIGNES PERSISTANCE : réinjecter depuis localStorage après reconnexion
+        lignes: (()=>{ try { const _lk='kg_dep_lignes_'+(window._KG_RESTAURANT_ID||'local'); const _ls=JSON.parse(localStorage.getItem(_lk)||'{}'); return _ls[d.id] || (localMap[d.id] && Array.isArray(localMap[d.id].lignes) ? localMap[d.id].lignes : []); } catch(e){ return []; } })(),
         montant: parseFloat(d.montant) || 0,
         date: d.date_depense || d.date || '',
         categorie: d.categorie || 'Divers',
@@ -24986,8 +25194,9 @@ async function saveDepense() {
   });
   if(lignes.length === 0) { showNotif('⚠️ Ajoutez au moins une ligne avec libellé et montant.'); return; }
 
-  const libelle = lignes[0].libelle; // pour compatibilité champs legacy
-  // ✅ FIX : calculer le montant total depuis les lignes (champ dep-montant legacy peut être absent)
+  const libelleGlobal = document.getElementById('dep-libelle-global')?.value.trim();
+  const libelle = libelleGlobal || lignes[0].libelle; // Description globale ou première ligne
+  // ✅ FIX : montant calculé depuis les lignes (dep-montant legacy absent)
   const montant = lignes.reduce((s, l) => s + l.montant, 0);
   const date = document.getElementById('dep-date').value;
   if (!libelle) { showNotif('⚠️ Veuillez saisir un libellé.'); return; }
@@ -25023,6 +25232,7 @@ async function saveDepense() {
     avec_tva: avecTVA,
     montant_ht: montantHT,
     montant_tva: montantTVA,
+    // lignes non envoyées à Supabase (colonne non créée) — sauvegardées via kg_sync
   };
 
   try {
@@ -25033,22 +25243,31 @@ async function saveDepense() {
       categorie: payload.categorie, mode: payload.mode_paiement, caisse,
       source: payload.source, cloturee: false,
       avec_tva: avecTVA, montant_ht: montantHT, montant_tva: montantTVA,
+      // ✅ FIX : conserver le détail des lignes localement
+      lignes: lignes,
     };
     DEPENSES.unshift(dep);
+    // ✅ FIX persistance lignes hors-ligne
+    try {
+      const _lkey = 'kg_dep_lignes_' + (window._KG_RESTAURANT_ID||'local');
+      const _lstore = JSON.parse(localStorage.getItem(_lkey)||'{}');
+      _lstore[dep.id] = dep.lignes || [];
+      localStorage.setItem(_lkey, JSON.stringify(_lstore));
+    } catch(e) {}
     saveDepensesLocal();
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
       KGSync.push.depenses().catch(()=>{});
     }
     closeModal('addDepense');
-    // ✅ FIX : reset du formulaire multi-lignes (dep-libelle/dep-montant n'existent plus)
     const _lignesCont = document.getElementById('dep-lignes-container');
     if(_lignesCont) _lignesCont.innerHTML = '';
     _depLigneCount = 0;
+    const _glbField = document.getElementById('dep-libelle-global');
+    if(_glbField) _glbField.value = '';
     const _totDisp = document.getElementById('dep-total-display');
     if(_totDisp) _totDisp.textContent = '0 F CFA';
     const _srcInfo = document.getElementById('dep-source-info');
     if(_srcInfo) _srcInfo.style.display = 'none';
-    // Reset TVA checkbox
     const cbTVA = document.getElementById('dep-avec-tva');
     if(cbTVA) { cbTVA.checked = false; if(typeof toggleDepTVA === 'function') toggleDepTVA(); }
     renderDepenses();
@@ -25185,35 +25404,320 @@ function renderDepenses() {
   const tbody = document.getElementById('dep-tbody');
   if (!tbody) return;
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text2);">Aucune dépense pour ces critères</td></tr>';
+    tbody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);"><div style="font-size:32px;margin-bottom:8px;">📭</div><div>Aucune dépense pour ces critères</div></div>';
     return;
   }
-  tbody.innerHTML = filtered.map(d => {
+
+  // ── Helper : récupère les lignes depuis l'objet ou le localStorage
+  function _getlignes(d) {
+    let ligs = Array.isArray(d.lignes) ? d.lignes : (d.lignes && typeof d.lignes==='string' ? (() => { try { return JSON.parse(d.lignes); } catch(e) { return []; } })() : []);
+    if(!ligs.length && d.id) {
+      try {
+        const _lkey = 'kg_dep_lignes_' + (window._KG_RESTAURANT_ID||'local');
+        const _ls = JSON.parse(localStorage.getItem(_lkey)||'{}');
+        if(_ls[d.id]) { ligs = _ls[d.id]; d.lignes = ligs; }
+      } catch(e) {}
+    }
+    return ligs;
+  }
+
+  // ── Rendu cartes (adapté mobile ET desktop)
+  tbody.innerHTML = filtered.map((d, idx) => {
     const isFP = d.source === 'fonds_propres' || d.caisse === 'Fonds propres';
-    const sourceBadge = isFP
-      ? `<span style="background:rgba(124,92,191,0.15);color:var(--purple);border-radius:12px;padding:3px 8px;font-size:11px;">💼 Fonds propres</span>`
-      : `<span style="background:rgba(0,201,177,0.1);color:var(--teal);border-radius:12px;padding:3px 8px;font-size:11px;">🖥️ ${d.caisse}</span>`;
-    // ✅ Badge statut : clôturée = pièce comptable archivée, en cours = active
+    const ligs = _getlignes(d);
+    const rowBg = idx % 2 === 0 ? 'background:var(--surface);' : 'background:var(--surface2);';
+    const rowOpacity = d.cloturee ? 'opacity:0.8;' : '';
+    const accentLeft = d.cloturee ? 'var(--green)' : isFP ? 'var(--purple)' : 'var(--teal)';
+
+    const lignesHTML = ligs.length
+      ? ligs.map(l => `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface3);border-radius:8px;padding:2px 8px;margin:2px 3px 2px 0;font-size:11px;white-space:nowrap;color:var(--text3);">${l.libelle} <b style="color:var(--text2);">×${l.qty}</b> — <span style="color:var(--red);font-weight:600;">${(l.montant||0).toLocaleString()} F</span></span>`).join('')
+      : '';
+
     const statutBadge = d.cloturee
-      ? `<span style="background:rgba(46,204,113,0.12);color:var(--green);border-radius:12px;padding:3px 8px;font-size:11px;white-space:nowrap;">🔒 Clôturée</span>`
-      : `<span style="background:rgba(245,166,35,0.12);color:var(--accent);border-radius:12px;padding:3px 8px;font-size:11px;white-space:nowrap;">🟡 En cours</span>`;
-    // ✅ Bouton supprimer désactivé pour les dépenses clôturées (pièces comptables)
-    const actionBtn = `<button onclick="deleteDepense('${d.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;" title="Supprimer">🗑️</button>`;
-    // Ligne légèrement atténuée pour les dépenses clôturées
-    const rowOpacity = d.cloturee ? 'opacity:0.75;' : '';
+      ? `<span style="background:rgba(26,219,106,0.12);color:var(--green);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;white-space:nowrap;border:1px solid rgba(26,219,106,0.25);">🔒 Clôturée</span>`
+      : `<span style="background:rgba(245,158,42,0.12);color:var(--accent);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;white-space:nowrap;border:1px solid rgba(245,158,42,0.25);">🟡 En cours</span>`;
+
+    const sourceBadge = isFP
+      ? `<span style="background:rgba(155,124,244,0.13);color:var(--purple);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:600;">💼 Fonds propres</span>`
+      : `<span style="background:rgba(0,229,200,0.1);color:var(--teal);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:600;">🖥️ ${d.caisse}</span>`;
+
+    // Date courte : 2026-06-07 → 07/06
+    const dateCourte = d.date ? d.date.split('-').slice(1).reverse().join('/') + '<br><span style="font-size:9px;color:var(--text2);">' + d.date.split('-')[0] + '</span>' : '—';
+
     return `
-    <tr style="border-bottom:1px solid var(--border);${rowOpacity}">
-      <td style="padding:10px 8px;">${d.date}</td>
-      <td style="padding:10px 8px;font-weight:500;">${d.libelle}</td>
-      <td style="padding:10px 8px;"><span style="background:var(--surface2);border-radius:12px;padding:3px 10px;font-size:12px;">${d.categorie}</span></td>
-      <td style="padding:10px 8px;text-align:right;font-family:'Space Mono';color:var(--red);">${d.montant.toLocaleString()} F</td>
-      <td style="padding:10px 8px;">${sourceBadge}</td>
-      <td style="padding:10px 8px;font-size:12px;color:var(--text2);">${d.mode}</td>
-      <td style="padding:10px 8px;text-align:center;font-size:13px;">${isFP ? '—' : `<span style="color:var(--red);">−${d.montant.toLocaleString()} F</span>`}</td>
-      <td style="padding:10px 8px;text-align:center;">${statutBadge}</td>
-      <td style="padding:10px 8px;text-align:center;">${actionBtn}</td>
-    </tr>`;
+    <div style="display:grid;grid-template-columns:56px 1fr auto;gap:0;${rowBg}${rowOpacity}border-bottom:1px solid var(--border);border-left:3px solid ${accentLeft};padding:12px 14px 10px;align-items:start;">
+
+      <!-- Colonne date -->
+      <div style="font-size:13px;font-weight:700;color:var(--text);line-height:1.3;padding-top:2px;">${dateCourte}</div>
+
+      <!-- Colonne principale -->
+      <div style="min-width:0;">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:4px;">
+          <span style="font-size:13px;font-weight:700;color:var(--text);">${d.libelle}</span>
+          <span style="background:var(--surface3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:600;color:var(--text3);">${d.categorie}</span>
+          ${sourceBadge}
+          ${statutBadge}
+        </div>
+        ${lignesHTML ? `<div style="margin-top:4px;line-height:1.9;display:flex;flex-wrap:wrap;">${lignesHTML}</div>` : ''}
+        <div style="margin-top:5px;font-size:11px;color:var(--text2);">
+          💳 ${d.mode}
+          ${!isFP ? ` &nbsp;·&nbsp; <span style="color:var(--red);">−${d.montant.toLocaleString()} F impact CA</span>` : ''}
+        </div>
+      </div>
+
+      <!-- Colonne droite : montant + actions -->
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;padding-left:10px;min-width:90px;">
+        <div style="font-size:15px;font-weight:800;color:var(--red);white-space:nowrap;">${d.montant.toLocaleString()} F</div>
+        <div style="display:flex;gap:5px;">
+          <button onclick="imprimerDepense('${d.id}')" style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:5px 9px;" title="Imprimer / PDF">🖨️</button>
+          <button onclick="deleteDepense('${d.id}')" style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);border-radius:8px;color:var(--red);cursor:pointer;font-size:13px;padding:5px 9px;" title="Supprimer">🗑️</button>
+        </div>
+      </div>
+
+    </div>`;
   }).join('');
+}
+
+function imprimerDepense(depId) {
+  const d = DEPENSES.find(x => x.id === depId || x.sbId === depId);
+  if(!d) { showNotif('⚠️ Dépense introuvable'); return; }
+
+  // Récupérer lignes depuis localStorage si besoin
+  let ligs = Array.isArray(d.lignes) ? d.lignes : [];
+  if(!ligs.length && d.id) {
+    try {
+      const _lkey = 'kg_dep_lignes_' + (window._KG_RESTAURANT_ID||'local');
+      const _ls = JSON.parse(localStorage.getItem(_lkey)||'{}');
+      if(_ls[d.id]) ligs = _ls[d.id];
+    } catch(e) {}
+  }
+
+  // Infos restaurant depuis RESTAURANT_INFO (paramètres)
+  const RI = (typeof RESTAURANT_INFO !== 'undefined') ? RESTAURANT_INFO : {};
+  const restNom    = RI.nom    || (typeof RESTAURANT_PROFIL !== 'undefined' && RESTAURANT_PROFIL.nom) || window._KG_REST_NOM || 'Mon Restaurant';
+  const restAdresse= RI.adresse|| '';
+  const restTel    = RI.tel    || '';
+  const restEmail  = RI.email  || '';
+  const restNinea  = RI.ninea  || '';
+  const restDevise = RI.devise || 'F CFA';
+  const logoData   = RI.logo_url || RI.loginLogo
+    || (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.showLogo && TICKET_CONFIG.logo)
+    || null;
+
+  const isFP = d.source === 'fonds_propres' || d.caisse === 'Fonds propres';
+  const sourceLabel = isFP ? 'Fonds propres' : (d.caisse || '—');
+  const sourceIcon  = isFP ? '💼' : '🖥️';
+  const statutLabel = d.cloturee ? 'Clôturée' : 'En cours';
+  const statutColor = d.cloturee ? '#16a34a' : '#d97706';
+
+  // Numéro de pièce formaté
+  const numPiece = d.id ? ('DEP-' + String(d.id).slice(-6).toUpperCase()) : ('DEP-' + Date.now().toString().slice(-6));
+
+  // Lignes détail
+  const lignesHTML = ligs.length
+    ? ligs.map((l, i) => `
+      <tr style="background:${i%2===0?'#fafafa':'#fff'};">
+        <td style="padding:10px 14px;border-bottom:1px solid #eee;font-size:13px;">${l.libelle||'—'}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #eee;text-align:center;font-size:13px;color:#555;">${l.qty||1}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #eee;text-align:right;font-size:13px;color:#555;">${((l.montant||0)/(l.qty||1)).toLocaleString()} ${restDevise}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #eee;text-align:right;font-size:13px;font-weight:600;">${(l.montant||0).toLocaleString()} ${restDevise}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="4" style="padding:14px;text-align:center;color:#888;font-style:italic;font-size:13px;">${d.libelle||'Dépense'}</td></tr>`;
+
+  const tvaHTML = d.avec_tva ? `
+    <tr>
+      <td colspan="3" style="text-align:right;padding:8px 14px;color:#666;font-size:12px;">Montant HT</td>
+      <td style="text-align:right;padding:8px 14px;font-size:12px;">${(d.montant_ht||0).toLocaleString()} ${restDevise}</td>
+    </tr>
+    <tr>
+      <td colspan="3" style="text-align:right;padding:8px 14px;color:#7c3aed;font-size:12px;">TVA (18%)</td>
+      <td style="text-align:right;padding:8px 14px;font-size:12px;color:#7c3aed;">${(d.montant_tva||0).toLocaleString()} ${restDevise}</td>
+    </tr>` : '';
+
+  const now = new Date();
+  const dateGen = now.toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'});
+  const heureGen = now.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+
+  const logoHTML = logoData
+    ? `<img src="${logoData}" style="height:54px;object-fit:contain;margin-bottom:8px;" alt="Logo">`
+    : `<div style="width:52px;height:52px;background:linear-gradient(135deg,#f59e0a,#e84520);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 8px;">💸</div>`;
+
+  const win = window.open('', '_blank', 'width=620,height=820');
+  win.document.write(`<!DOCTYPE html><html lang="fr"><head>
+  <meta charset="UTF-8">
+  <title>Reçu Dépense — ${d.libelle}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:#f0f2f5;color:#1a1a2e;min-height:100vh;padding:24px;}
+    .page{max-width:560px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.12);}
+
+    /* ── En-tête restaurant ── */
+    .header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%);color:#fff;padding:28px 28px 22px;text-align:center;position:relative;}
+    .header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#f59e0a,#e84520,#f59e0a);}
+    .header-logo{margin-bottom:10px;}
+    .header-nom{font-size:22px;font-weight:800;letter-spacing:-.3px;margin-bottom:4px;}
+    .header-infos{font-size:11px;color:rgba(255,255,255,0.6);line-height:1.7;}
+    .header-infos span{display:inline-block;margin:0 6px;}
+
+    /* ── Bandeau titre dépense ── */
+    .doc-title{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;background:#fafafa;border-bottom:1px solid #eee;}
+    .doc-label{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#666;}
+    .doc-num{font-size:12px;font-family:monospace;color:#888;background:#f0f0f0;padding:4px 10px;border-radius:20px;}
+    .statut-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1.5px solid;letter-spacing:.5px;}
+
+    /* ── Grille méta ── */
+    .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#eee;border-bottom:1px solid #eee;}
+    .meta-cell{background:#fff;padding:14px 20px;}
+    .meta-cell.full{grid-column:1/-1;}
+    .meta-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#aaa;margin-bottom:4px;}
+    .meta-val{font-size:13px;font-weight:600;color:#1a1a2e;}
+    .meta-val.accent{color:#e84520;}
+    .meta-val.purple{color:#7c3aed;}
+    .meta-val.green{color:#16a34a;}
+
+    /* ── Tableau lignes ── */
+    .section-title{padding:14px 28px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#aaa;background:#fafafa;border-top:1px solid #eee;}
+    table{width:100%;border-collapse:collapse;}
+    thead tr{background:#1a1a2e;}
+    thead th{padding:10px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.7);text-align:left;}
+    thead th:nth-child(2){text-align:center;}
+    thead th:nth-child(3),thead th:nth-child(4){text-align:right;}
+    tfoot tr td{border-top:1px solid #eee;}
+
+    /* ── Total ── */
+    .total-band{background:linear-gradient(135deg,#fff8f0,#fff3f3);border-top:2px solid #f59e0a;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;}
+    .total-label{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666;}
+    .total-amount{font-size:26px;font-weight:800;color:#e84520;letter-spacing:-.5px;}
+    .total-devise{font-size:13px;font-weight:600;color:#e84520;margin-left:4px;}
+
+    /* ── NINEA / Infos légales ── */
+    .legal{padding:14px 28px;background:#fafafa;border-top:1px solid #eee;display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+    .legal-item{font-size:11px;color:#888;display:flex;align-items:center;gap:5px;}
+    .legal-item strong{color:#555;}
+
+    /* ── Pied de page ── */
+    .footer{padding:16px 28px;text-align:center;border-top:1px solid #eee;}
+    .footer-gen{font-size:10px;color:#bbb;margin-bottom:12px;}
+    .btn-print{background:linear-gradient(135deg,#f59e0a,#e84520);color:#fff;border:none;border-radius:10px;padding:11px 32px;font-size:14px;font-weight:700;cursor:pointer;margin-right:8px;font-family:'Inter',sans-serif;}
+    .btn-close{background:#f0f0f0;color:#555;border:none;border-radius:10px;padding:11px 20px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
+    .btn-print:hover{opacity:.9;} .btn-close:hover{background:#e0e0e0;}
+
+    @media print{
+      body{background:#fff;padding:0;}
+      .page{box-shadow:none;border-radius:0;max-width:100%;}
+      .no-print{display:none!important;}
+      .header::after{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      thead tr{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#1a1a2e!important;}
+    }
+  </style>
+</head><body>
+<div class="page">
+
+  <!-- En-tête restaurant -->
+  <div class="header">
+    <div class="header-logo">${logoHTML}</div>
+    <div class="header-nom">${restNom}</div>
+    <div class="header-infos">
+      ${restAdresse ? `<span>📍 ${restAdresse}</span>` : ''}
+      ${restTel     ? `<span>📞 ${restTel}</span>` : ''}
+      ${restEmail   ? `<span>✉️ ${restEmail}</span>` : ''}
+    </div>
+  </div>
+
+  <!-- Titre document -->
+  <div class="doc-title">
+    <div>
+      <div class="doc-label">Reçu de Dépense</div>
+      <div style="font-size:11px;color:#aaa;margin-top:2px;">${d.libelle}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+      <div class="doc-num">${numPiece}</div>
+      <div class="statut-badge" style="color:${statutColor};border-color:${statutColor};">
+        ${d.cloturee ? '🔒' : '🟡'} ${statutLabel}
+      </div>
+    </div>
+  </div>
+
+  <!-- Méta infos -->
+  <div class="meta-grid">
+    <div class="meta-cell">
+      <div class="meta-lbl">Date de la dépense</div>
+      <div class="meta-val">${new Date(d.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})}</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-lbl">Catégorie</div>
+      <div class="meta-val">${d.categorie||'—'}</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-lbl">Source de financement</div>
+      <div class="meta-val">${sourceIcon} ${sourceLabel}</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-lbl">Mode de paiement</div>
+      <div class="meta-val">${d.mode||'—'}</div>
+    </div>
+    ${d.avec_tva ? `
+    <div class="meta-cell">
+      <div class="meta-lbl">Régime fiscal</div>
+      <div class="meta-val purple">TVA 18% incluse</div>
+    </div>
+    ` : ''}
+    ${isFP ? '' : `
+    <div class="meta-cell">
+      <div class="meta-lbl">Impact Caisse</div>
+      <div class="meta-val accent">− ${(d.montant||0).toLocaleString()} ${restDevise} déduit du CA</div>
+    </div>
+    `}
+  </div>
+
+  <!-- Lignes de dépense -->
+  <div class="section-title">Détail des articles</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Désignation</th>
+        <th style="text-align:center;">Qté</th>
+        <th style="text-align:right;">Prix unit.</th>
+        <th style="text-align:right;">Total</th>
+      </tr>
+    </thead>
+    <tbody>${lignesHTML}</tbody>
+    <tfoot>
+      ${tvaHTML}
+    </tfoot>
+  </table>
+
+  <!-- Total -->
+  <div class="total-band">
+    <div class="total-label">Montant total</div>
+    <div>
+      <span class="total-amount">${(d.montant||0).toLocaleString()}</span>
+      <span class="total-devise">${restDevise}</span>
+    </div>
+  </div>
+
+  <!-- Infos légales -->
+  ${(restNinea || restTel || restEmail) ? `
+  <div class="legal">
+    ${restNinea  ? `<div class="legal-item">🏛️ NINEA : <strong>${restNinea}</strong></div>` : ''}
+    ${restTel    ? `<div class="legal-item">📞 <strong>${restTel}</strong></div>` : ''}
+    ${restEmail  ? `<div class="legal-item">✉️ <strong>${restEmail}</strong></div>` : ''}
+  </div>` : ''}
+
+  <!-- Pied de page -->
+  <div class="footer">
+    <div class="footer-gen">Document généré le ${dateGen} à ${heureGen} · KeurGOUMAK</div>
+    <div class="no-print">
+      <button class="btn-print" onclick="window.print()">🖨️ Imprimer / PDF</button>
+      <button class="btn-close" onclick="window.close()">✕ Fermer</button>
+    </div>
+  </div>
+
+</div>
+</body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 800);
 }
 
 function exportDepensesCSV() {
@@ -32904,64 +33408,222 @@ function spRenderMembres() {
   spUpdateKPI();
 }
 
-// ── Imprimer reçu membre ──
+// ── Imprimer reçu membre (version professionnelle) ──
 function spImprimerMembre(id) {
   spLoad();
   const m = SP_MEMBRES.find(x => x.id === id);
   if(!m) return;
-  const cfg = spGetConfig();
-  const nomSalle = cfg.nomSalle || 'Salle de Sport';
-  const typeLabel = {mensuel:'1 mois',trimestriel:'3 mois',semestriel:'6 mois',annuel:'12 mois'}[m.typeAbo] || m.typeAbo || '—';
-  const modeLabel = {especes:'Espèces',wave:'Wave',orange_money:'Orange Money',carte:'Carte bancaire'}[m.modePaiement] || m.modePaiement || '—';
-  const actif = spIsActif(m);
-  const statLabel = actif ? '✅ Actif' : '❌ Expiré';
-  const now = new Date().toLocaleDateString('fr-FR');
 
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>Reçu — ${m.nom}</title>
+  // ── Infos salle depuis paramètres sport ──
+  const cfg = spGetConfig();
+  const nomSalle   = cfg.nom      || (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.nom) || 'Salle de Sport';
+  const villeSalle = cfg.adresse  || (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.adresse) || '';
+  const telSalle   = cfg.tel      || (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.tel) || '';
+  const logoUrl    = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.logo_url) ? RESTAURANT_INFO.logo_url : '';
+
+  // ── Données membre ──
+  const typeMap  = {mensuel:'Abonnement Mensuel',trimestriel:'Abonnement 3 mois',semestriel:'Abonnement 6 mois',annuel:'Abonnement Annuel',journalier:'Accès Journée'};
+  const dureeMap = {mensuel:'1 mois',trimestriel:'3 mois',semestriel:'6 mois',annuel:'12 mois',journalier:'1 jour'};
+  const modeMap  = {especes:'💵 Espèces',wave:'📱 Wave',orange_money:'🟠 Orange Money',carte:'💳 Carte bancaire'};
+  const typeLabel  = typeMap[m.typeAbo]  || m.typeAbo  || 'Abonnement';
+  const dureeLabel = dureeMap[m.typeAbo] || '—';
+  const modeLabel  = modeMap[m.modePaiement] || m.modePaiement || 'Espèces';
+  const actif      = spIsActif(m);
+  const jours      = spDaysLeft(m);
+  const statLabel  = actif ? (jours <= 5 ? `⚠️ Expire dans ${jours}j` : '✅ ACTIF') : '❌ EXPIRÉ';
+  const statColor  = actif ? (jours <= 5 ? '#f5a623' : '#27ae60') : '#e74c3c';
+  const now        = new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'});
+  const emis       = new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'});
+
+  // ── Numéro de reçu unique ──
+  const recuNum = 'SP-' + (m.id||Date.now()).toString().slice(-1).toUpperCase() + '_' + Math.random().toString(36).slice(2,6).toUpperCase();
+
+  // ── Logo HTML ──
+  const logoHTML = logoUrl
+    ? `<img src="${logoUrl}" style="height:56px;width:56px;object-fit:cover;border-radius:10px;border:2px solid #f0f0f0;" onerror="this.style.display='none'">`
+    : `<div style="width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,#f5a623,#e84520);display:flex;align-items:center;justify-content:center;font-size:26px;">💪</div>`;
+
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+  <title>Reçu Abonnement — ${m.nom}</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: Arial, sans-serif; font-size:13px; padding:20px; max-width:320px; margin:auto; }
-    .header { text-align:center; border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:14px; }
-    .header h2 { font-size:18px; font-weight:800; }
-    .header p { font-size:11px; color:#666; margin-top:4px; }
-    .title { text-align:center; font-size:14px; font-weight:700; margin-bottom:14px; text-transform:uppercase; letter-spacing:1px; }
-    .row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dashed #ddd; }
-    .row .label { color:#666; }
-    .row .val { font-weight:600; text-align:right; }
-    .montant { text-align:center; margin:16px 0; padding:12px; border:2px solid #333; border-radius:8px; }
-    .montant .amt { font-size:22px; font-weight:800; }
-    .footer { text-align:center; margin-top:16px; font-size:11px; color:#888; border-top:1px dashed #ddd; padding-top:10px; }
-    @media print { body { padding:5px; } }
+    body { font-family:'Inter',Arial,sans-serif; background:#f5f5f5; color:#222; display:flex; align-items:flex-start; justify-content:center; padding:16px 8px; }
+    .page { background:#fff; width:100%; max-width:640px; border-radius:12px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.10); }
+
+    /* HEADER */
+    .top-bar { background:#fff; padding:14px 22px 12px; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #f5a623; }
+    .top-left { display:flex; align-items:center; gap:12px; }
+    .top-name { font-size:18px; font-weight:800; color:#222; line-height:1.1; }
+    .top-sub { font-size:9px; letter-spacing:2px; color:#888; text-transform:uppercase; margin-top:2px; }
+    .top-location { font-size:11px; color:#666; margin-top:3px; }
+    .top-right { text-align:right; }
+    .recu-label { font-size:9px; letter-spacing:2px; color:#888; text-transform:uppercase; }
+    .recu-num { font-size:18px; font-weight:800; color:#f5a623; line-height:1.2; }
+    .recu-date { font-size:11px; color:#888; margin-top:2px; }
+
+    /* MEMBRE */
+    .membre-band { background:#fafafa; padding:12px 22px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; }
+    .membre-nom { font-size:20px; font-weight:800; color:#bbb; }
+    .membre-type { font-size:12px; font-weight:700; color:#f5a623; letter-spacing:1px; text-transform:uppercase; margin-top:3px; }
+    .membre-tel { font-size:12px; color:#aaa; margin-top:2px; }
+    .statut-badge { display:flex; align-items:center; gap:8px; background:${statColor}15; border:2px solid ${statColor}40; border-radius:50px; padding:7px 14px; }
+    .statut-icon { font-size:24px; }
+    .statut-text { font-size:13px; font-weight:700; color:${statColor}; }
+
+    /* DÉTAILS */
+    .section { padding:12px 22px; border-bottom:1px solid #eee; }
+    .section-title { font-size:9px; letter-spacing:2px; color:#aaa; text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+    .section-title::before { content:''; display:inline-block; width:12px; height:2px; background:#f5a623; border-radius:2px; }
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .info-box { background:#f9f9f9; border:1px solid #eee; border-radius:8px; padding:10px 12px; }
+    .info-lbl { font-size:9px; color:#aaa; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+    .info-val { font-size:13px; font-weight:700; color:#222; display:flex; align-items:center; gap:5px; }
+    .jours-box { grid-column:1/-1; background:#fff8ee; border:1px solid #f5a62330; border-radius:8px; padding:8px 12px; display:flex; align-items:center; gap:8px; color:#f5a623; font-weight:700; font-size:13px; }
+
+    /* MONTANT */
+    .montant-section { padding:12px 22px; border-bottom:1px solid #eee; }
+    .montant-box { border:2px solid #f5a623; border-radius:12px; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; }
+    .montant-lbl { font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:1px; margin-bottom:3px; }
+    .montant-val { font-size:30px; font-weight:800; color:#f5a623; line-height:1; }
+    .montant-devise { font-size:16px; font-weight:700; color:#f5a623; }
+    .mode-pay { text-align:right; }
+    .mode-icon { font-size:24px; margin-bottom:3px; }
+    .mode-lbl { font-size:11px; color:#888; font-weight:600; }
+
+    /* SIGNATURES */
+    .sign-section { padding:10px 22px 16px; display:grid; grid-template-columns:1fr 1px 1fr; gap:0; }
+    .sign-col { text-align:center; padding:0 16px; }
+    .sign-line { border-top:1.5px solid #ddd; margin:30px auto 6px; width:80%; }
+    .sign-label { font-size:9px; color:#aaa; text-transform:uppercase; letter-spacing:1px; }
+    .sign-divider { background:#eee; }
+
+    /* FOOTER */
+    .footer { background:#222; color:#fff; padding:10px 22px; display:flex; justify-content:space-between; align-items:center; font-size:10px; }
+    .footer-left { opacity:0.7; }
+    .footer-center { font-weight:700; color:#f5a623; }
+    .footer-right { opacity:0.7; }
+
+    /* WATERMARK */
+    .watermark { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-30deg); font-size:80px; font-weight:900; color:rgba(245,166,35,0.05); pointer-events:none; white-space:nowrap; z-index:0; }
+
+    @media print {
+      body { background:#fff; padding:0; }
+      .page { box-shadow:none; border-radius:0; max-width:100%; }
+      .no-print { display:none !important; }
+      @page { size:A4; margin:8mm; }
+    }
   </style></head><body>
-  <div class="header">
-    <h2>💪 ${nomSalle}</h2>
-    <p>Reçu d'abonnement</p>
-  </div>
-  <div class="title">REÇU MEMBRE</div>
-  <div class="row"><span class="label">Membre</span><span class="val">${m.nom}</span></div>
-  ${m.tel ? `<div class="row"><span class="label">Téléphone</span><span class="val">${m.tel}</span></div>` : ''}
-  <div class="row"><span class="label">Abonnement</span><span class="val">${typeLabel}</span></div>
-  <div class="row"><span class="label">Début</span><span class="val">${spFmtDate(m.dateDebut)}</span></div>
-  <div class="row"><span class="label">Fin</span><span class="val">${spFmtDate(m.dateFin)}</span></div>
-  <div class="row"><span class="label">Statut</span><span class="val">${statLabel}</span></div>
-  <div class="row"><span class="label">Paiement</span><span class="val">${modeLabel}</span></div>
-  <div class="montant">
-    <div style="font-size:11px;color:#666;margin-bottom:4px;">MONTANT PAYÉ</div>
-    <div class="amt">${(m.montant||0).toLocaleString('fr-FR')} F CFA</div>
-  </div>
-  ${m.notes ? `<div style="font-size:11px;color:#666;text-align:center;margin-bottom:10px;">Note : ${m.notes}</div>` : ''}
-  <div class="footer">
-    <p>Imprimé le ${now}</p>
-    <p>Merci de votre confiance ! 💪</p>
+  <div class="watermark">RINKEBY</div>
+  <div class="page">
+
+    <!-- HEADER -->
+    <div class="top-bar">
+      <div class="top-left">
+        ${logoHTML}
+        <div>
+          <div class="top-name">💪 ${nomSalle}</div>
+          <div class="top-sub">Salle de Fitness & Musculation</div>
+          ${villeSalle ? `<div class="top-location">📍 ${villeSalle}</div>` : ''}
+          ${telSalle   ? `<div class="top-location">📞 ${telSalle}</div>` : ''}
+        </div>
+      </div>
+      <div class="top-right">
+        <div class="recu-label">Reçu d'abonnement</div>
+        <div class="recu-num">${recuNum}</div>
+        <div class="recu-date">Émis le ${emis}</div>
+      </div>
+    </div>
+
+    <!-- MEMBRE -->
+    <div class="membre-band">
+      <div>
+        <div class="membre-nom">${m.nom}</div>
+        <div class="membre-type">🏋 ${typeLabel}</div>
+        ${m.tel ? `<div class="membre-tel">📞 ${m.tel}</div>` : ''}
+      </div>
+      <div class="statut-badge">
+        <div class="statut-icon">💪</div>
+        <div class="statut-text">${statLabel}</div>
+      </div>
+    </div>
+
+    <!-- DÉTAILS ABONNEMENT -->
+    <div class="section">
+      <div class="section-title">Détails de l'abonnement</div>
+      <div class="grid-2">
+        <div class="info-box">
+          <div class="info-lbl">Type d'abonnement</div>
+          <div class="info-val">🏋 ${typeLabel}</div>
+        </div>
+        <div class="info-box">
+          <div class="info-lbl">Durée</div>
+          <div class="info-val">${dureeLabel}</div>
+        </div>
+        <div class="info-box">
+          <div class="info-lbl">Date de début</div>
+          <div class="info-val">📅 ${spFmtDate(m.dateDebut)}</div>
+        </div>
+        <div class="info-box">
+          <div class="info-lbl">Date de fin</div>
+          <div class="info-val">📅 ${spFmtDate(m.dateFin)}</div>
+        </div>
+        ${actif ? `<div class="jours-box">⏳ <span>${jours} jour${jours>1?'s':''} restant${jours>1?'s':''}</span></div>` : ''}
+      </div>
+    </div>
+
+    <!-- MONTANT -->
+    <div class="montant-section">
+      <div class="montant-box">
+        <div>
+          <div class="montant-lbl">Montant payé</div>
+          <div style="display:flex;align-items:baseline;gap:10px;">
+            <span class="montant-val">${(m.montant||0).toLocaleString('fr-FR')}</span>
+            <span class="montant-devise">FCFA</span>
+          </div>
+        </div>
+        <div class="mode-pay">
+          <div class="mode-icon">${m.modePaiement==='wave'?'📱':m.modePaiement==='orange_money'?'🟠':m.modePaiement==='carte'?'💳':'💵'}</div>
+          <div class="mode-lbl">${modeLabel.replace(/[💵📱🟠💳]/g,'').trim()}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIGNATURES -->
+    <div class="sign-section">
+      <div class="sign-col">
+        <div class="sign-line"></div>
+        <div class="sign-label">Signature du Membre</div>
+        <div style="margin-top:8px;font-size:13px;font-weight:600;color:#888;">Sport</div>
+        <div style="font-size:12px;font-weight:700;color:#222;margin-top:2px;">${m.nom}</div>
+      </div>
+      <div class="sign-divider"></div>
+      <div class="sign-col">
+        <div class="sign-line"></div>
+        <div class="sign-label">Cachet & Signature Responsable</div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+      <div class="footer-left">💪 ${nomSalle} — Reçu N° ${recuNum}</div>
+      <div class="footer-center">Merci de votre confiance ! Prenez soin de vous 🙏</div>
+      <div class="footer-right">📞 ${telSalle} · Imprimé le ${now}</div>
+    </div>
+
+    <!-- BOUTON IMPRESSION -->
+    <div class="no-print" style="padding:16px 28px;display:flex;gap:10px;justify-content:center;">
+      <button onclick="window.print()" style="background:#f5a623;color:#fff;border:none;border-radius:10px;padding:12px 32px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(245,166,35,0.35);">🖨️ Imprimer / Enregistrer PDF</button>
+      <button onclick="window.close()" style="background:#eee;color:#555;border:none;border-radius:10px;padding:12px 22px;font-size:14px;cursor:pointer;">✕ Fermer</button>
+    </div>
   </div>
   </body></html>`;
 
-  const win = window.open('', '_blank', 'width=380,height:620,scrollbars=yes');
+  const win = window.open('', '_blank', 'width=680,height=820,scrollbars=yes');
   if(!win) { showNotif('⚠️ Autorisez les popups pour imprimer'); return; }
   win.document.write(html);
   win.document.close();
-  setTimeout(() => win.print(), 500);
+  setTimeout(() => win.focus(), 300);
 }
 
 
@@ -33691,13 +34353,7 @@ async function validerTicketAttente() {
 
   _updateAttenteCounter();
   refreshDashboard();
-  // ✅ FIX doublon : _saveVenteSupabase a déjà pushé la vente — on sauvegarde
-  // uniquement en localStorage (sans re-push Supabase) pour éviter le double enregistrement
-  _saveSessionImmediate();
-  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
-    KGSync.push.caisses().catch(e => console.warn('push.caisses attente:', e));
-    if(_saveSessionTimer) { clearTimeout(_saveSessionTimer); _saveSessionTimer = null; }
-  }
+  saveSession();
   renderOrders('all');
 }
 
@@ -33986,8 +34642,7 @@ renderOrders = function(status) {
     // Update tab counts
     const _tabAll = document.getElementById('tab-all');
     const _tabDone = document.getElementById('tab-done');
-    const _td2 = new Date().toISOString().split('T')[0];
-    const allOrders = Object.values(VENTES_PAR_CAISSE||{}).flat().filter(v => !v.date || v.date >= _td2);
+    const allOrders = Object.values(VENTES_PAR_CAISSE||{}).flat();
     if(_tabAll) _tabAll.textContent = 'Toutes (' + (allOrders.length + attenteList.length) + ')';
     if(_tabDone) _tabDone.textContent = '🎉 Encaissé (' + allOrders.length + ')';
 
@@ -34030,9 +34685,8 @@ renderOrders = function(status) {
     const list = document.getElementById('orders-list');
     if(!list) return;
 
-    // ✅ FIX : compter uniquement les ventes du jour (cohérent avec renderOrders)
-    const _td = new Date().toISOString().split('T')[0];
-    const allVentes = Object.values(VENTES_PAR_CAISSE||{}).flat().filter(v => !v.date || v.date >= _td);
+    // Update all count
+    const allVentes = Object.values(VENTES_PAR_CAISSE||{}).flat();
     const _tabAll = document.getElementById('tab-all');
     if(_tabAll) _tabAll.textContent = 'Toutes (' + (allVentes.length + attenteList.length) + ')';
     const _tabDone = document.getElementById('tab-done');
