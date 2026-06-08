@@ -4814,6 +4814,9 @@ function _syncSportVentes()       { return []; }
     <div class="nav-item" onclick="showView('livreurs', this)">
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></span> Livreurs
     </div>
+    <div class="nav-item" onclick="showView('serveurs', this)">
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="8" y1="21" x2="8" y2="17"/><line x1="16" y1="21" x2="16" y2="17"/></svg></span> Serveurs
+    </div>
     <div class="nav-item" onclick="showView('utilisateurs', this)">
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> Utilisateurs
     </div>
@@ -5508,6 +5511,76 @@ function _syncSportVentes()       { return []; }
     </div>
     <!-- ════════════════════════════════════════════════════════ -->
 
+
+    <!-- ════════════════════ VUE SERVEURS ════════════════════ -->
+    <div id="view-serveurs" class="view fade-in">
+      <div style="max-width:700px;margin:0 auto;padding:0 4px;">
+        <!-- Onglets -->
+        <div style="display:flex;gap:8px;margin-bottom:20px;background:var(--surface);border-radius:12px;padding:6px;border:1px solid var(--border);">
+          <button id="stab-liste" onclick="switchServeurTab('liste')" style="flex:1;padding:9px;border-radius:8px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#f59e2a,#e84520);color:#fff;">🍽️ Équipe</button>
+          <button id="stab-stats" onclick="switchServeurTab('stats')" style="flex:1;padding:9px;border-radius:8px;border:none;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:var(--text2);">📊 Statistiques</button>
+        </div>
+
+        <!-- ─── ONGLET LISTE ─── -->
+        <div id="serveur-tab-liste">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+            <div>
+              <h2 style="font-size:20px;font-weight:800;color:var(--text);margin:0;">🍽️ Mes Serveurs</h2>
+              <p style="font-size:13px;color:var(--text2);margin:4px 0 0;">Gérez votre équipe de salle</p>
+            </div>
+            <button onclick="ouvrirFormServeur()" style="background:linear-gradient(135deg,#f59e2a,#e84520);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;">
+              + Ajouter un serveur
+            </button>
+          </div>
+          <div id="form-serveur" style="display:none;background:var(--surface);border-radius:14px;padding:20px;margin-bottom:20px;border:1px solid var(--border);">
+            <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px;" id="form-serveur-title">➕ Nouveau serveur</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Nom complet *</label>
+                <input id="serveur-form-nom" type="text" placeholder="Ex: Aminata Diallo" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;outline:none;box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Statut</label>
+                <select id="serveur-form-statut" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;outline:none;box-sizing:border-box;">
+                  <option value="actif">🟢 Actif</option>
+                  <option value="inactif">🔴 Inactif</option>
+                </select>
+              </div>
+            </div>
+            <input type="hidden" id="serveur-form-id">
+            <div style="display:flex;gap:10px;">
+              <button onclick="fermerFormServeur()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-weight:600;cursor:pointer;">Annuler</button>
+              <button onclick="sauvegarderServeur()" style="flex:2;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#f59e2a,#e84520);color:#fff;font-weight:700;cursor:pointer;">✅ Sauvegarder</button>
+            </div>
+          </div>
+          <div id="stats-serveurs" style="margin-bottom:20px;display:none;"></div>
+          <div id="liste-serveurs" style="display:flex;flex-direction:column;gap:10px;">
+            <div style="text-align:center;padding:40px;color:var(--text2);">⏳ Chargement...</div>
+          </div>
+        </div>
+
+        <!-- ─── ONGLET STATS ─── -->
+        <div id="serveur-tab-stats" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+            <div>
+              <h2 style="font-size:20px;font-weight:800;color:var(--text);margin:0;">📊 Statistiques Serveurs</h2>
+              <p style="font-size:13px;color:var(--text2);margin:4px 0 0;">Commandes par serveur</p>
+            </div>
+            <!-- Filtre période -->
+            <div style="display:flex;gap:6px;">
+              <button id="sstat-jour" onclick="switchStatPeriode('jour')" style="padding:7px 14px;border-radius:20px;border:none;font-size:12px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#f59e2a,#e84520);color:#fff;">Jour</button>
+              <button id="sstat-semaine" onclick="switchStatPeriode('semaine')" style="padding:7px 14px;border-radius:20px;border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--text2);">Semaine</button>
+              <button id="sstat-mois" onclick="switchStatPeriode('mois')" style="padding:7px 14px;border-radius:20px;border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--text2);">Mois</button>
+            </div>
+          </div>
+          <div id="stats-serveurs-content">
+            <div style="text-align:center;padding:40px;color:var(--text2);">⏳ Chargement...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ════════════════════════════════════════════════════════ -->
+
     <div id="view-clients" class="view fade-in">
       <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
         <input class="search-input" type="text" id="client-search" placeholder="🔍 Rechercher un client..." oninput="filterClients()" style="width:260px;">
@@ -5794,6 +5867,7 @@ function _syncSportVentes()       { return []; }
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;" onclick="setHistPeriod('month')">Ce mois</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;" onclick="setHistPeriod('all')">Tout afficher</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(0,201,177,0.15),rgba(0,201,177,0.05));border-color:rgba(0,201,177,0.4);color:var(--teal);" onclick="_forceSyncClotures()" id="hist-sync-btn">🔄 Actualiser</button>
+          <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(232,69,32,0.15),rgba(245,158,42,0.05));border-color:rgba(232,69,32,0.4);color:#e84520;" onclick="ouvrirModalReconstruire()">🔧 Reconstruire clôture</button>
         </div>
       </div>
       <!-- BARRE DE RECHERCHE CLÔTURES -->
@@ -9222,6 +9296,7 @@ function showView(id, el, pushState) {
   }
   if(id === 'settings') setTimeout(_initPhotosPreviews, 200);
   if(id === 'livreurs') afficherListeLivreurs();
+  if(id === 'serveurs') { switchServeurTab('liste'); afficherListeServeurs(); }
   if(id === 'inventaire') { initInvDate(); renderInvSaisie(); }
   if(id === 'preparation') { renderPreparation(); }
   if(id === 'clients') renderClients();
@@ -10115,6 +10190,82 @@ ${f.notes ? `<div class="notes-block">📝 <strong>Notes / Conditions :</strong>
   <button onclick="window.print()" style="padding:10px 28px;background:linear-gradient(135deg,#f5a623,#e8440a);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ Imprimer (A4)</button>
   <button onclick="window.close()" style="padding:10px 28px;background:#374151;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">✕ Fermer</button>
 </div>
+</body></html>`;
+
+  // Afficher dans un overlay (comme le ticket de caisse)
+  const overlay = document.createElement('div');
+  overlay.id = 'kg-facture-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;overflow:auto;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:12px;overflow:hidden;max-height:95vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.5);width:860px;max-width:98vw;">
+      <div style="position:sticky;top:0;background:#1a1a2e;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;z-index:1;">
+        <span style="color:#f5a623;font-weight:700;font-size:14px;">🧾 ${typeLabel} — ${f.num} · ${f.tiers}</span>
+        <div style="display:flex;gap:8px;">
+          <button onclick="document.getElementById('kg-facture-frame').contentWindow.print()" style="padding:7px 18px;background:linear-gradient(135deg,#f5a623,#e8440a);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">🖨️ Imprimer</button>
+          <button onclick="document.getElementById('kg-facture-overlay').remove()" style="padding:7px 16px;background:#444;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">✕ Fermer</button>
+        </div>
+      </div>
+      <iframe id="kg-facture-frame" style="width:100%;height:82vh;border:none;display:block;background:#fff;"></iframe>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const frame = document.getElementById('kg-facture-frame');
+  frame.srcdoc = html;
+}
+// Charger la liste des serveurs dans le modal sous forme de boutons
+async function _chargerServeursDansModal() {
+  const boutons = document.getElementById('modal-serveurs-boutons');
+  if(!boutons) return;
+  boutons.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:13px;padding:12px;">⏳ Chargement...</div>';
+  try {
+    const rid = window._KG_RESTAURANT_ID;
+    const sb = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+    if(!sb || !rid) {
+      boutons.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:13px;padding:12px;">⚠️ Non connecté</div>';
+      return;
+    }
+    const { data } = await sb.from('kg_sync').select('value').eq('key', rid + ':serveurs').maybeSingle();
+    const liste = data?.value ? (typeof data.value === 'string' ? JSON.parse(data.value) : data.value) : [];
+    const actifs = (Array.isArray(liste) ? liste : []).filter(s => s.statut === 'actif');
+    if(!actifs.length) {
+      boutons.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:13px;padding:12px;">Aucun serveur actif.<br>Ajoutez-en dans l\'onglet Serveurs.</div>';
+      return;
+    }
+    boutons.innerHTML = actifs.map(s => `
+      <button onclick="_selectionnerServeur('${s.nom.replace(/'/g,"\\'")}', this)"
+        style="width:100%;padding:13px 16px;border-radius:10px;border:2px solid var(--border);background:var(--bg);color:var(--text);font-size:15px;font-weight:700;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;transition:all .15s;">
+        <span style="font-size:20px;">🍽️</span> ${s.nom}
+      </button>`).join('');
+  } catch(e) {
+    boutons.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:13px;padding:12px;">Erreur chargement serveurs</div>';
+  }
+}
+
+function _selectionnerServeur(nom, btn) {
+  // Highlight du bouton sélectionné
+  const boutons = document.getElementById('modal-serveurs-boutons');
+  if(boutons) boutons.querySelectorAll('button').forEach(b => {
+    b.style.borderColor = 'var(--border)';
+    b.style.background = 'var(--bg)';
+    b.style.color = 'var(--text)';
+  });
+  if(btn) {
+    btn.style.borderColor = 'var(--accent)';
+    btn.style.background = 'rgba(245,158,42,0.12)';
+    btn.style.color = 'var(--accent)';
+  }
+  // Mettre à jour le champ caché et confirmer immédiatement
+  const input = document.getElementById('modal-serveur-input');
+  if(input) input.value = nom;
+  // Confirmer directement au clic
+  setTimeout(() => _confirmerEtCreerTicket(nom), 150);
+}
+
+function _onSelectServeur(val) {
+  const input = document.getElementById('modal-serveur-input');
+  if(input && val) input.value = val;
+}
+</script>
 
 
   <!-- ═══════ MODALS CLÔTURE C4/C5/C6/C7 ═══════ -->
@@ -10185,37 +10336,23 @@ ${f.notes ? `<div class="notes-block">📝 <strong>Notes / Conditions :</strong>
 
 <!-- ── Modal nom du serveur (ticket en attente) ── -->
 <div id="modal-serveur-attente" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:320px;max-width:90vw;">
-    <div style="font-size:16px;font-weight:800;margin-bottom:16px;text-align:center;">👤 Nom du serveur</div>
-    <input id="modal-serveur-input" class="form-input" placeholder="Nom du serveur..." style="width:100%;margin-bottom:16px;" onkeydown="if(event.key==='Enter') _validerServeur()">
-    <div style="display:flex;gap:10px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:340px;max-width:93vw;">
+    <div style="font-size:16px;font-weight:800;margin-bottom:6px;text-align:center;">🍽️ Choisir le serveur</div>
+    <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:16px;">Sélectionnez le serveur dans la liste</div>
+    <!-- Liste des serveurs actifs sous forme de boutons -->
+    <div id="modal-serveur-select-wrap" style="margin-bottom:16px;">
+      <div id="modal-serveurs-boutons" style="display:flex;flex-direction:column;gap:8px;">
+        <div style="text-align:center;color:var(--text2);font-size:13px;padding:12px;">⏳ Chargement...</div>
+      </div>
+    </div>
+    <!-- Champ caché pour compatibilité -->
+    <input id="modal-serveur-input" type="hidden" value="">
+    <div style="display:flex;gap:10px;margin-top:4px;">
       <button class="btn btn-ghost" style="flex:1;" onclick="_confirmerEtCreerTicket('')">Ignorer</button>
-      <button class="btn btn-primary" style="flex:2;" onclick="_validerServeur()">✅ Confirmer & Imprimer</button>
     </div>
   </div>
 </div>
-</body></html>`;
-
-  // Afficher dans un overlay (comme le ticket de caisse)
-  const overlay = document.createElement('div');
-  overlay.id = 'kg-facture-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;overflow:auto;padding:20px;';
-  overlay.innerHTML = `
-    <div style="background:#fff;border-radius:12px;overflow:hidden;max-height:95vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.5);width:860px;max-width:98vw;">
-      <div style="position:sticky;top:0;background:#1a1a2e;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;z-index:1;">
-        <span style="color:#f5a623;font-weight:700;font-size:14px;">🧾 ${typeLabel} — ${f.num} · ${f.tiers}</span>
-        <div style="display:flex;gap:8px;">
-          <button onclick="document.getElementById('kg-facture-frame').contentWindow.print()" style="padding:7px 18px;background:linear-gradient(135deg,#f5a623,#e8440a);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">🖨️ Imprimer</button>
-          <button onclick="document.getElementById('kg-facture-overlay').remove()" style="padding:7px 16px;background:#444;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">✕ Fermer</button>
-        </div>
-      </div>
-      <iframe id="kg-facture-frame" style="width:100%;height:82vh;border:none;display:block;background:#fff;"></iframe>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  const frame = document.getElementById('kg-facture-frame');
-  frame.srcdoc = html;
-}
+<script>
 
 // ---------- Init au chargement ----------
 document.addEventListener('DOMContentLoaded', function() {
@@ -11061,6 +11198,7 @@ async function validateOrder() {
   const ht = totalTTC - tvaIncluse;
   const now = new Date();
   const client = document.getElementById('ticket-client')?.value || 'Client';
+  const serveur = document.getElementById('ticket-serveur')?.value?.trim() || '';
   const caisse = sessionCaisseActive?.caisse || (currentUser?.caisse !== 'Toutes' ? currentUser?.caisse : 'Caisse 1');
   const cashier = sessionCaisseActive?.cashier || (currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Caissier');
   const orderNum = await _getNextOrderNumGlobal(caisse);
@@ -11113,7 +11251,7 @@ async function validateOrder() {
     time: now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
     // ✅ FIX v15 FINAL : date ISO indispensable pour filtres dashboard/rapportX/inPeriode
     date: now.toISOString().split('T')[0],
-    cashier, client
+    cashier, client, serveur
   };
   VENTES_PAR_CAISSE[caisse].push(venteSaved);
   _saveVenteSupabase(caisse, venteSaved); // ✅ Persistance immédiate Supabase
@@ -16194,9 +16332,9 @@ function renderReconciliation() {
 
 // ===== AUTH & USERS SYSTEM =====
 const ROLES_CONFIG = {
-  administrateur: { label:'Administrateur', icon:'🛡️', color:'#dc3545', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','gestion-roles','annonces','terrain','salle','sport'] },
-  gerant:      { label:'Gérant', icon:'👑', color:'var(--accent)', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','annonces','terrain','salle','sport'] },
-  superviseur: { label:'Superviseur', icon:'🔷', color:'var(--purple)', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','fournisseurs','caisses','rapportx','shift','fermeture','historique','stats','depenses','rh','compta','factures','banque','annonces','terrain','salle','sport'] },
+  administrateur: { label:'Administrateur', icon:'🛡️', color:'#dc3545', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','gestion-roles','annonces','livreurs','serveurs','terrain','salle','sport'] },
+  gerant:      { label:'Gérant', icon:'👑', color:'var(--accent)', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','annonces','livreurs','serveurs','terrain','salle','sport'] },
+  superviseur: { label:'Superviseur', icon:'🔷', color:'var(--purple)', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','fournisseurs','caisses','rapportx','shift','fermeture','historique','stats','depenses','rh','compta','factures','banque','annonces','livreurs','serveurs','terrain','salle','sport'] },
   caissier:    { label:'Caissier', icon:'💳', color:'var(--teal)', perms: ['caisse','commandes','qrcommandes','rapportx'] },
   cuisinier:   { label:'Cuisinier', icon:'👨‍🍳', color:'var(--accent2)', perms: ['commandes','qrcommandes','menu','stock'] },
   livreur:     { label:'Livreur', icon:'🛵', color:'var(--green)', perms: ['commandes','qrcommandes'] },
@@ -16206,7 +16344,7 @@ const ALL_PERMS = [
   { id:'dashboard', label:'Tableau de bord' }, { id:'caisse', label:'Caisse POS' },
   { id:'commandes', label:'Commandes' }, { id:'qrcommandes', label:'📱 Commandes QR' }, { id:'menu', label:'Menu & Carte' },
   { id:'stock', label:'Stocks' }, { id:'inventaire', label:'Inventaire' }, { id:'clients', label:'Clients' },
-  { id:'fournisseurs', label:'Fournisseurs' }, { id:'livreurs', label:'🛵 Livreurs' }, { id:'utilisateurs', label:'Utilisateurs' },
+  { id:'fournisseurs', label:'Fournisseurs' }, { id:'livreurs', label:'🛵 Livreurs' }, { id:'serveurs', label:'🍽️ Serveurs' }, { id:'utilisateurs', label:'Utilisateurs' },
   { id:'caisses', label:'🖥️ Gestion des Caisses' },
   { id:'rapportx', label:'Rapport X' }, { id:'shift', label:'Shifts' },
   { id:'fermeture', label:'Fermeture (Z)' }, { id:'reconciliation', label:'Réconciliation' },
@@ -29947,6 +30085,7 @@ function _validerAdditionCaisse(billId) {
       time: now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}),
       cashier: sessionCaisseActive?.cashier || currentUser?.prenom || 'Caissier',
       client: b.clientNom || 'Client',
+      serveur: b.serveur || b.clientNom || '',
       tableInfo: '🪑 ' + b.tableLabel,
       note: 'Addition serveur → caisse',
       date: now.toISOString()
@@ -30488,6 +30627,293 @@ function partagerRecu_Email(orderId) {
 // ═══════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════
+// GESTION DES SERVEURS
+// ══════════════════════════════════════════════════════════════
+
+async function chargerServeurs() {
+  const rid = window._KG_RESTAURANT_ID;
+  const sb = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+  if(!sb || !rid) return null;
+  try {
+    const { data } = await sb.from('kg_sync').select('value')
+      .eq('key', rid + ':serveurs').maybeSingle();
+    if(!data?.value) return [];
+    const v = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+    return Array.isArray(v) ? v : [];
+  } catch(e) { console.warn('chargerServeurs error:', e); return []; }
+}
+
+async function sauvegarderServeurs(liste) {
+  const rid = window._KG_RESTAURANT_ID;
+  const sb = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+  if(!sb || !rid) return;
+  await sb.from('kg_sync').upsert(
+    { key: rid + ':serveurs', value: JSON.stringify(liste), updated_at: new Date().toISOString() },
+    { onConflict: 'key' }
+  );
+}
+
+function ouvrirFormServeur(serveur = null) {
+  const form = document.getElementById('form-serveur');
+  const title = document.getElementById('form-serveur-title');
+  document.getElementById('serveur-form-nom').value = serveur?.nom || '';
+  document.getElementById('serveur-form-statut').value = serveur?.statut || 'actif';
+  document.getElementById('serveur-form-id').value = serveur?.id || '';
+  title.textContent = serveur ? '✏️ Modifier le serveur' : '➕ Nouveau serveur';
+  form.style.display = 'block';
+  try { form.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch(e) {}
+}
+
+function fermerFormServeur() {
+  document.getElementById('form-serveur').style.display = 'none';
+}
+
+async function sauvegarderServeur() {
+  const nom = document.getElementById('serveur-form-nom').value.trim();
+  const statut = document.getElementById('serveur-form-statut').value;
+  const id = document.getElementById('serveur-form-id').value;
+  if(!nom) { showToast('⚠️ Nom obligatoire'); return; }
+  if(typeof KGSync === 'undefined' || !KGSync.isConnected || !window._KG_RESTAURANT_ID) {
+    showToast('❌ Non connecté à Supabase — impossible de sauvegarder');
+    return;
+  }
+  const liste = await chargerServeurs() || [];
+  if(id) {
+    const idx = liste.findIndex(s => s.id === id);
+    if(idx >= 0) liste[idx] = { id, nom, statut };
+  } else {
+    liste.push({ id: Date.now().toString(), nom, statut, tickets: 0 });
+  }
+  await sauvegarderServeurs(liste);
+  fermerFormServeur();
+  afficherListeServeurs();
+  showToast('✅ Serveur sauvegardé');
+}
+
+async function supprimerServeur(id) {
+  if(!confirm('Supprimer ce serveur ?')) return;
+  const liste = (await chargerServeurs()).filter(s => s.id !== id);
+  await sauvegarderServeurs(liste);
+  afficherListeServeurs();
+  showToast('🗑️ Serveur supprimé');
+}
+
+async function afficherListeServeurs() {
+  const container = document.getElementById('liste-serveurs');
+  if(!container) return;
+  const rid = window._KG_RESTAURANT_ID;
+  if(typeof KGSync === 'undefined' || !KGSync.isConnected || !rid) {
+    container.innerHTML = `<div style="text-align:center;padding:50px 20px;color:var(--text2);">
+      <div style="font-size:40px;margin-bottom:12px;">📡</div>
+      <div style="font-size:15px;font-weight:600;">Non connecté à Supabase</div>
+      <div style="font-size:13px;margin-top:6px;">Allez dans <strong>Paramètres → Supabase</strong> pour configurer la synchronisation.</div>
+    </div>`;
+    return;
+  }
+  const liste = await chargerServeurs();
+  if(liste === null || !liste) {
+    container.innerHTML = `<div style="text-align:center;padding:50px 20px;color:var(--text2);">
+      <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
+      <div style="font-size:15px;font-weight:600;">Impossible de charger les serveurs</div>
+      <div style="font-size:13px;margin-top:6px;">Vérifiez votre connexion Supabase.</div>
+    </div>`;
+    return;
+  }
+
+  // Stats tickets en attente par serveur
+  const statsDiv = document.getElementById('stats-serveurs');
+  try {
+    const attenteRaw = localStorage.getItem('kg_tickets_attente');
+    const attente = attenteRaw ? JSON.parse(attenteRaw) : [];
+    if(attente.length > 0 && liste.length > 0) {
+      const counts = {};
+      attente.forEach(t => {
+        const nom = (t.serveur || t.client || '').trim();
+        if(nom) counts[nom] = (counts[nom] || 0) + 1;
+      });
+      const statsHTML = Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([nom, nb]) => `
+        <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(245,158,42,0.1);border:1px solid rgba(245,158,42,0.3);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:700;color:var(--accent);">
+          🍽️ ${nom} <span style="background:var(--accent);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;">${nb}</span>
+        </div>`).join('');
+      statsDiv.innerHTML = `<div style="background:var(--surface);border-radius:12px;padding:14px 16px;border:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">🎫 TICKETS EN ATTENTE PAR SERVEUR</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">${statsHTML}</div>
+      </div>`;
+      statsDiv.style.display = 'block';
+    } else {
+      statsDiv.style.display = 'none';
+    }
+  } catch(e) { statsDiv.style.display = 'none'; }
+
+  if(!liste.length) {
+    container.innerHTML = `<div style="text-align:center;padding:50px 20px;color:var(--text2);">
+      <div style="font-size:40px;margin-bottom:12px;">🍽️</div>
+      <div style="font-size:15px;font-weight:600;">Aucun serveur enregistré</div>
+      <div style="font-size:13px;margin-top:6px;">Cliquez sur "+ Ajouter un serveur" pour commencer</div>
+    </div>`;
+    return;
+  }
+  container.innerHTML = liste.map(s => `
+    <div style="background:var(--surface);border-radius:14px;padding:16px 18px;border:1px solid var(--border);display:flex;align-items:center;gap:14px;">
+      <div style="width:44px;height:44px;background:linear-gradient(135deg,#f59e2a,#e84520);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🍽️</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:700;color:var(--text);">${s.nom}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px;">Serveur de salle</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;${s.statut==='actif' ? 'background:rgba(46,204,113,0.15);color:#2ecc71;' : 'background:rgba(231,76,60,0.15);color:#e74c3c;'}">${s.statut==='actif' ? '🟢 Actif' : '🔴 Inactif'}</span>
+        <div style="display:flex;gap:6px;">
+          <button onclick="ouvrirFormServeur(${JSON.stringify(s).replace(/"/g,'&quot;')})" style="padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;">✏️</button>
+          <button onclick="supprimerServeur('${s.id}')" style="padding:5px 10px;border-radius:7px;border:none;background:rgba(231,76,60,0.15);color:#e74c3c;font-size:12px;cursor:pointer;">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+// FIN GESTION DES SERVEURS
+// ══════════════════════════════════════════════════════════════
+
+// ── Onglets vue Serveurs ──────────────────────────────────────
+let _statServeurPeriode = 'jour';
+
+function switchServeurTab(tab) {
+  const isList = tab === 'liste';
+  document.getElementById('serveur-tab-liste').style.display = isList ? '' : 'none';
+  document.getElementById('serveur-tab-stats').style.display = isList ? 'none' : '';
+  // Boutons onglets
+  const btnListe = document.getElementById('stab-liste');
+  const btnStats = document.getElementById('stab-stats');
+  if(isList) {
+    btnListe.style.background = 'linear-gradient(135deg,#f59e2a,#e84520)'; btnListe.style.color = '#fff'; btnListe.style.border = 'none';
+    btnStats.style.background = 'transparent'; btnStats.style.color = 'var(--text2)'; btnStats.style.border = '1px solid var(--border)';
+  } else {
+    btnStats.style.background = 'linear-gradient(135deg,#f59e2a,#e84520)'; btnStats.style.color = '#fff'; btnStats.style.border = 'none';
+    btnListe.style.background = 'transparent'; btnListe.style.color = 'var(--text2)'; btnListe.style.border = '1px solid var(--border)';
+    renderStatsServeurs(_statServeurPeriode);
+  }
+}
+
+function switchStatPeriode(periode) {
+  _statServeurPeriode = periode;
+  ['jour','semaine','mois'].forEach(p => {
+    const b = document.getElementById('sstat-' + p);
+    if(!b) return;
+    if(p === periode) { b.style.background = 'linear-gradient(135deg,#f59e2a,#e84520)'; b.style.color = '#fff'; b.style.border = 'none'; }
+    else { b.style.background = 'transparent'; b.style.color = 'var(--text2)'; b.style.border = '1px solid var(--border)'; }
+  });
+  renderStatsServeurs(periode);
+}
+
+function _getVentesAllCaisses() {
+  // Agréger toutes les ventes de toutes les caisses
+  const all = [];
+  if(typeof VENTES_PAR_CAISSE === 'undefined') return all;
+  Object.values(VENTES_PAR_CAISSE).forEach(arr => { if(Array.isArray(arr)) arr.forEach(v => all.push(v)); });
+  // Aussi depuis VENTES_PAR_CAISSE via historique clôtures
+  return all;
+}
+
+function _inPeriodeServeur(vente, periode) {
+  const now = new Date();
+  let d;
+  if(vente.date) {
+    // date peut être ISO complet ou YYYY-MM-DD
+    d = new Date(vente.date.length === 10 ? vente.date + 'T00:00:00' : vente.date);
+  } else { return false; }
+  if(periode === 'jour') {
+    return d.toISOString().split('T')[0] === now.toISOString().split('T')[0];
+  } else if(periode === 'semaine') {
+    const start = new Date(now); start.setDate(now.getDate() - now.getDay() + (now.getDay()===0?-6:1)); start.setHours(0,0,0,0);
+    const end = new Date(start); end.setDate(start.getDate() + 6); end.setHours(23,59,59,999);
+    return d >= start && d <= end;
+  } else if(periode === 'mois') {
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }
+  return false;
+}
+
+function renderStatsServeurs(periode) {
+  const container = document.getElementById('stats-serveurs-content');
+  if(!container) return;
+
+  const ventes = _getVentesAllCaisses().filter(v => _inPeriodeServeur(v, periode));
+  
+  // Agréger par serveur
+  const map = {}; // nom → { commandes, ca, items }
+  ventes.forEach(v => {
+    const nom = (v.serveur || '').trim();
+    const key = nom || '— Sans serveur';
+    if(!map[key]) map[key] = { commandes: 0, ca: 0 };
+    map[key].commandes++;
+    map[key].ca += v.total || 0;
+  });
+
+  const entries = Object.entries(map).sort((a,b) => b[1].commandes - a[1].commandes);
+  const totalCmds = entries.reduce((s,[,d]) => s + d.commandes, 0);
+  const totalCA   = entries.reduce((s,[,d]) => s + d.ca, 0);
+
+  const periodeLabel = { jour: "aujourd'hui", semaine: 'cette semaine', mois: 'ce mois' }[periode];
+
+  if(!entries.length || totalCmds === 0) {
+    container.innerHTML = `<div style="text-align:center;padding:50px 20px;color:var(--text2);">
+      <div style="font-size:40px;margin-bottom:12px;">📊</div>
+      <div style="font-size:15px;font-weight:600;">Aucune vente ${periodeLabel}</div>
+      <div style="font-size:13px;margin-top:6px;">Les ventes avec serveur identifié apparaîtront ici.</div>
+    </div>`;
+    return;
+  }
+
+  // KPI totaux
+  const kpiHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+      <div style="background:var(--surface);border-radius:14px;padding:16px;border:1px solid var(--border);text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:var(--accent);">${totalCmds}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Commandes</div>
+      </div>
+      <div style="background:var(--surface);border-radius:14px;padding:16px;border:1px solid var(--border);text-align:center;">
+        <div style="font-size:22px;font-weight:800;color:var(--green);">${totalCA.toLocaleString()} F</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">CA Total</div>
+      </div>
+    </div>`;
+
+  // Classement serveurs
+  const maxCmds = entries[0]?.[1]?.commandes || 1;
+  const rankHTML = entries.map(([nom, d], i) => {
+    const pct = Math.round(d.commandes / maxCmds * 100);
+    const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    const isSans = nom === '— Sans serveur';
+    return `
+      <div style="background:var(--surface);border-radius:14px;padding:16px 18px;border:1px solid var(--border);margin-bottom:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:38px;height:38px;background:${isSans?'rgba(150,150,150,0.15)':'linear-gradient(135deg,#f59e2a,#e84520)'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${isSans?'❔':'🍽️'}</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--text);">${medal} ${nom}</div>
+              <div style="font-size:11px;color:var(--text2);">${Math.round(d.commandes/totalCmds*100)}% des commandes</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:18px;font-weight:800;color:var(--accent);">${d.commandes}</div>
+            <div style="font-size:11px;color:var(--text2);">cmds</div>
+          </div>
+        </div>
+        <!-- Barre de progression -->
+        <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden;">
+          <div style="height:100%;border-radius:4px;background:linear-gradient(90deg,#f59e2a,#e84520);width:${pct}%;transition:width 0.5s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;">
+          <div style="font-size:11px;color:var(--text2);">CA : <strong style="color:var(--text);">${d.ca.toLocaleString()} F</strong></div>
+          <div style="font-size:11px;color:var(--text2);">Moy : <strong style="color:var(--text);">${d.commandes>0?Math.round(d.ca/d.commandes).toLocaleString():0} F/cmd</strong></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  container.innerHTML = kpiHTML + rankHTML;
+}
+
 // GESTION DES LIVREURS
 // ══════════════════════════════════════════════════════════════
 
@@ -34271,8 +34697,20 @@ function mettreEnAttente() {
   const modal = document.getElementById('modal-serveur-attente');
   const input = document.getElementById('modal-serveur-input');
   if(input) input.value = '';
-  if(modal) { modal.style.display = 'flex'; setTimeout(() => input?.focus(), 100); }
+  if(modal) { modal.style.display = 'flex'; }
 }
+
+// Hook : charger la liste des serveurs à l'ouverture du modal
+// ✅ FIX : exécuté après DOMContentLoaded pour que mettreEnAttente soit définie
+document.addEventListener('DOMContentLoaded', function() {
+  if(typeof mettreEnAttente === 'function') {
+    const _origMettreEnAttente = mettreEnAttente;
+    mettreEnAttente = function() {
+      _origMettreEnAttente();
+      setTimeout(_chargerServeursDansModal, 100);
+    };
+  }
+});
 
 // Appelé quand l'utilisateur confirme le nom du serveur
 function _validerServeur() {
@@ -34368,7 +34806,7 @@ function ouvrirPaiementAttente(ticketId) {
   _attentePayMethod = 'cash';
 
   document.getElementById('attente-modal-num').textContent = ticket.id;
-  document.getElementById('attente-modal-client').textContent = ticket.client + ' · ' + ticket.caisse + ' · ' + ticket.time;
+  document.getElementById('attente-modal-client').textContent = (ticket.serveur && ticket.serveur !== ticket.cashier ? '🍽️ ' + ticket.serveur + ' · ' : '') + ticket.client + ' · ' + ticket.caisse + ' · ' + ticket.time;
   document.getElementById('attente-modal-total').textContent = ticket.total.toLocaleString() + ' F';
 
   // Articles
@@ -34483,7 +34921,7 @@ async function validerTicketAttente() {
     payMethods: payMethodsData,
     time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
     date: new Date().toISOString().split('T')[0],
-    cashier: ticket.cashier, client: ticket.client
+    cashier: ticket.cashier, client: ticket.client, serveur: ticket.serveur || ''
   };
 
   if(!VENTES_PAR_CAISSE[caisse]) VENTES_PAR_CAISSE[caisse] = [];
@@ -34937,15 +35375,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <!-- ── Modal nom du serveur (ticket en attente) ── -->
-<div id="modal-serveur-attente" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:320px;max-width:90vw;">
-    <div style="font-size:16px;font-weight:800;margin-bottom:16px;text-align:center;">👤 Nom du serveur</div>
-    <input id="modal-serveur-input" class="form-input" placeholder="Nom du serveur..." style="width:100%;margin-bottom:16px;" onkeydown="if(event.key==='Enter') _validerServeur()">
-    <div style="display:flex;gap:10px;">
-      <button class="btn btn-ghost" style="flex:1;" onclick="_confirmerEtCreerTicket('')">Ignorer</button>
-      <button class="btn btn-primary" style="flex:2;" onclick="_validerServeur()">✅ Confirmer & Imprimer</button>
-    </div>
-  </div>
-</div>
+<div id="modal-serveur-attente2-placeholder"></div>
 </body>
 </html>
