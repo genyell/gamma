@@ -109,8 +109,14 @@
 })();
 </script>
 <script>
-  // Forcer thème sombre immédiatement
-  document.documentElement.removeAttribute('data-theme');
+  // Appliquer le thème sauvegardé immédiatement (avant tout rendu)
+  (function() {
+    try {
+      var _t = localStorage.getItem('kg-theme') || 'dark';
+      if(_t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      else document.documentElement.removeAttribute('data-theme');
+    } catch(e) { document.documentElement.removeAttribute('data-theme'); }
+  })();
   // Détecter mobile via userAgent ET largeur écran
   (function(){
     // Rien - le CSS gère tout
@@ -9348,7 +9354,7 @@ function showView(id, el, pushState) {
     renderFournisseurs();
     // Rafraîchir depuis Supabase en arrière-plan si liste toujours vide
     if(FOURNISSEURS.length === 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
-      KGSync.pullAll().catch(()=>{});
+      KGSync.pullAll().then(()=>{ if(typeof renderFournisseurs==='function') renderFournisseurs(); }).catch(()=>{});
     }
   }
   if(id === 'stock') {
@@ -9368,7 +9374,7 @@ function showView(id, el, pushState) {
     renderStock();
     // Rafraîchir depuis Supabase en arrière-plan si toujours vide
     if(STOCK_DATA.length === 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
-      KGSync.pullAll().catch(()=>{});
+      KGSync.pullAll().then(()=>{ if(typeof renderStock==='function') renderStock(); }).catch(()=>{});
     }
   }
   if(id === 'compta') renderCompta();
@@ -14245,11 +14251,11 @@ function switchStockTab(tab, el) {
 
 function updateStockQty(sIdx, val) {
   const s = STOCK_DATA[sIdx];
-  if(s) { s.qty = parseFloat(val) || 0; renderStock(); showNotif(`📦 ${s.name} : ${s.qty} ${s.unit}`); }
+  if(s) { s.qty = parseFloat(val) || 0; window._kgStockModifiedAt = Date.now(); renderStock(); showNotif(`📦 ${s.name} : ${s.qty} ${s.unit}`); if(KGSync.isConnected) KGSync.push.stock().catch(()=>{}); }
 }
 function updateStockUnit(sIdx, val) {
   const s = STOCK_DATA[sIdx];
-  if(s) { s.unit = val; showNotif(`✅ Unité mise à jour : ${s.name} → ${val}`); }
+  if(s) { s.unit = val; window._kgStockModifiedAt = Date.now(); showNotif(`✅ Unité mise à jour : ${s.name} → ${val}`); if(KGSync.isConnected) KGSync.push.stock().catch(()=>{}); }
 }
 
 function quickEntreeStock(sIdx) {
@@ -14280,6 +14286,7 @@ function deleteStockArticle(sIdx) {
     KGSync.getClient()?.from('stock_items').delete().eq('id', s.sbId).catch(()=>{});
   }
   STOCK_DATA.splice(sIdx, 1);
+  window._kgStockModifiedAt = Date.now();
   renderStock();
   showNotif(`🗑️ ${s.name} supprimé du stock`);
 }
@@ -14338,9 +14345,11 @@ function saveStockArticle() {
   };
   if(editIdx >= 0 && STOCK_DATA[editIdx]) {
     Object.assign(STOCK_DATA[editIdx], data);
+    window._kgStockModifiedAt = Date.now();
     showNotif(`✅ Article "${nom}" mis à jour`);
   } else {
     STOCK_DATA.push({ id: 'local_' + Date.now(), ...data });
+    window._kgStockModifiedAt = Date.now();
     showNotif(`✅ Article "${nom}" ajouté`);
   }
   closeModal('addStock');
@@ -14465,6 +14474,7 @@ function saveEntreeStock() {
 
     closeModal('entreeStock');
     renderStock();
+    window._kgStockModifiedAt = Date.now();
     if(KGSync.isConnected) KGSync.push.stock().catch(console.warn);
     const depotMsg = esDepot ? ' → 🏭 ' + esDepot.nom : '';
     showNotif('📥 +' + qty + ' ' + unit + ' de ' + s.name + ' — Stock : ' + ancienQty + ' → ' + s.qty + ' ' + unit + depotMsg);
@@ -16984,7 +16994,7 @@ async function doLogout() {
   if(typeof RH_AVANCES  !== 'undefined') RH_AVANCES  = [];
   if(typeof FACTURES    !== 'undefined') FACTURES     = [];
   if(typeof INVENTAIRES !== 'undefined') INVENTAIRES  = [];
-  window._kgStockDeductedAt = null;
+  window._kgStockModifiedAt = null;
   window._kgPageJustLoaded  = true; // reset pour le prochain login
   window._lastCaisseReload  = null;
   window._KG_RESTAURANT_ID  = null;
@@ -18598,7 +18608,7 @@ function _refreshRecapFermeture(c) {
       depBlock.innerHTML = `<div style="font-size:11px;color:var(--red);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">💸 Dépenses sorties de ${c.name}</div>`
         + depList.map(d => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid rgba(231,76,60,0.1);">
           <span style="color:var(--text2);">${d.libelle} <span style="font-size:10px;">(${d.date})</span></span>
-          <span style="font-family:'JetBrains Mono',monospace;color:var(--red);">−${d.montant.toLocaleString()} F</span>
+          <span style="font-family:'JetBrains Mono',monospace;color:var(--red);">−${Number(d.montant||0).toLocaleString()} F</span>
         </div>`).join('')
         + `<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-top:8px;padding-top:6px;border-top:1px solid rgba(231,76,60,0.3);">
           <span style="color:var(--red);">Total dépenses</span>
@@ -19801,17 +19811,22 @@ function renderHistorique() {
   }
 
   el.innerHTML = filtered.map((h, idx) => {
-    const hasDep = h.depenses && h.depenses > 0;
-    const solde = h.soldeNet !== undefined ? h.soldeNet : h.ca;
+    // ✅ FIX : sécuriser toutes les valeurs numériques — undefined crash toLocaleString
+    const _ca    = Number(h.ca || h.caTotal || (h.tickets||[]).reduce((a,t)=>a+(t.total||0),0) || 0);
+    const _ecart = Number(h.ecart || 0);
+    const _solde = Number(h.soldeNet !== undefined ? h.soldeNet : (h.ca || h.caTotal || 0));
+    const _dep   = Number(h.depenses || 0);
+    const hasDep = _dep > 0;
+    const solde  = _solde;
     return `
     <div class="history-card" style="flex-direction:column;align-items:stretch;gap:0;">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <div class="history-date">${h.date}<br><span style="font-size:10px;color:var(--text2)">${h.heure}</span></div>
-        <div class="history-caisse">${h.caisse}</div>
-        <div class="history-cashier">👤 ${h.cashier} · ${(h.orders||h.nbTickets||0)} ticket(s)</div>
-        <div class="history-total" style="margin-left:auto;">CA : ${((h.ca||h.caTotal||(h.tickets||[]).reduce((a,t)=>a+(t.total||0),0))||0).toLocaleString()} F</div>
-        <div class="history-ecart" style="color:${h.ecart===0?'var(--text2)':h.ecart>0?'var(--green)':'var(--red)'}">
-          ${h.ecart===0?'± 0 F':(h.ecart>0?'+':'')+h.ecart.toLocaleString()+' F'}
+        <div class="history-date">${h.date||'—'}<br><span style="font-size:10px;color:var(--text2)">${h.heure||'—'}</span></div>
+        <div class="history-caisse">${h.caisse||'—'}</div>
+        <div class="history-cashier">👤 ${h.cashier||h.caissier||'—'} · ${(h.orders||h.nbTickets||0)} ticket(s)</div>
+        <div class="history-total" style="margin-left:auto;">CA : ${_ca.toLocaleString()} F</div>
+        <div class="history-ecart" style="color:${_ecart===0?'var(--text2)':_ecart>0?'var(--green)':'var(--red)'}">
+          ${_ecart===0?'± 0 F':(_ecart>0?'+':'')+_ecart.toLocaleString()+' F'}
         </div>
         <div><span class="badge badge-done">✅ Conforme</span></div>
       </div>
@@ -19820,14 +19835,14 @@ function renderHistorique() {
       </div>
       ${hasDep ? `
       <div style="margin-top:8px;padding:8px 12px;background:rgba(231,76,60,0.07);border:1px solid rgba(231,76,60,0.2);border-radius:8px;font-size:12px;">
-        <div style="color:var(--red);font-weight:700;margin-bottom:4px;">💸 Dépenses : −${h.depenses.toLocaleString()} F</div>
+        <div style="color:var(--red);font-weight:700;margin-bottom:4px;">💸 Dépenses : −${_dep.toLocaleString()} F</div>
         ${(h.depensesList||[]).map(d=>`<div style="display:flex;justify-content:space-between;color:var(--text2);padding:2px 0;border-bottom:1px solid rgba(231,76,60,0.08);">
           <span>${d.libelle} <span style="font-size:10px;">(${d.date})</span></span>
           <span style="font-family:'JetBrains Mono',monospace;color:var(--red);">−${d.montant.toLocaleString()} F</span>
         </div>`).join('')}
         <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:6px;padding-top:4px;border-top:1px solid rgba(231,76,60,0.25);">
           <span style="color:${solde>=0?'var(--green)':'var(--red)'}">💰 Solde net</span>
-          <span style="font-family:'JetBrains Mono',monospace;color:${solde>=0?'var(--green)':'var(--red)'};">${solde.toLocaleString()} F</span>
+          <span style="font-family:'JetBrains Mono',monospace;color:${_solde>=0?'var(--green)':'var(--red)'};">${_solde.toLocaleString()} F</span>
         </div>
       </div>` : ''}
     </div>`;
@@ -19896,8 +19911,8 @@ function setTheme(theme) {
 function initTheme() {
   let saved = 'dark';
   try { saved = localStorage.getItem('kg-theme') || 'dark'; } catch(e) { saved = 'dark'; }
-  // Sur fichier local (content://), forcer dark si le système est clair
-  if(window.location.protocol === 'content:' || window.location.protocol === 'file:') saved = 'dark';
+  // Sur fichier local (content://), forcer dark
+  if(window.location.protocol === 'content:') saved = 'dark';
   setTheme(saved);
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     try { if(localStorage.getItem('kg-theme') === 'auto') setTheme('auto'); } catch(e){}
@@ -20729,7 +20744,7 @@ const KGSync = (() => {
       await upsert('ventes_' + caisse.replace(/\s+/g,'_'), { caisse, ventes, orderCounter, caisseStatus: _caisseStatus, moduleActive: _moduleActive });
     }
   }
-  async function pushStock()          { _invalidateCache('stock_data'); _debouncedUpsert('stock_data', () => ({ items: STOCK_DATA, entries: STOCK_ENTREES }), 3000); } // ✅ FIX DÉDUCTION : 8s→3s pour sauvegarder avant le prochain pullAll
+  async function pushStock()          { _invalidateCache('stock_data'); _debouncedUpsert('stock_data', () => ({ items: STOCK_DATA, entries: STOCK_ENTREES }), 1000); } // ✅ FIX STOCK LOCK : 3s→1s pour partir avant tout pullAll
   async function pushCaisses()        { _debouncedUpsert('caisses_data', () => ({ items: CAISSES, sessionActive: sessionCaisseActive }), 5000); }
 
   // ✅ FIX v31 MULTI-NAVIGATEURS : synchroniser les états complets des modules (C4-C8) vers Supabase
@@ -21214,13 +21229,14 @@ const KGSync = (() => {
             orderCounter = data.orderCounter;
           }
         } else if(key === 'stock_data' && data.items) {
-          // ✅ FIX ANTI-ÉCRASEMENT : ne pas écraser si une déduction vient d'être faite (< 15s)
+          // ✅ FIX ANTI-ÉCRASEMENT : ne pas écraser si une déduction OU modif manuelle vient d'être faite (< 15s)
           // Résout le bug : caissier vend → stock déduit → pullAll écrase → déduction perdue
-          const _msSinceDeduct = window._kgStockDeductedAt ? (Date.now() - window._kgStockDeductedAt) : 99999;
+          // Idem pour : updateStockQty, saveStockArticle, saveEntreeStock, deleteStockArticle
+          const _msSinceDeduct = window._kgStockModifiedAt ? (Date.now() - window._kgStockModifiedAt) : 99999;
           if(_msSinceDeduct < 15000) {
-            console.log('[pullAll] ⚡ Stock protégé — déduction récente (', Math.round(_msSinceDeduct/1000), 's ago) — pullAll ignoré pour stock_data');
-            // Replanifier un push du stock local dans 5s pour propager la déduction
-            setTimeout(() => { if(typeof KGSync !== 'undefined') KGSync.push.stock().catch(()=>{}); }, 5000);
+            console.log('[pullAll] ⚡ Stock protégé — modif récente (', Math.round(_msSinceDeduct/1000), 's ago) — pullAll ignoré pour stock_data');
+            // Replanifier un push du stock local dans 2s pour propager la modif
+            setTimeout(() => { if(typeof KGSync !== 'undefined') KGSync.push.stock().catch(()=>{}); }, 2000);
           } else {
             STOCK_DATA = data.items;
           STOCK_ENTREES = data.entries || STOCK_ENTREES;
@@ -22283,8 +22299,8 @@ function deduireStockVente(items) {
     });
   });
   if(hasChanges) {
-    // ✅ FIX ANTI-ÉCRASEMENT : verrou 15s pour bloquer pullAll après déduction
-    window._kgStockDeductedAt = Date.now();
+    // ✅ FIX ANTI-ÉCRASEMENT : verrou 15s pour bloquer pullAll après déduction ou modif manuelle
+    window._kgStockModifiedAt = Date.now();
     if(typeof renderStock === 'function' && document.getElementById('view-stock') && document.getElementById('view-stock').classList.contains('active')) {
       renderStock();
     }
@@ -25118,8 +25134,22 @@ async function loadDepensesFromSupabase() {
       const local = localMap[d.id];
       return {
         id: d.id, sbId: d.id, libelle: d.libelle || '',
-        // ✅ FIX LIGNES PERSISTANCE : réinjecter depuis localStorage après reconnexion
-        lignes: (()=>{ try { const _lk='kg_dep_lignes_'+(window._KG_RESTAURANT_ID||'local'); const _ls=JSON.parse(localStorage.getItem(_lk)||'{}'); return _ls[d.id] || (localMap[d.id] && Array.isArray(localMap[d.id].lignes) ? localMap[d.id].lignes : []); } catch(e){ return []; } })(),
+        // ✅ FIX LIGNES MULTI-APPAREIL : lire lignes_json depuis la colonne Supabase (0 egress extra)
+        // Fallback localStorage si ancienne dépense sans lignes_json
+        lignes: (()=>{
+          // 1. lignes_json stocké dans la colonne depenses (source de vérité, partagée)
+          if(d.lignes_json) {
+            try {
+              const _lj = typeof d.lignes_json === 'string' ? JSON.parse(d.lignes_json) : d.lignes_json;
+              if(Array.isArray(_lj) && _lj.length > 0) return _lj;
+            } catch(e) {}
+          }
+          // 2. localStorage local (fallback anciennes dépenses)
+          try { const _lk='kg_dep_lignes_'+(window._KG_RESTAURANT_ID||'local'); const _ls=JSON.parse(localStorage.getItem(_lk)||'{}'); if(_ls[d.id] && _ls[d.id].length > 0) return _ls[d.id]; } catch(e) {}
+          // 3. Données locales en mémoire
+          if(localMap[d.id] && Array.isArray(localMap[d.id].lignes) && localMap[d.id].lignes.length > 0) return localMap[d.id].lignes;
+          return [];
+        })(),
         montant: parseFloat(d.montant) || 0,
         date: d.date_depense || d.date || '',
         categorie: d.categorie || 'Divers',
@@ -25366,7 +25396,8 @@ async function saveDepense() {
     avec_tva: avecTVA,
     montant_ht: montantHT,
     montant_tva: montantTVA,
-    // lignes non envoyées à Supabase (colonne non créée) — sauvegardées via kg_sync
+    // ✅ FIX MULTI-APPAREIL : lignes stockées dans la colonne depenses → 0 egress extra
+    lignes_json: JSON.stringify(lignes),
   };
 
   try {
@@ -33569,86 +33600,90 @@ function spImprimerMembre(id) {
   const now        = new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'});
   const emis       = new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'});
 
-  // ── Numéro de reçu unique ──
-  const recuNum = 'SP-' + (m.id||Date.now()).toString().slice(-1).toUpperCase() + '_' + Math.random().toString(36).slice(2,6).toUpperCase();
+  // ── Numéro de reçu unique basé sur l'ID membre ──
+  const memId = (m.id || '').toString();
+  const memPrefix = memId.slice(-4).toUpperCase().replace(/[^A-Z0-9]/g,'X') || 'XXXX';
+  const recuNum = 'SP-' + memPrefix + '_' + Math.random().toString(36).slice(2,6).toUpperCase();
 
   // ── Logo HTML ──
   const logoHTML = logoUrl
-    ? `<img src="${logoUrl}" style="height:56px;width:56px;object-fit:cover;border-radius:10px;border:2px solid #f0f0f0;" onerror="this.style.display='none'">`
-    : `<div style="width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,#f5a623,#e84520);display:flex;align-items:center;justify-content:center;font-size:26px;">💪</div>`;
+    ? `<img src="${logoUrl}" style="height:64px;width:64px;object-fit:cover;border-radius:12px;border:2px solid #f0f0f0;" onerror="this.style.display='none'">`
+    : `<div style="width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#f5a623,#e84520);display:flex;align-items:center;justify-content:center;font-size:30px;">💪</div>`;
 
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
   <title>Reçu Abonnement — ${m.nom}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Inter',Arial,sans-serif; background:#f5f5f5; color:#222; display:flex; align-items:flex-start; justify-content:center; padding:16px 8px; }
-    .page { background:#fff; width:100%; max-width:640px; border-radius:12px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.10); }
+    html, body { height:100%; }
+    body { font-family:'Inter',Arial,sans-serif; background:#f0f0f0; color:#222; display:flex; align-items:flex-start; justify-content:center; padding:20px 10px; min-height:100vh; }
+    .page { background:#fff; width:100%; max-width:720px; border-radius:14px; overflow:hidden; box-shadow:0 6px 32px rgba(0,0,0,0.13); }
 
     /* HEADER */
-    .top-bar { background:#fff; padding:14px 22px 12px; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #f5a623; }
-    .top-left { display:flex; align-items:center; gap:12px; }
-    .top-name { font-size:18px; font-weight:800; color:#222; line-height:1.1; }
-    .top-sub { font-size:9px; letter-spacing:2px; color:#888; text-transform:uppercase; margin-top:2px; }
-    .top-location { font-size:11px; color:#666; margin-top:3px; }
+    .top-bar { background:#fff; padding:20px 28px 16px; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #f5a623; }
+    .top-left { display:flex; align-items:center; gap:14px; }
+    .top-name { font-size:22px; font-weight:800; color:#222; line-height:1.1; }
+    .top-sub { font-size:10px; letter-spacing:2.5px; color:#888; text-transform:uppercase; margin-top:3px; }
+    .top-location { font-size:12px; color:#555; margin-top:4px; font-weight:500; }
     .top-right { text-align:right; }
-    .recu-label { font-size:9px; letter-spacing:2px; color:#888; text-transform:uppercase; }
-    .recu-num { font-size:18px; font-weight:800; color:#f5a623; line-height:1.2; }
-    .recu-date { font-size:11px; color:#888; margin-top:2px; }
+    .recu-label { font-size:9px; letter-spacing:2.5px; color:#999; text-transform:uppercase; }
+    .recu-num { font-size:22px; font-weight:800; color:#f5a623; line-height:1.2; letter-spacing:1px; }
+    .recu-date { font-size:12px; color:#888; margin-top:3px; }
 
     /* MEMBRE */
-    .membre-band { background:#fafafa; padding:12px 22px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; }
-    .membre-nom { font-size:20px; font-weight:800; color:#bbb; }
-    .membre-type { font-size:12px; font-weight:700; color:#f5a623; letter-spacing:1px; text-transform:uppercase; margin-top:3px; }
-    .membre-tel { font-size:12px; color:#aaa; margin-top:2px; }
-    .statut-badge { display:flex; align-items:center; gap:8px; background:${statColor}15; border:2px solid ${statColor}40; border-radius:50px; padding:7px 14px; }
-    .statut-icon { font-size:24px; }
-    .statut-text { font-size:13px; font-weight:700; color:${statColor}; }
+    .membre-band { background:#fafafa; padding:16px 28px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; }
+    .membre-nom { font-size:24px; font-weight:800; color:#111; }
+    .membre-type { font-size:13px; font-weight:700; color:#f5a623; letter-spacing:1px; text-transform:uppercase; margin-top:4px; }
+    .membre-tel { font-size:13px; color:#666; margin-top:3px; font-weight:500; }
+    .statut-badge { display:flex; align-items:center; gap:8px; background:${statColor}18; border:2px solid ${statColor}50; border-radius:50px; padding:9px 18px; }
+    .statut-icon { font-size:26px; }
+    .statut-text { font-size:14px; font-weight:800; color:${statColor}; letter-spacing:0.5px; }
 
     /* DÉTAILS */
-    .section { padding:12px 22px; border-bottom:1px solid #eee; }
-    .section-title { font-size:9px; letter-spacing:2px; color:#aaa; text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
-    .section-title::before { content:''; display:inline-block; width:12px; height:2px; background:#f5a623; border-radius:2px; }
-    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-    .info-box { background:#f9f9f9; border:1px solid #eee; border-radius:8px; padding:10px 12px; }
-    .info-lbl { font-size:9px; color:#aaa; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
-    .info-val { font-size:13px; font-weight:700; color:#222; display:flex; align-items:center; gap:5px; }
-    .jours-box { grid-column:1/-1; background:#fff8ee; border:1px solid #f5a62330; border-radius:8px; padding:8px 12px; display:flex; align-items:center; gap:8px; color:#f5a623; font-weight:700; font-size:13px; }
+    .section { padding:16px 28px; border-bottom:1px solid #eee; }
+    .section-title { font-size:10px; letter-spacing:2.5px; color:#aaa; text-transform:uppercase; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+    .section-title::before { content:''; display:inline-block; width:14px; height:2.5px; background:#f5a623; border-radius:2px; }
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .info-box { background:#f8f8f8; border:1px solid #e8e8e8; border-radius:10px; padding:13px 15px; }
+    .info-lbl { font-size:9px; color:#aaa; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:5px; }
+    .info-val { font-size:15px; font-weight:700; color:#111; display:flex; align-items:center; gap:6px; }
+    .jours-box { grid-column:1/-1; background:#fff8ee; border:1.5px solid #f5a62340; border-radius:10px; padding:11px 15px; display:flex; align-items:center; gap:10px; color:#f5a623; font-weight:800; font-size:15px; }
 
     /* MONTANT */
-    .montant-section { padding:12px 22px; border-bottom:1px solid #eee; }
-    .montant-box { border:2px solid #f5a623; border-radius:12px; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; }
-    .montant-lbl { font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:1px; margin-bottom:3px; }
-    .montant-val { font-size:30px; font-weight:800; color:#f5a623; line-height:1; }
-    .montant-devise { font-size:16px; font-weight:700; color:#f5a623; }
+    .montant-section { padding:16px 28px; border-bottom:1px solid #eee; }
+    .montant-box { border:2.5px solid #f5a623; border-radius:14px; padding:18px 22px; display:flex; justify-content:space-between; align-items:center; background:#fffdf7; }
+    .montant-lbl { font-size:10px; color:#aaa; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:5px; }
+    .montant-val { font-size:40px; font-weight:800; color:#f5a623; line-height:1; letter-spacing:-1px; }
+    .montant-devise { font-size:18px; font-weight:700; color:#f5a623; }
     .mode-pay { text-align:right; }
-    .mode-icon { font-size:24px; margin-bottom:3px; }
-    .mode-lbl { font-size:11px; color:#888; font-weight:600; }
+    .mode-icon { font-size:28px; margin-bottom:4px; }
+    .mode-lbl { font-size:13px; color:#666; font-weight:600; }
 
     /* SIGNATURES */
-    .sign-section { padding:10px 22px 16px; display:grid; grid-template-columns:1fr 1px 1fr; gap:0; }
-    .sign-col { text-align:center; padding:0 16px; }
-    .sign-line { border-top:1.5px solid #ddd; margin:30px auto 6px; width:80%; }
-    .sign-label { font-size:9px; color:#aaa; text-transform:uppercase; letter-spacing:1px; }
-    .sign-divider { background:#eee; }
+    .sign-section { padding:14px 28px 22px; display:grid; grid-template-columns:1fr 1px 1fr; gap:0; }
+    .sign-col { text-align:center; padding:0 20px; }
+    .sign-line { border-top:1.5px solid #ccc; margin:36px auto 8px; width:80%; }
+    .sign-label { font-size:9px; color:#aaa; text-transform:uppercase; letter-spacing:1.5px; }
+    .sign-name { margin-top:10px; font-size:14px; font-weight:700; color:#222; }
+    .sign-divider { background:#e8e8e8; }
 
     /* FOOTER */
-    .footer { background:#222; color:#fff; padding:10px 22px; display:flex; justify-content:space-between; align-items:center; font-size:10px; }
-    .footer-left { opacity:0.7; }
-    .footer-center { font-weight:700; color:#f5a623; }
-    .footer-right { opacity:0.7; }
+    .footer { background:#1a1a1a; color:#fff; padding:12px 28px; display:flex; justify-content:space-between; align-items:center; font-size:11px; }
+    .footer-left { opacity:0.6; }
+    .footer-center { font-weight:700; color:#f5a623; font-size:12px; }
+    .footer-right { opacity:0.6; }
 
     /* WATERMARK */
-    .watermark { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-30deg); font-size:80px; font-weight:900; color:rgba(245,166,35,0.05); pointer-events:none; white-space:nowrap; z-index:0; }
+    .watermark { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-30deg); font-size:90px; font-weight:900; color:rgba(245,166,35,0.04); pointer-events:none; white-space:nowrap; z-index:0; letter-spacing:8px; }
 
     @media print {
-      body { background:#fff; padding:0; }
-      .page { box-shadow:none; border-radius:0; max-width:100%; }
+      body { background:#fff; padding:0; margin:0; display:block; }
+      .page { box-shadow:none; border-radius:0; max-width:100%; width:100%; }
       .no-print { display:none !important; }
-      @page { size:A4; margin:8mm; }
+      @page { size:A4 portrait; margin:10mm 10mm 10mm 10mm; }
     }
   </style></head><body>
-  <div class="watermark">RINKEBY</div>
+  <div class="watermark">${nomSalle.toUpperCase()}</div>
   <div class="page">
 
     <!-- HEADER -->
@@ -33657,7 +33692,7 @@ function spImprimerMembre(id) {
         ${logoHTML}
         <div>
           <div class="top-name">💪 ${nomSalle}</div>
-          <div class="top-sub">Salle de Fitness & Musculation</div>
+          <div class="top-sub">Salle de Fitness &amp; Musculation</div>
           ${villeSalle ? `<div class="top-location">📍 ${villeSalle}</div>` : ''}
           ${telSalle   ? `<div class="top-location">📞 ${telSalle}</div>` : ''}
         </div>
@@ -33711,7 +33746,7 @@ function spImprimerMembre(id) {
       <div class="montant-box">
         <div>
           <div class="montant-lbl">Montant payé</div>
-          <div style="display:flex;align-items:baseline;gap:10px;">
+          <div style="display:flex;align-items:baseline;gap:12px;">
             <span class="montant-val">${(m.montant||0).toLocaleString('fr-FR')}</span>
             <span class="montant-devise">FCFA</span>
           </div>
@@ -33728,13 +33763,12 @@ function spImprimerMembre(id) {
       <div class="sign-col">
         <div class="sign-line"></div>
         <div class="sign-label">Signature du Membre</div>
-        <div style="margin-top:8px;font-size:13px;font-weight:600;color:#888;">Sport</div>
-        <div style="font-size:12px;font-weight:700;color:#222;margin-top:2px;">${m.nom}</div>
+        <div class="sign-name">${m.nom}</div>
       </div>
       <div class="sign-divider"></div>
       <div class="sign-col">
         <div class="sign-line"></div>
-        <div class="sign-label">Cachet & Signature Responsable</div>
+        <div class="sign-label">Cachet &amp; Signature Responsable</div>
       </div>
     </div>
 
@@ -33746,14 +33780,14 @@ function spImprimerMembre(id) {
     </div>
 
     <!-- BOUTON IMPRESSION -->
-    <div class="no-print" style="padding:16px 28px;display:flex;gap:10px;justify-content:center;">
-      <button onclick="window.print()" style="background:#f5a623;color:#fff;border:none;border-radius:10px;padding:12px 32px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(245,166,35,0.35);">🖨️ Imprimer / Enregistrer PDF</button>
-      <button onclick="window.close()" style="background:#eee;color:#555;border:none;border-radius:10px;padding:12px 22px;font-size:14px;cursor:pointer;">✕ Fermer</button>
+    <div class="no-print" style="padding:18px 28px;display:flex;gap:12px;justify-content:center;background:#f9f9f9;border-top:1px solid #eee;">
+      <button onclick="window.print()" style="background:linear-gradient(135deg,#f5a623,#e8921a);color:#fff;border:none;border-radius:10px;padding:13px 36px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(245,166,35,0.40);">🖨️ Imprimer / Enregistrer PDF</button>
+      <button onclick="window.close()" style="background:#eee;color:#555;border:none;border-radius:10px;padding:13px 22px;font-size:14px;cursor:pointer;font-weight:600;">✕ Fermer</button>
     </div>
   </div>
   </body></html>`;
 
-  const win = window.open('', '_blank', 'width=680,height=820,scrollbars=yes');
+  const win = window.open('', '_blank', 'width=760,height=900,scrollbars=yes');
   if(!win) { showNotif('⚠️ Autorisez les popups pour imprimer'); return; }
   win.document.write(html);
   win.document.close();
