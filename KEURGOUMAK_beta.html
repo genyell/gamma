@@ -32,6 +32,82 @@
     padding-top: 44px !important;
   }
 </style>
+
+<script>
+// ✅ FIX ISOLATION MULTI-RESTAURANT : wrapper localStorage par restaurant_id
+// Toutes les clés kg- et kg_ sont préfixées par le restaurant actif
+// Evite la fusion des données entre 2 restaurants sur le même navigateur
+(function() {
+  const _KG_KEYS = [
+    'kg-session','kg-historique-clotures','kg-restaurant-info','kg-ticket-config',
+    'kg-modules-active','kg-order-counters','kg-caisses-config','kg-c3-orders',
+    'kg-factures','kg-inventaires','kg-theme',
+    'kg-tarifs-location','kg-tarifs-piscine','kg-tarifs-sport','kg-tarifs-terrain',
+    'kg-terrain-formules','kg-manege-formules','kg-sport-formules-dyn',
+    'kg-terrain-reservations','kg-tickets-valides',
+    'kg_depenses','kg_cloture_timestamps','kg_tickets_attente',
+    'kg_loc_caisse_state','kg_manege_caisse_state','kg_pisc_caisse_state',
+    'kg_sport_caisse_state','kg_terrain_caisse_state',
+  ];
+  // Clés préfixes (commencent par) aussi isolées
+  const _KG_PREFIXES = [
+    'kg_cmd_ouvert_','kg_deleted_orders_','kg_stock_pending_',
+    'kg-historique-clotures-','kg-rh-','kg_rh_',
+  ];
+
+  function _needsPrefix(key) {
+    if(!key) return false;
+    // Déjà préfixé par un restaurant_id (UUID) → ne pas double-préfixer
+    if(window._KG_RESTAURANT_ID && key.startsWith(window._KG_RESTAURANT_ID + ':')) return false;
+    // kg_val_ est déjà géré par _rkey() → ne pas toucher
+    if(key.startsWith('kg_val_')) return false;
+    // kg_depots_ est déjà préfixé par rid → ne pas toucher
+    if(key.startsWith('kg_depots_')) return false;
+    // Vérifier si la clé fait partie des clés à isoler
+    if(_KG_KEYS.includes(key)) return true;
+    for(const p of _KG_PREFIXES) { if(key.startsWith(p)) return true; }
+    return false;
+  }
+
+  function _prefixed(key) {
+    const rid = window._KG_RESTAURANT_ID;
+    if(!rid || !_needsPrefix(key)) return key;
+    return 'rid_' + rid + ':' + key;
+  }
+
+  // Sauvegarder les vraies fonctions
+  const _realGet    = localStorage.getItem.bind(localStorage);
+  const _realSet    = localStorage.setItem.bind(localStorage);
+  const _realRemove = localStorage.removeItem.bind(localStorage);
+
+  // Override
+  Storage.prototype.getItem = function(key) {
+    const pk = _prefixed(key);
+    // Si préfixé : lire d'abord la clé préfixée, fallback sur clé brute (migration)
+    if(pk !== key) {
+      const val = _realGet(pk);
+      if(val !== null) return val;
+      // Migration : si données existent sous l'ancienne clé non-préfixée, les lire
+      return _realGet(key);
+    }
+    return _realGet(key);
+  };
+
+  Storage.prototype.setItem = function(key, value) {
+    const pk = _prefixed(key);
+    _realSet(pk, value);
+    // Si migration : supprimer l'ancienne clé non-préfixée pour éviter confusion
+    if(pk !== key) { try { _realRemove(key); } catch(e) {} }
+  };
+
+  Storage.prototype.removeItem = function(key) {
+    _realRemove(_prefixed(key));
+    _realRemove(key); // nettoyer aussi l'ancienne clé non-préfixée
+  };
+
+  console.log('[KG] ✅ Isolation localStorage multi-restaurant activée');
+})();
+</script>
 <script>
   // Forcer thème sombre immédiatement
   document.documentElement.removeAttribute('data-theme');
@@ -16890,7 +16966,28 @@ async function doLogout() {
   currentUser = null;
   sessionCaisseActive = null;
   cart = [];
-  window._KG_RESTAURANT_ID = null;
+  // ✅ FIX ISOLATION : réinitialiser les données en mémoire RAM au logout
+  // Le wrapper localStorage garde les données séparées par restaurant sur disque
+  // Mais la RAM doit aussi être vidée pour ne pas polluer la connexion suivante
+  HISTORIQUE_CLOTURES = [];
+  FOURNISSEURS = [];
+  COMMANDES_FOURNISSEURS = [];
+  STOCK_DATA = [];
+  STOCK_ENTREES = [];
+  DEPENSES = [];
+  CLIENTS = [];
+  MENU = [];
+  VENTES_PAR_CAISSE = {};
+  if(typeof RH_EMPLOYES !== 'undefined') RH_EMPLOYES = [];
+  if(typeof RH_PAIES    !== 'undefined') RH_PAIES    = [];
+  if(typeof RH_CONGES   !== 'undefined') RH_CONGES   = [];
+  if(typeof RH_AVANCES  !== 'undefined') RH_AVANCES  = [];
+  if(typeof FACTURES    !== 'undefined') FACTURES     = [];
+  if(typeof INVENTAIRES !== 'undefined') INVENTAIRES  = [];
+  window._kgStockDeductedAt = null;
+  window._kgPageJustLoaded  = true; // reset pour le prochain login
+  window._lastCaisseReload  = null;
+  window._KG_RESTAURANT_ID  = null;
   document.getElementById('login-user').value = '';
   document.getElementById('login-pass').value = '';
   document.getElementById('login-error').classList.remove('show');
@@ -18894,6 +18991,12 @@ async function cloturerCaisse() {
       }))
     };
     HISTORIQUE_CLOTURES.unshift(cloture);
+    // ✅ FIX SYNC : sauvegarder immédiatement en localStorage (tous appareils verront après pullAll)
+    try {
+      localStorage.setItem("kg-historique-clotures", JSON.stringify(HISTORIQUE_CLOTURES));
+      const _ridClo = window._KG_RESTAURANT_ID;
+      if(_ridClo) localStorage.setItem("kg-historique-clotures-" + _ridClo, JSON.stringify(HISTORIQUE_CLOTURES));
+    } catch(e) {}
     // ✅ Peupler aussi TICKETS_ARCHIVES avec les tickets de cette clôture
     if(typeof TICKETS_ARCHIVES !== 'undefined') {
       (cloture.tickets || []).forEach(t => {
@@ -19245,6 +19348,18 @@ async function cloturerCaisse() {
 
 // ===== HISTORIQUE — données réelles uniquement =====
 let HISTORIQUE_CLOTURES = [];
+// ✅ FIX AFFICHAGE IMMÉDIAT : charger depuis localStorage au démarrage
+// Sans ça, les autres appareils voient l'historique vide jusqu'au prochain pullAll
+try {
+  const _rid0 = window._KG_RESTAURANT_ID;
+  // Essayer d'abord la clé prefixée restaurant (plus précise)
+  const _clKey = _rid0 ? ('kg-historique-clotures-' + _rid0) : 'kg-historique-clotures';
+  const _stored = localStorage.getItem(_clKey) || localStorage.getItem('kg-historique-clotures');
+  if(_stored) {
+    const _parsed = JSON.parse(_stored);
+    if(Array.isArray(_parsed) && _parsed.length > 0) HISTORIQUE_CLOTURES = _parsed;
+  }
+} catch(e) {}
 // ✅ Tickets archivés — chargés directement depuis Supabase (ventes cloturee=true)
 let TICKETS_ARCHIVES = [];
 
@@ -20614,7 +20729,7 @@ const KGSync = (() => {
       await upsert('ventes_' + caisse.replace(/\s+/g,'_'), { caisse, ventes, orderCounter, caisseStatus: _caisseStatus, moduleActive: _moduleActive });
     }
   }
-  async function pushStock()          { _invalidateCache('stock_data'); _debouncedUpsert('stock_data', () => ({ items: STOCK_DATA, entries: STOCK_ENTREES }), 8000); } // ✅ FIX EGRESS : 3s→8s debounce stock
+  async function pushStock()          { _invalidateCache('stock_data'); _debouncedUpsert('stock_data', () => ({ items: STOCK_DATA, entries: STOCK_ENTREES }), 3000); } // ✅ FIX DÉDUCTION : 8s→3s pour sauvegarder avant le prochain pullAll
   async function pushCaisses()        { _debouncedUpsert('caisses_data', () => ({ items: CAISSES, sessionActive: sessionCaisseActive }), 5000); }
 
   // ✅ FIX v31 MULTI-NAVIGATEURS : synchroniser les états complets des modules (C4-C8) vers Supabase
@@ -21099,7 +21214,15 @@ const KGSync = (() => {
             orderCounter = data.orderCounter;
           }
         } else if(key === 'stock_data' && data.items) {
-          STOCK_DATA = data.items;
+          // ✅ FIX ANTI-ÉCRASEMENT : ne pas écraser si une déduction vient d'être faite (< 15s)
+          // Résout le bug : caissier vend → stock déduit → pullAll écrase → déduction perdue
+          const _msSinceDeduct = window._kgStockDeductedAt ? (Date.now() - window._kgStockDeductedAt) : 99999;
+          if(_msSinceDeduct < 15000) {
+            console.log('[pullAll] ⚡ Stock protégé — déduction récente (', Math.round(_msSinceDeduct/1000), 's ago) — pullAll ignoré pour stock_data');
+            // Replanifier un push du stock local dans 5s pour propager la déduction
+            setTimeout(() => { if(typeof KGSync !== 'undefined') KGSync.push.stock().catch(()=>{}); }, 5000);
+          } else {
+            STOCK_DATA = data.items;
           STOCK_ENTREES = data.entries || STOCK_ENTREES;
           // ✅ FIX IDs : après chaque pullAll, resynchroniser les stockId dans les recettes du MENU
           // pour qu'ils correspondent exactement aux IDs actuels de STOCK_DATA
@@ -21124,6 +21247,7 @@ const KGSync = (() => {
             });
           });
           console.log('[pullAll] ✅ stockId recettes normalisés après rechargement STOCK_DATA');
+          } // fin else (_msSinceDeduct >= 15000)
         } else if(key === 'modules_caisses_data' && data.states) {
           // ✅ FIX v31 MULTI-NAVIGATEURS : restaurer les états des modules depuis Supabase
           // Ce navigateur reçoit les transactions et l'état actif de l'autre navigateur
@@ -21255,7 +21379,12 @@ const KGSync = (() => {
             HISTORIQUE_CLOTURES.sort((a,b) => (b.date+b.heure).localeCompare(a.date+a.heure));
           }
           // ✅ FIX v32 SYNC CLOTURES : persister en localStorage + rafraîchir l'interface
-          try { localStorage.setItem('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES)); } catch(e) {}
+          try {
+            // Sauvegarder sous les 2 clés pour compatibilité tous appareils
+            localStorage.setItem('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
+            const _ridSave = window._KG_RESTAURANT_ID;
+            if(_ridSave) localStorage.setItem('kg-historique-clotures-' + _ridSave, JSON.stringify(HISTORIQUE_CLOTURES));
+          } catch(e) {}
           // Appliquer le statut 'closed' aux caisses qui ont été clôturées sur un autre navigateur
           const _todayCloture = new Date().toISOString().slice(0,10);
           HISTORIQUE_CLOTURES.filter(h => (h.date||'').slice(0,10) === _todayCloture).forEach(h => {
@@ -21877,9 +22006,12 @@ const KGSync = (() => {
               } catch(se) {}
             }
             // ✅ FIX EGRESS : throttle 10s minimum entre 2 pulls déclenchés par broadcast
+            // EXCEPTION : le ping de clôture (_cloture_ping) doit TOUJOURS déclencher un pull
+            // Sans ça, la clôture n'apparaît pas sur les autres appareils si throttlé
+            var _isCloturePing = key && key.indexOf('_cloture_ping') !== -1;
             const _now = Date.now();
             const _sinceLast = _now - (window._lastPullAllTs || 0);
-            if(_sinceLast < 10000) {
+            if(_sinceLast < 10000 && !_isCloturePing) {
               console.log('[egress] pull throttlé — dernier pull il y a', Math.round(_sinceLast/1000) + 's');
               return;
             }
@@ -22151,6 +22283,8 @@ function deduireStockVente(items) {
     });
   });
   if(hasChanges) {
+    // ✅ FIX ANTI-ÉCRASEMENT : verrou 15s pour bloquer pullAll après déduction
+    window._kgStockDeductedAt = Date.now();
     if(typeof renderStock === 'function' && document.getElementById('view-stock') && document.getElementById('view-stock').classList.contains('active')) {
       renderStock();
     }
