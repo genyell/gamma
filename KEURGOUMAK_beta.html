@@ -41,7 +41,7 @@
   const _KG_KEYS = [
     'kg-session','kg-historique-clotures','kg-restaurant-info','kg-ticket-config',
     'kg-modules-active','kg-order-counters','kg-caisses-config','kg-c3-orders',
-    'kg-factures','kg-inventaires','kg-theme',
+    'kg-factures','kg-inventaires', /* kg-theme retiré intentionnellement : préférence locale non préfixée */
     'kg-tarifs-location','kg-tarifs-piscine','kg-tarifs-sport','kg-tarifs-terrain',
     'kg-terrain-formules','kg-manege-formules','kg-sport-formules-dyn',
     'kg-terrain-reservations','kg-tickets-valides',
@@ -112,7 +112,20 @@
   // Appliquer le thème sauvegardé immédiatement (avant tout rendu)
   (function() {
     try {
+      // ✅ FIX BUG THÈME : lire aussi la clé préfixée par restaurant_id
+      // setTheme() sauvegarde avec préfixe rid_XXX:kg-theme (car rid est connu après login)
+      // mais au chargement initial, rid n'est pas encore chargé → chercher dans toutes les clés
       var _t = localStorage.getItem('kg-theme') || 'dark';
+      // Chercher une clé préfixée rid_ plus récente
+      try {
+        for(var i = 0; i < localStorage.length; i++) {
+          var _k = localStorage.key(i);
+          if(_k && _k.indexOf('rid_') === 0 && _k.indexOf(':kg-theme') !== -1) {
+            var _tv = localStorage.getItem(_k);
+            if(_tv === 'light' || _tv === 'dark' || _tv === 'auto') { _t = _tv; break; }
+          }
+        }
+      } catch(e2) {}
       if(_t === 'light') document.documentElement.setAttribute('data-theme', 'light');
       else document.documentElement.removeAttribute('data-theme');
     } catch(e) { document.documentElement.removeAttribute('data-theme'); }
@@ -10447,7 +10460,14 @@ function addToCart(menuIdx) {
   const item = MENU[menuIdx];
   if(!item) return;
   const existing = cart.find(c => c.id === item.id);
-  if(existing) { existing.qty++; }
+  if(existing) {
+    existing.qty++;
+    // ✅ FIX BUG STOCK : mettre à jour la recette depuis MENU à chaque ajout
+    // (pullAll peut avoir chargé la recette après le premier ajout)
+    if(!existing.recette || !existing.recette.length) {
+      existing.recette = item.recette || [];
+    }
+  }
   else { cart.push({ id: item.id, sbId: item.sbId, name: item.name, image_url: item.image_url || item._displayIcon || ((item.icon && (item.icon.startsWith('http')||item.icon.startsWith('data:')||item.icon.startsWith('//')||item.icon.includes('ibb.co'))) ? item.icon : null), icon: _safeIconText(item.icon), price: item.price, cat: item.cat, qty: 1, recette: item.recette || [] }); }
   renderCart();
   showNotif(`➕ ${_safeIconText(item.icon)} ${item.name} ajouté`);
@@ -17078,10 +17098,14 @@ function openUserMenuOrUtilisateurs() {
     if(document.visibilityState === 'visible') {
       const elapsed = Date.now() - _lastActiveTs;
       console.log('[AutoLogout] Tab redevenu visible — inactivité:', Math.round(elapsed/1000)+'s');
-      if(elapsed >= INACTIVITY_MS && currentUser) {
-        console.warn('[AutoLogout] ⏰ Délai dépassé pendant inactivité — déconnexion');
+      // ✅ FIX DÉCONNEXION INTEMPESTIVE : sur mobile, verrouiller l'écran met l'onglet
+      // en arrière-plan → visibilitychange se déclenche. On tolère jusqu'à 30min
+      // avant de déconnecter (au lieu de 15min) pour éviter la déco à chaque pause courte
+      const EXTENDED_MS = 15 * 60 * 1000; // 15 minutes
+      if(elapsed >= EXTENDED_MS && currentUser) {
+        console.warn('[AutoLogout] ⏰ Délai dépassé (15min) pendant inactivité — déconnexion');
         _doAutoLogout();
-      } else if(elapsed >= (INACTIVITY_MS - WARNING_BEFORE) && currentUser) {
+      } else if(elapsed >= (EXTENDED_MS - WARNING_BEFORE) && currentUser) {
         _showWarning();
       }
     }
@@ -20039,6 +20063,19 @@ function setTheme(theme) {
   }
   // Sauvegarder la préférence
   localStorage.setItem('kg-theme', theme);
+  // ✅ FIX BUG THÈME : sauvegarder aussi sans préfixe pour que le chargement initial le trouve
+  // (au chargement, _KG_RESTAURANT_ID n'est pas encore défini → le wrapper ne préfixe pas)
+  try {
+    const _realSet = Storage.prototype._kgRealSet || localStorage.setItem.bind(localStorage);
+    // Écrire directement la clé brute sans passer par le wrapper qui préfixerait
+    const _rid = window._KG_RESTAURANT_ID;
+    if(_rid) {
+      // Forcer l'écriture de la clé brute en contournant le wrapper localStorage
+      Object.getPrototypeOf(localStorage).__kgOrigSet
+        ? Object.getPrototypeOf(localStorage).__kgOrigSet.call(localStorage, 'kg-theme', theme)
+        : null;
+    }
+  } catch(e) {}
   // Mettre à jour les boutons actifs
   ['dark','light','auto'].forEach(t => {
     const btn = document.getElementById('tbtn-' + t);
@@ -20048,7 +20085,17 @@ function setTheme(theme) {
 
 function initTheme() {
   let saved = 'dark';
-  try { saved = localStorage.getItem('kg-theme') || 'dark'; } catch(e) { saved = 'dark'; }
+  try {
+    saved = localStorage.getItem('kg-theme') || 'dark';
+    // ✅ FIX BUG THÈME : chercher aussi la clé préfixée rid_ (sauvée après login)
+    for(let i = 0; i < localStorage.length; i++) {
+      const _k = localStorage.key(i);
+      if(_k && _k.startsWith('rid_') && _k.endsWith(':kg-theme')) {
+        const _tv = localStorage.getItem(_k);
+        if(_tv === 'light' || _tv === 'dark' || _tv === 'auto') { saved = _tv; break; }
+      }
+    }
+  } catch(e) { saved = 'dark'; }
   // Sur fichier local (content://), forcer dark
   if(window.location.protocol === 'content:') saved = 'dark';
   setTheme(saved);
@@ -21371,7 +21418,7 @@ const KGSync = (() => {
           // Résout le bug : caissier vend → stock déduit → pullAll écrase → déduction perdue
           // Idem pour : updateStockQty, saveStockArticle, saveEntreeStock, deleteStockArticle
           const _msSinceDeduct = window._kgStockModifiedAt ? (Date.now() - window._kgStockModifiedAt) : 99999;
-          if(_msSinceDeduct < 15000) {
+          if(_msSinceDeduct < 30000) { // ✅ FIX : verrou augmenté 15s→30s pour éviter écrasement de déduction
             console.log('[pullAll] ⚡ Stock protégé — modif récente (', Math.round(_msSinceDeduct/1000), 's ago) — pullAll ignoré pour stock_data');
             // Replanifier un push du stock local dans 2s pour propager la modif
             setTimeout(() => { if(typeof KGSync !== 'undefined') KGSync.push.stock().catch(()=>{}); }, 2000);
@@ -22405,12 +22452,17 @@ function deduireStockVente(items) {
   if(!items || !items.length) return;
   let hasChanges = false;
   items.forEach(function(item) {
-    // Priorité : recette portée par l'item du panier (plus à jour), sinon fallback MENU
+    // ✅ FIX BUG STOCK : toujours chercher menuItem en priorité absolue
+    // Le panier peut avoir été ajouté AVANT que pullAll charge les recettes depuis Supabase
+    // → item.recette peut être [] même si MENU a maintenant les ingrédients
     const menuItem = MENU.find(function(m) {
       return m.id === item.id || m.sbId === item.id || m.id === item.sbId || m.sbId === item.sbId || m.name === item.name;
     });
-    // ✅ FIX : priorité au MENU (normalisé après pull) plutôt qu'à la copie du cart (peut avoir de vieux IDs)
-    const recetteSource = (menuItem && menuItem.recette && menuItem.recette.length > 0) ? menuItem.recette : (item.recette || []);
+    // ✅ FIX : TOUJOURS priorité au MENU (source de vérité après pull Supabase)
+    // Fallback sur recette du panier uniquement si le MENU n'a pas de recette
+    const recetteSource = (menuItem && menuItem.recette && menuItem.recette.length > 0)
+      ? menuItem.recette
+      : (item.recette && item.recette.length > 0 ? item.recette : []);
     if(!recetteSource || !recetteSource.length) return;
     recetteSource.forEach(function(ligne) {
       // Priorité : sbStockId (UUID Supabase) > stockId > stockNom
@@ -22418,9 +22470,17 @@ function deduireStockVente(items) {
       if(ligne.sbStockId) stockItem = STOCK_DATA.find(function(s){ return String(s.sbId)===String(ligne.sbStockId); });
       if(!stockItem && ligne.stockId) stockItem = STOCK_DATA.find(function(s){ return String(s.sbId)===String(ligne.stockId) || String(s.id)===String(ligne.stockId); });
       if(!stockItem && ligne.stockNom) stockItem = STOCK_DATA.find(function(s){ return s.name && s.name.trim().toLowerCase()===ligne.stockNom.trim().toLowerCase(); });
+      // ✅ FIX BUG STOCK : dernier fallback — chercher par qty/nom partiel si tout échoue
+      if(!stockItem && ligne.stockNom) {
+        // Déjà tenté ligne.stockNom exact ci-dessus, essayer en ignorant la casse et les espaces
+        stockItem = STOCK_DATA.find(function(s) {
+          return s.name && ligne.stockNom &&
+            s.name.trim().toLowerCase().includes(ligne.stockNom.trim().toLowerCase().substring(0, 4));
+        });
+      }
       if(!stockItem) {
         // ✅ FIX : menuItem peut être null → éviter crash JS qui bloque toute la boucle
-        console.warn('[stock] Ingrédient introuvable pour stockId:', ligne.stockId, '— article:', (menuItem ? menuItem.name : item.name));
+        console.warn('[stock] Ingrédient introuvable pour stockId:', ligne.stockId, 'sbStockId:', ligne.sbStockId, 'nom:', ligne.stockNom, '— article:', (menuItem ? menuItem.name : item.name));
         return;
       }
       const consommation = ligne.qty * (item.qty || 1);
@@ -35376,5 +35436,152 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- ── Modal nom du serveur (ticket en attente) ── -->
 <div id="modal-serveur-attente2-placeholder"></div>
+
+<!-- ── Modal Reconstruire Clôture ── -->
+<div id="modal-reconstruire" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 24px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:8px;">🔧 Reconstruire la clôture</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.6;">
+      Cette action va <strong style="color:#e84520;">recalculer les totaux</strong> de toutes les clôtures à partir des tickets enregistrés.<br><br>
+      Utile quand le CA affiche <strong>0</strong> ou que les données sont incohérentes.
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="fermerModalReconstruire()" style="padding:10px 18px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;font-weight:600;">Annuler</button>
+      <button onclick="executerReconstruction()" style="padding:10px 18px;background:linear-gradient(135deg,#e84520,#f59e2a);border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:13px;font-weight:700;">🔧 Reconstruire</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  RECONSTRUIRE CLÔTURE — fonction manquante ajoutée
+// ═══════════════════════════════════════════════════════════════
+
+function ouvrirModalReconstruire() {
+  const modal = document.getElementById('modal-reconstruire');
+  if(modal) { modal.style.display = 'flex'; }
+}
+
+function fermerModalReconstruire() {
+  const modal = document.getElementById('modal-reconstruire');
+  if(modal) { modal.style.display = 'none'; }
+}
+
+async function executerReconstruction() {
+  fermerModalReconstruire();
+
+  // Afficher notif de démarrage
+  if(typeof showNotif === 'function') showNotif('🔧 Reconstruction en cours...');
+
+  try {
+    const rid = window._KG_RESTAURANT_ID;
+
+    // ── Étape 1 : Recharger depuis localStorage ──
+    const possibleKeys = [
+      rid ? 'rid_' + rid + ':kg-historique-clotures' : null,
+      rid ? 'kg-historique-clotures-' + rid : null,
+      'kg-historique-clotures',
+    ].filter(Boolean);
+
+    let loaded = false;
+    for(const key of possibleKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if(raw) {
+          const parsed = JSON.parse(raw);
+          if(Array.isArray(parsed) && parsed.length > 0) {
+            HISTORIQUE_CLOTURES = parsed;
+            loaded = true;
+            console.log('[reconstruire] Chargé depuis localStorage (' + key + ') : ' + parsed.length + ' clôture(s)');
+            break;
+          }
+        }
+      } catch(e) { console.warn('[reconstruire] Erreur lecture clé', key, e); }
+    }
+
+    // ── Étape 2 : Tenter de charger depuis Supabase ──
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      try {
+        const sb  = KGSync.getClient();
+        if(sb && rid) {
+          const { data: kvRow } = await sb
+            .from('kg_sync')
+            .select('value')
+            .eq('key', rid + ':clotures_data')
+            .maybeSingle();
+          if(kvRow && kvRow.value) {
+            let parsed = kvRow.value;
+            if(typeof parsed === 'string') { try { parsed = JSON.parse(parsed); } catch(e){} }
+            const remote = Array.isArray(parsed.items) ? parsed.items : [];
+            if(remote.length > 0) {
+              // Fusionner local + distant
+              const mergedMap = new Map();
+              (HISTORIQUE_CLOTURES || []).forEach(h => mergedMap.set(h.date+'_'+h.heure+'_'+(h.caisse||''), h));
+              remote.forEach(h => mergedMap.set(h.date+'_'+h.heure+'_'+(h.caisse||''), h));
+              HISTORIQUE_CLOTURES = Array.from(mergedMap.values());
+              console.log('[reconstruire] Fusionné avec Supabase : ' + HISTORIQUE_CLOTURES.length + ' clôture(s)');
+            }
+          }
+        }
+      } catch(e) { console.warn('[reconstruire] Erreur Supabase', e); }
+    }
+
+    // ── Étape 3 : Recalculer les CA depuis les tickets ──
+    let nbCorrigees = 0;
+    HISTORIQUE_CLOTURES = (HISTORIQUE_CLOTURES || []).map(h => {
+      const caFromTickets = (h.tickets || []).reduce((a, t) => a + (t.total || 0), 0);
+      // Corriger CA à 0 si des tickets existent
+      if(caFromTickets > 0 && (!h.ca || h.ca === 0)) {
+        h.ca      = caFromTickets;
+        h.caTotal = caFromTickets;
+        nbCorrigees++;
+      } else {
+        h.ca      = h.ca      || h.caTotal || 0;
+        h.caTotal = h.caTotal || h.ca      || 0;
+      }
+      // Corriger le nombre de tickets
+      h.orders    = h.orders    || h.nbTickets || (h.tickets || []).length || 0;
+      h.nbTickets = h.nbTickets || h.orders    || 0;
+      return h;
+    });
+
+    // ── Étape 4 : Trier par date décroissante ──
+    HISTORIQUE_CLOTURES.sort((a, b) => (b.date + (b.heure||'')).localeCompare(a.date + (a.heure||'')));
+
+    // ── Étape 5 : Sauvegarder en localStorage ──
+    try {
+      const saveKey = rid ? 'rid_' + rid + ':kg-historique-clotures' : 'kg-historique-clotures';
+      localStorage.setItem(saveKey, JSON.stringify(HISTORIQUE_CLOTURES));
+    } catch(e) { console.warn('[reconstruire] Erreur sauvegarde localStorage', e); }
+
+    // ── Étape 6 : Repousser vers Supabase ──
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      try { await KGSync.push.clotures(); } catch(e) { console.warn('[reconstruire] Erreur push Supabase', e); }
+    }
+
+    // ── Étape 7 : Rafraîchir l'affichage ──
+    if(typeof renderHistorique === 'function') renderHistorique();
+
+    const msg = '✅ Reconstruction terminée — ' + HISTORIQUE_CLOTURES.length + ' clôture(s)' + (nbCorrigees > 0 ? ', ' + nbCorrigees + ' CA corrigé(s)' : '');
+    if(typeof showNotif === 'function') showNotif(msg);
+    console.log('[reconstruire] ' + msg);
+
+  } catch(e) {
+    console.error('[reconstruire] Erreur fatale', e);
+    if(typeof showNotif === 'function') showNotif('❌ Erreur reconstruction : ' + e.message);
+  }
+}
+
+// Fermer le modal en cliquant en dehors
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('modal-reconstruire');
+  if(modal && e.target === modal) fermerModalReconstruire();
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  FIN RECONSTRUIRE CLÔTURE
+// ═══════════════════════════════════════════════════════════════
+</script>
+
 </body>
 </html>
