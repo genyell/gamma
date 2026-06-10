@@ -5580,10 +5580,18 @@ function _syncSportVentes()       { return []; }
               <p style="font-size:13px;color:var(--text2);margin:4px 0 0;">Commandes par serveur</p>
             </div>
             <!-- Filtre période -->
-            <div style="display:flex;gap:6px;">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
               <button id="sstat-jour" onclick="switchStatPeriode('jour')" style="padding:7px 14px;border-radius:20px;border:none;font-size:12px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#f59e2a,#e84520);color:#fff;">Jour</button>
               <button id="sstat-semaine" onclick="switchStatPeriode('semaine')" style="padding:7px 14px;border-radius:20px;border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--text2);">Semaine</button>
               <button id="sstat-mois" onclick="switchStatPeriode('mois')" style="padding:7px 14px;border-radius:20px;border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--text2);">Mois</button>
+              <button id="sstat-date" onclick="switchStatPeriode('date')" style="padding:7px 14px;border-radius:20px;border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--text2);">📅 Date</button>
+            </div>
+            <!-- Filtre plage de dates -->
+            <div id="sstat-date-range" style="display:none;margin-top:10px;display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="font-size:12px;color:var(--text2);font-weight:600;">Du</span>
+              <input type="date" id="sstat-date-du" style="padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;" onchange="renderStatsServeurs('date')" />
+              <span style="font-size:12px;color:var(--text2);font-weight:600;">Au</span>
+              <input type="date" id="sstat-date-au" style="padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;" onchange="renderStatsServeurs('date')" />
             </div>
           </div>
           <div id="stats-serveurs-content">
@@ -9313,7 +9321,24 @@ function showView(id, el, pushState) {
   if(id === 'inventaire') { initInvDate(); renderInvSaisie(); }
   if(id === 'preparation') { renderPreparation(); }
   if(id === 'clients') renderClients();
-  if(id === 'fournisseurs') renderFournisseurs();
+  if(id === 'fournisseurs') {
+    // ✅ FIX EGRESS : si FOURNISSEURS vide → essayer localStorage d'abord, pas de pullAll forcé
+    if(!FOURNISSEURS || !FOURNISSEURS.length) {
+      try {
+        const _ridF = window._KG_RESTAURANT_ID;
+        const _rawF = localStorage.getItem('kg_val_' + _ridF + ':commandes_fourn_data')
+                   || localStorage.getItem('rid_' + _ridF + ':commandes_fourn_data')
+                   || localStorage.getItem('commandes_fourn_data');
+        if(_rawF) {
+          const _dF = JSON.parse(_rawF);
+          const _df2 = (_dF && _dF.value) ? (typeof _dF.value === 'string' ? JSON.parse(_dF.value) : _dF.value) : _dF;
+          if(_df2 && _df2.fournisseurs && _df2.fournisseurs.length) FOURNISSEURS = _df2.fournisseurs;
+          if(_df2 && _df2.items && _df2.items.length) COMMANDES_FOURNISSEURS = _df2.items;
+        }
+      } catch(e) {}
+    }
+    renderFournisseurs();
+  }
   if(id === 'stats') renderStats();
   if(id === 'utilisateurs') { switchUTab('liste'); }
   if(id === 'caisses') renderCaisses();
@@ -9442,6 +9467,8 @@ function showView(id, el, pushState) {
     renderFournisseurs();
     // Rafraîchir depuis Supabase en arrière-plan si liste toujours vide
     if(FOURNISSEURS.length === 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      // ✅ FIX : reset throttle pour forcer pullAll si fournisseurs vides
+      if(!FOURNISSEURS || !FOURNISSEURS.length) window._lastPullAllTs = 0;
       KGSync.pullAll().then(()=>{ if(typeof renderFournisseurs==='function') renderFournisseurs(); }).catch(()=>{});
     }
   }
@@ -9462,6 +9489,8 @@ function showView(id, el, pushState) {
     renderStock();
     // Rafraîchir depuis Supabase en arrière-plan si toujours vide
     if(STOCK_DATA.length === 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      // ✅ FIX : reset throttle pour forcer pullAll si données vides
+      if(!STOCK_DATA || !STOCK_DATA.length) window._lastPullAllTs = 0;
       KGSync.pullAll().then(()=>{ if(typeof renderStock==='function') renderStock(); }).catch(()=>{});
     }
   }
@@ -16857,11 +16886,66 @@ async function doLogin() {
     await _kgRegisterSessionToken(currentUser.id, window._KG_RESTAURANT_ID);
     _kgStartSessionWatch();
 
-    // ✅ FIX : retry pullAll si échec (token pas encore prêt ou réseau lent)
+    // ✅ FIX EGRESS : pullAll login — PAS de reset throttle, on respecte le cache
+    // Si pullAll bloqué par throttle → charger stock/fourn depuis localStorage directement
     try { await KGSync.pullAll(); } catch(_e1) {
       console.warn('[login] pullAll échoué, retry dans 3s…', _e1);
       setTimeout(() => KGSync.pullAll().catch(e => console.warn('[login] pullAll retry:', e)), 3000);
     }
+
+    // ✅ FIX STOCK/FOURN VIDE : charger depuis cache localStorage IMMÉDIATEMENT
+    // Sans attendre pullAll → affichage instantané dès la connexion
+    (function _preloadStockFournFromCache() {
+      const _rid = window._KG_RESTAURANT_ID;
+      if(!_rid) return;
+
+      // Charger STOCK_DATA depuis cache si vide
+      if(!STOCK_DATA || !STOCK_DATA.length) {
+        try {
+          const _raw = localStorage.getItem('kg_val_' + _rid + ':stock_data');
+          if(_raw) {
+            const _d = JSON.parse(_raw);
+            // La valeur peut être wrappée dans .value (format Supabase) ou directe
+            const _d2 = (_d && _d.value)
+              ? (typeof _d.value === 'string' ? JSON.parse(_d.value) : _d.value)
+              : _d;
+            if(_d2 && _d2.items && _d2.items.length) {
+              STOCK_DATA    = _d2.items;
+              STOCK_ENTREES = _d2.entries || [];
+              console.log('[preload] ✅ STOCK_DATA chargé depuis cache :', STOCK_DATA.length, 'articles');
+              if(typeof renderStock === 'function' && window._currentView === 'stock') {
+                try { renderStock(); } catch(e) {}
+              }
+            }
+          }
+        } catch(e) {}
+      }
+
+      // Charger FOURNISSEURS depuis cache si vide
+      if(!FOURNISSEURS || !FOURNISSEURS.length) {
+        try {
+          const _raw = localStorage.getItem('kg_val_' + _rid + ':commandes_fourn_data');
+          if(_raw) {
+            const _d = JSON.parse(_raw);
+            const _d2 = (_d && _d.value)
+              ? (typeof _d.value === 'string' ? JSON.parse(_d.value) : _d.value)
+              : _d;
+            if(_d2) {
+              if(_d2.fournisseurs && _d2.fournisseurs.length) {
+                FOURNISSEURS = _d2.fournisseurs;
+                console.log('[preload] ✅ FOURNISSEURS chargé depuis cache :', FOURNISSEURS.length);
+              }
+              if(_d2.items && _d2.items.length) COMMANDES_FOURNISSEURS = _d2.items;
+              if(typeof renderFournisseurs === 'function' && window._currentView === 'fournisseurs') {
+                try { renderFournisseurs(); } catch(e) {}
+              }
+            }
+          }
+        } catch(e) {}
+      }
+    })();
+
+    // ✅ Preload stock/fourn depuis cache déjà fait ci-dessus (_preloadStockFournFromCache)
     // ✅ v12 : Recharger config caisses depuis Supabase (persiste même après vide cache)
     await loadCaissesFromSupabase();
 
@@ -17006,7 +17090,10 @@ function openUserMenuOrUtilisateurs() {
       color:#f0ece6;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;
       flex-direction:column;gap:10px;align-items:center;text-align:center;
       min-width:300px;max-width:88vw;
+      pointer-events:all;
     `;
+    // ✅ FIX BANNER BLOQUANT : ne pas bloquer les clics derrière le banner
+    // Le banner est petit (bottom:28px) et ne couvre pas toute l'interface
     b.innerHTML = `
       <div style="font-size:26px;">⏳</div>
       <div style="font-weight:700;font-size:15px;color:#f59e2a;">Inactivité détectée</div>
@@ -17020,6 +17107,15 @@ function openUserMenuOrUtilisateurs() {
     `;
     document.body.appendChild(b);
     document.getElementById('kg-alo-btn').addEventListener('click', _resetTimer);
+    // ✅ FIX BANNER BLOQUANT : n'importe quel clic ou touche dans l'app reset le timer
+    // (pas seulement le bouton "Je suis là")
+    b.addEventListener('click', _resetTimer);
+    document.addEventListener('keydown', function _bannerKeyReset(e) {
+      if(document.getElementById('kg-autologout-banner') &&
+         document.getElementById('kg-autologout-banner').style.display !== 'none') {
+        _resetTimer();
+      }
+    }, { passive: true });
   }
 
   function _showWarning() {
@@ -17027,17 +17123,31 @@ function openUserMenuOrUtilisateurs() {
     const b = document.getElementById('kg-autologout-banner');
     if(b) b.style.display = 'flex';
     let remaining = 60;
-    const cd = document.getElementById('kg-alo-cd');
-    if(cd) cd.textContent = remaining;
+    // ✅ FIX : re-chercher cd à chaque tick (évite le crash si DOM re-rendu)
+    const _updateCd = () => {
+      const cd = document.getElementById('kg-alo-cd');
+      if(cd) cd.textContent = remaining;
+    };
+    _updateCd();
+    if(_countdownInt) { clearInterval(_countdownInt); _countdownInt = null; }
     _countdownInt = setInterval(() => {
       remaining--;
-      if(cd) cd.textContent = remaining;
+      _updateCd();
       if(remaining <= 0) {
         clearInterval(_countdownInt);
         _countdownInt = null;
         _doAutoLogout();
       }
     }, 1000);
+    // ✅ FIX BANNER BLOQUANT : timeout de sécurité absolu 75s
+    // Si le countdown crashe silencieusement → forcer la déco quand même
+    setTimeout(() => {
+      const _b = document.getElementById('kg-autologout-banner');
+      if(_b && _b.style.display !== 'none' && currentUser) {
+        console.warn('[AutoLogout] ⚠️ Timeout sécurité 75s — forcer déconnexion');
+        _doAutoLogout();
+      }
+    }, 75000);
   }
 
   function _hideWarning() {
@@ -17069,18 +17179,30 @@ function openUserMenuOrUtilisateurs() {
   }
 
   function _startAutoLogout() {
-    // mousemove non fiable (scroll auto peut le déclencher) → on le retire
-    const evts = ['mousedown','keydown','keypress','touchstart','touchmove','click','pointerdown'];
+    // ✅ FIX : ajout scroll et mousemove avec throttle pour détecter lecture/navigation PC
+    const evts = ['mousedown','keydown','keypress','touchstart','touchmove','click','pointerdown','scroll','wheel'];
     evts.forEach(ev => document.addEventListener(ev, _onUserActivity, { passive: true }));
+    // mousemove throttlé (max 1 reset toutes les 30s) pour ne pas saturer
+    let _lastMouseMove = 0;
+    window._kgMouseMoveHandler = function(e) {
+      if(e && e.isTrusted === false) return;
+      const now = Date.now();
+      if(now - _lastMouseMove > 30000) { _lastMouseMove = now; _resetTimer(); }
+    };
+    document.addEventListener('mousemove', window._kgMouseMoveHandler, { passive: true });
     _resetTimer();
-    console.log('[AutoLogout] ✅ Timer 15min démarré — événements réels uniquement');
+    console.log('[AutoLogout] ✅ Timer 15min démarré');
   }
 
   function _stopAutoLogout() {
     if(_mainTimer) { clearTimeout(_mainTimer); _mainTimer = null; }
     _hideWarning();
-    const evts = ['mousedown','keydown','keypress','touchstart','touchmove','click','pointerdown'];
+    const evts = ['mousedown','keydown','keypress','touchstart','touchmove','click','pointerdown','scroll','wheel'];
     evts.forEach(ev => document.removeEventListener(ev, _onUserActivity));
+    if(window._kgMouseMoveHandler) {
+      document.removeEventListener('mousemove', window._kgMouseMoveHandler);
+      window._kgMouseMoveHandler = null;
+    }
     console.log('[AutoLogout] ⏹ Timer arrêté');
   }
 
@@ -17112,7 +17234,7 @@ function openUserMenuOrUtilisateurs() {
   });
 
   // Tracker l'horodatage de la dernière activité (pour visibilitychange)
-  ['mousedown','keydown','touchstart','click','pointerdown'].forEach(ev => {
+  ['mousedown','keydown','touchstart','click','pointerdown','scroll','wheel'].forEach(ev => {
     document.addEventListener(ev, _onUserActivityTs, { passive: true });
   });
 
@@ -17663,10 +17785,37 @@ function _refreshAllViews() {
       renderPOS();
     }
     if(v === 'menu')         renderMenu('all');
-    if(v === 'stock')        renderStock();
+    if(v === 'stock') {
+      // ✅ FIX : recharger depuis localStorage si STOCK_DATA encore vide
+      if(!STOCK_DATA || !STOCK_DATA.length) {
+        const _ridR = window._KG_RESTAURANT_ID;
+        ['rid_'+_ridR+':stock_data','stock_data'].filter(Boolean).forEach(k => {
+          try {
+            if(STOCK_DATA && STOCK_DATA.length) return;
+            const d = JSON.parse(localStorage.getItem(k)||'{}');
+            if(d && d.items && d.items.length) { STOCK_DATA = d.items; STOCK_ENTREES = d.entries||[]; }
+          } catch(e) {}
+        });
+      }
+      renderStock();
+    }
     if(v === 'inventaire')   { renderInvHistorique(); renderInvEcarts(); }
     if(v === 'clients')      renderClients();
-    if(v === 'fournisseurs') renderFournisseurs();
+    if(v === 'fournisseurs') {
+      // ✅ FIX : recharger depuis localStorage si FOURNISSEURS encore vide
+      if(!FOURNISSEURS || !FOURNISSEURS.length) {
+        const _ridF = window._KG_RESTAURANT_ID;
+        ['rid_'+_ridF+':commandes_fourn_data','commandes_fourn_data'].filter(Boolean).forEach(k => {
+          try {
+            if(FOURNISSEURS && FOURNISSEURS.length) return;
+            const d = JSON.parse(localStorage.getItem(k)||'{}');
+            if(d && d.fournisseurs && d.fournisseurs.length) { FOURNISSEURS = d.fournisseurs; }
+            if(d && d.items && d.items.length) { COMMANDES_FOURNISSEURS = d.items; }
+          } catch(e) {}
+        });
+      }
+      renderFournisseurs();
+    }
     if(v === 'depenses')     renderDepenses();
     if(v === 'stats')        renderStats();
     if(v === 'caisses')      renderCaisses();
@@ -21127,7 +21276,7 @@ const KGSync = (() => {
       Object.keys(_memCache || {}).forEach(k => { if(_memCache[k] === null) delete _cache[k]; });
 
       // Clés statiques qui changent rarement → cachées agressivement
-      const _STATIC_KEYS = ['menu_data', 'restaurant_info', 'categories_data', 'stock_categories_data', 'users_data', 'annonces_data'];
+      const _STATIC_KEYS = ['menu_data', 'restaurant_info', 'categories_data', 'stock_categories_data', 'users_data', 'annonces_data', 'stock_data', 'commandes_fourn_data']; // ✅ FIX : stock et fournisseurs mis en cache kg_val_ pour affichage instantané au login
 
       // Étape 1 : fetch uniquement key + updated_at (très léger)
       const { data: metaRows, error: metaErr } = await client.from(TABLE)
@@ -25124,6 +25273,7 @@ setTimeout(() => {
     if(_splash) { _splash.style.opacity = '0'; setTimeout(() => { _splash.style.display = 'none'; }, 300); }
     showView('dashboard', null, false);
     try {
+      // ✅ FIX EGRESS : pas de reset throttle au F5 — 1 seul pullAll respecté
       await KGSync.pullAll();
       if(typeof refreshDashboard === 'function') refreshDashboard();
       // ✅ FIX v25 : recharger les réservations depuis localStorage après pullAll
@@ -30858,7 +31008,18 @@ function switchServeurTab(tab) {
 
 function switchStatPeriode(periode) {
   _statServeurPeriode = periode;
-  ['jour','semaine','mois'].forEach(p => {
+  const rangeDiv = document.getElementById('sstat-date-range');
+  if(rangeDiv) {
+    rangeDiv.style.display = periode === 'date' ? 'flex' : 'none';
+    if(periode === 'date') {
+      const today = new Date().toISOString().split('T')[0];
+      const du = document.getElementById('sstat-date-du');
+      const au = document.getElementById('sstat-date-au');
+      if(du && !du.value) du.value = today;
+      if(au && !au.value) au.value = today;
+    }
+  }
+  ['jour','semaine','mois','date'].forEach(p => {
     const b = document.getElementById('sstat-' + p);
     if(!b) return;
     if(p === periode) { b.style.background = 'linear-gradient(135deg,#f59e2a,#e84520)'; b.style.color = '#fff'; b.style.border = 'none'; }
@@ -30880,7 +31041,6 @@ function _inPeriodeServeur(vente, periode) {
   const now = new Date();
   let d;
   if(vente.date) {
-    // date peut être ISO complet ou YYYY-MM-DD
     d = new Date(vente.date.length === 10 ? vente.date + 'T00:00:00' : vente.date);
   } else { return false; }
   if(periode === 'jour') {
@@ -30891,6 +31051,15 @@ function _inPeriodeServeur(vente, periode) {
     return d >= start && d <= end;
   } else if(periode === 'mois') {
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  } else if(periode === 'date') {
+    // ✅ Filtre par plage Du/Au
+    const du = document.getElementById('sstat-date-du');
+    const au = document.getElementById('sstat-date-au');
+    const today = now.toISOString().split('T')[0];
+    const debut = du && du.value ? du.value : today;
+    const fin   = au && au.value ? au.value : today;
+    const dStr  = d.toISOString().split('T')[0];
+    return dStr >= debut && dStr <= fin;
   }
   return false;
 }
@@ -30915,7 +31084,17 @@ function renderStatsServeurs(periode) {
   const totalCmds = entries.reduce((s,[,d]) => s + d.commandes, 0);
   const totalCA   = entries.reduce((s,[,d]) => s + d.ca, 0);
 
-  const periodeLabel = { jour: "aujourd'hui", semaine: 'cette semaine', mois: 'ce mois' }[periode];
+  let periodeLabel;
+  if(periode === 'date') {
+    const du = document.getElementById('sstat-date-du');
+    const au = document.getElementById('sstat-date-au');
+    const fmtDate = v => v ? new Date(v + 'T00:00:00').toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '';
+    const dStr = fmtDate(du?.value);
+    const aStr = fmtDate(au?.value);
+    periodeLabel = (dStr && aStr && dStr !== aStr) ? ('du ' + dStr + ' au ' + aStr) : (dStr ? 'le ' + dStr : 'cette période');
+  } else {
+    periodeLabel = { jour: "aujourd'hui", semaine: 'cette semaine', mois: 'ce mois' }[periode];
+  }
 
   if(!entries.length || totalCmds === 0) {
     container.innerHTML = `<div style="text-align:center;padding:50px 20px;color:var(--text2);">
@@ -30926,16 +31105,12 @@ function renderStatsServeurs(periode) {
     return;
   }
 
-  // KPI totaux
+  // KPI totaux — CA Total supprimé (pas nécessaire)
   const kpiHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+    <div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:20px;">
       <div style="background:var(--surface);border-radius:14px;padding:16px;border:1px solid var(--border);text-align:center;">
         <div style="font-size:28px;font-weight:800;color:var(--accent);">${totalCmds}</div>
         <div style="font-size:11px;color:var(--text2);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Commandes</div>
-      </div>
-      <div style="background:var(--surface);border-radius:14px;padding:16px;border:1px solid var(--border);text-align:center;">
-        <div style="font-size:22px;font-weight:800;color:var(--green);">${totalCA.toLocaleString()} F</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">CA Total</div>
       </div>
     </div>`;
 
@@ -30972,6 +31147,87 @@ function renderStatsServeurs(periode) {
   }).join('');
 
   container.innerHTML = kpiHTML + rankHTML;
+
+  // ✅ Sauvegarder les stats du jour vers Supabase automatiquement
+  _saveStatsServeurs(entries, totalCmds, periode);
+}
+
+// ══════════════════════════════════════════════════════════════
+// SAUVEGARDE STATS SERVEURS → SUPABASE
+// ══════════════════════════════════════════════════════════════
+
+async function _saveStatsServeurs(entries, totalCmds, periode) {
+  try {
+    const rid = window._KG_RESTAURANT_ID;
+    const sb  = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+    if(!sb || !rid) return;
+
+    // Déterminer la date de référence
+    let dateRef;
+    if(periode === 'date') {
+      const du = document.getElementById('sstat-date-du');
+      dateRef = du ? du.value : new Date().toISOString().split('T')[0];
+    } else {
+      dateRef = new Date().toISOString().split('T')[0];
+    }
+
+    // Ne sauvegarder que les stats du jour (pas semaine/mois → trop volumineux)
+    if(periode !== 'jour' && periode !== 'date') return;
+
+    // Construire l'objet stats
+    const statsPayload = {
+      date:       dateRef,
+      periode:    periode,
+      totalCmds:  totalCmds,
+      savedAt:    new Date().toISOString(),
+      serveurs:   entries.map(([nom, d]) => ({
+        nom,
+        commandes: d.commandes,
+        ca:        d.ca,
+        moyenne:   d.commandes > 0 ? Math.round(d.ca / d.commandes) : 0,
+        pct:       totalCmds > 0 ? Math.round(d.commandes / totalCmds * 100) : 0
+      }))
+    };
+
+    // Clé : rid:stats_serveurs:YYYY-MM-DD
+    const key = rid + ':stats_serveurs:' + dateRef;
+
+    await sb.from('kg_sync').upsert(
+      { key, value: JSON.stringify(statsPayload), updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    );
+    console.log('[stats_serveurs] ✅ Sauvegardé pour', dateRef, '—', entries.length, 'serveur(s)');
+  } catch(e) {
+    console.warn('[stats_serveurs] Erreur sauvegarde:', e);
+  }
+}
+
+// Charger l'historique des stats serveurs depuis Supabase
+async function chargerHistoriqueStatsServeurs(nbJours = 30) {
+  try {
+    const rid = window._KG_RESTAURANT_ID;
+    const sb  = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+    if(!sb || !rid) return [];
+
+    // Chercher toutes les clés stats_serveurs du restaurant
+    const { data, error } = await sb.from('kg_sync')
+      .select('key, value')
+      .like('key', rid + ':stats_serveurs:%')
+      .order('key', { ascending: false })
+      .limit(nbJours);
+
+    if(error || !data) return [];
+
+    return data.map(row => {
+      try {
+        const v = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+        return v;
+      } catch(e) { return null; }
+    }).filter(Boolean);
+  } catch(e) {
+    console.warn('[stats_serveurs] Erreur chargement historique:', e);
+    return [];
+  }
 }
 
 // GESTION DES LIVREURS
