@@ -9441,7 +9441,23 @@ function showView(id, el, pushState) {
     const panelTickets = document.getElementById('hist-panel-tickets');
     if(panelTickets && panelTickets.style.display !== 'none') renderTicketsArchives();
   }
-  if(id === 'depenses') renderDepenses();
+  if(id === 'depenses') {
+    // ✅ FIX : si DEPENSES vide au chargement de la vue → essayer cache local
+    if(!DEPENSES || !DEPENSES.length) {
+      try {
+        const _rid = window._KG_RESTAURANT_ID;
+        const _raw = (_rid ? localStorage.getItem('kg_val_' + _rid + ':depenses_data') : null)
+                  || localStorage.getItem('kg_depenses');
+        if(_raw) {
+          const _d = JSON.parse(_raw);
+          const _d2 = (_d && _d.value) ? (typeof _d.value === 'string' ? JSON.parse(_d.value) : _d.value) : _d;
+          if(_d2 && _d2.items && _d2.items.length) DEPENSES = _d2.items;
+          else if(Array.isArray(_d2) && _d2.length) DEPENSES = _d2;
+        }
+      } catch(e) {}
+    }
+    renderDepenses();
+  }
   if(id === 'rh') {
     // ✅ FIX v50 : Pré-remplir depuis localStorage avant même que pullAll arrive
     if(RH_EMPLOYES.length === 0) {
@@ -16921,6 +16937,37 @@ async function doLogin() {
         } catch(e) {}
       }
 
+      // Charger DEPENSES depuis cache si vide
+      if(!DEPENSES || !DEPENSES.length) {
+        try {
+          const _raw = localStorage.getItem('kg_val_' + _rid + ':depenses_data');
+          if(_raw) {
+            const _d = JSON.parse(_raw);
+            const _d2 = (_d && _d.value)
+              ? (typeof _d.value === 'string' ? JSON.parse(_d.value) : _d.value)
+              : _d;
+            if(_d2 && _d2.items && _d2.items.length) {
+              DEPENSES = _d2.items;
+              console.log('[preload] ✅ DEPENSES chargé depuis cache :', DEPENSES.length);
+              if(typeof renderDepenses === 'function' && window._currentView === 'depenses') {
+                try { renderDepenses(); } catch(e) {}
+              }
+            }
+          }
+          // Fallback : ancienne clé kg_depenses
+          if(!DEPENSES || !DEPENSES.length) {
+            const _rawOld = localStorage.getItem('kg_depenses');
+            if(_rawOld) {
+              const _dOld = JSON.parse(_rawOld);
+              if(Array.isArray(_dOld) && _dOld.length) {
+                DEPENSES = _dOld;
+                console.log('[preload] ✅ DEPENSES depuis kg_depenses :', DEPENSES.length);
+              }
+            }
+          }
+        } catch(e) {}
+      }
+
       // Charger FOURNISSEURS depuis cache si vide
       if(!FOURNISSEURS || !FOURNISSEURS.length) {
         try {
@@ -17268,6 +17315,8 @@ async function doLogout() {
   COMMANDES_FOURNISSEURS = [];
   STOCK_DATA = [];
   STOCK_ENTREES = [];
+  // ✅ FIX DEPENSES : sauvegarder avant de vider (récupérable au prochain login)
+  try { if(DEPENSES && DEPENSES.length) localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES)); } catch(e) {}
   DEPENSES = [];
   CLIENTS = [];
   MENU = [];
@@ -18098,17 +18147,23 @@ function refreshDashboard() {
     // 2. ✅ FIX : Ventes des clôtures du mois en cours
     const _now = new Date();
     const _moisDebut = new Date(_now.getFullYear(), _now.getMonth(), 1).toISOString().slice(0,10);
+    const _moisFin   = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).toISOString().slice(0,10);
     (HISTORIQUE_CLOTURES || []).forEach(h => {
       // Parser date clôture (dd/mm/yy ou yyyy-mm-dd)
       let hDate = '';
       if(h.date) {
-        if(h.date.includes('-')) { hDate = h.date.slice(0,10); }
-        else {
+        if(h.date.includes('-')) {
+          hDate = h.date.slice(0,10); // yyyy-mm-dd ou ISO complet
+        } else if(h.date.includes('/')) {
           const p = h.date.split('/');
-          if(p.length === 3) hDate = `20${p[2].length===2?p[2]:p[2].slice(-2)}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+          if(p.length === 3) {
+            // dd/mm/yyyy ou dd/mm/yy
+            const yr = p[2].length === 4 ? p[2] : '20' + p[2].slice(-2);
+            hDate = `${yr}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+          }
         }
       }
-      if(hDate < _moisDebut) return; // pas ce mois
+      if(!hDate || hDate < _moisDebut || hDate > _moisFin) return; // hors du mois en cours
       // Parcourir les tickets de la clôture
       (h.tickets || h.ventes || h.items || []).forEach(v => {
         (v.items||[]).forEach(i => {
@@ -21276,7 +21331,7 @@ const KGSync = (() => {
       Object.keys(_memCache || {}).forEach(k => { if(_memCache[k] === null) delete _cache[k]; });
 
       // Clés statiques qui changent rarement → cachées agressivement
-      const _STATIC_KEYS = ['menu_data', 'restaurant_info', 'categories_data', 'stock_categories_data', 'users_data', 'annonces_data', 'stock_data', 'commandes_fourn_data']; // ✅ FIX : stock et fournisseurs mis en cache kg_val_ pour affichage instantané au login
+      const _STATIC_KEYS = ['menu_data', 'restaurant_info', 'categories_data', 'stock_categories_data', 'users_data', 'annonces_data', 'stock_data', 'commandes_fourn_data', 'depenses_data']; // ✅ FIX : stock, fournisseurs et dépenses mis en cache kg_val_
 
       // Étape 1 : fetch uniquement key + updated_at (très léger)
       const { data: metaRows, error: metaErr } = await client.from(TABLE)
@@ -22612,13 +22667,32 @@ function deduireStockVente(items) {
     const recetteSource = (menuItem && menuItem.recette && menuItem.recette.length > 0)
       ? menuItem.recette
       : (item.recette && item.recette.length > 0 ? item.recette : []);
-    if(!recetteSource || !recetteSource.length) return;
+    // ✅ LOG DIAGNOSTIC : afficher pourquoi la recette est vide pour Rinkeby
+    if(!recetteSource || !recetteSource.length) {
+      console.warn('[stock-diag] Recette VIDE pour article:', (menuItem ? menuItem.name : item.name),
+        '| menuItem trouvé:', !!menuItem,
+        '| menuItem.recette:', menuItem ? JSON.stringify(menuItem.recette) : 'N/A',
+        '| item.recette:', JSON.stringify(item.recette),
+        '| MENU.length:', MENU.length,
+        '| STOCK_DATA.length:', STOCK_DATA.length
+      );
+      return;
+    }
     recetteSource.forEach(function(ligne) {
       // Priorité : sbStockId (UUID Supabase) > stockId > stockNom
       let stockItem = null;
       if(ligne.sbStockId) stockItem = STOCK_DATA.find(function(s){ return String(s.sbId)===String(ligne.sbStockId); });
       if(!stockItem && ligne.stockId) stockItem = STOCK_DATA.find(function(s){ return String(s.sbId)===String(ligne.stockId) || String(s.id)===String(ligne.stockId); });
       if(!stockItem && ligne.stockNom) stockItem = STOCK_DATA.find(function(s){ return s.name && s.name.trim().toLowerCase()===ligne.stockNom.trim().toLowerCase(); });
+      // ✅ LOG DIAGNOSTIC : voir pourquoi l'ingrédient n'est pas trouvé
+      if(!stockItem && (ligne.sbStockId || ligne.stockId || ligne.stockNom)) {
+        console.warn('[stock-diag] Ingrédient NON TROUVÉ:',
+          'sbStockId=', ligne.sbStockId,
+          'stockId=', ligne.stockId,
+          'nom=', ligne.stockNom,
+          '| STOCK_DATA IDs:', STOCK_DATA.slice(0,5).map(s => s.sbId + '/' + s.id + '=' + s.name)
+        );
+      }
       // ✅ FIX BUG STOCK : dernier fallback — chercher par qty/nom partiel si tout échoue
       if(!stockItem && ligne.stockNom) {
         // Déjà tenté ligne.stockNom exact ci-dessus, essayer en ignorant la casse et les espaces
@@ -31029,11 +31103,43 @@ function switchStatPeriode(periode) {
 }
 
 function _getVentesAllCaisses() {
-  // Agréger toutes les ventes de toutes les caisses
   const all = [];
-  if(typeof VENTES_PAR_CAISSE === 'undefined') return all;
-  Object.values(VENTES_PAR_CAISSE).forEach(arr => { if(Array.isArray(arr)) arr.forEach(v => all.push(v)); });
-  // Aussi depuis VENTES_PAR_CAISSE via historique clôtures
+  const seen = new Set();
+
+  // ── 1. Ventes en cours (session active) ──
+  if(typeof VENTES_PAR_CAISSE !== 'undefined') {
+    Object.values(VENTES_PAR_CAISSE).forEach(arr => {
+      if(!Array.isArray(arr)) return;
+      arr.forEach(v => {
+        const uid = v.id || v.ticketId || (v.date + '_' + v.total + '_' + (v.serveur||''));
+        if(!seen.has(uid)) { seen.add(uid); all.push(v); }
+      });
+    });
+  }
+
+  // ── 2. Tickets des clôtures passées (HISTORIQUE_CLOTURES) ──
+  // Sans ça, les stats serveurs sont vides dès qu'on clôture
+  if(typeof HISTORIQUE_CLOTURES !== 'undefined' && Array.isArray(HISTORIQUE_CLOTURES)) {
+    HISTORIQUE_CLOTURES.forEach(h => {
+      const tickets = h.tickets || h.ventes || h.items || [];
+      tickets.forEach(t => {
+        const uid = t.id || t.ticketId || (t.date + '_' + t.total + '_' + (t.serveur||'') + '_' + (h.date||''));
+        if(!seen.has(uid)) {
+          seen.add(uid);
+          // Normaliser pour que _inPeriodeServeur puisse filtrer par date
+          all.push({
+            ...t,
+            date:    t.date    || h.date    || '',
+            heure:   t.heure   || h.heure   || '',
+            serveur: t.serveur || t.cashier  || '',
+            total:   t.total   || 0,
+            caisse:  t.caisse  || h.caisse  || h.nom || '',
+          });
+        }
+      });
+    });
+  }
+
   return all;
 }
 
