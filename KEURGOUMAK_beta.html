@@ -15916,7 +15916,9 @@ function printRapportXCaisse(name) {
     } else {
       payLabel = v.payLabel || v.payMethod || '—';
     }
-    return `<tr><td>#${v.num||v.id||'—'}</td><td>${heure}</td><td>${plats}</td><td style="font-size:11px">${payLabel}</td><td style="text-align:right;font-weight:700">${(v.total||0).toLocaleString()} F</td></tr>`;
+    // ✅ FIX : utiliser orderNum (numéro réel du ticket) au lieu de num/id
+    const numTicket = v.orderNum || v.num || v.ticketRef || v.ticket_ref || v.id || '—';
+    return `<tr><td>#${String(numTicket).replace('#','')}</td><td>${heure}</td><td>${plats}</td><td style="font-size:11px">${payLabel}</td><td style="text-align:right;font-weight:700">${(v.total||0).toLocaleString()} F</td></tr>`;
   }).join('');
 
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
@@ -16433,6 +16435,44 @@ let USERS = [];
 
 let JOURNAL = [];
 
+// ── Fonctions sauvegarde/chargement journal ──
+function _saveJournal() {
+  try {
+    const rid = window._KG_RESTAURANT_ID;
+    const key = rid ? 'kg_journal_' + rid : 'kg_journal';
+    // Garder max 200 entrées
+    const toSave = JOURNAL.slice(0, 200);
+    localStorage.setItem(key, JSON.stringify(toSave));
+    // Push vers Supabase en arrière-plan
+    const sb = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+    if(sb && rid) {
+      sb.from('kg_sync').upsert(
+        { key: rid + ':journal_connexions', value: JSON.stringify({ items: toSave, updatedAt: new Date().toISOString() }), updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      ).then(() => {}).catch(e => console.warn('[journal] push Supabase:', e));
+    }
+  } catch(e) { console.warn('[journal] save:', e); }
+}
+
+function _loadJournal() {
+  try {
+    const rid = window._KG_RESTAURANT_ID;
+    // Essayer Supabase d'abord via kg_sync cache
+    const cacheKey = rid ? 'kg_val_' + rid + ':journal_connexions' : null;
+    const raw = (cacheKey ? localStorage.getItem(cacheKey) : null)
+             || (rid ? localStorage.getItem('kg_journal_' + rid) : null)
+             || localStorage.getItem('kg_journal');
+    if(raw) {
+      const d = JSON.parse(raw);
+      const items = d.items || (Array.isArray(d) ? d : []);
+      if(items.length) {
+        JOURNAL = items;
+        console.log('[journal] ✅ Chargé :', JOURNAL.length, 'entrées');
+      }
+    }
+  } catch(e) { console.warn('[journal] load:', e); }
+}
+
 let currentUser = null;
 
 function getInitials(u) { return (u.prenom[0] + u.nom[0]).toUpperCase(); }
@@ -16875,7 +16915,10 @@ async function doLogin() {
     } else {
       sessionCaisseActive = null;
     }
+    // ✅ FIX JOURNAL : charger l'historique avant d'ajouter la nouvelle entrée
+    _loadJournal();
     JOURNAL.unshift({ user:`${currentUser.prenom} ${currentUser.nom}`, role:currentUser.role, action:'Connexion', module:'Système', date:new Date().toLocaleDateString('fr-FR').slice(0,8), heure:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}), ip:'—' });
+    _saveJournal();
 
     applySession();
     document.getElementById('login-screen').style.opacity = '0';
@@ -17302,6 +17345,8 @@ async function doLogout() {
   const _kgBanner = document.getElementById('kg-autologout-banner');
   if(_kgBanner) _kgBanner.style.display = 'none';
   JOURNAL.unshift({ user:`${currentUser.prenom} ${currentUser.nom}`, role:currentUser.role, action:'Déconnexion', module:'Système', date:new Date().toLocaleDateString('fr').slice(0,8), heure:new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'}), ip:'—' });
+  // ✅ FIX JOURNAL : sauvegarder avant déconnexion
+  _saveJournal();
   try { const sb = KGSync.getClient(); if(sb) await sb.auth.signOut(); } catch(e) {}
   clearSession();
   currentUser = null;
@@ -21331,7 +21376,7 @@ const KGSync = (() => {
       Object.keys(_memCache || {}).forEach(k => { if(_memCache[k] === null) delete _cache[k]; });
 
       // Clés statiques qui changent rarement → cachées agressivement
-      const _STATIC_KEYS = ['menu_data', 'restaurant_info', 'categories_data', 'stock_categories_data', 'users_data', 'annonces_data', 'stock_data', 'commandes_fourn_data', 'depenses_data']; // ✅ FIX : stock, fournisseurs et dépenses mis en cache kg_val_
+      const _STATIC_KEYS = ['menu_data', 'restaurant_info', 'categories_data', 'stock_categories_data', 'users_data', 'annonces_data', 'stock_data', 'commandes_fourn_data', 'depenses_data', 'journal_connexions']; // ✅ FIX : stock, fournisseurs et dépenses mis en cache kg_val_
 
       // Étape 1 : fetch uniquement key + updated_at (très léger)
       const { data: metaRows, error: metaErr } = await client.from(TABLE)
@@ -21627,7 +21672,15 @@ const KGSync = (() => {
             // Replanifier un push du stock local dans 2s pour propager la modif
             setTimeout(() => { if(typeof KGSync !== 'undefined') KGSync.push.stock().catch(()=>{}); }, 2000);
           } else {
-            STOCK_DATA = data.items;
+            // ✅ FIX RINKEBY : préserver l'id local comme référence de recherche
+            STOCK_DATA = data.items.map(function(s) {
+              return Object.assign({}, s, {
+                // sbId = UUID Supabase si dispo, sinon garder id local
+                sbId: s.sbId || s.id || null,
+                // Conserver id local pour correspondance avec recettes existantes
+                id:   s.id   || s.sbId || null,
+              });
+            });
           STOCK_ENTREES = data.entries || STOCK_ENTREES;
           // ✅ FIX IDs : après chaque pullAll, resynchroniser les stockId dans les recettes du MENU
           // pour qu'ils correspondent exactement aux IDs actuels de STOCK_DATA
@@ -22681,9 +22734,30 @@ function deduireStockVente(items) {
     recetteSource.forEach(function(ligne) {
       // Priorité : sbStockId (UUID Supabase) > stockId > stockNom
       let stockItem = null;
+      // ✅ FIX RINKEBY : stock avec IDs locaux (local_XXXXX) sans sbId Supabase
       if(ligne.sbStockId) stockItem = STOCK_DATA.find(function(s){ return String(s.sbId)===String(ligne.sbStockId); });
-      if(!stockItem && ligne.stockId) stockItem = STOCK_DATA.find(function(s){ return String(s.sbId)===String(ligne.stockId) || String(s.id)===String(ligne.stockId); });
-      if(!stockItem && ligne.stockNom) stockItem = STOCK_DATA.find(function(s){ return s.name && s.name.trim().toLowerCase()===ligne.stockNom.trim().toLowerCase(); });
+      if(!stockItem && ligne.stockId) stockItem = STOCK_DATA.find(function(s){
+        return String(s.sbId)===String(ligne.stockId)  // UUID Supabase dans sbId
+            || String(s.id) ===String(ligne.stockId)   // ID local dans id
+            || String(s.localId)===String(ligne.stockId); // ancien localId
+      });
+      // Fallback par nom (insensible casse + accent)
+      if(!stockItem && ligne.stockNom) {
+        const _nomRecherche = ligne.stockNom.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+        stockItem = STOCK_DATA.find(function(s){
+          if(!s.name) return false;
+          const _nomStock = s.name.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+          return _nomStock === _nomRecherche;
+        });
+      }
+      // Dernier fallback : nom partiel (4 premiers caractères)
+      if(!stockItem && ligne.stockNom && ligne.stockNom.length >= 4) {
+        const _prefix = ligne.stockNom.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').substring(0,4);
+        stockItem = STOCK_DATA.find(function(s){
+          if(!s.name) return false;
+          return s.name.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').startsWith(_prefix);
+        });
+      }
       // ✅ LOG DIAGNOSTIC : voir pourquoi l'ingrédient n'est pas trouvé
       if(!stockItem && (ligne.sbStockId || ligne.stockId || ligne.stockNom)) {
         console.warn('[stock-diag] Ingrédient NON TROUVÉ:',
