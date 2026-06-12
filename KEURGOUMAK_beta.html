@@ -23063,16 +23063,20 @@ function saveIngredients() {
   });
   closeModal('editIngredient');
   renderMenu(currentMenuCat || 'all');
+  // ✅ FIX AFFICHAGE : re-render après 800ms pour s'assurer que la recette est bien affichée
+  setTimeout(function() { if(typeof renderMenu === 'function') renderMenu(currentMenuCat || 'all'); }, 800);
 
   // ✅ FIX : mettre à jour la colonne recette dans menu_items Supabase directement
   console.log('[saveIngredients] item:', item?.name, '| sbId:', item?.sbId, '| recette:', item?.recette?.length, 'lignes');
-  if(typeof KGSync !== 'undefined' && KGSync.isConnected && item.sbId) {
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected && (item.sbId || item.id)) {
     const _sb = KGSync.getClient();
     const _rid = window._KG_RESTAURANT_ID;
     if(_sb && _rid) {
-      _sb.from('menu_items')
-        .update({ recette: item.recette })
-        .eq('id', item.sbId)
+      // ✅ FIX : si pas de sbId, chercher par nom dans menu_items
+      const _updateQuery = item.sbId
+        ? _sb.from('menu_items').update({ recette: item.recette }).eq('id', item.sbId)
+        : _sb.from('menu_items').update({ recette: item.recette }).eq('name', item.name).eq('restaurant_id', _rid);
+      _updateQuery
         .then(({ error }) => {
           if(error) {
             console.warn('[saveIngredients] colonne recette absente dans menu_items — recette sauvée uniquement via kg_sync', error.message);
