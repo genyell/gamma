@@ -11322,6 +11322,19 @@ async function validateOrder() {
   _saveVenteSupabase(caisse, venteSaved); // ✅ Persistance immédiate Supabase
 
   // Deduire les ingredients du stock (recette)
+  // ✅ FIX STOCK : s'assurer que les recettes sont bien chargées depuis MENU avant déduction
+  // Si un article du panier n'a pas de recette dans le cache local, on la récupère depuis MENU
+  itemsSaved.forEach(function(cartItem) {
+    if(!cartItem.recette || !cartItem.recette.length) {
+      const menuItem = MENU.find(function(m) {
+        return m.id === cartItem.id || m.sbId === cartItem.id || m.id === cartItem.sbId || m.sbId === cartItem.sbId || m.name === cartItem.name;
+      });
+      if(menuItem && menuItem.recette && menuItem.recette.length) {
+        cartItem.recette = menuItem.recette;
+        console.log('[stock-fix] Recette injectée depuis MENU pour:', cartItem.name, '|', menuItem.recette.length, 'ligne(s)');
+      }
+    }
+  });
   deduireStockVente(itemsSaved);
 
   // Synchroniser CAISSES en temps réel
@@ -21964,6 +21977,20 @@ const KGSync = (() => {
               if(changed) {
                 console.log('[pullAll] ✅ Recettes chargées depuis menu_items Supabase');
                 if(typeof renderMenu === 'function') renderMenu(currentMenuCat || 'all');
+                // ✅ FIX STOCK : mettre aussi à jour les recettes du panier en cours
+                if(Array.isArray(cart)) {
+                  cart.forEach(function(cartItem) {
+                    if(!cartItem.recette || !cartItem.recette.length) {
+                      const liveItem = MENU.find(function(m) {
+                        return m.id === cartItem.id || m.sbId === cartItem.id || m.name === cartItem.name;
+                      });
+                      if(liveItem && liveItem.recette && liveItem.recette.length) {
+                        cartItem.recette = liveItem.recette;
+                        console.log('[stock-fix] Recette panier mise à jour pour:', cartItem.name);
+                      }
+                    }
+                  });
+                }
               }
             } catch(e) { console.warn('[pullAll] recettes menu_items:', e); }
           })();
@@ -22727,15 +22754,38 @@ function deduireStockVente(items) {
     const recetteSource = (menuItem && menuItem.recette && menuItem.recette.length > 0)
       ? menuItem.recette
       : (item.recette && item.recette.length > 0 ? item.recette : []);
-    // ✅ LOG DIAGNOSTIC : afficher pourquoi la recette est vide pour Rinkeby
+    // ✅ LOG DIAGNOSTIC : afficher pourquoi la recette est vide
     if(!recetteSource || !recetteSource.length) {
-      console.warn('[stock-diag] Recette VIDE pour article:', (menuItem ? menuItem.name : item.name),
+      console.warn('[stock-diag] ⛔ Recette VIDE — article:', (menuItem ? menuItem.name : item.name),
         '| menuItem trouvé:', !!menuItem,
         '| menuItem.recette:', menuItem ? JSON.stringify(menuItem.recette) : 'N/A',
         '| item.recette:', JSON.stringify(item.recette),
         '| MENU.length:', MENU.length,
         '| STOCK_DATA.length:', STOCK_DATA.length
       );
+      // ✅ FIX ULTIME : dernier recours — chercher dans MENU par nom exact avant d'abandonner
+      const _lastChance = MENU.find(function(m) {
+        return (item.name && m.name && m.name.trim().toLowerCase() === item.name.trim().toLowerCase()) ||
+               (item.id && (m.id === item.id || m.sbId === item.id));
+      });
+      if(_lastChance && _lastChance.recette && _lastChance.recette.length) {
+        console.log('[stock-diag] ✅ Recette trouvée via lastChance pour:', item.name);
+        _lastChance.recette.forEach(function(ligne) {
+          let stockItem = null;
+          if(ligne.sbStockId) stockItem = STOCK_DATA.find(function(s){ return String(s.sbId)===String(ligne.sbStockId); });
+          if(!stockItem && ligne.stockId) stockItem = STOCK_DATA.find(function(s){ return String(s.sbId)===String(ligne.stockId)||String(s.id)===String(ligne.stockId); });
+          if(!stockItem && ligne.stockNom) {
+            const _n = ligne.stockNom.trim().toLowerCase();
+            stockItem = STOCK_DATA.find(function(s){ return s.name && s.name.trim().toLowerCase() === _n; });
+          }
+          if(stockItem) {
+            const consommation = ligne.qty * (item.qty || 1);
+            stockItem.qty = Math.max(0, Math.round((stockItem.qty - consommation) * 1000) / 1000);
+            hasChanges = true;
+            console.log('[stock-diag] ✅ Stock déduit (lastChance):', stockItem.name, '-', consommation, '→', stockItem.qty);
+          }
+        });
+      }
       return;
     }
     recetteSource.forEach(function(ligne) {
