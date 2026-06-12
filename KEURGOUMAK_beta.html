@@ -21245,10 +21245,36 @@ const KGSync = (() => {
       const _uid = item.sbId || item.id;
       if(_uid && _seen.has(_uid)) { return; }
       if(_uid) _seen.set(_uid, true);
-      _dedupMenu.push(item);
+      // ✅ FIX RECETTE : préserver la recette dans le payload kg_sync
+      // Sans ce fix, recette=[]] écrase les recettes à chaque push
+      const _itemWithRecette = Object.assign({}, item);
+      // Si recette vide dans MENU, chercher dans menu_items via sbId
+      if(!_itemWithRecette.recette || !_itemWithRecette.recette.length) {
+        // Garder recette vide — sera rechargée depuis menu_items au pullAll
+        _itemWithRecette.recette = item.recette || [];
+      }
+      _dedupMenu.push(_itemWithRecette);
     });
     _invalidateCache('menu_data');
-    _debouncedUpsert('menu_data', () => { return { items: _dedupMenu }; }, 3000);
+    // ✅ FIX RECETTE v2 : avant push, enrichir _dedupMenu avec les recettes depuis menu_items (Supabase)
+    // pour ne pas écraser les recettes existantes dans kg_sync
+    (async () => {
+      try {
+        const _sbR = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+        const _ridR = window._KG_RESTAURANT_ID;
+        if(_sbR && _ridR) {
+          const { data: rows } = await _sbR.from('menu_items').select('id, recette').eq('restaurant_id', _ridR).not('recette', 'is', null);
+          if(rows && rows.length) {
+            rows.forEach(row => {
+              if(!row.recette || !row.recette.length) return;
+              const m = _dedupMenu.find(x => x.sbId === row.id || x.id === row.id);
+              if(m) m.recette = row.recette;
+            });
+          }
+        }
+      } catch(e) {}
+      _debouncedUpsert('menu_data', () => { return { items: _dedupMenu }; }, 3000);
+    })();
   }
   async function pushUsers()          { _invalidateCache('users_data'); _debouncedUpsert('users_data', () => ({ items: USERS.map(u => ({...u})) }), 3000); }
   async function pushRestaurantInfo() { _invalidateCache('restaurant_info'); _debouncedUpsert('restaurant_info', () => ({ info: RESTAURANT_INFO }), 3000); }
