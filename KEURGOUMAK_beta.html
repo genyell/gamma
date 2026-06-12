@@ -6178,7 +6178,7 @@ function _syncSportVentes()       { return []; }
           <div class="card-title">Informations du restaurant</div>
           <div class="form-group">
             <label class="form-label">Nom du restaurant</label>
-            <input class="form-input" id="settings-nom" value="KEURGOUMAK Dakar" placeholder="Nom de votre restaurant">
+            <input class="form-input" id="settings-nom" value="KEURGOUMAK Louga" placeholder="Nom de votre restaurant">
           </div>
           <div class="form-group">
             <label class="form-label">N° NINEA (Numéro d'Identification Nationale)</label>
@@ -6188,7 +6188,7 @@ function _syncSportVentes()       { return []; }
             <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="settings-tel" value="+221 77 123 45 67"></div>
             <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="settings-email" value="contact@keurgoumak.sn"></div>
           </div>
-          <div class="form-group"><label class="form-label">Adresse</label><input class="form-input" id="settings-adresse" value="Rue 10 x 23, Dakar Plateau"></div>
+          <div class="form-group"><label class="form-label">Adresse</label><input class="form-input" id="settings-adresse" value="Louga, Sénégal"></div>
           <div class="form-group"><label class="form-label">Devise</label>
             <select class="form-input" id="settings-devise"><option>FCFA (Franc CFA)</option><option>EUR (Euro)</option></select>
           </div>
@@ -7556,7 +7556,7 @@ Revenez nous voir bient&#244;t.</textarea>
         <div style="font-weight:800;font-size:15px;color:var(--text);">⚙️ Configuration de la salle de sport</div>
         <div class="form-group">
           <label class="form-label">Nom de la salle</label>
-          <input class="form-input" id="sp-cfg-nom" placeholder="Ex: FIT ARENA Dakar">
+          <input class="form-input" id="sp-cfg-nom" placeholder="Ex: FIT ARENA Louga">
         </div>
         <div class="form-group">
           <label class="form-label">Adresse</label>
@@ -8662,7 +8662,7 @@ Revenez nous voir bient&#244;t.</textarea>
     <div class="modal-title">🏭 Nouveau fournisseur</div>
     <input type="hidden" id="fourn-edit-id" value="">
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Nom de l'entreprise</label><input class="form-input" id="fourn-nom" placeholder="Ex: Dakar Fresh Supply"></div>
+      <div class="form-group"><label class="form-label">Nom de l'entreprise</label><input class="form-input" id="fourn-nom" placeholder="Ex: Louga Fresh Supply"></div>
       <div class="form-group"><label class="form-label">Catégorie</label>
         <select class="form-input" id="fourn-cat">
           <option value="viandes">🥩 Viandes & Poissons</option>
@@ -10012,7 +10012,7 @@ function printFacture(id) {
   const f = FACTURES.find(x => x.id === id);
   if(!f) return;
   const resto    = RESTAURANT_INFO?.nom     || 'KEURGOUMAK';
-  const adresse  = RESTAURANT_INFO?.adresse || 'Dakar, Sénégal';
+  const adresse  = RESTAURANT_INFO?.adresse || 'Louga, Sénégal';
   const tel      = RESTAURANT_INFO?.tel     || '';
   const email    = RESTAURANT_INFO?.email   || '';
   const ninea    = RESTAURANT_INFO?.ninea   || '';
@@ -11143,7 +11143,7 @@ function openConfirmTicket() {
   document.getElementById('ticket-preview').innerHTML = `
     <div class="ticket-header">
       <div style="font-size:15px;font-weight:700;color:var(--accent)">🍽️ ${nomResto}</div>
-      <div style="font-size:10px;color:var(--text2);margin-top:2px;">Dakar, Sénégal · ${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:2px;">Louga, Sénégal · ${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
       <div style="font-size:11px;margin-top:4px;">Ticket N° <strong>${orderNum}</strong></div>
     </div>
     ${cart.map(item => {
@@ -11373,7 +11373,7 @@ let RESTAURANT_INFO = {
   ninea: '',
   tel: '',
   email: '',
-  adresse: 'Dakar, Sénégal',
+  adresse: 'Louga, Sénégal',
   devise: 'FCFA',
 };
 
@@ -11749,7 +11749,7 @@ function printTicket(vente, caisse) {
   const dateStr  = now.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'});
   const heureStr = now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
   const restaurant = RESTAURANT_INFO.nom     || 'KEURGOUMAK';
-  const adresse    = RESTAURANT_INFO.adresse || 'Dakar, Sénégal';
+  const adresse    = RESTAURANT_INFO.adresse || 'Louga, Sénégal';
   const tel        = RESTAURANT_INFO.tel     || '';
   const ninea      = RESTAURANT_INFO.ninea   || '';
   const tvaIncluse = vente.tva   || 0;
@@ -15944,7 +15944,7 @@ function printRapportXCaisse(name) {
     @media print{.no-print{display:none!important;} @page{margin:1.5cm;}}
   </style></head><body>
   <h1>🍽️ ${nomResto}</h1>
-  <div class="sub">${RESTAURANT_INFO?.adresse||'Dakar, Sénégal'}</div>
+  <div class="sub">${RESTAURANT_INFO?.adresse||'Louga, Sénégal'}</div>
   <div style="text-align:center"><span class="badge">📊 RAPPORT X — ${name} — Consultation en cours · ${dateStr} à ${heureStr}</span></div>
   <div class="sub" style="margin-top:-8px;">Caissier : <b>${cashier}</b>${c?.loc?' · '+c.loc:''}</div>
   <div class="kpi-row">
@@ -16097,7 +16097,7 @@ function printRapportX() {
     @media print{.no-print{display:none!important;} @page{margin:1.5cm;}}
   </style></head><body>
   <h1>🍽️ ${nomResto}</h1>
-  <div class="sub">${RESTAURANT_INFO?.adresse||'Dakar, Sénégal'}${RESTAURANT_INFO?.ninea?' — NINEA : '+RESTAURANT_INFO.ninea:''}</div>
+  <div class="sub">${RESTAURANT_INFO?.adresse||'Louga, Sénégal'}${RESTAURANT_INFO?.ninea?' — NINEA : '+RESTAURANT_INFO.ninea:''}</div>
   <div style="text-align:center"><span class="badge">📊 RAPPORT X — Consultation en cours · ${dateStr} à ${heureStr}</span></div>
   <div class="kpi-row">
     <div class="kpi"><div class="kpi-val">${totalCA.toLocaleString()} F</div><div class="kpi-lbl">CA Total TTC</div></div>
@@ -19546,6 +19546,13 @@ async function cloturerCaisse() {
 
     if(typeof saveSession === 'function') saveSession();
     showNotif('✅ ' + caisse + ' clôturée ! ' + totalTTC.toLocaleString() + ' FCFA');
+    // ✅ FIX TOP PRODUITS : rafraîchir le dashboard après clôture
+    // HISTORIQUE_CLOTURES vient d'être mis à jour → top produits du mois recalculé
+    setTimeout(() => {
+      if(typeof refreshDashboard === 'function') {
+        try { refreshDashboard(); } catch(e) {}
+      }
+    }, 500);
 
     // ✅ RESET MODULES 4/5/6/7/8 — Marquer entrées/réservations du jour comme clôturées
     // pour que CA aujourd'hui = 0 après clôture (comme Salle de Sport)
@@ -19679,7 +19686,7 @@ async function cloturerCaisse() {
       }).join('');
 
       const nomResto = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.nom) ? RESTAURANT_INFO.nom : 'KEURGOUMAK';
-      const adresseResto = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.adresse) ? RESTAURANT_INFO.adresse : 'Dakar, Sénégal';
+      const adresseResto = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.adresse) ? RESTAURANT_INFO.adresse : 'Louga, Sénégal';
       const nineaResto = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.ninea) ? ' — NINEA : ' + RESTAURANT_INFO.ninea : '';
 
       const _rLogo = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.showLogo && TICKET_CONFIG.logo) ? TICKET_CONFIG.logo : ((typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.loginLogo) ? RESTAURANT_INFO.loginLogo : null);
@@ -23776,7 +23783,7 @@ function imprimerFichePaie(employeId, mois) {
   <div class="header-left">
     ${(typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.showLogo && TICKET_CONFIG.logo) ? `<div style="margin-bottom:8px;"><img src="${TICKET_CONFIG.logo}" style="max-width:90px;max-height:60px;object-fit:contain;border-radius:6px;"></div>` : (RESTAURANT_INFO.loginLogo ? `<div style="margin-bottom:8px;"><img src="${RESTAURANT_INFO.loginLogo}" style="max-width:90px;max-height:60px;object-fit:contain;border-radius:6px;"></div>` : '')}
     <h1>${RESTAURANT_INFO.nom || 'KEURGOUMAK'}</h1>
-    <p>${RESTAURANT_INFO.adresse || 'Dakar, Sénégal'}</p>
+    <p>${RESTAURANT_INFO.adresse || 'Louga, Sénégal'}</p>
     ${RESTAURANT_INFO.tel   ? `<p>Tél : ${RESTAURANT_INFO.tel}</p>` : ''}
     ${RESTAURANT_INFO.ninea ? `<p>NINEA : ${RESTAURANT_INFO.ninea}</p>` : ''}
   </div>
@@ -23795,7 +23802,7 @@ function imprimerFichePaie(employeId, mois) {
   <div class="identity-col">
     <h3>🏢 Employeur</h3>
     <div class="id-row"><span class="lbl">Raison sociale</span><span class="val">${RESTAURANT_INFO.nom || 'KEURGOUMAK'}</span></div>
-    <div class="id-row"><span class="lbl">Adresse</span><span class="val">${RESTAURANT_INFO.adresse || 'Dakar, Sénégal'}</span></div>
+    <div class="id-row"><span class="lbl">Adresse</span><span class="val">${RESTAURANT_INFO.adresse || 'Louga, Sénégal'}</span></div>
     ${RESTAURANT_INFO.ninea ? `<div class="id-row"><span class="lbl">NINEA</span><span class="val">${RESTAURANT_INFO.ninea}</span></div>` : ''}
     <div class="id-row"><span class="lbl">N° IPRES employeur</span><span class="val">${RESTAURANT_INFO.ipres || '—'}</span></div>
   </div>
@@ -24401,7 +24408,7 @@ function printComptaSection(section) {
     @media print{@page{margin:1.5cm;size:A4;} body{padding:0;}}
   </style></head><body>
   <h1>🍽️ ${nomResto} — ${titre}</h1>
-  <div class="sub">${RESTAURANT_INFO?.adresse||'Dakar, Sénégal'} · Généré le ${dateStr} à ${heureStr}</div>
+  <div class="sub">${RESTAURANT_INFO?.adresse||'Louga, Sénégal'} · Généré le ${dateStr} à ${heureStr}</div>
   ${innerHtml}
   </body></html>`;
 
@@ -26581,7 +26588,7 @@ function printArchivedTicket(idx) {
   if (!ticket) { if(typeof showToast==='function') showToast('Ticket introuvable'); return; }
 
   const restaurant = (typeof RESTAURANT_INFO!=='undefined' && RESTAURANT_INFO.nom)    || 'KEURGOUMAK';
-  const adresse    = (typeof RESTAURANT_INFO!=='undefined' && RESTAURANT_INFO.adresse) || 'Dakar';
+  const adresse    = (typeof RESTAURANT_INFO!=='undefined' && RESTAURANT_INFO.adresse) || 'Louga';
   const tel        = (typeof RESTAURANT_INFO!=='undefined' && RESTAURANT_INFO.tel)     || '';
   const ninea      = (typeof RESTAURANT_INFO!=='undefined' && RESTAURANT_INFO.ninea)   || '';
 
@@ -33904,7 +33911,7 @@ function openSalleContrat(id) {
   if(!r) return;
   const cfg = salGetConfig();
   const nom_etab = cfg.nom || 'KEURGOUMAK';
-  const adresse  = cfg.adresse || 'Dakar, Sénégal';
+  const adresse  = cfg.adresse || 'Louga, Sénégal';
   const tel_etab = cfg.tel || '77 000 00 00';
   const email    = cfg.email || 'keurgoumak@gmail.com';
   const ref      = '#' + (r.id||'').replace('sal_','').slice(0,10);
@@ -34002,7 +34009,7 @@ function openSalleContrat(id) {
   <!-- V. SIGNATURES -->
   <div style="background:#f7f8fa;border:1px solid #ddd;border-radius:6px;padding:16px;margin-top:20px;">
     <div style="font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;">V. SIGNATURES</div>
-    <div style="font-size:12px;margin-bottom:16px;">Fait à Dakar, le _____ / _____ / 2026</div>
+    <div style="font-size:12px;margin-bottom:16px;">Fait à ${(cfg.adresse||"Louga, Sénégal").split(",")[0].trim()}, le ${new Date().toLocaleDateString("fr-FR", {day:"2-digit", month:"2-digit", year:"numeric"})}</div>
     <div style="font-size:11.5px;color:#555;margin-bottom:16px;">Les deux parties déclarent avoir lu et accepté sans réserve l'intégralité des clauses du présent contrat.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
       <div style="border:1px solid #ccc;border-radius:6px;padding:14px;text-align:center;">
@@ -34219,7 +34226,7 @@ function loadSalleConfigPanel() {
   const cfg = salGetConfig();
   const el = (id,v) => { const e=document.getElementById(id); if(e&&v!==undefined) e.value=v; };
   el('sal-cfg-nom', cfg.nom||'KEURGOUMAK');
-  el('sal-cfg-adresse', cfg.adresse||'Dakar, Sénégal');
+  el('sal-cfg-adresse', cfg.adresse||'Louga, Sénégal');
   el('sal-cfg-tel', cfg.tel||'77 000 00 00');
   el('sal-cfg-email', cfg.email||'keurgoumak@gmail.com');
   el('sal-cfg-salles', cfg.salles||'Grand Salon\nSalle VIP\nEspace Jardin');
@@ -35030,7 +35037,7 @@ function spLoadConfigPanel() {
   const cfg = spGetConfig();
   const el = (id,v) => { const e=document.getElementById(id); if(e&&v!==undefined) e.value=v; };
   el('sp-cfg-nom',      cfg.nom||'KEURGOUMAK Sport');
-  el('sp-cfg-adresse',  cfg.adresse||'Dakar, Sénégal');
+  el('sp-cfg-adresse',  cfg.adresse||'Louga, Sénégal');
   el('sp-cfg-tel',      cfg.tel||'77 000 00 00');
   el('sp-cfg-heures',   cfg.heures||'06h-22h');
   el('sp-cfg-tarif-mois',  cfg.tarifMois||15000);
@@ -35491,7 +35498,7 @@ function imprimerTicketAttente(ticketId) {
 
   // ── Récupérer les infos restaurant depuis paramètres ──
   const restaurant  = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.nom)     || 'MON RESTAURANT';
-  const adresse     = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.adresse) || 'Dakar, Sénégal';
+  const adresse     = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.adresse) || 'Louga, Sénégal';
   const tel         = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.tel)     || '';
   const ninea       = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.ninea)   || '';
   const email       = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.email)   || '';
