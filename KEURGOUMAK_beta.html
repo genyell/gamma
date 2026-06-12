@@ -21681,7 +21681,7 @@ const KGSync = (() => {
                 id:   s.id   || s.sbId || null,
               });
             });
-          STOCK_ENTREES = data.entries || STOCK_ENTREES;
+            STOCK_ENTREES = data.entries || STOCK_ENTREES;
           // ✅ FIX IDs : après chaque pullAll, resynchroniser les stockId dans les recettes du MENU
           // pour qu'ils correspondent exactement aux IDs actuels de STOCK_DATA
           (typeof MENU !== 'undefined' ? MENU : []).forEach(function(item) {
@@ -21704,8 +21704,8 @@ const KGSync = (() => {
               }
             });
           });
-          console.log('[pullAll] ✅ stockId recettes normalisés après rechargement STOCK_DATA');
-          } // fin else (_msSinceDeduct >= 15000)
+            console.log('[pullAll] ✅ stockId recettes normalisés après rechargement STOCK_DATA');
+          } // fin else (_msSinceDeduct >= 30000)
         } else if(key === 'modules_caisses_data' && data.states) {
           // ✅ FIX v31 MULTI-NAVIGATEURS : restaurer les états des modules depuis Supabase
           // Ce navigateur reçoit les transactions et l'état actif de l'autre navigateur
