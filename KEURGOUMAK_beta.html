@@ -22903,14 +22903,11 @@ function deduireStockVente(items) {
               if(s && s.sbId) _modifiedIds.add(s.sbId);
             });
           });
-          const _updates = STOCK_DATA.filter(s => s.sbId && _modifiedIds.has(s.sbId)).map(s =>
-            _sb.from('stock_items')
-              .update({ qty: s.qty, updated_at: new Date().toISOString() })
-              .eq('id', s.sbId)
-              .eq('restaurant_id', _rid)
-              .catch(e => console.warn('[stock] update stock_items:', s.name, e))
-          );
-          if(_updates.length) Promise.all(_updates).catch(()=>{});
+          // ✅ FIX : stock_items n'existe pas dans Supabase — uniquement kg_sync via pushStock()
+          // Ne pas tenter _sb.from('stock_items') qui génère des erreurs silencieuses
+          if(_modifiedIds.size > 0) {
+            console.log('[stock] Articles modifiés:', [..._modifiedIds].join(', '));
+          }
         }
         // kg_sync en parallèle pour les autres appareils
         KGSync.push.stock();
@@ -22957,7 +22954,8 @@ function openEditIngredient(menuIdx) {
   if(!item) { realIdx = menuIdx; item = MENU[menuIdx]; }
   if(!item) return;
   document.getElementById('editIngredient-title').textContent = '🍳 ' + (item.icon||'') + ' ' + item.name + ' — Ingrédients';
-  document.getElementById('editIngredient-itemId').value = realIdx;
+  // ✅ FIX ID STABLE : stocker sbId ou id (pas l'index) pour éviter collision après re-render
+  document.getElementById('editIngredient-itemId').value = item.sbId || item.id || realIdx;
   _editIngLines = (item.recette || []).map(l => {
     // Normaliser : résoudre le stockId vers l'id local
     const stock = STOCK_DATA.find(x => x.id == l.stockId || x.sbId == l.stockId || String(x.id) === String(l.stockId));
@@ -23063,32 +23061,62 @@ function saveIngredients() {
   });
   closeModal('editIngredient');
   renderMenu(currentMenuCat || 'all');
-  // ✅ FIX AFFICHAGE : re-render après 800ms pour s'assurer que la recette est bien affichée
-  setTimeout(function() { if(typeof renderMenu === 'function') renderMenu(currentMenuCat || 'all'); }, 800);
 
-  // ✅ FIX : mettre à jour la colonne recette dans menu_items Supabase directement
-  console.log('[saveIngredients] item:', item?.name, '| sbId:', item?.sbId, '| recette:', item?.recette?.length, 'lignes');
-  if(typeof KGSync !== 'undefined' && KGSync.isConnected && (item.sbId || item.id)) {
-    const _sb = KGSync.getClient();
-    const _rid = window._KG_RESTAURANT_ID;
-    if(_sb && _rid) {
-      // ✅ FIX : si pas de sbId, chercher par nom dans menu_items
-      const _updateQuery = item.sbId
-        ? _sb.from('menu_items').update({ recette: item.recette }).eq('id', item.sbId)
-        : _sb.from('menu_items').update({ recette: item.recette }).eq('name', item.name).eq('restaurant_id', _rid);
-      _updateQuery
-        .then(({ error }) => {
+  // ✅ FIX COMPLET : sauver recette dans menu_items Supabase + kg_sync + re-render
+  console.log('[saveIngredients] item:', item?.name, '| sbId:', item?.sbId, '| recette:', JSON.stringify(item?.recette));
+  
+  (async () => {
+    try {
+      if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+        const _sb = KGSync.getClient();
+        const _rid = window._KG_RESTAURANT_ID;
+        if(_sb && _rid) {
+          // Étape 1 : sauver dans menu_items (source de vérité pour recettes)
+          const _updateQuery = item.sbId
+            ? _sb.from('menu_items').update({ recette: item.recette }).eq('id', item.sbId)
+            : _sb.from('menu_items').update({ recette: item.recette }).eq('name', item.name).eq('restaurant_id', _rid);
+          const { error } = await _updateQuery;
           if(error) {
-            console.warn('[saveIngredients] colonne recette absente dans menu_items — recette sauvée uniquement via kg_sync', error.message);
+            console.warn('[saveIngredients] ⛔ erreur menu_items:', error.message);
           } else {
             console.log('[saveIngredients] ✅ recette sauvée dans menu_items pour:', item.name);
           }
-        })
-        .catch(e => console.warn('[saveIngredients] update recette:', e));
-    }
-  }
-  // Aussi mettre à jour kg_sync pour que les autres appareils voient la recette
-  if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.menu().catch(()=>{});
+          
+          // Étape 2 : mettre à jour kg_sync/menu_data en préservant TOUTES les recettes
+          const _seen2 = new Map();
+          const _dedupMenu2 = [];
+          MENU.forEach(m => {
+            const _uid = m.sbId || m.id;
+            if(_uid && _seen2.has(_uid)) return;
+            if(_uid) _seen2.set(_uid, true);
+            _dedupMenu2.push(Object.assign({}, m));
+          });
+          // Enrichir avec recettes depuis menu_items
+          const { data: allRows } = await _sb.from('menu_items').select('id, recette').eq('restaurant_id', _rid);
+          if(allRows) {
+            allRows.forEach(row => {
+              if(!row.recette || !row.recette.length) return;
+              const m2 = _dedupMenu2.find(x => x.sbId === row.id || x.id === row.id);
+              if(m2) m2.recette = row.recette;
+            });
+          }
+          // Push kg_sync avec recettes enrichies
+          const _rid2 = _rid;
+          try {
+            await _sb.from('kg_sync').upsert({
+              key: _rid2 + ':menu_data',
+              value: JSON.stringify({ items: _dedupMenu2 }),
+              restaurant_id: _rid2,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'key' });
+            console.log('[saveIngredients] ✅ kg_sync/menu_data mis à jour avec recettes');
+          } catch(e2) { console.warn('[saveIngredients] kg_sync upsert:', e2); }
+        }
+      }
+    } catch(e) { console.warn('[saveIngredients] async error:', e); }
+    // Re-render final après tout
+    if(typeof renderMenu === 'function') renderMenu(currentMenuCat || 'all');
+  })();
   // Invalider le cache pullAll pour menu_data
   try {
     const _rid = window._KG_RESTAURANT_ID;
