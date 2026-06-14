@@ -8484,7 +8484,9 @@ Revenez nous voir bient&#244;t.</textarea>
     </div>
     <div class="form-group">
       <label class="form-label">👤 Serveur (optionnel)</label>
-      <input class="form-input" id="ticket-serveur" placeholder="Nom du serveur...">
+      <select class="form-input" id="ticket-serveur" style="cursor:pointer;">
+        <option value="">— Sans serveur —</option>
+      </select>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('confirmTicket')">✕ Annuler</button>
@@ -10693,7 +10695,8 @@ async function _saveVenteSupabase(caisse, vente) {
       pay_mode:      vente.payMethod || null,
       // ✅ FIX MIXTE : sauvegarder le détail cash/wave/orange pour Rapport X
       pay_methods:   vente.payMethods ? JSON.stringify(vente.payMethods) : null,
-      session_date:  (vente.date || new Date().toISOString()).split('T')[0]
+      session_date:  (vente.date || new Date().toISOString()).split('T')[0],
+      serveur:       vente.serveur && vente.serveur.trim() ? vente.serveur.trim() : null
     }, { onConflict: 'restaurant_id,caisse,order_num' });
   } catch(e) {
     console.warn('[ventes_caisse] Erreur save:', e);
@@ -10731,6 +10734,7 @@ async function _loadVentesSupabase(caisse) {
       payLabel:  row.pay_mode === 'mixed' ? '🔀 Mixte' : row.pay_mode === 'wave' ? 'Wave' : row.pay_mode === 'orange' ? 'Orange Money' : row.pay_mode === 'card' ? 'Carte bancaire' : '💵 Espèces',
       cashier:   row.cashier || '',
       client:    row.client && row.client !== 'undefined' ? row.client : 'Client',
+      serveur:   row.serveur || row.cashier || '',
       note:      row.note || '',
       date:      row.session_date,
       time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
@@ -11177,6 +11181,33 @@ function openConfirmTicket() {
   ['mixed-cash','mixed-wave','mixed-orange'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   const rv = document.getElementById('mixed-pay-reste-val'); if(rv) { rv.textContent = '— FCFA'; rv.style.color = 'var(--red)'; }
   document.getElementById('ticket-client').value = '';
+  // ✅ FIX SERVEURS : remplir le select avec la liste des serveurs depuis kg_sync
+  (async function() {
+    const sel = document.getElementById('ticket-serveur');
+    if(!sel) return;
+    sel.innerHTML = '<option value="">— Sans serveur —</option>';
+    try {
+      const _sbSrv = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+      const _ridSrv = window._KG_RESTAURANT_ID;
+      if(_sbSrv && _ridSrv) {
+        const { data } = await _sbSrv.from('kg_sync').select('value').eq('key', _ridSrv + ':serveurs').maybeSingle();
+        const liste = data?.value ? (typeof data.value === 'string' ? JSON.parse(data.value) : data.value) : [];
+        const actifs = (Array.isArray(liste) ? liste : []).filter(s => s.statut === 'actif' && s.nom);
+        actifs.forEach(function(s) {
+          const opt = document.createElement('option');
+          opt.value = s.nom;
+          opt.textContent = '👤 ' + s.nom;
+          sel.appendChild(opt);
+        });
+        // Pré-sélectionner si utilisateur connecté est un serveur
+        if(currentUser && (currentUser.role === 'serveur' || currentUser.role === 'waiter')) {
+          const nomUser = ((currentUser.prenom || '') + ' ' + (currentUser.nom || '')).trim();
+          const matchOpt = [...sel.options].find(o => o.value.toLowerCase() === nomUser.toLowerCase());
+          if(matchOpt) sel.value = matchOpt.value;
+        }
+      }
+    } catch(e) { console.warn('[serveurs select]', e); }
+  })();
   showModal('confirmTicket');
 }
 
@@ -11322,19 +11353,46 @@ async function validateOrder() {
   _saveVenteSupabase(caisse, venteSaved); // ✅ Persistance immédiate Supabase
 
   // Deduire les ingredients du stock (recette)
-  // ✅ FIX STOCK : s'assurer que les recettes sont bien chargées depuis MENU avant déduction
-  // Si un article du panier n'a pas de recette dans le cache local, on la récupère depuis MENU
-  itemsSaved.forEach(function(cartItem) {
-    if(!cartItem.recette || !cartItem.recette.length) {
-      const menuItem = MENU.find(function(m) {
-        return m.id === cartItem.id || m.sbId === cartItem.id || m.id === cartItem.sbId || m.sbId === cartItem.sbId || m.name === cartItem.name;
-      });
-      if(menuItem && menuItem.recette && menuItem.recette.length) {
-        cartItem.recette = menuItem.recette;
-        console.log('[stock-fix] Recette injectée depuis MENU pour:', cartItem.name, '|', menuItem.recette.length, 'ligne(s)');
+  // ✅ FIX DÉFINITIF : charger les recettes depuis menu_items Supabase AVANT déduction (await)
+  // Garantit que MENU a les recettes même si pullAll async n'est pas encore terminé
+  try {
+    const _sbStock = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+    const _ridStock = window._KG_RESTAURANT_ID;
+    if(_sbStock && _ridStock) {
+      const { data: _recetteRows } = await _sbStock
+        .from('menu_items')
+        .select('id, name, recette')
+        .eq('restaurant_id', _ridStock);
+      if(_recetteRows && _recetteRows.length) {
+        _recetteRows.forEach(function(row) {
+          if(!row.recette || !row.recette.length) return;
+          // Mettre à jour MENU
+          const mItem = MENU.find(function(m) { return m.sbId === row.id || m.id === row.id; });
+          if(mItem) mItem.recette = row.recette;
+          // Mettre à jour itemsSaved directement
+          itemsSaved.forEach(function(cartItem) {
+            if(cartItem.id === row.id || cartItem.sbId === row.id || cartItem.name === row.name) {
+              cartItem.recette = row.recette;
+              console.log('[stock-fix] ✅ Recette chargée Supabase pour:', row.name, '|', row.recette.length, 'ligne(s)');
+            }
+          });
+        });
       }
     }
-  });
+  } catch(_e) {
+    // Si Supabase échoue, fallback sur MENU local
+    console.warn('[stock-fix] fallback MENU local:', _e);
+    itemsSaved.forEach(function(cartItem) {
+      if(!cartItem.recette || !cartItem.recette.length) {
+        const menuItem = MENU.find(function(m) {
+          return m.id === cartItem.id || m.sbId === cartItem.id || m.name === cartItem.name;
+        });
+        if(menuItem && menuItem.recette && menuItem.recette.length) {
+          cartItem.recette = menuItem.recette;
+        }
+      }
+    });
+  }
   deduireStockVente(itemsSaved);
 
   // Synchroniser CAISSES en temps réel
@@ -17073,7 +17131,7 @@ async function doLogin() {
     if(typeof checkOnlineStatus === 'function') checkOnlineStatus();
     // ✅ REALTIME : activer la synchronisation multi-appareils après connexion
     KGSync.startRealtime();
-    // ✅ Démarrer la déconnexion automatique après 15 min d'inactivité
+    // ✅ Démarrer la déconnexion automatique après 30 min d'inactivité
     if(typeof window._kgStartAutoLogout === 'function') {
       window._kgStopAutoLogout();
       window._kgStartAutoLogout();
@@ -17177,7 +17235,7 @@ function openUserMenuOrUtilisateurs() {
 //  DÉCONNEXION AUTOMATIQUE APRÈS 15 MIN D'INACTIVITÉ
 // ═══════════════════════════════════════════════════════════════
 (function() {
-  const INACTIVITY_MS  = 15 * 60 * 1000; // 15 minutes
+  const INACTIVITY_MS  = 30 * 60 * 1000; // 30 minutes
   const WARNING_BEFORE = 60 * 1000;       // Avertissement 60s avant
   let _mainTimer    = null;
   let _countdownInt = null;
@@ -17261,7 +17319,7 @@ function openUserMenuOrUtilisateurs() {
 
   async function _doAutoLogout() {
     _hideWarning();
-    if(typeof showNotif === 'function') showNotif('🔒 Déconnexion automatique — 15 min d\'inactivité');
+    if(typeof showNotif === 'function') showNotif('🔒 Déconnexion automatique — 30 min d\'inactivité');
     if(typeof doLogout === 'function') await doLogout();
   }
 
@@ -17326,7 +17384,7 @@ function openUserMenuOrUtilisateurs() {
       // ✅ FIX DÉCONNEXION INTEMPESTIVE : sur mobile, verrouiller l'écran met l'onglet
       // en arrière-plan → visibilitychange se déclenche. On tolère jusqu'à 30min
       // avant de déconnecter (au lieu de 15min) pour éviter la déco à chaque pause courte
-      const EXTENDED_MS = 15 * 60 * 1000; // 15 minutes
+      const EXTENDED_MS = 30 * 60 * 1000; // 30 minutes
       if(elapsed >= EXTENDED_MS && currentUser) {
         console.warn('[AutoLogout] ⏰ Délai dépassé (15min) pendant inactivité — déconnexion');
         _doAutoLogout();
@@ -27048,6 +27106,8 @@ CREATE TABLE IF NOT EXISTS public.ventes_caisse (
   lignes JSONB DEFAULT '[]',
   note TEXT,
   pay_mode TEXT,
+  pay_methods TEXT,
+  serveur TEXT,
   session_date DATE,
   created_at TIMESTAMPTZ DEFAULT now(),
   CONSTRAINT ventes_caisse_unique UNIQUE (restaurant_id, caisse, order_num)
