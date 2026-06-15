@@ -4860,6 +4860,9 @@ function _syncSportVentes()       { return []; }
     <div class="nav-item" onclick="showView('sport', this)" id="nav-sport">
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5h11"/><path d="M6.5 17.5h11"/><path d="M3 9.5h2v5H3z"/><path d="M19 9.5h2v5h-2z"/><path d="M5 8h1v8H5z"/><path d="M18 8h1v8h-1z"/></svg></span> Salle de Sport
     </div>
+    <div class="nav-item" onclick="showView('hotel', this)" id="nav-hotel">
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22V8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/><path d="M9 22v-4h6v4"/><path d="M3 11h18"/><rect x="9" y="8" width="2" height="3" rx="0.5"/><rect x="13" y="8" width="2" height="3" rx="0.5"/></svg></span> Hôtel
+    </div>
     <div class="nav-section">Caisses</div>
     <div class="nav-item" onclick="showView('rapportx', this)">
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Rapport X
@@ -7600,6 +7603,154 @@ Revenez nous voir bient&#244;t.</textarea>
 
 </div>
 
+
+<!-- ════════════════════ VUE HOTEL ════════════════════ -->
+<div id="view-hotel" class="view fade-in">
+
+  <!-- KPI HEADER -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
+    <div class="stat-card" style="text-align:center;">
+      <div class="stat-icon">🏨</div>
+      <div class="stat-val" id="hotel-kpi-total">0</div>
+      <div class="stat-label">Chambres total</div>
+    </div>
+    <div class="stat-card" style="text-align:center;">
+      <div class="stat-icon" style="color:#22c55e;">✅</div>
+      <div class="stat-val" id="hotel-kpi-dispo" style="color:#22c55e;">0</div>
+      <div class="stat-label">Disponibles</div>
+    </div>
+    <div class="stat-card" style="text-align:center;">
+      <div class="stat-icon" style="color:#ef4444;">🔴</div>
+      <div class="stat-val" id="hotel-kpi-occupe" style="color:#ef4444;">0</div>
+      <div class="stat-label">Occupées</div>
+    </div>
+    <div class="stat-card" style="text-align:center;">
+      <div class="stat-icon" style="color:#f59e0b;">🧹</div>
+      <div class="stat-val" id="hotel-kpi-nettoyage" style="color:#f59e0b;">0</div>
+      <div class="stat-label">En nettoyage</div>
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:center;">
+    <button class="btn btn-primary" onclick="openModalAddChambre()">➕ Ajouter une chambre</button>
+    <button class="btn btn-ghost" onclick="renderHotelGrid()">🔄 Actualiser</button>
+    <div style="margin-left:auto;display:flex;gap:8px;">
+      <button class="btn btn-ghost" id="hotel-filter-all" onclick="hotelSetFilter('all',this)" style="background:var(--primary);color:#fff;">Toutes</button>
+      <button class="btn btn-ghost" id="hotel-filter-dispo" onclick="hotelSetFilter('disponible',this)">Disponibles</button>
+      <button class="btn btn-ghost" id="hotel-filter-occupe" onclick="hotelSetFilter('occupee',this)">Occupées</button>
+    </div>
+  </div>
+
+  <!-- GRILLE CHAMBRES -->
+  <div id="hotel-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;"></div>
+
+</div>
+
+<!-- MODAL : Ajouter/Éditer chambre -->
+<div class="modal-overlay" id="modal-addChambre">
+  <div class="modal" style="width:480px;max-width:95vw;">
+    <div class="modal-title" id="modal-chambre-title">🛏️ Ajouter une chambre</div>
+    <input type="hidden" id="chambre-edit-id">
+    <div class="form-group">
+      <label class="form-label">Numéro / Nom de chambre</label>
+      <input class="form-input" id="chambre-numero" placeholder="Ex: 101, Suite A, Chambre VIP...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Type</label>
+      <select class="form-input" id="chambre-type">
+        <option value="simple">Simple</option>
+        <option value="double">Double</option>
+        <option value="suite">Suite</option>
+        <option value="vip">VIP</option>
+        <option value="familiale">Familiale</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Prix par nuit (FCFA)</label>
+      <input class="form-input" id="chambre-prix" type="number" placeholder="Ex: 25000">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Étage</label>
+      <input class="form-input" id="chambre-etage" placeholder="Ex: RDC, 1er, 2ème...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addChambre')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveChambre()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL : Réservation chambre -->
+<div class="modal-overlay" id="modal-reservationChambre">
+  <div class="modal" style="width:500px;max-width:95vw;">
+    <div class="modal-title">📋 Réservation — <span id="res-chambre-label"></span></div>
+    <input type="hidden" id="res-chambre-id">
+    <div class="form-group">
+      <label class="form-label">Nom du client</label>
+      <input class="form-input" id="res-client-nom" placeholder="Nom complet...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Téléphone</label>
+      <input class="form-input" id="res-client-tel" placeholder="+221 ...">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">Date d'arrivée</label>
+        <input class="form-input" id="res-date-arrivee" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date de départ</label>
+        <input class="form-input" id="res-date-depart" type="date">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Montant total (FCFA)</label>
+      <input class="form-input" id="res-montant" type="number" placeholder="Calculé automatiquement...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Acompte versé (FCFA)</label>
+      <input class="form-input" id="res-acompte" type="number" placeholder="0">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Mode de paiement</label>
+      <select class="form-input" id="res-pay-mode">
+        <option value="especes">Espèces</option>
+        <option value="wave">Wave</option>
+        <option value="orange">Orange Money</option>
+        <option value="carte">Carte bancaire</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" id="res-notes" rows="2" placeholder="Demandes spéciales..."></textarea>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;font-size:13px;">
+        <span style="color:var(--text2);">Reste à payer</span>
+        <span style="font-weight:700;color:var(--primary);" id="res-reste">0 FCFA</span>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('reservationChambre')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveReservationChambre()">✅ Confirmer la réservation</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL : Détails chambre occupée -->
+<div class="modal-overlay" id="modal-detailChambre">
+  <div class="modal" style="width:480px;max-width:95vw;">
+    <div class="modal-title">🏨 Chambre <span id="detail-chambre-num"></span></div>
+    <div id="detail-chambre-content"></div>
+    <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
+      <button class="btn btn-ghost" onclick="closeModal('detailChambre')">Fermer</button>
+      <button class="btn btn-ghost" style="color:#f59e0b;border-color:#f59e0b;" onclick="setChambreNettoyage()">🧹 Mettre en nettoyage</button>
+      <button class="btn btn-primary" style="background:#22c55e;" onclick="libererChambre()">✅ Libérer la chambre</button>
+    </div>
+  </div>
+</div>
+
   </div><!-- end content -->
 
 </main>
@@ -9267,7 +9418,7 @@ function showView(id, el, pushState) {
     const navMatch = document.querySelector(`.nav-item[onclick*="showView('${id}'"]`);
     if(navMatch) navMatch.classList.add('active');
   }
-  const titles = { dashboard:'Tableau de bord', caisse:'Caisse POS', commandes:'Commandes', qrcommandes:'📱 Commandes en ligne — QR Code', menu:'Menu & Carte', stock:'Stocks', inventaire:'Inventaire', preparation:'🧑‍🍳 Préparation', clients:'Clients', fournisseurs:'Fournisseurs', stats:'Statistiques', settings:'Paramètres', caisses:'Gestion des Caisses', rapportx:'Rapport X — Consultation en cours', shift:'Gestion des Shifts', fermeture:'Fermeture de Caisse (Z)', reconciliation:'Réconciliation Mensuelle', historique:'Historique des Clôtures', utilisateurs:'Utilisateurs', depenses:'Module Dépenses', rh:'RH & Gestion des Salaires', compta:'Comptabilité — Résultats & Bilan', factures:'Factures — Clients & Fournisseurs', banque:'Banque — Suivi des comptes', materiel:'Matériel & Amortissements', annonces:'📢 Annonces & Publicités', 'location-salle':'🏛️ Location de Salle', 'manege':'🎠 Manège Enfants', terrain:'⚽ Terrain de Football', 'salle-sport':'💪 Salle de Sport', piscine:'🏊 Piscine', caisse3commandes:'🖥️ Caisse 3 — Commandes Clients', salle:'🏠 Salle de Location', sport:'💪 Salle de Sport' };
+  const titles = { dashboard:'Tableau de bord', caisse:'Caisse POS', commandes:'Commandes', qrcommandes:'📱 Commandes en ligne — QR Code', menu:'Menu & Carte', stock:'Stocks', inventaire:'Inventaire', preparation:'🧑‍🍳 Préparation', clients:'Clients', fournisseurs:'Fournisseurs', stats:'Statistiques', settings:'Paramètres', caisses:'Gestion des Caisses', rapportx:'Rapport X — Consultation en cours', shift:'Gestion des Shifts', fermeture:'Fermeture de Caisse (Z)', reconciliation:'Réconciliation Mensuelle', historique:'Historique des Clôtures', utilisateurs:'Utilisateurs', depenses:'Module Dépenses', rh:'RH & Gestion des Salaires', compta:'Comptabilité — Résultats & Bilan', factures:'Factures — Clients & Fournisseurs', banque:'Banque — Suivi des comptes', materiel:'Matériel & Amortissements', annonces:'📢 Annonces & Publicités', 'location-salle':'🏛️ Location de Salle', 'manege':'🎠 Manège Enfants', terrain:'⚽ Terrain de Football', 'salle-sport':'💪 Salle de Sport', piscine:'🏊 Piscine', caisse3commandes:'🖥️ Caisse 3 — Commandes Clients', salle:'🏠 Salle de Location', sport:'💪 Salle de Sport', hotel:'🏨 Hôtel — Gestion des Chambres' };
   document.getElementById('page-title').textContent = titles[id] || id;
 
   // ===== HISTORY API : desactive en file:// pour eviter "Unsafe attempt" ===
@@ -9296,6 +9447,7 @@ function showView(id, el, pushState) {
     }
   }
   if(id === 'dashboard') refreshDashboard();
+  if(id === 'hotel') loadHotelData();
   if(id === 'menu') renderMenu('all');
   if(id === 'commandes') renderOrders('all');
   if(id === 'qrcommandes') {
@@ -16499,6 +16651,7 @@ const ALL_PERMS = [
   { id:'terrain', label:'⚽ Terrain de Football' },
   { id:'salle', label:'🏠 Salle de Location' },
   { id:'sport', label:'💪 Salle de Sport' },
+  { id:'hotel', label:'🏨 Hôtel' },
 ];
 
 // USERS chargés depuis Supabase Auth après connexion
@@ -36188,6 +36341,178 @@ document.addEventListener('click', function(e) {
   const modal = document.getElementById('modal-reconstruire');
   if(modal && e.target === modal) fermerModalReconstruire();
 });
+
+
+
+// ═══════════════════════════════════════════════════════
+// MODULE HOTEL
+// ═══════════════════════════════════════════════════════
+let HOTEL_CHAMBRES = [];
+let HOTEL_RESERVATIONS = [];
+let _hotelFilter = 'all';
+
+async function loadHotelData() {
+  try {
+    const _sb = (typeof KGSync!=='undefined'&&KGSync.isConnected)?KGSync.getClient():null;
+    const _rid = window._KG_RESTAURANT_ID;
+    if(_sb&&_rid){
+      const {data} = await _sb.from('kg_sync').select('value').eq('key',_rid+':hotel_data').maybeSingle();
+      if(data&&data.value){const p=typeof data.value==='string'?JSON.parse(data.value):data.value;HOTEL_CHAMBRES=p.chambres||[];HOTEL_RESERVATIONS=p.reservations||[];}
+    }
+  } catch(e){console.warn('[hotel]',e);}
+  renderHotelGrid();
+}
+
+async function saveHotelData() {
+  const payload={chambres:HOTEL_CHAMBRES,reservations:HOTEL_RESERVATIONS};
+  try {
+    const _sb=(typeof KGSync!=='undefined'&&KGSync.isConnected)?KGSync.getClient():null;
+    const _rid=window._KG_RESTAURANT_ID;
+    if(_sb&&_rid){await _sb.from('kg_sync').upsert({key:_rid+':hotel_data',value:JSON.stringify(payload),restaurant_id:_rid,updated_at:new Date().toISOString()},{onConflict:'key'});}
+  } catch(e){console.warn('[hotel save]',e);}
+}
+
+function hotelSetFilter(f,el) {
+  _hotelFilter=f;
+  document.querySelectorAll('[id^="hotel-filter-"]').forEach(b=>{b.style.background='';b.style.color='';});
+  if(el){el.style.background='var(--primary)';el.style.color='#fff';}
+  renderHotelGrid();
+}
+
+function _hotelTypeLabel(t){return {simple:'Simple',double:'Double',suite:'Suite',vip:'VIP',familiale:'Familiale'}[t]||t||'Standard';}
+function _hotelFormatDate(d){if(!d)return '—';return new Date(d).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});}
+
+function renderHotelGrid() {
+  const dispo=HOTEL_CHAMBRES.filter(c=>c.statut==='disponible').length;
+  const occupe=HOTEL_CHAMBRES.filter(c=>c.statut==='occupee').length;
+  const nett=HOTEL_CHAMBRES.filter(c=>c.statut==='nettoyage').length;
+  const setEl=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  setEl('hotel-kpi-total',HOTEL_CHAMBRES.length);
+  setEl('hotel-kpi-dispo',dispo);
+  setEl('hotel-kpi-occupe',occupe);
+  setEl('hotel-kpi-nettoyage',nett);
+  const grid=document.getElementById('hotel-grid');
+  if(!grid)return;
+  const filtered=_hotelFilter==='all'?HOTEL_CHAMBRES:HOTEL_CHAMBRES.filter(c=>c.statut===_hotelFilter);
+  if(!filtered.length){
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text2);padding:40px;font-size:14px;">Aucune chambre.<br><br><button class="btn btn-primary" onclick="openModalAddChambre()">➕ Ajouter une chambre</button></div>';
+    return;
+  }
+  const colors={disponible:{bg:'#f0fdf4',border:'#22c55e',txt:'#15803d',badge:'Disponible',icon:'✅'},occupee:{bg:'#fef2f2',border:'#ef4444',txt:'#b91c1c',badge:'Occupée',icon:'🔴'},nettoyage:{bg:'#fffbeb',border:'#f59e0b',txt:'#b45309',badge:'Nettoyage',icon:'🧹'}};
+  grid.innerHTML=filtered.map(ch=>{
+    const s=ch.statut||'disponible';
+    const c=colors[s]||colors.disponible;
+    const res=HOTEL_RESERVATIONS.filter(r=>r.chambreId===ch.id&&r.statut==='active')[0];
+    return '<div onclick="hotelClickChambre(\''+ch.id+'\')" style="background:'+c.bg+';border:2px solid '+c.border+';border-radius:16px;padding:16px;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;position:relative;" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 20px rgba(0,0,0,0.1)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\'">'
+      +'<div style="position:absolute;top:10px;right:10px;font-size:10px;font-weight:700;background:'+c.border+';color:#fff;padding:2px 8px;border-radius:100px;">'+c.icon+' '+c.badge+'</div>'
+      +'<div style="font-size:28px;margin-bottom:8px;">🛏️</div>'
+      +'<div style="font-weight:800;font-size:18px;color:var(--text1);margin-bottom:2px;">N° '+ch.numero+'</div>'
+      +'<div style="font-size:12px;color:var(--text2);margin-bottom:6px;">'+_hotelTypeLabel(ch.type)+' · '+(ch.etage||'RDC')+'</div>'
+      +'<div style="font-weight:700;font-size:13px;color:'+c.txt+';">'+(ch.prix||0).toLocaleString()+' FCFA/nuit</div>'
+      +(res?'<div style="margin-top:8px;font-size:11px;color:var(--text2);border-top:1px solid '+c.border+';padding-top:8px;">👤 '+res.clientNom+'<br>📅 Départ: '+_hotelFormatDate(res.dateDepart)+'</div>':'')
+      +'</div>';
+  }).join('');
+}
+
+function hotelClickChambre(id) {
+  const ch=HOTEL_CHAMBRES.find(c=>c.id===id);
+  if(!ch)return;
+  if(ch.statut==='disponible'){
+    document.getElementById('res-chambre-id').value=id;
+    document.getElementById('res-chambre-label').textContent='N° '+ch.numero+' — '+_hotelTypeLabel(ch.type);
+    ['res-client-nom','res-client-tel','res-notes','res-acompte','res-montant'].forEach(function(elId){var e=document.getElementById(elId);if(e)e.value='';});
+    document.getElementById('res-reste').textContent='0 FCFA';
+    const today=new Date().toISOString().split('T')[0];
+    document.getElementById('res-date-arrivee').value=today;
+    document.getElementById('res-date-depart').value=today;
+    ['res-date-arrivee','res-date-depart','res-acompte'].forEach(function(elId){
+      var e=document.getElementById(elId);
+      if(e)e.oninput=function(){_hotelCalcMontant(ch.prix||0);};
+    });
+    showModal('reservationChambre');
+  } else {
+    const res=HOTEL_RESERVATIONS.filter(r=>r.chambreId===id&&r.statut==='active')[0];
+    document.getElementById('detail-chambre-num').textContent=ch.numero;
+    document.getElementById('modal-detailChambre').dataset.chambreId=id;
+    const content=document.getElementById('detail-chambre-content');
+    if(res){
+      const reste=(res.montant||0)-(res.acompte||0);
+      content.innerHTML='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;">'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">'
+        +'<div><div style="color:var(--text2);font-size:11px;">CLIENT</div><div style="font-weight:700;">'+res.clientNom+'</div></div>'
+        +'<div><div style="color:var(--text2);font-size:11px;">TÉLÉPHONE</div><div style="font-weight:700;">'+(res.clientTel||'—')+'</div></div>'
+        +'<div><div style="color:var(--text2);font-size:11px;">ARRIVÉE</div><div style="font-weight:700;">'+_hotelFormatDate(res.dateArrivee)+'</div></div>'
+        +'<div><div style="color:var(--text2);font-size:11px;">DÉPART</div><div style="font-weight:700;">'+_hotelFormatDate(res.dateDepart)+'</div></div>'
+        +'<div><div style="color:var(--text2);font-size:11px;">MONTANT TOTAL</div><div style="font-weight:700;">'+(res.montant||0).toLocaleString()+' FCFA</div></div>'
+        +'<div><div style="color:var(--text2);font-size:11px;">ACOMPTE</div><div style="font-weight:700;color:#22c55e;">'+(res.acompte||0).toLocaleString()+' FCFA</div></div>'
+        +'</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;">'
+        +'<span style="font-weight:700;">Reste à payer</span>'
+        +'<span style="font-weight:800;font-size:16px;color:'+(reste>0?'#ef4444':'#22c55e')+';">'+reste.toLocaleString()+' FCFA</span>'
+        +'</div>'+(res.notes?'<div style="margin-top:10px;font-size:12px;color:var(--text2);">📝 '+res.notes+'</div>':'')+'</div>';
+    } else {
+      content.innerHTML='<div style="text-align:center;padding:20px;color:var(--text2);">Chambre en '+(ch.statut==='nettoyage'?'nettoyage':'maintenance')+'</div>';
+    }
+    showModal('detailChambre');
+  }
+}
+
+function _hotelCalcMontant(prixNuit) {
+  const arr=document.getElementById('res-date-arrivee').value;
+  const dep=document.getElementById('res-date-depart').value;
+  const acompte=parseFloat(document.getElementById('res-acompte').value)||0;
+  if(arr&&dep){
+    const nuits=Math.max(0,Math.round((new Date(dep)-new Date(arr))/(1000*60*60*24)));
+    const total=nuits*prixNuit;
+    document.getElementById('res-montant').value=total;
+    document.getElementById('res-reste').textContent=Math.max(0,total-acompte).toLocaleString()+' FCFA';
+  }
+}
+
+function openModalAddChambre(id) {
+  document.getElementById('modal-chambre-title').textContent=id?'✏️ Modifier':'🛏️ Ajouter une chambre';
+  document.getElementById('chambre-edit-id').value=id||'';
+  if(id){const ch=HOTEL_CHAMBRES.find(c=>c.id===id);if(ch){document.getElementById('chambre-numero').value=ch.numero||'';document.getElementById('chambre-type').value=ch.type||'simple';document.getElementById('chambre-prix').value=ch.prix||'';document.getElementById('chambre-etage').value=ch.etage||'';}}
+  else{['chambre-numero','chambre-prix','chambre-etage'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});document.getElementById('chambre-type').value='simple';}
+  showModal('addChambre');
+}
+
+function saveChambre() {
+  const num=document.getElementById('chambre-numero').value.trim();
+  if(!num){showNotif('⚠️ Entrez un numéro de chambre !');return;}
+  const prix=parseFloat(document.getElementById('chambre-prix').value)||0;
+  const editId=document.getElementById('chambre-edit-id').value;
+  if(editId){const ch=HOTEL_CHAMBRES.find(c=>c.id===editId);if(ch){ch.numero=num;ch.type=document.getElementById('chambre-type').value;ch.prix=prix;ch.etage=document.getElementById('chambre-etage').value.trim();}}
+  else{HOTEL_CHAMBRES.push({id:'ch_'+Date.now(),numero:num,type:document.getElementById('chambre-type').value,prix:prix,etage:document.getElementById('chambre-etage').value.trim(),statut:'disponible'});}
+  closeModal('addChambre');saveHotelData();renderHotelGrid();showNotif('✅ Chambre enregistrée !');
+}
+
+function saveReservationChambre() {
+  const chambreId=document.getElementById('res-chambre-id').value;
+  const nom=document.getElementById('res-client-nom').value.trim();
+  if(!nom){showNotif('⚠️ Entrez le nom du client !');return;}
+  const arr=document.getElementById('res-date-arrivee').value;
+  const dep=document.getElementById('res-date-depart').value;
+  if(!arr||!dep||dep<=arr){showNotif('⚠️ Dates invalides !');return;}
+  const ch=HOTEL_CHAMBRES.find(c=>c.id===chambreId);
+  if(!ch)return;
+  ch.statut='occupee';
+  HOTEL_RESERVATIONS.push({id:'res_'+Date.now(),chambreId,clientNom:nom,clientTel:document.getElementById('res-client-tel').value.trim(),dateArrivee:arr,dateDepart:dep,montant:parseFloat(document.getElementById('res-montant').value)||0,acompte:parseFloat(document.getElementById('res-acompte').value)||0,payMode:document.getElementById('res-pay-mode').value,notes:document.getElementById('res-notes').value.trim(),statut:'active',createdAt:new Date().toISOString()});
+  closeModal('reservationChambre');saveHotelData();renderHotelGrid();showNotif('✅ Réservation confirmée pour '+nom+' !');
+}
+
+function libererChambre() {
+  const id=document.getElementById('modal-detailChambre').dataset.chambreId;
+  const ch=HOTEL_CHAMBRES.find(c=>c.id===id);
+  if(ch){ch.statut='disponible';HOTEL_RESERVATIONS.filter(r=>r.chambreId===id&&r.statut==='active').forEach(r=>r.statut='terminee');}
+  closeModal('detailChambre');saveHotelData();renderHotelGrid();showNotif('✅ Chambre libérée !');
+}
+
+function setChambreNettoyage() {
+  const id=document.getElementById('modal-detailChambre').dataset.chambreId;
+  const ch=HOTEL_CHAMBRES.find(c=>c.id===id);
+  if(ch)ch.statut='nettoyage';
+  closeModal('detailChambre');saveHotelData();renderHotelGrid();showNotif('🧹 Chambre en nettoyage !');
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  FIN RECONSTRUIRE CLÔTURE
