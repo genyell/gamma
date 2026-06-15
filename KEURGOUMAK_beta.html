@@ -10734,7 +10734,7 @@ async function _loadVentesSupabase(caisse) {
       payLabel:  row.pay_mode === 'mixed' ? '🔀 Mixte' : row.pay_mode === 'wave' ? 'Wave' : row.pay_mode === 'orange' ? 'Orange Money' : row.pay_mode === 'card' ? 'Carte bancaire' : '💵 Espèces',
       cashier:   row.cashier || '',
       client:    row.client && row.client !== 'undefined' ? row.client : 'Client',
-      serveur:   row.serveur || row.cashier || '',
+      serveur:   row.serveur || '',
       note:      row.note || '',
       date:      row.session_date,
       time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
@@ -31380,7 +31380,7 @@ function _getVentesAllCaisses() {
             ...t,
             date:    t.date    || h.date    || '',
             heure:   t.heure   || h.heure   || '',
-            serveur: t.serveur || t.cashier  || '',
+            serveur: t.serveur || '',
             total:   t.total   || 0,
             caisse:  t.caisse  || h.caisse  || h.nom || '',
           });
