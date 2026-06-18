@@ -5874,6 +5874,12 @@ function _syncSportVentes()       { return []; }
         <button class="cat-btn" id="hist-btn-c2"  onclick="filterHistorique('Caisse 2', this)">Caisse 2</button>
         <button class="cat-btn" id="hist-btn-c3"  onclick="filterHistorique('Caisse 3', this)">Caisse 3</button>
         <button class="cat-btn" id="hist-btn-c4"  onclick="filterHistorique('Caisse 4', this)">Caisse 4</button>
+          <button class="cat-btn" id="hist-btn-c5" onclick="filterHistorique('Caisse 5', this)">Caisse 5</button>
+          <button class="cat-btn" id="hist-btn-c6" onclick="filterHistorique('Caisse 6', this)">Caisse 6</button>
+          <button class="cat-btn" id="hist-btn-c7" onclick="filterHistorique('Caisse 7', this)">Caisse 7</button>
+          <button class="cat-btn" id="hist-btn-c8" onclick="filterHistorique('Caisse 8', this)">Caisse 8</button>
+          <button class="cat-btn" id="hist-btn-c9" onclick="filterHistorique('Caisse 9', this)">Caisse 9</button>
+          <button class="cat-btn" id="hist-btn-c10" onclick="filterHistorique('Caisse 10', this)">Caisse 10</button>
 
       </div>
       <!-- Filtres de période -->
@@ -5978,6 +5984,13 @@ function _syncSportVentes()       { return []; }
             <option value="Caisse 2">Caisse 2</option>
             <option value="Caisse 3">Caisse 3</option>
             <option value="Caisse 4">Caisse 4</option>
+            <option value="Caisse 5">Caisse 5</option>
+            <option value="Caisse 6">Caisse 6</option>
+            <option value="Caisse 7">Caisse 7</option>
+            <option value="Caisse 8">Caisse 8</option>
+            <option value="Caisse 9">Caisse 9</option>
+          <option value="Caisse 10">Caisse 10</option>
+            <option value="Caisse 10">Caisse 10</option><option value="Caisse 10">Caisse 10</option>
 
           </select>
           <input type="date" id="ticket-filtre-debut" class="form-input" style="padding:6px 10px;font-size:13px;width:150px;" onchange="renderTicketsArchives()">
@@ -6108,6 +6121,12 @@ function _syncSportVentes()       { return []; }
           <option value="Caisse 2">🖥️ Caisse 2</option>
           <option value="Caisse 3">🖥️ Caisse 3</option>
           <option value="Caisse 4">🖥️ Caisse 4</option>
+          <option value="Caisse 5">🖥️ Caisse 5</option>
+          <option value="Caisse 6">🖥️ Caisse 6</option>
+          <option value="Caisse 7">🖥️ Caisse 7</option>
+          <option value="Caisse 8">🖥️ Caisse 8</option>
+          <option value="Caisse 9">🖥️ Caisse 9</option>
+          <option value="Caisse 10">🖥️ Caisse 10</option>
 
         </select>
         <select id="dep-filtre-statut" class="form-input" style="width:160px;padding:6px 10px;font-size:13px;" onchange="renderDepenses()">
@@ -6659,7 +6678,7 @@ Revenez nous voir bient&#244;t.</textarea>
         <select class="form-input" style="width:auto;" id="recon-month" onchange="renderReconciliation()">
         </select>
         <select class="form-input" style="width:auto;" id="recon-caisse" onchange="renderReconciliation()">
-          <option value="">Toutes les caisses</option><option value="Caisse 1">Caisse 1</option><option value="Caisse 2">Caisse 2</option><option value="Caisse 3">Caisse 3</option><option value="Caisse 4">Caisse 4</option>
+          <option value="">Toutes les caisses</option><option value="Caisse 1">Caisse 1</option><option value="Caisse 2">Caisse 2</option><option value="Caisse 3">Caisse 3</option><option value="Caisse 4">Caisse 4</option><option value="Caisse 5">Caisse 5</option><option value="Caisse 6">Caisse 6</option><option value="Caisse 7">Caisse 7</option><option value="Caisse 8">Caisse 8</option><option value="Caisse 9">Caisse 9</option><option value="Caisse 10">Caisse 10</option>
         </select>
         <button class="btn btn-ghost" onclick="showNotif('📄 Rapport mensuel exporté en PDF')">📄 Exporter PDF</button>
         <button class="btn btn-primary" onclick="showNotif('✅ Réconciliation validée et transmise à la comptabilité')">✅ Valider & Clôturer le mois</button>
@@ -8115,6 +8134,12 @@ Revenez nous voir bient&#244;t.</textarea>
           <option value="Caisse 2">🖥️ Caisse 2</option>
           <option value="Caisse 3">🖥️ Caisse 3</option>
           <option value="Caisse 4">🖥️ Caisse 4</option>
+          <option value="Caisse 5">🖥️ Caisse 5</option>
+          <option value="Caisse 6">🖥️ Caisse 6</option>
+          <option value="Caisse 7">🖥️ Caisse 7</option>
+          <option value="Caisse 8">🖥️ Caisse 8</option>
+          <option value="Caisse 9">🖥️ Caisse 9</option>
+          <option value="Caisse 10">🖥️ Caisse 10</option>
         </select>
       </div>
     </div>
@@ -8201,6 +8226,12 @@ Revenez nous voir bient&#244;t.</textarea>
           <option>Caisse 2 — Emporter</option>
           <option>Caisse 3 — Terrasse</option>
           <option>Caisse 4 — Terrasse / Bar</option>
+          <option>Caisse 5</option>
+          <option>Caisse 6</option>
+          <option>Caisse 7</option>
+          <option>Caisse 8</option>
+          <option>Caisse 9</option>
+          <option>Caisse 10</option>
         </select>
       </div>
     </div>
@@ -8259,6 +8290,12 @@ Revenez nous voir bient&#244;t.</textarea>
           <option value="Caisse 2">Caisse 2 — Emporter</option>
           <option value="Caisse 3">Caisse 3 — Terrasse</option>
           <option value="Caisse 4">Caisse 4 — Terrasse / Bar</option>
+          <option value="Caisse 5">Caisse 5</option>
+          <option value="Caisse 6">Caisse 6</option>
+          <option value="Caisse 7">Caisse 7</option>
+          <option value="Caisse 8">Caisse 8</option>
+          <option value="Caisse 9">Caisse 9</option>
+          <option value="Caisse 10">Caisse 10</option><option value="Caisse 10">Caisse 10</option>
 
           <option value="Cuisine">Cuisine</option>
         </select>
@@ -8528,6 +8565,36 @@ Revenez nous voir bient&#244;t.</textarea>
         <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse 4','Terrasse / Bar')">
           <div class="oc-caisse-name">🖥️ Caisse 4</div>
           <div class="oc-caisse-loc">Terrasse / Bar</div>
+          <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
+        </div>
+        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse 5','Caisse 5')">
+          <div class="oc-caisse-name">🖥️ Caisse 5</div>
+          <div class="oc-caisse-loc">Caisse 5</div>
+          <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
+        </div>
+        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse 6','Caisse 6')">
+          <div class="oc-caisse-name">🖥️ Caisse 6</div>
+          <div class="oc-caisse-loc">Caisse 6</div>
+          <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
+        </div>
+        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse 7','Caisse 7')">
+          <div class="oc-caisse-name">🖥️ Caisse 7</div>
+          <div class="oc-caisse-loc">Caisse 7</div>
+          <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
+        </div>
+        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse 8','Caisse 8')">
+          <div class="oc-caisse-name">🖥️ Caisse 8</div>
+          <div class="oc-caisse-loc">Caisse 8</div>
+          <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
+        </div>
+        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse 9','Caisse 9')">
+          <div class="oc-caisse-name">🖥️ Caisse 9</div>
+          <div class="oc-caisse-loc">Caisse 9</div>
+          <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
+        </div>
+        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse 10','Caisse 10')">
+          <div class="oc-caisse-name">🖥️ Caisse 10</div>
+          <div class="oc-caisse-loc">Caisse 10</div>
           <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
         </div>
       </div>
@@ -16738,7 +16805,7 @@ function fillLogin(login, pwd) {
 // ================================================================
 
 // Stockage des ventes par caisse : { caisseId: [{ orderNum, items, total, payMethod, time, cashier }] }
-let VENTES_PAR_CAISSE = { 'Caisse 1': [], 'Caisse 2': [], 'Caisse 3': [], 'Caisse 4': [] };
+let VENTES_PAR_CAISSE = { 'Caisse 1': [], 'Caisse 2': [], 'Caisse 3': [], 'Caisse 4': [], 'Caisse 5': [], 'Caisse 6': [], 'Caisse 7': [], 'Caisse 8': [], 'Caisse 9': [], 'Caisse 10': [] };
 let sessionCaisseActive = null; // la caisse ouverte pour cette session
 
 // 🔒 Sécurité caisse : bloquer la vente si pas de caisse ouverte
@@ -19319,7 +19386,7 @@ function initFermetureSelect() {
   // ✅ FIX v8 : Charger les ventes Supabase pour C1/C2/C3 si elles sont vides en mémoire
   // Cas typique : rechargement de page → VENTES_PAR_CAISSE est vide mais Supabase a les ventes
   (async function _preloadVentesFermeture() {
-    const _caissesPOS = ['Caisse 1', 'Caisse 2', 'Caisse 3', 'Caisse 4'];
+    const _caissesPOS = ['Caisse 1', 'Caisse 2', 'Caisse 3', 'Caisse 4', 'Caisse 5', 'Caisse 6', 'Caisse 7', 'Caisse 8', 'Caisse 9', 'Caisse 10'];
     for(const _cn of _caissesPOS) {
       if((VENTES_PAR_CAISSE[_cn]||[]).length === 0) {
         // Ne pas charger si la caisse est déjà clôturée aujourd'hui
@@ -20631,7 +20698,7 @@ function _saveSessionImmediate() {
     // ✅ SUPABASE ONLY C1/C2/C3 : les ventes des caisses 1, 2, 3 ne sont JAMAIS
     // sauvegardées dans le localStorage — Supabase est leur unique source de vérité.
     // Au rechargement (F5), elles seront récupérées via pullAll().
-    const _caissesSupabaseOnly = ['Caisse 1', 'Caisse 2', 'Caisse 3', 'Caisse 4'];
+    const _caissesSupabaseOnly = ['Caisse 1', 'Caisse 2', 'Caisse 3', 'Caisse 4', 'Caisse 5', 'Caisse 6', 'Caisse 7', 'Caisse 8', 'Caisse 9', 'Caisse 10'];
     Object.keys(VENTES_PAR_CAISSE || {}).forEach(nom => {
       const _co = CAISSES.find(c => c.name === nom);
       const _isModule = _co && _modulesCaisses.includes(_co.id);
@@ -20815,10 +20882,10 @@ function restoreSession() {
     const _caissesCloZList = _caissesCloZ.map(x => x.caisse);
 
     // ✅ FIX v31 F5 : vider les ventes des caisses clôturées au lieu de les recharger
-    const _rawVentes = data.VENTES_PAR_CAISSE || { 'Caisse 1': [], 'Caisse 2': [], 'Caisse 3': [], 'Caisse 4': [], 'Caisse 5': [], 'Caisse 6': [], 'Caisse 7': [], 'Caisse 8': [] };
+    const _rawVentes = data.VENTES_PAR_CAISSE || { 'Caisse 1': [], 'Caisse 2': [], 'Caisse 3': [], 'Caisse 4': [], 'Caisse 5': [], 'Caisse 6': [], 'Caisse 7': [], 'Caisse 8': [], 'Caisse 9': [], 'Caisse 10': [] };
     // ✅ SUPABASE ONLY C1/C2/C3 : les ventes de ces caisses ne sont jamais lues
     // depuis le localStorage — elles seront chargées depuis Supabase via pullAll()
-    const _caissesSupabaseOnly = ['Caisse 1', 'Caisse 2', 'Caisse 3', 'Caisse 4'];
+    const _caissesSupabaseOnly = ['Caisse 1', 'Caisse 2', 'Caisse 3', 'Caisse 4', 'Caisse 5', 'Caisse 6', 'Caisse 7', 'Caisse 8', 'Caisse 9', 'Caisse 10'];
     VENTES_PAR_CAISSE = {};
     Object.keys(_rawVentes).forEach(nom => {
       const _coCheck = CAISSES.find(c => c.name === nom);
@@ -21391,7 +21458,7 @@ const KGSync = (() => {
       // ✅ FIX v2 MULTI-NAV : si la caisse C1-C3 est clôturée, pousser ventes=[] + status=closed
       // CRITIQUE : ne PLUS bloquer le push pour C1-C3 — les autres navigateurs doivent voir la clôture
       if(_cloZPush.includes(caisse)) {
-        if(caisse === 'Caisse 1' || caisse === 'Caisse 2' || caisse === 'Caisse 3' || caisse === 'Caisse 4') {
+        if(caisse === 'Caisse 1' || caisse === 'Caisse 2' || caisse === 'Caisse 3' || caisse === 'Caisse 4' || caisse === 'Caisse 5' || caisse === 'Caisse 6' || caisse === 'Caisse 7' || caisse === 'Caisse 8' || caisse === 'Caisse 9' || caisse === 'Caisse 10') {
           await upsert('ventes_' + caisse.replace(/\s+/g,'_'), { caisse, ventes: [], orderCounter, caisseStatus: 'closed', moduleActive: false });
           console.log('[pushVentes] ✅ Clôture C1-C3 propagée vers autres navigateurs :', caisse);
         }
@@ -21746,7 +21813,7 @@ const KGSync = (() => {
 
           // ✅ NOUVEAU : ventes_caisse Supabase est la source de vérité pour C1/C2/C3
           // On ignore kg_sync pour les ventes — _loadVentesSupabase s'en charge après pullAll
-          if(caisse === 'Caisse 1' || caisse === 'Caisse 2' || caisse === 'Caisse 3' || caisse === 'Caisse 4') {
+          if(caisse === 'Caisse 1' || caisse === 'Caisse 2' || caisse === 'Caisse 3' || caisse === 'Caisse 4' || caisse === 'Caisse 5' || caisse === 'Caisse 6' || caisse === 'Caisse 7' || caisse === 'Caisse 8' || caisse === 'Caisse 9' || caisse === 'Caisse 10') {
             console.log('[pullAll] ⏭️ ' + caisse + ' — ventes gérées par ventes_caisse Supabase, kg_sync ignoré');
             return; // continuer forEach sans écraser
           }
@@ -21771,6 +21838,7 @@ const KGSync = (() => {
           // Identifier si c'est un module (C4-C8) et s'il est actif LOCALEMENT
           const _moduleObj = {
             'Caisse 4': typeof TERRAIN_CAISSE !== 'undefined' ? TERRAIN_CAISSE : null,
+            'Caisse 5': null, 'Caisse 6': null, 'Caisse 7': null, 'Caisse 8': null, 'Caisse 9': null, 'Caisse 10': null,
             'Caisse 5': typeof PISCINE_CAISSE !== 'undefined' ? PISCINE_CAISSE : null,
             'Caisse 6': typeof LOC_CAISSE     !== 'undefined' ? LOC_CAISSE     : null,
             'Caisse 7': typeof MANEGE_CAISSE  !== 'undefined' ? MANEGE_CAISSE  : null,
