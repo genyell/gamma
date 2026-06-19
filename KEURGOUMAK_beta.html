@@ -14288,13 +14288,15 @@ function _saveDepots() {
   try {
     const rid = window._KG_RESTAURANT_ID;
     if(rid) localStorage.setItem('kg_depots_' + rid, JSON.stringify(DEPOTS));
-    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected && rid) {
+      // ✅ FIX SYNC MULTI-PC : restaurant_id était manquant — la ligne n'était pas visible sur les autres PC
       KGSync.getClient()?.from('kg_sync').upsert(
-        { key: rid + ':depots_data', value: JSON.stringify({ depots: DEPOTS }), updated_at: new Date().toISOString() },
+        { key: rid + ':depots_data', value: JSON.stringify({ depots: DEPOTS }), restaurant_id: rid, updated_at: new Date().toISOString() },
         { onConflict: 'key' }
-      ).catch(()=>{});
+      ).then(({error}) => { if(error) console.warn('[depots] save error:', error); else console.log('[depots] ✅ Synchronisé Supabase:', DEPOTS.length, 'dépôt(s)'); })
+       .catch(e => console.warn('[depots] save catch:', e));
     }
-  } catch(e) {}
+  } catch(e) { console.warn('[depots] save exception:', e); }
 }
 
 function _loadDepots() {
@@ -22198,6 +22200,15 @@ const KGSync = (() => {
           if(typeof renderCaisses === 'function') try { renderCaisses(); } catch(e) {}
           if(typeof refreshDashboard === 'function') try { refreshDashboard(); } catch(e) {}
           console.log('[pullAll] ✅ Clôtures sync:', HISTORIQUE_CLOTURES.length, 'clôture(s)');
+        } else if(key === 'depots_data' && data.depots && Array.isArray(data.depots)) {
+          // ✅ FIX SYNC MULTI-PC : charger les dépôts à chaque pullAll, pas seulement à l'ouverture de l'onglet
+          DEPOTS = data.depots;
+          try {
+            const rid = window._KG_RESTAURANT_ID;
+            if(rid) localStorage.setItem('kg_depots_' + rid, JSON.stringify(DEPOTS));
+          } catch(e) {}
+          if(typeof renderDepotsTab === 'function' && document.getElementById('depot-list-cards')) renderDepotsTab();
+          console.log('[pullAll] ✅ Dépôts synchronisés:', DEPOTS.length, 'dépôt(s)');
         } else if(key === 'menu_data' && data.items) {
           // ✅ FIX ANTI-DOUBLON v43 : Déduplication par sbId/id ET par nom.
           // Problème v42 : un article local (local_123) et sa version Supabase (uuid) avaient des IDs
