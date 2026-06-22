@@ -5383,8 +5383,12 @@ function _syncSportVentes()       { return []; }
             </div>
             <div style="display:flex;gap:10px;align-items:center;">
               <input class="search-input" type="text" id="inv-search" placeholder="🔍 Filtrer..." oninput="renderInvSaisie()" style="width:180px;">
-              <select class="form-input" id="inv-filter-cat" onchange="renderInvSaisie()" style="width:160px;padding:8px 12px;font-size:13px;">
+              <select class="form-input" id="inv-filter-cat" onchange="renderInvSaisie()" style="width:140px;padding:8px 12px;font-size:13px;">
                 <option value="all">Toutes catégories</option>
+              </select>
+              <select class="form-input" id="inv-filter-depot" onchange="renderInvSaisie()" style="width:140px;padding:8px 12px;font-size:13px;">
+                <option value="all">Tous les dépôts</option>
+                <option value="stock">📦 Stock général</option>
               </select>
             </div>
           </div>
@@ -9539,7 +9543,7 @@ function showView(id, el, pushState) {
   if(id === 'settings') setTimeout(_initPhotosPreviews, 200);
   if(id === 'livreurs') afficherListeLivreurs();
   if(id === 'serveurs') { switchServeurTab('liste'); afficherListeServeurs(); }
-  if(id === 'inventaire') { initInvDate(); renderInvSaisie(); }
+  if(id === 'inventaire') { initInvDate(); _loadDepots(); setTimeout(renderInvSaisie, 300); }
   if(id === 'preparation') { renderPreparation(); }
   if(id === 'clients') renderClients();
   if(id === 'fournisseurs') {
@@ -11160,7 +11164,23 @@ function ocNav(dir) {
   if(ocStep === 3) {
     const now = new Date();
     document.getElementById('oc-s-caisse').textContent = ocSelectedCaisse;
-    document.getElementById('oc-s-cashier').textContent = currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Non identifié';
+    // ✅ FIX : si admin/gérant, afficher un input pour saisir le vrai caissier
+    const _isAdm = currentUser && (currentUser.role === 'admin' || currentUser.role === 'gerant' || currentUser.role === 'proprietaire');
+    const _cashierEl = document.getElementById('oc-s-cashier');
+    if(_isAdm) {
+      // Remplacer le texte par un input si pas encore fait
+      if(_cashierEl.tagName !== 'INPUT') {
+        const _inp = document.createElement('input');
+        _inp.id = 'oc-s-cashier';
+        _inp.className = 'form-input';
+        _inp.style.cssText = 'padding:4px 8px;font-size:13px;max-width:180px;';
+        _inp.placeholder = 'Nom du caissier...';
+        _inp.value = `${currentUser.prenom} ${currentUser.nom}`.trim();
+        _cashierEl.parentNode.replaceChild(_inp, _cashierEl);
+      }
+    } else {
+      _cashierEl.textContent = currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Non identifié';
+    }
     document.getElementById('oc-s-heure').textContent = now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
     const fonds = parseInt(document.getElementById('oc-fonds').value)||0;
     document.getElementById('oc-s-fonds').textContent = fonds.toLocaleString() + ' FCFA';
@@ -11228,7 +11248,16 @@ async function confirmerOuverture() {
     if(!caisse) caisse = 'Caisse 1';
 
     const fonds = parseInt(document.getElementById('oc-fonds').value)||0;
-    const cashier = currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Caissier';
+    // ✅ FIX CAISSIER : si l'utilisateur est admin/gérant, utiliser le nom saisi dans le champ dédié
+    // Évite que l'admin apparaisse comme caissier dans l'historique
+    const _nomSaisi = (document.getElementById('oc-s-cashier')?.textContent || '').trim();
+    const _isAdminRole = currentUser && (currentUser.role === 'admin' || currentUser.role === 'gerant' || currentUser.role === 'proprietaire');
+    // Lire depuis input si l'élément est devenu un input (admin modifiable)
+    const _cashierElem = document.getElementById('oc-s-cashier');
+    const _cashierVal = _cashierElem ? (_cashierElem.tagName === 'INPUT' ? _cashierElem.value.trim() : _cashierElem.textContent.trim()) : '';
+    const cashier = (_cashierVal && _cashierVal !== 'Non identifié')
+      ? _cashierVal
+      : (currentUser ? `${currentUser.prenom} ${currentUser.nom}`.trim() : 'Caissier');
     const now = new Date();
 
     sessionCaisseActive = {
@@ -14316,6 +14345,10 @@ function _loadDepots() {
             if(parsed.depots && Array.isArray(parsed.depots)) {
               DEPOTS = parsed.depots;
               renderDepotsTab();
+              // ✅ FIX : Rafraîchir aussi l'inventaire si l'onglet est actif
+              if(typeof renderInvSaisie === 'function' && document.getElementById('inv-saisie-list')) {
+                renderInvSaisie();
+              }
             }
           } catch(e) {}
         }
@@ -14379,7 +14412,7 @@ function renderDepotsTab() {
           <div style="font-size:12px;color:var(--text2);">${nbArticles} article(s) · ${nbAlertes > 0 ? '<span style="color:var(--red);">⚠️ '+nbAlertes+' alerte(s)</span>' : '<span style="color:var(--green);">✅ Aucune alerte</span>'}</div>
           <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" onclick="openAddDepotArticle('${depot.id}')">+ Article</button>
         </div>
-        <div style="max-height:300px;overflow-y:auto;">${articles || '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">Aucun article. Cliquez sur <strong>+ Article</strong>.</div>'}</div>
+        <div>${articles || '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">Aucun article. Cliquez sur <strong>+ Article</strong>.</div>'}</div>
       </div>
     </div>`;
   }).join('');
@@ -15355,12 +15388,59 @@ function renderInvSaisie() {
 
   const q   = (document.getElementById('inv-search')?.value || '').toLowerCase();
   const cat = document.getElementById('inv-filter-cat')?.value || 'all';
+  const depotFilter = document.getElementById('inv-filter-depot')?.value || 'all';
 
-  let items = STOCK_DATA.filter(s => {
-    const matchQ   = !q || s.name.toLowerCase().includes(q);
-    const matchCat = cat === 'all' || s.cat === cat;
-    return matchQ && matchCat;
-  });
+  // ✅ FIX : Mettre à jour les options du select dépôt dynamiquement
+  const depotSel = document.getElementById('inv-filter-depot');
+  if(depotSel && DEPOTS.length > 0) {
+    const currentVal = depotSel.value;
+    depotSel.innerHTML = '<option value="all">Tous les dépôts</option><option value="stock">📦 Stock général</option>';
+    DEPOTS.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = 'depot_' + d.id;
+      opt.textContent = (d.icon||'🏭') + ' ' + d.nom;
+      depotSel.appendChild(opt);
+    });
+    depotSel.value = currentVal || 'all';
+  }
+
+  // Construire la liste d'items fusionnée (stock général + articles dépôts)
+  let allItems = [];
+
+  // Stock général
+  if(depotFilter === 'all' || depotFilter === 'stock') {
+    STOCK_DATA.filter(s => {
+      const matchQ   = !q || s.name.toLowerCase().includes(q);
+      const matchCat = cat === 'all' || s.cat === cat;
+      return matchQ && matchCat;
+    }).forEach(s => allItems.push({ ...s, _source: 'stock', _depotLabel: '📦 Stock général' }));
+  }
+
+  // Articles des dépôts
+  if(depotFilter === 'all' || depotFilter.startsWith('depot_')) {
+    (DEPOTS || []).forEach(depot => {
+      if(depotFilter !== 'all' && depotFilter !== 'depot_' + depot.id) return;
+      (depot.articles || []).forEach((a, aIdx) => {
+        const matchQ = !q || (a.nom||'').toLowerCase().includes(q);
+        const matchCat = cat === 'all' || a.cat === cat;
+        if(!matchQ || !matchCat) return;
+        allItems.push({
+          id: 'depot_' + depot.id + '_' + aIdx,
+          name: a.nom,
+          icon: a.icon || '📦',
+          qty: a.qty || 0,
+          unit: a.unit || 'pcs',
+          cat: a.cat || '',
+          _source: 'depot',
+          _depotId: depot.id,
+          _aIdx: aIdx,
+          _depotLabel: (depot.icon||'🏭') + ' ' + depot.nom
+        });
+      });
+    });
+  }
+
+  let items = allItems;
 
   if(items.length === 0) {
     container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);">Aucun article correspondant</div>';
@@ -15395,7 +15475,7 @@ function renderInvSaisie() {
       <div style="font-size:26px;text-align:center;">${s.icon || '📦'}</div>
       <div>
         <div style="font-weight:600;font-size:13px;">${s.name}</div>
-        <div style="font-size:11px;color:var(--text2);">${s.cat || '—'}</div>
+        <div style="font-size:11px;color:var(--text2);">${s._depotLabel || s.cat || '—'}</div>
       </div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:13px;">${theorique.toLocaleString()} ${s.unit}</div>
       <div>
@@ -15447,6 +15527,20 @@ function validerInventaire() {
   const dateStr  = now.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});
   const heureStr = now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   const agent    = currentUser ? currentUser.prenom + ' ' + currentUser.nom : 'Gérant';
+
+  // ✅ FIX : Mettre à jour les articles des dépôts si leur id est dans _invSaisie
+  (DEPOTS || []).forEach(depot => {
+    (depot.articles || []).forEach((a, aIdx) => {
+      const key = 'depot_' + depot.id + '_' + aIdx;
+      if(_invSaisie[key] !== undefined) {
+        const newQty = parseFloat(_invSaisie[key]) || 0;
+        depot.articles[aIdx].qty = newQty;
+      }
+    });
+  });
+  if(Object.keys(_invSaisie).some(k => k.startsWith('depot_'))) {
+    _saveDepots();
+  }
 
   const lignes = STOCK_DATA.map(s => {
     const theorique  = s.qty || 0;
@@ -18545,6 +18639,14 @@ const CAISSES = [
   { id:2, name:'Caisse 2', loc:'Comptoir emporter', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#f5a623' },
   { id:3, name:'Caisse 3', loc:'Commandes Clients (QR)', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#7c5cbf', mode:'commandes' },
   { id:4, name:'Caisse 4', loc:'Terrasse / Bar', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#e84520' },
+  // ✅ FIX : Caisse 5-10 utilisent des IDs 11-16 pour ne pas entrer en conflit avec les modules
+  // Piscine (id:5), Location (id:6), Manège (id:7), Sport (id:8) déjà existants
+  { id:11, name:'Caisse 5', loc:'Caisse 5', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#06b6d4' },
+  { id:12, name:'Caisse 6', loc:'Caisse 6', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#8b5cf6' },
+  { id:13, name:'Caisse 7', loc:'Caisse 7', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#ec4899' },
+  { id:14, name:'Caisse 8', loc:'Caisse 8', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#10b981' },
+  { id:15, name:'Caisse 9', loc:'Caisse 9', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#f97316' },
+  { id:16, name:'Caisse 10', loc:'Caisse 10', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#6366f1' },
 
 ];
 const statusLabel = { open:'🟢 Ouverte', paused:'🟡 En pause', closed:'⚫ Fermée' };
@@ -19472,14 +19574,17 @@ function initFermetureSelect() {
   // ✅ FIX: _caisseAvecVentes en priorité absolue pour éviter d'afficher une caisse vide
   const defaultName = _caisseAvecVentes || _sessName || _currentFCaisse || _userC || _openWithV || _open || null;
 
-  let caissesList = (isGerant ? CAISSES : CAISSES.filter(c => c.name === defaultName || c.name === _userC)).filter(c => c.id <= 4);
-  if(caissesList.length === 0) caissesList = CAISSES;
+  // ✅ FIX : inclure Caisse 1-4 (POS) ET Caisse 5-10 (id 11-16, POS génériques)
+  // Exclut les modules spéciaux (Piscine=5, Location=6, Manège=7, Sport=8) qui ont leur propre fermeture
+  const _isPosCaisse = c => c.id <= 4 || c.id >= 11;
+  let caissesList = (isGerant ? CAISSES : CAISSES.filter(c => c.name === defaultName || c.name === _userC)).filter(_isPosCaisse);
+  if(caissesList.length === 0) caissesList = CAISSES.filter(_isPosCaisse);
 
   el.style.flexWrap = 'wrap';
   el.innerHTML = caissesList.map((c) => {
     const hasVentes = (VENTES_PAR_CAISSE[c.name] || []).length > 0;
     // ✅ FIX v32 DOT : modules 4-8 → dot vert si status=open (ventes dans ENTREES pas VENTES_PAR_CAISSE)
-    const isModuleOpen = c.id >= 4 && c.status === 'open';
+    const isModuleOpen = c.id >= 4 && c.id <= 8 && c.status === 'open';
     const isActive = hasVentes || isModuleOpen;
     const active = c.name === defaultName;
     const dot = isActive
@@ -22208,6 +22313,7 @@ const KGSync = (() => {
             if(rid) localStorage.setItem('kg_depots_' + rid, JSON.stringify(DEPOTS));
           } catch(e) {}
           if(typeof renderDepotsTab === 'function' && document.getElementById('depot-list-cards')) renderDepotsTab();
+          if(typeof renderInvSaisie === 'function' && document.getElementById('inv-saisie-list')) renderInvSaisie();
           console.log('[pullAll] ✅ Dépôts synchronisés:', DEPOTS.length, 'dépôt(s)');
         } else if(key === 'menu_data' && data.items) {
           // ✅ FIX ANTI-DOUBLON v43 : Déduplication par sbId/id ET par nom.
