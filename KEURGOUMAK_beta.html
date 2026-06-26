@@ -13832,14 +13832,16 @@ function renderCFArticles() {
     const sousStr = sous > 0 ? sous.toLocaleString() + ' F' : '—';
     const sousColor = sous > 0 ? 'var(--accent)' : 'var(--text3)';
     return `
-    <div style="display:grid;grid-template-columns:2fr 72px 80px 100px 90px 30px;gap:6px;align-items:center;margin-bottom:8px;" data-line="${i}">
-      <div style="display:flex;gap:4px;align-items:center;">
+    <div style="margin-bottom:10px;" data-line="${i}">
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
         <select class="form-input" onchange="cfSelectStockItem(${i}, this.value)" style="font-size:12px;flex:1;">
           <option value="">— Choisir un produit —</option>
           ${STOCK_DATA.map(s => `<option value="${s.id}" ${s.id==line.stockId?'selected':''}>${s.icon||'📦'} ${s.name}</option>`).join('')}
         </select>
         <button onclick="cfOpenCreateArticle(${i})" title="Créer un nouvel article" style="flex-shrink:0;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">+ Créer</button>
       </div>
+      ${line.article ? `<div style="font-size:12px;font-weight:700;color:var(--primary);padding:4px 8px;background:var(--surface2);border-radius:6px;margin-bottom:4px;">✅ ${line.article}</div>` : ''}
+      <div style="display:grid;grid-template-columns:72px 80px 100px 90px 30px;gap:6px;align-items:center;">
       <input class="form-input" type="number" placeholder="Qté" value="${line.qty}" min="0" step="0.1"
         oninput="cfArticleLines[${i}].qty=parseFloat(this.value)||0;cfUpdateLineTotal(${i});updateCFTotal();updateCFSolde()"
         style="font-size:12px;text-align:center;">
@@ -13851,6 +13853,7 @@ function renderCFArticles() {
         style="font-size:12px;">
       <div id="cf-sous-${i}" style="font-size:12px;font-weight:700;color:${sousColor};font-family:'Space Mono',monospace;text-align:right;padding:6px 4px;background:var(--surface2);border-radius:6px;white-space:nowrap;">${sousStr}</div>
       <button onclick="cfArticleLines.splice(${i},1);renderCFArticles();updateCFTotal();updateCFSolde()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;">×</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -16257,6 +16260,11 @@ function renderRapportX() {
 function printRapportXCaisse(name) {
   const ventes = VENTES_PAR_CAISSE[name] || [];
   if(ventes.length === 0) { showNotif('Aucune vente pour '+name); return; }
+  const _logoUrlC = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.logo) ? TICKET_CONFIG.logo
+                  : (RESTAURANT_INFO?.logo_url || RESTAURANT_INFO?.loginLogo || null);
+  const _logoHtmlC = _logoUrlC
+    ? `<div style="text-align:center;margin-bottom:8px;"><img src="${_logoUrlC}" alt="Logo" style="max-height:80px;max-width:200px;object-fit:contain;"></div>`
+    : '<div style="text-align:center;font-size:32px;margin-bottom:8px;">🍽️</div>';
   const now      = new Date();
   const dateStr  = now.toLocaleDateString('fr-FR');
   const heureStr = now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
@@ -16329,7 +16337,7 @@ function printRapportXCaisse(name) {
     .no-print button{padding:8px 22px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
     @media print{.no-print{display:none!important;} @page{margin:1.5cm;}}
   </style></head><body>
-  <h1>🍽️ ${nomResto}</h1>
+  ${_logoHtmlC}<h1>${nomResto}</h1>
   <div class="sub">${RESTAURANT_INFO?.adresse||'Louga, Sénégal'}</div>
   <div style="text-align:center"><span class="badge">📊 RAPPORT X — ${name} — Consultation en cours · ${dateStr} à ${heureStr}</span></div>
   <div class="sub" style="margin-top:-8px;">Caissier : <b>${cashier}</b>${c?.loc?' · '+c.loc:''}</div>
@@ -16397,6 +16405,11 @@ function printRapportX() {
   const dateStr   = now.toLocaleDateString('fr-FR');
   const heureStr  = now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
   const nomResto  = (RESTAURANT_INFO?.nom) || 'KEURGOUMAK';
+  const logoUrl   = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.logo) ? TICKET_CONFIG.logo
+                  : (RESTAURANT_INFO?.logo_url || RESTAURANT_INFO?.loginLogo || null);
+  const logoHtml  = logoUrl
+    ? `<div style="text-align:center;margin-bottom:8px;"><img src="${logoUrl}" alt="Logo" style="max-height:80px;max-width:200px;object-fit:contain;"></div>`
+    : '<div style="text-align:center;font-size:32px;margin-bottom:8px;">🍽️</div>';
 
   // Données par caisse
   const caisseRows = Object.keys(VENTES_PAR_CAISSE)
@@ -16482,7 +16495,7 @@ function printRapportX() {
     .no-print button{padding:10px 28px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;}
     @media print{.no-print{display:none!important;} @page{margin:1.5cm;}}
   </style></head><body>
-  <h1>🍽️ ${nomResto}</h1>
+  ${logoHtml}<h1>${nomResto}</h1>
   <div class="sub">${RESTAURANT_INFO?.adresse||'Louga, Sénégal'}${RESTAURANT_INFO?.ninea?' — NINEA : '+RESTAURANT_INFO.ninea:''}</div>
   <div style="text-align:center"><span class="badge">📊 RAPPORT X — Consultation en cours · ${dateStr} à ${heureStr}</span></div>
   <div class="kpi-row">
@@ -16902,6 +16915,56 @@ function fillLogin(login, pwd) {
 
 // Stockage des ventes par caisse : { caisseId: [{ orderNum, items, total, payMethod, time, cashier }] }
 let VENTES_PAR_CAISSE = { 'Caisse 1': [], 'Caisse 2': [], 'Caisse 3': [], 'Caisse 4': [], 'Caisse 5': [], 'Caisse 6': [], 'Caisse 7': [], 'Caisse 8': [], 'Caisse 9': [], 'Caisse 10': [], 'Caisse C5': [], 'Caisse C6': [], 'Caisse C7': [], 'Caisse C8': [], 'Caisse C9': [], 'Caisse C10': [] };
+// ✅ MIGRATION : récupérer les ventes Caisse 5-10 POS existantes
+function _migrateCaisseNames() {
+  const mapping = {
+    'Caisse 5':'Caisse C5','Caisse 6':'Caisse C6','Caisse 7':'Caisse C7',
+    'Caisse 8':'Caisse C8','Caisse 9':'Caisse C9','Caisse 10':'Caisse C10'
+  };
+  Object.entries(mapping).forEach(function([oldName, newName]) {
+    const v = VENTES_PAR_CAISSE[oldName] || [];
+    // Séparer ventes modules (piscine/manège/location/sport) des ventes POS normales
+    const posVentes = v.filter(function(x) {
+      if(!x.items && !x.lignes) return true; // vente POS normale
+      const items = x.items || x.lignes || [];
+      const isModule = items.some(function(i) {
+        const n = (i.name||i.label||'').toLowerCase();
+        return n.includes('piscine')||n.includes('manège')||n.includes('location')||n.includes('sport')||n.includes('manege');
+      });
+      return !isModule;
+    });
+    if(posVentes.length > 0) {
+      VENTES_PAR_CAISSE[newName] = (VENTES_PAR_CAISSE[newName]||[]).concat(posVentes);
+      // Garder seulement les ventes modules dans l'ancien nom
+      VENTES_PAR_CAISSE[oldName] = v.filter(function(x) { return posVentes.indexOf(x) === -1; });
+      console.log('[migration] ' + posVentes.length + ' ventes récupérées : ' + oldName + ' → ' + newName);
+    }
+  });
+  // Migration Supabase : renommer dans ventes_caisse
+  try {
+    var _sb = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+    var _rid = window._KG_RESTAURANT_ID;
+    if(_sb && _rid) {
+      Object.entries(mapping).forEach(function([oldName, newName]) {
+        _sb.from('ventes_caisse').select('id,caisse,lignes').eq('caisse', oldName).eq('restaurant_id', _rid)
+          .then(function(res) {
+            if(!res.data) return;
+            res.data.forEach(function(row) {
+              var lignes = row.lignes || [];
+              var isModule = lignes.some(function(i) {
+                var n = (i.name||i.label||'').toLowerCase();
+                return n.includes('piscine')||n.includes('manège')||n.includes('location')||n.includes('sport');
+              });
+              if(!isModule) {
+                _sb.from('ventes_caisse').update({caisse: newName}).eq('id', row.id).catch(function(){});
+              }
+            });
+          }).catch(function(){});
+      });
+    }
+  } catch(e) { console.warn('[migration]', e); }
+}
+
 let sessionCaisseActive = null; // la caisse ouverte pour cette session
 
 // 🔒 Sécurité caisse : bloquer la vente si pas de caisse ouverte
@@ -22305,6 +22368,9 @@ const KGSync = (() => {
           if(typeof renderCaisses === 'function') try { renderCaisses(); } catch(e) {}
           if(typeof refreshDashboard === 'function') try { refreshDashboard(); } catch(e) {}
           console.log('[pullAll] ✅ Clôtures sync:', HISTORIQUE_CLOTURES.length, 'clôture(s)');
+        } else if(key === "ventes_Caisse 5" || key === "ventes_Caisse 6" || key === "ventes_Caisse 7" || key === "ventes_Caisse 8" || key === "ventes_Caisse 9" || key === "ventes_Caisse 10") {
+          // ✅ Déclencher la migration si on charge d'anciennes ventes sous les anciens noms
+          setTimeout(_migrateCaisseNames, 500);
         } else if(key === 'depots_data' && data.depots && Array.isArray(data.depots)) {
           // ✅ FIX SYNC MULTI-PC : charger les dépôts à chaque pullAll, pas seulement à l'ouverture de l'onglet
           DEPOTS = data.depots;
@@ -25935,6 +26001,8 @@ setTimeout(() => {
       // ✅ FIX EGRESS : pas de reset throttle au F5 — 1 seul pullAll respecté
       await KGSync.pullAll();
       if(typeof refreshDashboard === 'function') refreshDashboard();
+  // ✅ Migration au démarrage : récupérer les ventes Caisse 5-10 existantes
+  setTimeout(function() { if(typeof _migrateCaisseNames === 'function') _migrateCaisseNames(); }, 2000);
       // ✅ FIX v25 : recharger les réservations depuis localStorage après pullAll
       // (pullAll met à jour kg_loc_reservations mais loadLocData() doit être rappelé)
       if(typeof loadLocData === 'function') loadLocData();
@@ -26446,6 +26514,8 @@ async function saveDepense() {
     // ✅ FIX v41 : Si dépense sur caisse active → rafraîchir session POS et dashboard
     if(isCaisse && sessionCaisseActive?.caisse === caisse) {
       if(typeof refreshDashboard === 'function') refreshDashboard();
+  // ✅ Migration au démarrage : récupérer les ventes Caisse 5-10 existantes
+  setTimeout(function() { if(typeof _migrateCaisseNames === 'function') _migrateCaisseNames(); }, 2000);
       const posLabel = document.getElementById('pos-session-label');
       if(posLabel) {
         const ventes = (VENTES_PAR_CAISSE[caisse] || []).reduce((a,v) => a+(v.total||0), 0);
@@ -26528,6 +26598,8 @@ async function cloturerDepensesFondsPropres() {
   }
   renderDepenses();
   if(typeof refreshDashboard === 'function') refreshDashboard();
+  // ✅ Migration au démarrage : récupérer les ventes Caisse 5-10 existantes
+  setTimeout(function() { if(typeof _migrateCaisseNames === 'function') _migrateCaisseNames(); }, 2000);
   showNotif(`✅ ${depsFP.length} dépense(s) fonds propres clôturées — ${total.toLocaleString()} F`);
 }
 
@@ -27982,6 +28054,8 @@ async function executeReset() {
 
   // Rafraîchir les vues
   if(typeof refreshDashboard === 'function') refreshDashboard();
+  // ✅ Migration au démarrage : récupérer les ventes Caisse 5-10 existantes
+  setTimeout(function() { if(typeof _migrateCaisseNames === 'function') _migrateCaisseNames(); }, 2000);
   if(typeof renderCaisses    === 'function') renderCaisses();
 
   const labels = { ventes:'ventes vidées', clotures:'historique effacé', tout:'tout réinitialisé' };
@@ -30985,6 +31059,8 @@ function _validerAdditionCaisse(billId) {
     }
     if(typeof saveSession === 'function') saveSession();
     if(typeof refreshDashboard === 'function') refreshDashboard();
+  // ✅ Migration au démarrage : récupérer les ventes Caisse 5-10 existantes
+  setTimeout(function() { if(typeof _migrateCaisseNames === 'function') _migrateCaisseNames(); }, 2000);
     if(typeof renderCaisses === 'function') renderCaisses();
 
     // Marquer l'addition comme traitée
@@ -32322,6 +32398,8 @@ async function updateQRStatut(orderId, newStatut) {
 
       // ⑤ Rafraîchir le dashboard si visible
       if(typeof refreshDashboard === 'function') refreshDashboard();
+  // ✅ Migration au démarrage : récupérer les ventes Caisse 5-10 existantes
+  setTimeout(function() { if(typeof _migrateCaisseNames === 'function') _migrateCaisseNames(); }, 2000);
       if(typeof renderCaisses === 'function') renderCaisses();
       if(typeof saveSession === 'function') saveSession();
 
