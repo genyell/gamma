@@ -5303,6 +5303,9 @@ function _syncSportVentes()       { return []; }
       <div id="stock-tab-content-liste">
         <div class="card">
           <div class="card-title">Inventaire en temps réel <span id="stock-last-update">Mis à jour maintenant</span></div>
+          <div style="margin-bottom:12px;">
+            <input class="form-input" id="stock-search-input" placeholder="🔍 Rechercher un article..." oninput="renderStock()" style="width:100%;padding:10px 14px;font-size:13px;">
+          </div>
           <div class="stock-header-row">
             <div></div>
             <div>Article</div>
@@ -11453,6 +11456,12 @@ function openConfirmTicket() {
           const matchOpt = [...sel.options].find(o => o.value.toLowerCase() === nomUser.toLowerCase());
           if(matchOpt) sel.value = matchOpt.value;
         }
+        // ✅ FIX : Si ticket vient d'une attente avec serveur déjà assigné, le pré-sélectionner
+        if(!sel.value && window._lastAttenteServeur) {
+          const matchOpt2 = [...sel.options].find(o => o.value === window._lastAttenteServeur);
+          if(matchOpt2) sel.value = matchOpt2.value;
+          window._lastAttenteServeur = null;
+        }
       }
     } catch(e) { console.warn('[serveurs select]', e); }
   })();
@@ -12726,6 +12735,7 @@ function printTicket(vente, caisse) {
   <div class="meta-row"><span class="lbl">📅 Date</span><span class="val">${dateStr} · ${heureStr}</span></div>
   <div class="meta-row"><span class="lbl">🏪 Caisse</span><span class="val">${caisse}</span></div>
   ${TICKET_CONFIG.showCashier && vente.cashier ? `<div class="meta-row"><span class="lbl">👤 Caissier</span><span class="val">${vente.cashier}</span></div>` : ''}
+  ${vente.serveur && vente.serveur !== vente.cashier ? `<div class="meta-row"><span class="lbl">🍽️ Serveur</span><span class="val">${vente.serveur}</span></div>` : ''}
   ${vente.client && vente.client !== 'Client' ? `<div class="meta-row"><span class="lbl">🙋 Client</span><span class="val">${vente.client}</span></div>` : ''}
   ${vente.tableInfo ? `<div class="meta-row"><span class="lbl">📍 Table / Type</span><span class="val">${vente.tableInfo}</span></div>` : ''}
   ${vente.note ? `<div class="meta-row"><span class="lbl">📝 Note</span><span class="val">${vente.note}</span></div>` : ''}
@@ -12837,7 +12847,7 @@ ${(function(){
   </div>
   <div class="cuisine-meta">
     📅 ${dateStr} · ${heureStr}<br>
-    🏪 ${caisse}${TICKET_CONFIG.showCashier && vente.cashier ? ' · 👤 ' + vente.cashier : ''}${vente.client && vente.client !== 'Client' ? '<br>🙋 Client : ' + vente.client : ''}
+    🏪 ${caisse}${TICKET_CONFIG.showCashier && vente.cashier ? ' · 👤 ' + vente.cashier : ''}${vente.serveur && vente.serveur !== vente.cashier ? '<br>🍽️ Serveur : <strong>' + vente.serveur + '</strong>' : ''}${vente.client && vente.client !== 'Client' ? '<br>🙋 Client : ' + vente.client : ''}
   </div>
   <div class="cuisine-items-title">Articles à préparer</div>
   ${(function(){
@@ -12846,10 +12856,18 @@ ${(function(){
     if(_items.length === 0) return '';
     return _items.map(function(it){
       var _st = (it.price * it.qty).toLocaleString();
-      return '<div class="cuisine-item">'
-        + '<div class="cuisine-item-qty">' + it.qty + '×</div>'
-        + '<div class="cuisine-item-name">' + (it.icon||'') + ' ' + it.name + '</div>'
-        + '<div class="cuisine-item-price"><strong>' + _st + ' F</strong></div>'
+      // Image du plat si disponible
+      var _imgHtml = '';
+      if(it.image_url) {
+        _imgHtml = '<img src=' + JSON.stringify(it.image_url) + ' style="width:48px;height:48px;object-fit:cover;border-radius:6px;margin-right:8px;flex-shrink:0" onError="this.remove()">';
+      }
+      return '<div class="cuisine-item" style="display:flex;align-items:center;gap:6px;padding:10px 6px;border-bottom:1px dashed #ccc;">'
+        + _imgHtml
+        + '<div style="flex:1;">' 
+        + '<div style="font-size:20px;font-weight:900;color:#000;">' + it.qty + '× ' + it.name + '</div>'
+        + (it.note ? '<div style="font-size:12px;color:#555;font-style:italic;">📝 ' + it.note + '</div>' : '')
+        + '</div>'
+        + '<div class="cuisine-item-price" style="font-size:14px;font-weight:900;color:#000;white-space:nowrap;"><strong>' + _st + ' F</strong></div>'
         + '</div>';
     }).join('');
   })()}
@@ -13182,7 +13200,7 @@ function renderMenu(cat) {
     <div class="menu-card">
       <div class="menu-img" style="background:${item.color||'#8B4513'}22;position:relative;">
         <div class="menu-img-bg" style="background:${item.color||'#8B4513'};"></div>
-        ${(_menuImgSrc => { const _isImg = _menuImgSrc && (_menuImgSrc.startsWith('data:') || _menuImgSrc.startsWith('http') || _menuImgSrc.startsWith('//') || _menuImgSrc.includes('ibb.co')); const _finalSrc = (_isImg && !_menuImgSrc.startsWith('http') && !_menuImgSrc.startsWith('data:') && !_menuImgSrc.startsWith('//')) ? 'https://' + _menuImgSrc : _menuImgSrc; return _isImg ? '<img src="' + _finalSrc + '" style="width:80px;height:80px;object-fit:cover;border-radius:12px;position:relative;z-index:1;" alt="" onerror="this.style.display=\'none\'">' : '<span style="font-size:52px;position:relative;z-index:1;">' + (_menuImgSrc || '🍽️') + '</span>'; })(item.image_url || item.icon || '')}
+        ${(_menuImgSrc => { const _isImg = _menuImgSrc && (_menuImgSrc.startsWith('data:') || _menuImgSrc.startsWith('http') || _menuImgSrc.startsWith('//') || _menuImgSrc.includes('ibb.co')); const _finalSrc = (_isImg && !_menuImgSrc.startsWith('http') && !_menuImgSrc.startsWith('data:') && !_menuImgSrc.startsWith('//')) ? 'https://' + _menuImgSrc : _menuImgSrc; return _isImg ? '<img src="' + _finalSrc + '" style="width:80px;height:80px;object-fit:cover;border-radius:12px;position:relative;z-index:1;" alt="" onError="this.remove()">' : '<span style="font-size:52px;position:relative;z-index:1;">' + (_menuImgSrc || '🍽️') + '</span>'; })(item.image_url || item.icon || '')}
         ${item.tag ? `<div class="menu-tag">${item.tag}</div>` : ''}
         ${stockBadge}
         ${isManager ? `<button onclick="event.stopPropagation();openEditMenuItemById('${menuItemId}'||${menuIdx})" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:white;font-size:12px;padding:3px 8px;cursor:pointer;z-index:2;" title="Modifier le produit">✏️</button>` : ''}
@@ -13237,10 +13255,18 @@ function filterOrders(status, el) {
 }
 
 function renderOrders(status) {
+  // ✅ ISOLATION CAISSIER : un caissier ne voit que SA caisse dans Commandes.
+  // Administrateur, Gérant et Superviseur voient toutes les caisses, comme avant.
+  const _ordIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
+  const _ordUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
+  const _ordVentesParCaisse = (_ordIsManager || !_ordUserCaisse)
+    ? VENTES_PAR_CAISSE
+    : { [_ordUserCaisse]: VENTES_PAR_CAISSE[_ordUserCaisse] || [] };
+
   // ✅ FIX : afficher TOUTES les ventes du jour, quelle que soit le statut de la caisse
   let allOrders = [];
-  const _nbCaisses = Object.keys(VENTES_PAR_CAISSE).length;
-  Object.entries(VENTES_PAR_CAISSE).forEach(([caisseName, ventes]) => {
+  const _nbCaisses = Object.keys(_ordVentesParCaisse).length;
+  Object.entries(_ordVentesParCaisse).forEach(([caisseName, ventes]) => {
     (ventes || []).forEach(v => {
       // ✅ FIX : ne pas filtrer par date — VENTES_PAR_CAISSE contient déjà la session courante
       allOrders.push({
@@ -13834,10 +13860,21 @@ function renderCFArticles() {
     return `
     <div style="margin-bottom:10px;" data-line="${i}">
       <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
-        <select class="form-input" onchange="cfSelectStockItem(${i}, this.value)" style="font-size:12px;flex:1;">
-          <option value="">— Choisir un produit —</option>
-          ${STOCK_DATA.map(s => `<option value="${s.id}" ${s.id==line.stockId?'selected':''}>${s.icon||'📦'} ${s.name}</option>`).join('')}
-        </select>
+        <div style="position:relative;flex:1;">
+          <input class="form-input" placeholder="🔍 Chercher article..."
+            id="cf-search-${i}"
+            value="${line.article||''}"
+            oninput="cfFilterArticles(${i}, this.value)"
+            onfocus="cfShowDropdown(${i})"
+            style="font-size:12px;width:100%;"
+            autocomplete="off">
+          <div id="cf-dropdown-${i}" style="display:none;position:fixed;z-index:99999;background:#1e1e2e;border:2px solid var(--primary);border-radius:10px;max-height:220px;overflow-y:auto;width:calc(100% - 40px);box-shadow:0 8px 32px rgba(0,0,0,0.8);">
+            ${STOCK_DATA.map(s => `<div onclick="cfPickArticle(${i}, this)" data-sid="${s.id}" data-sname="${s.name}" style="padding:12px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''">
+              <span>${s.icon||'📦'} <strong>${s.name}</strong></span>
+              <span style="color:var(--text2);font-size:11px;background:rgba(255,255,255,0.05);padding:2px 8px;border-radius:100px;">${s.qty} ${s.unit}</span>
+            </div>`).join('')}
+          </div>
+        </div>
         <button onclick="cfOpenCreateArticle(${i})" title="Créer un nouvel article" style="flex-shrink:0;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">+ Créer</button>
       </div>
       ${line.article ? `<div style="font-size:12px;font-weight:700;color:var(--primary);padding:4px 8px;background:var(--surface2);border-radius:6px;margin-bottom:4px;">✅ ${line.article}</div>` : ''}
@@ -13867,6 +13904,49 @@ function cfUpdateLineTotal(i) {
   el.textContent = sous > 0 ? sous.toLocaleString() + ' F' : '—';
   el.style.color  = sous > 0 ? 'var(--accent)' : 'var(--text3)';
 }
+
+function cfPickArticle(i, el) {
+  const sid = el.getAttribute('data-sid');
+  const sname = el.getAttribute('data-sname');
+  const inp = document.getElementById('cf-search-' + i);
+  if(inp) inp.value = sname;
+  const dd = document.getElementById('cf-dropdown-' + i);
+  if(dd) dd.style.display = 'none';
+  cfSelectStockItem(i, sid);
+}
+
+function cfShowDropdown(i) {
+  // Fermer les autres dropdowns
+  document.querySelectorAll('[id^="cf-dropdown-"]').forEach(d => d.style.display = 'none');
+  const dd = document.getElementById('cf-dropdown-' + i);
+  const inp = document.getElementById('cf-search-' + i);
+  if(!dd || !inp) return;
+  // Positionner le dropdown sous l'input avec position fixed
+  const rect = inp.getBoundingClientRect();
+  dd.style.display = 'block';
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.left = rect.left + 'px';
+  dd.style.width = rect.width + 'px';
+}
+
+function cfFilterArticles(i, q) {
+  const dd = document.getElementById('cf-dropdown-' + i);
+  if(!dd) return;
+  dd.style.display = 'block';
+  const items = dd.querySelectorAll('div');
+  const _q = q.toLowerCase().trim();
+  items.forEach(item => {
+    const text = item.textContent.toLowerCase();
+    item.style.display = (!_q || text.includes(_q)) ? '' : 'none';
+  });
+}
+
+// Fermer dropdown en cliquant ailleurs
+document.addEventListener('click', function(e) {
+  if(!e.target.closest('[id^="cf-search-"]') && !e.target.closest('[id^="cf-dropdown-"]')) {
+    document.querySelectorAll('[id^="cf-dropdown-"]').forEach(d => d.style.display = 'none');
+  }
+});
 
 function cfSelectStockItem(i, stockId) {
   // ✅ Quand on choisit un produit stock, pré-remplir l'unité automatiquement
@@ -14155,7 +14235,11 @@ function renderStock() {
   const colors = { ok:'var(--green)', low:'var(--accent)', critical:'var(--red)' };
   const labels = { ok:'✅ OK', low:'⚠️ Bas', critical:'🚨 Critique' };
 
+  // ✅ FIX RECHERCHE STOCK : filtrer par le texte saisi
+  const _sq = (document.getElementById('stock-search-input')?.value || '').toLowerCase().trim();
+
   document.getElementById('stock-list').innerHTML = STOCK_DATA.map((s, sIdx) => {
+    if(_sq && !(s.name||'').toLowerCase().includes(_sq) && !(s.cat||'').toLowerCase().includes(_sq)) return '';
     const status = getStockStatus(s);
     const pct = Math.min(100, Math.round(s.qty / (s.max||100) * 100));
     return `<div class="stock-row">
@@ -16116,12 +16200,20 @@ function renderRapportX() {
     }
   }
 
-  // Données uniquement depuis les vraies ventes de session
-  const allVentes = Object.values(VENTES_PAR_CAISSE).flat();
+  // ✅ ISOLATION CAISSIER : un caissier ne voit que les ventes de SA caisse assignée.
+  // Administrateur, Gérant et Superviseur voient toutes les caisses et tous les rapports X.
+  const _rxIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
+  const _rxUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
+  const _rxVentesParCaisse = (_rxIsManager || !_rxUserCaisse)
+    ? VENTES_PAR_CAISSE
+    : { [_rxUserCaisse]: VENTES_PAR_CAISSE[_rxUserCaisse] || [] };
+
+  // Données uniquement depuis les vraies ventes de session (filtrées par caisse pour un caissier)
+  const allVentes = Object.values(_rxVentesParCaisse).flat();
   const totalCA = allVentes.reduce((a,v) => a + v.total, 0);
 
   // --- Bloc par caisse ---
-  const caisseNames = Object.keys(VENTES_PAR_CAISSE).filter(k => (VENTES_PAR_CAISSE[k]||[]).length > 0);
+  const caisseNames = Object.keys(_rxVentesParCaisse).filter(k => (_rxVentesParCaisse[k]||[]).length > 0);
   const colors = ['var(--teal)','var(--accent)','var(--purple)','var(--green)','var(--accent2)'];
   const rapEl = document.getElementById('rapportx-caisses');
   if(rapEl) {
@@ -16149,7 +16241,7 @@ function renderRapportX() {
       </div>`;
     } else {
       rapEl.innerHTML = caisseNames.map((name, idx) => {
-        const ventes = VENTES_PAR_CAISSE[name] || [];
+        const ventes = _rxVentesParCaisse[name] || [];
         const ca = ventes.reduce((a,v)=>a+v.total,0);
         // ✅ FIX : inclure les paiements mixtes (payMethods.cash / .wave / .orange)
         const esp = ventes.reduce((a,v)=>{ if(v.payMethod==='cash') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.cash||0); return a; },0);
@@ -16258,6 +16350,13 @@ function renderRapportX() {
 
 // ===== IMPRESSION RAPPORT X — UNE SEULE CAISSE =====
 function printRapportXCaisse(name) {
+  // ✅ ISOLATION CAISSIER : un caissier ne peut imprimer que SA caisse assignée.
+  const _pcIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
+  const _pcUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
+  if(!_pcIsManager && _pcUserCaisse && name !== _pcUserCaisse) {
+    showNotif('⛔ Accès refusé : vous ne pouvez consulter que '+_pcUserCaisse);
+    return;
+  }
   const ventes = VENTES_PAR_CAISSE[name] || [];
   if(ventes.length === 0) { showNotif('Aucune vente pour '+name); return; }
   const _logoUrlC = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.logo) ? TICKET_CONFIG.logo
@@ -16397,9 +16496,16 @@ function printRapportXCaisse(name) {
   document.getElementById('rapportx-single-frame').srcdoc = html;
 }
 
-// ===== IMPRESSION RAPPORT X — TOUTES CAISSES =====
+// ===== IMPRESSION RAPPORT X — TOUTES CAISSES (ou sa caisse si Caissier) =====
 function printRapportX() {
-  const allVentes = Object.values(VENTES_PAR_CAISSE).flat();
+  // ✅ ISOLATION CAISSIER : un caissier n'imprime que SA caisse. Admin/Gérant/Superviseur voient tout.
+  const _pxIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
+  const _pxUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
+  const _pxVentesParCaisse = (_pxIsManager || !_pxUserCaisse)
+    ? VENTES_PAR_CAISSE
+    : { [_pxUserCaisse]: VENTES_PAR_CAISSE[_pxUserCaisse] || [] };
+
+  const allVentes = Object.values(_pxVentesParCaisse).flat();
   const totalCA   = allVentes.reduce((a,v) => a + v.total, 0);
   const now       = new Date();
   const dateStr   = now.toLocaleDateString('fr-FR');
@@ -16412,10 +16518,10 @@ function printRapportX() {
     : '<div style="text-align:center;font-size:32px;margin-bottom:8px;">🍽️</div>';
 
   // Données par caisse
-  const caisseRows = Object.keys(VENTES_PAR_CAISSE)
-    .filter(k => (VENTES_PAR_CAISSE[k]||[]).length > 0)
+  const caisseRows = Object.keys(_pxVentesParCaisse)
+    .filter(k => (_pxVentesParCaisse[k]||[]).length > 0)
     .map(name => {
-      const vs = VENTES_PAR_CAISSE[name] || [];
+      const vs = _pxVentesParCaisse[name] || [];
       const ca  = vs.reduce((a,v)=>a+v.total,0);
       // ✅ FIX MIXTE : inclure les paiements mixtes (v.payMethods) dans le calcul par mode
       const esp = vs.reduce((a,v)=>{
@@ -16470,7 +16576,7 @@ function printRapportX() {
     }).join('')
     || '<tr><td colspan="4" style="text-align:center;color:#888">Aucune vente</td></tr>';
 
-  const totalDep  = (DEPENSES||[]).filter(d=>!d.cloturee).reduce((a,d)=>a+(d.montant||0),0);
+  const totalDep  = (DEPENSES||[]).filter(d => !d.cloturee && (_pxIsManager || !_pxUserCaisse || d.caisse === _pxUserCaisse)).reduce((a,d)=>a+(d.montant||0),0);
   const totalNet  = totalCA - totalDep;
   const tva       = Math.round(totalCA * 18 / 118);
   const ht        = totalCA - tva;
@@ -18276,6 +18382,15 @@ async function initDashboard() {
 }
 
 function _updateChart7Jours() {
+  // ✅ ISOLATION CAISSIER : un caissier ne voit que SA caisse dans ce graphe.
+  const _c7IsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
+  const _c7UserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
+  const _c7VentesParCaisse = (_c7IsManager || !_c7UserCaisse)
+    ? VENTES_PAR_CAISSE
+    : { [_c7UserCaisse]: VENTES_PAR_CAISSE[_c7UserCaisse] || [] };
+  const _c7HistoClotures = (_c7IsManager || !_c7UserCaisse)
+    ? (HISTORIQUE_CLOTURES || [])
+    : (HISTORIQUE_CLOTURES || []).filter(h => h.caisse === _c7UserCaisse);
   // ✅ Graphe 7 jours avec vraies données : ventes en cours + historique clôtures
   const jours = [];
   const now = new Date();
@@ -18290,11 +18405,11 @@ function _updateChart7Jours() {
   });
   const vals = jours.map(dateKey => {
     // Ventes en cours (session active du jour)
-    const ventesJour = Object.values(VENTES_PAR_CAISSE).flat()
+    const ventesJour = Object.values(_c7VentesParCaisse).flat()
       .filter(v => (v.date || '') === dateKey)
       .reduce((a, v) => a + (v.total || 0), 0);
     // Clôtures Z du jour dans l'historique
-    const cloturesJour = (HISTORIQUE_CLOTURES || [])
+    const cloturesJour = (_c7HistoClotures || [])
       .filter(h => {
         try {
           const hDate = h.ouvertureAt ? new Date(h.ouvertureAt).toISOString().split('T')[0]
@@ -18440,9 +18555,21 @@ function refreshDashboard() {
     if(_vm7.length > 0) VENTES_PAR_CAISSE['Caisse 7'] = _vm7.map(e => ({id:e.id||'m'+Math.random(), total:e.montant||0, payMethod:e.paiement||'cash', payLabel:_pl[e.paiement]||'Espèces', label:e.label||'Manège', caisse:'Caisse 7', cashier:e.caissier||'—', date:e.date||new Date().toISOString()}));
   }
 
+  // ✅ ISOLATION CAISSIER : un caissier ne voit que SA caisse sur le Tableau de bord.
+  // Administrateur, Gérant et Superviseur voient toutes les caisses, comme avant.
+  const _dashIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
+  const _dashUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
+  const _dashVentesParCaisse = (_dashIsManager || !_dashUserCaisse)
+    ? VENTES_PAR_CAISSE
+    : { [_dashUserCaisse]: VENTES_PAR_CAISSE[_dashUserCaisse] || [] };
+  const _dashHistoCloturesAll = (typeof HISTORIQUE_CLOTURES !== 'undefined' ? HISTORIQUE_CLOTURES : []);
+  const _dashHistoClotures = (_dashIsManager || !_dashUserCaisse)
+    ? _dashHistoCloturesAll
+    : _dashHistoCloturesAll.filter(h => h.caisse === _dashUserCaisse);
+
   // Agréger TOUTES les caisses qui ont des ventes (pas seulement la caisse locale)
   let ventes = [];
-  Object.values(VENTES_PAR_CAISSE).forEach(v => { ventes = ventes.concat(v); });
+  Object.values(_dashVentesParCaisse).forEach(v => { ventes = ventes.concat(v); });
   ventes.forEach(v => { totalCA += v.total; totalTickets++; });
 
   const el_ca      = document.getElementById('dash-ca');
@@ -18467,8 +18594,8 @@ function refreshDashboard() {
 
   // Indicateur session live
   if(el_session) {
-    // ✅ FIX SYNC: Afficher toutes les caisses ouvertes (pas seulement la locale)
-    const caissesOuvertesLabel = CAISSES.filter(c => c.status === 'open').map(c => c.name);
+    // ✅ FIX SYNC: Afficher toutes les caisses ouvertes (pas seulement la locale) — filtré pour un caissier
+    const caissesOuvertesLabel = CAISSES.filter(c => c.status === 'open' && (_dashIsManager || !_dashUserCaisse || c.name === _dashUserCaisse)).map(c => c.name);
     if(caissesOuvertesLabel.length > 0) {
       const label = caissesOuvertesLabel.join(' · ');
       el_session.innerHTML = `<span style="display:inline-block;width:8px;height:8px;background:var(--green);border-radius:50%;box-shadow:0 0 6px var(--green);margin-right:5px;animation:pulse 1.5s infinite;"></span>${label}`;
@@ -18477,8 +18604,8 @@ function refreshDashboard() {
     }
   }
   if(el_change) {
-    // ✅ FIX SYNC: Compter les caisses ouvertes (pas seulement la locale)
-    const caissesOuvertes = CAISSES.filter(c => c.status === 'open').map(c => c.name);
+    // ✅ FIX SYNC: Compter les caisses ouvertes (pas seulement la locale) — filtré pour un caissier
+    const caissesOuvertes = CAISSES.filter(c => c.status === 'open' && (_dashIsManager || !_dashUserCaisse || c.name === _dashUserCaisse)).map(c => c.name);
     if(caissesOuvertes.length > 0) {
       const label = caissesOuvertes.length === 1 ? caissesOuvertes[0] : `${caissesOuvertes.length} caisses actives`;
       el_change.textContent = `🟢 ${label} — ${totalTickets} ticket(s)`;
@@ -18554,7 +18681,7 @@ function refreshDashboard() {
 
       // Sommer les clôtures du jour
       let total = 0;
-      (HISTORIQUE_CLOTURES || []).forEach(h => {
+      (_dashHistoClotures || []).forEach(h => {
         if (!h.date) return;
         // Supporter les deux formats de date : DD/MM/YY et YYYY-MM-DD
         const hDate = h.date.includes('-') ? h.date.slice(0, 10) : (() => {
@@ -18570,7 +18697,7 @@ function refreshDashboard() {
 
       // Ajouter aussi les ventes en cours (non clôturées) pour aujourd'hui
       if (i === 0) {
-        Object.values(VENTES_PAR_CAISSE || {}).forEach(ventesList => {
+        Object.values(_dashVentesParCaisse || {}).forEach(ventesList => {
           ventesList.forEach(v => { total += (v.total || 0); });
         });
       }
@@ -18643,7 +18770,7 @@ function refreshDashboard() {
     const _now = new Date();
     const _moisDebut = new Date(_now.getFullYear(), _now.getMonth(), 1).toISOString().slice(0,10);
     const _moisFin   = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).toISOString().slice(0,10);
-    (HISTORIQUE_CLOTURES || []).forEach(h => {
+    (_dashHistoClotures || []).forEach(h => {
       // Parser date clôture (dd/mm/yy ou yyyy-mm-dd)
       let hDate = '';
       if(h.date) {
@@ -19867,6 +19994,7 @@ async function cloturerCaisse() {
         date: now.toISOString().split('T')[0] + 'T' + (v.time ? v.time + ':00' : now.toTimeString().slice(0,8)),
         caisse: caisse,
         caissier: v.cashier || cashier,
+        serveur: v.serveur || '',
         total: v.total || 0,
         mode: v.payMethod || 'cash',
         items: (v.items || []).map(it => ({ nom: it.name || it.nom || '', qty: it.qty || 1, icon: it.icon || '', image_url: it.image_url || (it.icon&&it.icon.startsWith('http')?it.icon:null), prix: it.price || it.prix || 0, categorie: it.cat || it.category || it.categorie || '' }))
@@ -20710,7 +20838,10 @@ function renderHistorique() {
         <div><span class="badge badge-done">✅ Conforme</span></div>
       </div>
       <div style="margin-top:10px;">
-        <button onclick="voirDetailCloture(${HISTORIQUE_CLOTURES.indexOf(h)})" style="background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);color:var(--accent);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;">🧾 Voir les ventes</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <button onclick="voirDetailCloture(${HISTORIQUE_CLOTURES.indexOf(h)})" style="background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);color:var(--accent);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;">🧾 Voir les ventes</button>
+          <button onclick="supprimerCloture('${h.date}_${h.heure}_${h.caisse}')" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);color:#e74c3c;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:600;">🗑️ Supprimer</button>
+        </div>
       </div>
       ${hasDep ? `
       <div style="margin-top:8px;padding:8px 12px;background:rgba(231,76,60,0.07);border:1px solid rgba(231,76,60,0.2);border-radius:8px;font-size:12px;">
@@ -30097,6 +30228,39 @@ async function initBanqueView() {
 
 // ══════════════════════════════════════════════════════════════════════════
 
+async function supprimerCloture(key) {
+  if(!confirm('⚠️ Supprimer cette clôture ? Cette action est irréversible.')) return;
+  // Trouver par la clé date_heure_caisse
+  const parts = key.split('_');
+  const caisse = parts.slice(2).join('_'); // caisse peut contenir des _
+  const date = parts[0];
+  const heure = parts[1];
+  const idx = HISTORIQUE_CLOTURES.findIndex(h => h.date === date && h.heure === heure && h.caisse === caisse);
+  if(idx === -1) { showNotif('❌ Clôture introuvable'); return; }
+  HISTORIQUE_CLOTURES.splice(idx, 1);
+
+  // ✅ Sauvegarder localStorage avec le bon format de clé
+  try {
+    const rid = window._KG_RESTAURANT_ID;
+    if(rid) {
+      localStorage.setItem('rid_' + rid + ':kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
+      localStorage.setItem('kg-historique-clotures-' + rid, JSON.stringify(HISTORIQUE_CLOTURES));
+    }
+    localStorage.setItem('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
+  } catch(e) {}
+
+  // ✅ Sauvegarder dans Supabase via KGSync.push.clotures() — la vraie fonction
+  try {
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      await KGSync.push.clotures();
+      console.log('[cloture] ✅ Supprimée et synchronisée Supabase');
+    }
+  } catch(e) { console.warn('[supprimerCloture]', e); }
+
+  if(typeof renderHistoriqueList === 'function') renderHistoriqueList();
+  showNotif('✅ Clôture supprimée !');
+}
+
 function voirDetailCloture(idx) {
   const h = HISTORIQUE_CLOTURES[idx];
   if(!h) return;
@@ -31739,7 +31903,8 @@ function switchServeurTab(tab) {
   } else {
     btnStats.style.background = 'linear-gradient(135deg,#f59e2a,#e84520)'; btnStats.style.color = '#fff'; btnStats.style.border = 'none';
     btnListe.style.background = 'transparent'; btnListe.style.color = 'var(--text2)'; btnListe.style.border = '1px solid var(--border)';
-    renderStatsServeurs(_statServeurPeriode);
+    // ✅ Réconcilier les serveurs depuis Supabase avant d'afficher
+    _reconcilierServeursClôtures().then(() => renderStatsServeurs(_statServeurPeriode)).catch(() => renderStatsServeurs(_statServeurPeriode));
   }
 }
 
@@ -31831,6 +31996,43 @@ function _inPeriodeServeur(vente, periode) {
     return dStr >= debut && dStr <= fin;
   }
   return false;
+}
+
+async function _reconcilierServeursClôtures() {
+  // ✅ FIX SERVEURS : récupérer le champ serveur depuis ventes_caisse Supabase
+  // pour les clôtures qui n'ont pas sauvegardé le serveur
+  try {
+    const _sb = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+    const _rid = window._KG_RESTAURANT_ID;
+    if(!_sb || !_rid) return;
+    const { data: rows } = await _sb.from('ventes_caisse')
+      .select('order_num, caisse, serveur, session_date')
+      .eq('restaurant_id', _rid)
+      .not('serveur', 'is', null)
+      .neq('serveur', '');
+    if(!rows || !rows.length) return;
+    // Construire un index orderNum → serveur
+    const idx = {};
+    rows.forEach(r => { if(r.order_num) idx[String(r.order_num)] = r.serveur; });
+    // Patcher les tickets dans HISTORIQUE_CLOTURES
+    let changed = false;
+    (HISTORIQUE_CLOTURES || []).forEach(h => {
+      (h.tickets || []).forEach(t => {
+        if(!t.serveur && t.numero) {
+          const s = idx[String(t.numero)];
+          if(s) { t.serveur = s; changed = true; }
+        }
+      });
+    });
+    if(changed) {
+      console.log('[serveurs] ✅ Serveurs réconciliés depuis ventes_caisse');
+      // Sauvegarder en local
+      try {
+        localStorage.setItem('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
+        if(_rid) localStorage.setItem('kg-historique-clotures-' + _rid, JSON.stringify(HISTORIQUE_CLOTURES));
+      } catch(e) {}
+    }
+  } catch(e) { console.warn('[reconcilierServeurs]', e); }
 }
 
 function renderStatsServeurs(periode) {
@@ -35780,7 +35982,17 @@ function mettreEnAttente() {
   if(!sessionCaisseActive) { showNotif('🔒 Ouvrez une caisse avant de mettre en attente !'); return; }
   if(typeof cart === 'undefined' || cart.length === 0) { showNotif('⚠️ Panier vide — rien à mettre en attente'); return; }
 
-  // ✅ Afficher le modal serveur d'abord — le ticket sera créé après confirmation
+  // ✅ FIX SERVEUR AUTO : si l'utilisateur connecté est un serveur, bypass le modal
+  if(currentUser && (currentUser.role === 'serveur' || currentUser.role === 'waiter')) {
+    const nomServeur = ((currentUser.prenom || '') + ' ' + (currentUser.nom || '')).trim();
+    if(nomServeur) {
+      console.log('[attente] Serveur auto-assigné:', nomServeur);
+      _confirmerEtCreerTicket(nomServeur);
+      return;
+    }
+  }
+
+  // Afficher le modal serveur pour les autres rôles (admin, gérant, caissier)
   const modal = document.getElementById('modal-serveur-attente');
   const input = document.getElementById('modal-serveur-input');
   if(input) input.value = '';
@@ -35869,7 +36081,10 @@ function _confirmerEtCreerTicket(nomServeur) {
 
 function _updateAttenteCounter() {
   _loadTicketsAttente();
-  const nb = TICKETS_ATTENTE.length;
+  // ✅ ISOLATION CAISSIER : le badge ne compte que les tickets en attente de SA caisse.
+  const _acIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
+  const _acUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
+  const nb = (_acIsManager || !_acUserCaisse) ? TICKETS_ATTENTE.length : TICKETS_ATTENTE.filter(t => t.caisse === _acUserCaisse).length;
   const badge = document.getElementById('badge-waiting-payment');
   if(badge) {
     badge.textContent = nb;
@@ -35888,6 +36103,14 @@ function ouvrirPaiementAttente(ticketId) {
   _loadTicketsAttente();
   const ticket = TICKETS_ATTENTE.find(t => t.id === ticketId);
   if(!ticket) { showNotif('⚠️ Ticket introuvable'); return; }
+
+  // ✅ ISOLATION CAISSIER : un caissier ne peut encaisser que les tickets de SA caisse.
+  const _opaIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
+  const _opaUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
+  if(!_opaIsManager && _opaUserCaisse && ticket.caisse !== _opaUserCaisse) {
+    showNotif('⛔ Accès refusé : ce ticket appartient à '+ticket.caisse);
+    return;
+  }
 
   _attenteCurrentId = ticketId;
   _attentePayMethod = 'cash';
@@ -36324,7 +36547,16 @@ function rouvrirTicketAttente(ticketId) {
 const _origRenderOrders = renderOrders;
 renderOrders = function(status) {
   _loadTicketsAttente();
-  const attenteList = TICKETS_ATTENTE;
+
+  // ✅ ISOLATION CAISSIER : un caissier ne voit que les tickets en attente de SA caisse.
+  const _ovIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
+  const _ovUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
+  const attenteList = (_ovIsManager || !_ovUserCaisse)
+    ? TICKETS_ATTENTE
+    : TICKETS_ATTENTE.filter(t => t.caisse === _ovUserCaisse);
+  const _ovVentesParCaisse = (_ovIsManager || !_ovUserCaisse)
+    ? VENTES_PAR_CAISSE
+    : { [_ovUserCaisse]: (VENTES_PAR_CAISSE||{})[_ovUserCaisse] || [] };
 
   if(status === 'waiting_payment') {
     // Afficher uniquement les tickets en attente
@@ -36335,7 +36567,7 @@ renderOrders = function(status) {
     // Update tab counts
     const _tabAll = document.getElementById('tab-all');
     const _tabDone = document.getElementById('tab-done');
-    const allOrders = Object.values(VENTES_PAR_CAISSE||{}).flat();
+    const allOrders = Object.values(_ovVentesParCaisse||{}).flat();
     if(_tabAll) _tabAll.textContent = 'Toutes (' + (allOrders.length + attenteList.length) + ')';
     if(_tabDone) _tabDone.textContent = '🎉 Encaissé (' + allOrders.length + ')';
 
@@ -36379,7 +36611,7 @@ renderOrders = function(status) {
     if(!list) return;
 
     // Update all count
-    const allVentes = Object.values(VENTES_PAR_CAISSE||{}).flat();
+    const allVentes = Object.values(_ovVentesParCaisse||{}).flat();
     const _tabAll = document.getElementById('tab-all');
     if(_tabAll) _tabAll.textContent = 'Toutes (' + (allVentes.length + attenteList.length) + ')';
     const _tabDone = document.getElementById('tab-done');
