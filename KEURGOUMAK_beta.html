@@ -177,12 +177,12 @@ if(typeof jsQR === 'undefined') {
 
 <style>
   :root {
-    --bg: #05050a;
-    --surface: #0c0c14;
-    --surface2: #13131e;
-    --surface3: #1a1a2a;
-    --border: #1e1e32;
-    --border2: #2a2a44;
+    --bg: #0b0e1a;
+    --surface: #131829;
+    --surface2: #1a2036;
+    --surface3: #232a47;
+    --border: #2a3155;
+    --border2: #363f68;
     --accent: #f59e2a;
     --accent2: #e84520;
     --accent3: #ff6b35;
@@ -191,26 +191,26 @@ if(typeof jsQR === 'undefined') {
     --purple: #9b7cf4;
     --purple2: #7c5ce8;
     --text: #f0ece6;
-    --text2: #6e6e8e;
-    --text3: #9898b4;
+    --text2: #8c92b8;
+    --text3: #a8aece;
     --green: #1adb6a;
     --green2: #15b557;
     --red: #f04444;
     --radius: 16px;
     --radius-sm: 10px;
     --radius-xs: 6px;
-    --shadow-sm: 0 2px 12px rgba(0,0,0,0.5);
-    --shadow-md: 0 8px 32px rgba(0,0,0,0.6);
-    --shadow-lg: 0 24px 70px rgba(0,0,0,0.75);
-    --shadow-xl: 0 40px 100px rgba(0,0,0,0.9);
+    --shadow-sm: 0 2px 12px rgba(0,0,10,0.45);
+    --shadow-md: 0 8px 32px rgba(0,0,10,0.5);
+    --shadow-lg: 0 24px 70px rgba(0,0,15,0.6);
+    --shadow-xl: 0 40px 100px rgba(0,0,15,0.7);
     --glow-accent: 0 0 30px rgba(245,158,42,0.3), 0 0 60px rgba(245,158,42,0.1);
     --glow-green: 0 0 20px rgba(26,219,106,0.35);
     --glow-teal: 0 0 20px rgba(0,229,200,0.3);
     --glow-purple: 0 0 20px rgba(155,124,244,0.3);
     --gradient-accent: linear-gradient(135deg, #f59e2a 0%, #e84520 100%);
     --gradient-accent-soft: linear-gradient(135deg, rgba(245,158,42,0.15), rgba(232,69,32,0.08));
-    --gradient-surface: linear-gradient(160deg, #0c0c14 0%, #0e0e1a 100%);
-    --gradient-sidebar: linear-gradient(180deg, #13131f 0%, #161625 100%);
+    --gradient-surface: linear-gradient(160deg, #131829 0%, #181f38 100%);
+    --gradient-sidebar: linear-gradient(180deg, #161c30 0%, #1b2138 100%);
   }
 
   /* ===== THÈME CLAIR — VERSION CORRIGÉE LISIBILITÉ TOTALE ===== */
@@ -790,11 +790,11 @@ if(typeof jsQR === 'undefined') {
   }
   .logo-sub {
     font-size: 9px;
-    color: var(--text2);
+    color: rgba(255,255,255,0.5);
     letter-spacing: 3px;
     text-transform: uppercase;
     margin-top: 3px;
-    opacity: 0.6;
+    opacity: 1;
     font-weight: 700;
   }
   .nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; }
@@ -1875,7 +1875,7 @@ if(typeof jsQR === 'undefined') {
 
   .login-tagline {
     font-size: 12px;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.7);
     letter-spacing: 0.5px;
     margin-top: 2px;
     font-weight: 500;
@@ -1938,7 +1938,7 @@ if(typeof jsQR === 'undefined') {
     padding: 13px 0;
     border-bottom: 1px solid rgba(255,255,255,0.05);
     font-size: 13px;
-    color: rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.75);
     transition: all 0.2s;
     animation: featFadeIn 0.5s ease both;
   }
@@ -2796,6 +2796,13 @@ if(typeof jsQR === 'undefined') {
     border: 1px solid rgba(255,255,255,0.08);
   }
 
+  /* Options du select natif : forcer fond clair + texte sombre pour rester lisibles
+     (le menu déroulant natif du navigateur ignore les fonds transparents/glass) */
+  select.form-input option {
+    background: #1e1e2e;
+    color: #ffffff;
+  }
+
   /* Sidebar nav icon glow on active */
   .nav-item.active .icon {
     filter: drop-shadow(0 0 8px rgba(245,158,42,0.7));
@@ -3099,7 +3106,7 @@ if(typeof jsQR === 'undefined') {
     font-size: 8.5px;
     letter-spacing: 3.5px;
     margin-top: 4px;
-    color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.5);
     font-weight: 600;
     text-transform: uppercase;
   }
@@ -4604,7 +4611,7 @@ function _syncSportVentes()       { return []; }
         </div>
         <div class="login-brand" id="login-brand-text" style="font-size:18px;letter-spacing:0;white-space:nowrap;">KEURGOUMAK</div>
         <div class="login-tagline">La plateforme tout-en-un qui transforme votre fast-food en machine à performance 🇸🇳</div>
-        <div style="margin-top:28px;font-size:13px;color:var(--text2);line-height:1.8;">
+        <div style="margin-top:28px;font-size:13px;color:rgba(255,255,255,0.65);line-height:1.8;">
           Plateforme complète de gestion pour votre restaurant. Caisses, commandes, stocks, personnel — tout en un seul endroit.
         </div>
       </div>
@@ -5841,7 +5848,7 @@ function _syncSportVentes()       { return []; }
         <div>
           <div class="card" style="position:sticky;top:80px;">
             <div class="card-title">Récapitulatif fermeture</div>
-            <div style="font-size:12px;color:var(--text2);margin-bottom:12px;" id="recap-caisse-name">— Sélectionnez une caisse</div>
+            <div style="font-size:15px;font-weight:800;color:var(--accent);margin-bottom:12px;background:rgba(245,158,42,0.08);border:1px solid rgba(245,158,42,0.3);border-radius:8px;padding:8px 12px;" id="recap-caisse-name">— Sélectionnez une caisse</div>
             <div class="recap-row"><span class="recap-label">CA théorique système</span><span class="recap-val" id="recap-ca-total">0 F</span></div>
             <div class="recap-row"><span class="recap-label">— Espèces théoriques</span><span class="recap-val" id="recap-especes">0 F</span></div>
             <div class="recap-row"><span class="recap-label">— Wave / Mobile</span><span class="recap-val" id="recap-wave">0 F</span></div>
@@ -5860,7 +5867,7 @@ function _syncSportVentes()       { return []; }
               <span class="recap-val" id="recap-total-caisse" style="font-size:18px;color:var(--accent)">0 F</span>
             </div>
             <!-- BOUTON TOUJOURS ACTIF — plus de disabled -->
-            <button class="btn btn-primary" style="width:100%;margin-top:16px;padding:14px;font-size:15px;" id="btn-cloturer" onclick="cloturerCaisse()">🔒 Clôturer la caisse</button>
+            <button class="btn btn-primary" style="width:100%;margin-top:16px;padding:14px;font-size:15px;" id="btn-cloturer" onclick="confirmerCloturerCaisse()">🔒 Clôturer la caisse</button>
           </div>
         </div>
       </div>
@@ -9134,6 +9141,11 @@ Revenez nous voir bient&#244;t.</textarea>
       <input class="form-input" id="depot-desc" placeholder="Ex: Stock principal pour la cuisine"></div>
     <div class="form-group"><label class="form-label">Responsable (optionnel)</label>
       <input class="form-input" id="depot-responsable" placeholder="Ex: Chef Mamadou"></div>
+    <div class="form-group">
+      <label class="form-label">🏪 Caisse(s) liée(s) à ce dépôt</label>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Les ventes faites depuis ces caisses déduiront automatiquement le stock de ce dépôt.</div>
+      <div id="depot-caisses-list" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('addDepot')">Annuler</button>
       <button class="btn btn-primary" onclick="saveDepot()">💾 Enregistrer</button>
@@ -11148,6 +11160,11 @@ function updateOCFonds() {
 }
 
 function ocNav(dir) {
+  // ✅ FIX : empêcher d'avancer depuis l'étape 1 sans avoir choisi une caisse explicitement
+  if(dir > 0 && ocStep === 1 && !ocSelectedCaisse) {
+    showNotif('⚠️ Sélectionnez la caisse à ouvrir');
+    return;
+  }
   ocStep += dir;
   if(ocStep < 1) ocStep = 1;
   if(ocStep > 3) ocStep = 3;
@@ -11168,7 +11185,7 @@ function ocNav(dir) {
     const now = new Date();
     document.getElementById('oc-s-caisse').textContent = ocSelectedCaisse;
     // ✅ FIX : si admin/gérant, afficher un input pour saisir le vrai caissier
-    const _isAdm = currentUser && (currentUser.role === 'admin' || currentUser.role === 'gerant' || currentUser.role === 'proprietaire');
+    const _isAdm = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
     const _cashierEl = document.getElementById('oc-s-cashier');
     if(_isAdm) {
       // Remplacer le texte par un input si pas encore fait
@@ -11223,6 +11240,7 @@ function openModalOuverture() {
     document.querySelectorAll('.oc-caisse-btn').forEach(function(b) {
       b.style.opacity = '1';
       b.style.pointerEvents = 'auto';
+      b.classList.remove('selected'); // ✅ FIX : aucune pré-sélection automatique pour admin/gérant/superviseur
       var nameEl = b.querySelector('.oc-caisse-name');
       var rawName = nameEl ? nameEl.textContent.trim() : '';
       var name = rawName.replace(/^[^\w]*/u, '').trim() || rawName.trim();
@@ -11230,13 +11248,9 @@ function openModalOuverture() {
       var loc = locEl ? locEl.textContent.trim() : '';
       b.onclick = (function(btn, n, l){ return function(){ selectOC(btn, n, l); }; })(b, name, loc);
     });
-    ocSelectedCaisse = 'Caisse 1';
-    var firstBtn = document.querySelector('.oc-caisse-btn');
-    if(firstBtn) {
-      firstBtn.classList.add('selected');
-      var firstNameEl = firstBtn.querySelector('.oc-caisse-name');
-      if(firstNameEl) ocSelectedCaisse = firstNameEl.textContent.trim().replace(/^[^\w]*/u, '').trim();
-    }
+    // ✅ FIX : ne pas pré-sélectionner Caisse 1 par défaut — un admin/gérant doit choisir explicitement
+    // sa caisse, sinon il risque d'ouvrir/clôturer la mauvaise caisse à son nom sans s'en rendre compte.
+    ocSelectedCaisse = null;
   }
   showModal('ouvertureCaisse');
 }
@@ -11248,13 +11262,18 @@ async function confirmerOuverture() {
     if(currentUser && currentUser.role === 'caissier' && currentUser.caisse !== 'Toutes') {
       caisse = currentUser.caisse;
     }
-    if(!caisse) caisse = 'Caisse 1';
+    // ✅ FIX : pour admin/gérant/superviseur, exiger un choix EXPLICITE de caisse —
+    // ne plus retomber silencieusement sur 'Caisse 1' (cause d'ouvertures accidentelles).
+    if(!caisse) {
+      showNotif('⚠️ Sélectionnez la caisse à ouvrir avant de confirmer');
+      return;
+    }
 
     const fonds = parseInt(document.getElementById('oc-fonds').value)||0;
     // ✅ FIX CAISSIER : si l'utilisateur est admin/gérant, utiliser le nom saisi dans le champ dédié
     // Évite que l'admin apparaisse comme caissier dans l'historique
     const _nomSaisi = (document.getElementById('oc-s-cashier')?.textContent || '').trim();
-    const _isAdminRole = currentUser && (currentUser.role === 'admin' || currentUser.role === 'gerant' || currentUser.role === 'proprietaire');
+    const _isAdminRole = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
     // Lire depuis input si l'élément est devenu un input (admin modifiable)
     const _cashierElem = document.getElementById('oc-s-cashier');
     const _cashierVal = _cashierElem ? (_cashierElem.tagName === 'INPUT' ? _cashierElem.value.trim() : _cashierElem.textContent.trim()) : '';
@@ -11650,7 +11669,7 @@ async function validateOrder() {
       }
     });
   }
-  deduireStockVente(itemsSaved);
+  deduireStockVente(itemsSaved, caisse);
 
   // Synchroniser CAISSES en temps réel
   const caisseObj = CAISSES.find(c => c.name === caisse);
@@ -13382,6 +13401,11 @@ async function supprimerVenteAdmin(orderNum) {
 
   // ── Restauration du stock ──
   if(typeof deduireStockVente === 'function') {
+    // ✅ Résoudre le dépôt lié à cette caisse pour restaurer au bon endroit
+    const _caisseObjRestore = (typeof CAISSES !== 'undefined') ? CAISSES.find(c => c.name === caisseName) : null;
+    const _depotCaisseRestore = (_caisseObjRestore && typeof DEPOTS !== 'undefined')
+      ? DEPOTS.find(d => (d.caisseIds||[]).includes(_caisseObjRestore.id))
+      : null;
     // Inverser : remettre les quantités
     (vente.items||[]).forEach(item => {
       const menuItem = MENU.find(m => m.id===item.id||m.sbId===item.id||m.name===item.name||m.nom===item.name);
@@ -13393,6 +13417,12 @@ async function supprimerVenteAdmin(orderNum) {
         if(s) {
           const consumed = (ligne.qty||1) * (item.qty||1);
           s.qty = (s.qty||0) + consumed;
+          // ✅ Restaurer aussi dans le dépôt de la caisse (ou depotId figé en fallback)
+          const _depotCibleRestore = _depotCaisseRestore || (ligne.depotId ? DEPOTS.find(d => d.id === ligne.depotId) : null);
+          if(_depotCibleRestore && _depotCibleRestore.articles) {
+            const depotArtR = _depotCibleRestore.articles.find(a => a.stockId === s.id || a.stockId === s.sbId || a.nom === s.name);
+            if(depotArtR) depotArtR.qty = Math.round((Number(depotArtR.qty||0) + consumed) * 1000) / 1000;
+          }
         }
       });
     });
@@ -13869,8 +13899,8 @@ function renderCFArticles() {
             style="font-size:12px;width:100%;"
             autocomplete="off">
           <div id="cf-dropdown-${i}" style="display:none;position:fixed;z-index:99999;background:#1e1e2e;border:2px solid var(--primary);border-radius:10px;max-height:220px;overflow-y:auto;width:calc(100% - 40px);box-shadow:0 8px 32px rgba(0,0,0,0.8);">
-            ${STOCK_DATA.map(s => `<div onclick="cfPickArticle(${i}, this)" data-sid="${s.id}" data-sname="${s.name}" style="padding:12px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''">
-              <span>${s.icon||'📦'} <strong>${s.name}</strong></span>
+            ${STOCK_DATA.map(s => `<div onclick="cfPickArticle(${i}, this)" data-sid="${s.id}" data-sname="${s.name}" style="padding:12px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;color:#fff;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''">
+              <span style="color:#fff;">${s.icon||'📦'} <strong style="color:#fff;">${s.name}</strong></span>
               <span style="color:var(--text2);font-size:11px;background:rgba(255,255,255,0.05);padding:2px 8px;border-radius:100px;">${s.qty} ${s.unit}</span>
             </div>`).join('')}
           </div>
@@ -14482,12 +14512,14 @@ function renderDepotsTab() {
         </div>
       </div>`;
     }).join('');
+    const caissesLiees = (depot.caisseIds || []).map(cid => (CAISSES.find(c => c.id === cid)||{}).name).filter(Boolean);
     return `<div class="card" style="padding:0;overflow:hidden;">
       <div style="background:var(--gradient-accent-soft);padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">
         <span style="font-size:32px;">${depot.icon||'🏭'}</span>
         <div style="flex:1;">
           <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;">${depot.nom}</div>
           <div style="font-size:12px;color:var(--text2);">${depot.desc||''} ${depot.responsable ? '· 👤 '+depot.responsable : ''}</div>
+          ${caissesLiees.length ? `<div style="font-size:11px;color:var(--teal);margin-top:4px;">🏪 ${caissesLiees.join(', ')}</div>` : `<div style="font-size:11px;color:var(--text2);margin-top:4px;font-style:italic;">Aucune caisse liée</div>`}
         </div>
         <div style="display:flex;gap:6px;">
           <button class="ticket-btn" style="padding:6px 10px;" title="Modifier dépôt" onclick="openEditDepot('${depot.id}')">✏️</button>
@@ -14505,6 +14537,19 @@ function renderDepotsTab() {
   }).join('');
 }
 
+function _renderDepotCaissesCheckboxes(selectedIds) {
+  const el = document.getElementById('depot-caisses-list');
+  if(!el) return;
+  const sel = selectedIds || [];
+  el.innerHTML = CAISSES.map(c => `
+    <label style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">
+      <input type="checkbox" value="${c.id}" ${sel.includes(c.id) ? 'checked' : ''} style="cursor:pointer;">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c.color};"></span>
+      ${c.name}
+    </label>
+  `).join('');
+}
+
 function openAddDepot() {
   document.getElementById('addDepotTitle').textContent = '🏭 Nouveau Dépôt';
   document.getElementById('depot-edit-id').value = '';
@@ -14512,6 +14557,7 @@ function openAddDepot() {
   document.getElementById('depot-icon').value = '🏭';
   document.getElementById('depot-desc').value = '';
   document.getElementById('depot-responsable').value = '';
+  _renderDepotCaissesCheckboxes([]);
   showModal('addDepot');
 }
 
@@ -14524,6 +14570,7 @@ function openEditDepot(depotId) {
   document.getElementById('depot-icon').value = depot.icon || '🏭';
   document.getElementById('depot-desc').value = depot.desc || '';
   document.getElementById('depot-responsable').value = depot.responsable || '';
+  _renderDepotCaissesCheckboxes(depot.caisseIds || []);
   showModal('addDepot');
 }
 
@@ -14531,11 +14578,26 @@ function saveDepot() {
   const nom = document.getElementById('depot-nom').value.trim();
   if(!nom) { showNotif('⚠️ Nom du dépôt requis'); return; }
   const editId = document.getElementById('depot-edit-id').value;
+
+  // Caisses cochées
+  const caisseIds = Array.from(document.querySelectorAll('#depot-caisses-list input[type="checkbox"]:checked'))
+    .map(inp => parseInt(inp.value));
+
+  // ✅ Empêcher qu'une caisse soit liée à 2 dépôts différents (ambiguïté de déduction)
+  const conflit = caisseIds.find(cid => DEPOTS.some(d => d.id !== editId && (d.caisseIds||[]).includes(cid)));
+  if(conflit) {
+    const cName = (CAISSES.find(c => c.id === conflit) || {}).name || ('Caisse #'+conflit);
+    const autreDepot = DEPOTS.find(d => d.id !== editId && (d.caisseIds||[]).includes(conflit));
+    showNotif('⚠️ '+cName+' est déjà liée au dépôt "'+(autreDepot?.nom||'')+'". Retirez-la d\'abord de cet autre dépôt.');
+    return;
+  }
+
   const data = {
     nom,
     icon: document.getElementById('depot-icon').value || '🏭',
     desc: document.getElementById('depot-desc').value.trim(),
-    responsable: document.getElementById('depot-responsable').value.trim()
+    responsable: document.getElementById('depot-responsable').value.trim(),
+    caisseIds
   };
   if(editId) {
     const depot = DEPOTS.find(d => d.id === editId);
@@ -16124,13 +16186,9 @@ function renderRapportX() {
               qrOrderId: o.id, date: o.created_at
             });
           });
-          // Auto-ouvrir Caisse 3
-          const c3 = (typeof CAISSES !== 'undefined' ? CAISSES : []).find(c => c.name === caisse);
-          if(c3 && c3.status !== 'open' && VENTES_PAR_CAISSE[caisse].length > 0) {
-            c3.status = 'open'; c3.cashier = 'QR Code';
-            c3.ca = VENTES_PAR_CAISSE[caisse].reduce((a,v) => a + v.total, 0);
-            c3.orders = VENTES_PAR_CAISSE[caisse].length;
-          }
+          // ✅ FIX : ne plus auto-ouvrir Caisse 3 — elle doit être ouverte manuellement.
+          // Les ventes QR déjà acceptées restent affichées même si la caisse est fermée,
+          // mais le statut de la caisse n'est plus modifié automatiquement.
           refreshRapportX(); // Re-render après chargement
         }
       }).catch(e => console.warn('[RapportX] chargement QR:', e));
@@ -19808,6 +19866,22 @@ function sign(who) {
   el.classList.add('signed');
 }
 
+function confirmerCloturerCaisse() {
+  // ✅ FIX : éviter de clôturer la mauvaise caisse par confusion visuelle —
+  // afficher clairement le nom de la caisse réellement ciblée avant toute action.
+  const _caisseACloturer = _currentFCaisse
+    || (sessionCaisseActive && sessionCaisseActive.caisse)
+    || (currentUser && currentUser.caisse !== 'Toutes' ? currentUser.caisse : null);
+  if(!_caisseACloturer) { showNotif('⚠️ Aucune caisse sélectionnée'); return; }
+  const _cObj = CAISSES.find(c => c.name === _caisseACloturer);
+  const _nbVentes = (VENTES_PAR_CAISSE[_caisseACloturer] || []).length;
+  const _label = _cObj ? (_cObj.name + ' — ' + _cObj.loc) : _caisseACloturer;
+  if(!confirm('🔒 Confirmer la clôture de :\n\n' + _label + '\n' + _nbVentes + ' ticket(s)\n\nCette action est irréversible. Continuer ?')) {
+    return;
+  }
+  cloturerCaisse();
+}
+
 async function cloturerCaisse() {
   // ── Intercepter Caisse 8 (Salle de Sport) → modal clôture dédié ──
   const _fcCheck = _currentFCaisse || (sessionCaisseActive && sessionCaisseActive.caisse) || '';
@@ -20840,7 +20914,6 @@ function renderHistorique() {
       <div style="margin-top:10px;">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <button onclick="voirDetailCloture(${HISTORIQUE_CLOTURES.indexOf(h)})" style="background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);color:var(--accent);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;">🧾 Voir les ventes</button>
-          <button onclick="supprimerCloture('${h.date}_${h.heure}_${h.caisse}')" style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);color:#e74c3c;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:600;">🗑️ Supprimer</button>
         </div>
       </div>
       ${hasDep ? `
@@ -23358,9 +23431,14 @@ function _removeRecetteLine(i) {
 }
 
 // Déduire les ingrédients du stock lors d'une vente
-function deduireStockVente(items) {
+function deduireStockVente(items, caisseName) {
   if(!items || !items.length) return;
   let hasChanges = false;
+  // ✅ DÉPÔT PAR CAISSE : résoudre le dépôt lié à la caisse vendeuse (priorité sur le depotId figé de la recette)
+  const _caisseObjVente = caisseName ? CAISSES.find(c => c.name === caisseName) : null;
+  const _depotCaisseVente = _caisseObjVente
+    ? DEPOTS.find(d => (d.caisseIds||[]).includes(_caisseObjVente.id))
+    : null;
   items.forEach(function(item) {
     // ✅ FIX BUG STOCK : toujours chercher menuItem en priorité absolue
     // Le panier peut avoir été ajouté AVANT que pullAll charge les recettes depuis Supabase
@@ -23402,6 +23480,12 @@ function deduireStockVente(items) {
             stockItem.qty = Math.max(0, Math.round((stockItem.qty - consommation) * 1000) / 1000);
             hasChanges = true;
             console.log('[stock-diag] ✅ Stock déduit (lastChance):', stockItem.name, '-', consommation, '→', stockItem.qty);
+            // ✅ Déduire aussi le dépôt lié à la caisse vendeuse (ou depotId figé en fallback)
+            const _depotCibleLC = _depotCaisseVente || (ligne.depotId ? DEPOTS.find(d => d.id === ligne.depotId) : null);
+            if(_depotCibleLC && _depotCibleLC.articles) {
+              const depotArtLC = _depotCibleLC.articles.find(a => a.stockId === stockItem.id || a.stockId === stockItem.sbId || a.nom === stockItem.name);
+              if(depotArtLC) depotArtLC.qty = Math.max(0, Math.round((Number(depotArtLC.qty||0) - consommation) * 1000) / 1000);
+            }
           }
         });
       }
@@ -23459,13 +23543,12 @@ function deduireStockVente(items) {
       const consommation = ligne.qty * (item.qty || 1);
       stockItem.qty = Math.max(0, Math.round((stockItem.qty - consommation) * 1000) / 1000);
       hasChanges = true;
-      // ── Déduire aussi du dépôt source si défini ──
-      if(ligne.depotId && typeof DEPOTS !== 'undefined') {
-        const depot = DEPOTS.find(d => d.id === ligne.depotId);
-        if(depot && depot.articles) {
-          const depotArt = depot.articles.find(a => a.stockId === stockItem.id || a.stockId === stockItem.sbId || a.nom === stockItem.name);
-          if(depotArt) depotArt.qty = Math.max(0, Math.round((Number(depotArt.qty||0) - consommation) * 1000) / 1000);
-        }
+      // ── Déduire aussi du dépôt concerné : priorité au dépôt lié à la CAISSE vendeuse,
+      // sinon fallback sur le depotId figé dans la recette (rétrocompat), sinon Stock général (rien à faire)
+      const _depotCible = _depotCaisseVente || (ligne.depotId ? DEPOTS.find(d => d.id === ligne.depotId) : null);
+      if(_depotCible && _depotCible.articles) {
+        const depotArt = _depotCible.articles.find(a => a.stockId === stockItem.id || a.stockId === stockItem.sbId || a.nom === stockItem.name);
+        if(depotArt) depotArt.qty = Math.max(0, Math.round((Number(depotArt.qty||0) - consommation) * 1000) / 1000);
       }
     });
   });
@@ -23575,9 +23658,11 @@ function _drawIngredientLines() {
       '<option value="' + s.id + '"' + (String(s.id) === String(line.stockId) || String(s.sbId) === String(line.stockId) ? ' selected' : '') + '>' + s.icon + ' ' + s.name + ' (' + s.unit + ')</option>'
     ).join('');
     const depotOpts = '<option value="">🏭 Stock général</option>' +
-      (typeof DEPOTS !== 'undefined' ? DEPOTS : []).map(d =>
-        '<option value="' + d.id + '"' + (line.depotId === d.id ? ' selected' : '') + '>' + (d.icon||'🏭') + ' ' + d.nom + '</option>'
-      ).join('');
+      (typeof DEPOTS !== 'undefined' ? DEPOTS : []).map(d => {
+        const _caissesLiees = (d.caisseIds||[]).map(cid => (CAISSES.find(c => c.id === cid)||{}).name).filter(Boolean);
+        const _suffix = _caissesLiees.length ? ' — ' + _caissesLiees.join(', ') : ' (aucune caisse liée)';
+        return '<option value="' + d.id + '"' + (line.depotId === d.id ? ' selected' : '') + '>' + (d.icon||'🏭') + ' ' + d.nom + _suffix + '</option>';
+      }).join('');
     return '<div style="display:flex;flex-direction:column;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">' +
       '<div style="display:flex;gap:8px;align-items:center;">' +
         '<select style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12px;" ' +
@@ -23596,6 +23681,7 @@ function _drawIngredientLines() {
         'onchange="_editIngLines[' + i + '].depotId=this.value">' +
         depotOpts +
       '</select>' +
+      '<div style="font-size:10px;color:var(--text2);font-style:italic;">⚠️ Si la caisse qui vend est déjà liée à un dépôt (Stock → Dépôts), ce dépôt est utilisé en priorité. Ce choix ne sert que si la caisse n\'a aucun dépôt associé.</div>' +
     '</div>';
   }).join('');
 }
@@ -31211,7 +31297,7 @@ function _validerAdditionCaisse(billId) {
     }
 
     // Déduire le stock
-    if(typeof deduireStockVente === 'function' && items.length) deduireStockVente(items);
+    if(typeof deduireStockVente === 'function' && items.length) deduireStockVente(items, caisse);
 
     // Imprimer ticket
     setTimeout(() => { if(typeof printTicket === 'function') printTicket(venteSaved, caisse); }, 400);
@@ -32582,7 +32668,7 @@ async function updateQRStatut(orderId, newStatut) {
       VENTES_PAR_CAISSE[caisse].push(venteSaved);
       _saveVenteSupabase(caisse, venteSaved); // ✅ Persistance immédiate Supabase
 
-      // ② Mettre à jour les KPIs de la caisse + AUTO-OUVRIR Caisse 3 si fermée
+      // ② Mettre à jour les KPIs de la caisse (Caisse 3 doit déjà être ouverte manuellement — vérifié en amont)
       const caisseObj = CAISSES ? CAISSES.find(c => c.name === caisse) : null;
       if(caisseObj) {
         // Caisse 3 est déjà ouverte (vérifiée avant d'arriver ici)
@@ -32591,7 +32677,7 @@ async function updateQRStatut(orderId, newStatut) {
       }
 
       // ③ Déduire le stock selon les recettes
-      if(typeof deduireStockVente === 'function') deduireStockVente(items);
+      if(typeof deduireStockVente === 'function') deduireStockVente(items, caisse);
 
       // ④ Imprimer le ticket (avec délai pour laisser le DOM respirer)
       setTimeout(function() {
