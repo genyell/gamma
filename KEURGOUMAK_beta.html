@@ -5641,6 +5641,17 @@ function _syncSportVentes()       { return []; }
       </div>
       <!-- Liste fournisseurs -->
       <div id="ftab-content-liste">
+        <!-- 📅 Filtre période pour les totaux achats -->
+        <div class="card" style="margin-bottom:16px;padding:14px 16px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-size:13px;font-weight:700;color:var(--text);">📅 Période :</span>
+            <input type="date" id="fourn-date-du" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;" onchange="renderFournisseurs()">
+            <span style="color:var(--text2);font-size:13px;">→</span>
+            <input type="date" id="fourn-date-au" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;" onchange="renderFournisseurs()">
+            <button onclick="document.getElementById('fourn-date-du').value='';document.getElementById('fourn-date-au').value='';renderFournisseurs();" style="padding:6px 12px;border-radius:8px;background:var(--surface3);border:1px solid var(--border);color:var(--text2);font-size:12px;cursor:pointer;">✕ Tout</button>
+            <span id="fourn-periode-label" style="font-size:12px;color:var(--accent);font-weight:600;"></span>
+          </div>
+        </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;" id="fournisseurs-grid"></div>
       </div>
       <!-- Commandes fournisseurs -->
@@ -10264,11 +10275,11 @@ function printFacture(id) {
   const qrDataRaw = `FAC:${f.num}|TIERS:${f.tiers}|TTC:${f.ttc}|DATE:${f.date}`;
 
   const lignesHTML = (f.lignes||[]).map((l,i) => `
-    <tr style="background:${i%2===0?'#fafafa':'#fff'};">
-      <td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:13px;">${l.desc}</td>
-      <td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;font-family:'Courier New',monospace;">${l.qty}</td>
-      <td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:right;font-family:'Courier New',monospace;">${l.pu.toLocaleString()} F</td>
-      <td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:right;font-family:'Courier New',monospace;font-weight:700;">${(l.qty*l.pu).toLocaleString()} F</td>
+    <tr style="background:${i%2===0?'#f9fafb':'#fff'};">
+      <td style="padding:7px 10px;border:1px solid #e5e7eb;font-size:10pt;font-weight:500;">${l.desc}</td>
+      <td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:700;font-size:10pt;">${l.qty}</td>
+      <td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:right;font-weight:600;font-size:10pt;">${l.pu.toLocaleString()} F</td>
+      <td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:right;font-weight:900;font-size:11pt;color:#1a1a2e;">${(l.qty*l.pu).toLocaleString()} F</td>
     </tr>
   `).join('');
 
@@ -10276,35 +10287,38 @@ function printFacture(id) {
 <meta charset="UTF-8">
 <title>${typeLabel} ${f.num}</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size:13px; color:#1a1a2e; background:#fff; padding:30px 40px; max-width:820px; margin:0 auto; }
-  .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #f5a623; padding-bottom:20px; margin-bottom:24px; }
+  body { font-family:'Inter',Arial,sans-serif; font-size:10pt; color:#1a1a2e; background:#fff; padding:16px 22px; max-width:820px; margin:0 auto; line-height:1.4; }
+  .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #f5a623; padding-bottom:12px; margin-bottom:14px; }
   .logo-block { flex:1; }
-  .logo-name { font-size:28px; font-weight:900; color:#f5a623; letter-spacing:-1px; }
-  .logo-sub  { font-size:11px; color:#888; text-transform:uppercase; letter-spacing:2px; margin-top:2px; }
-  .logo-meta { margin-top:10px; font-size:12px; color:#555; line-height:1.7; }
-  .fact-info { text-align:right; min-width:220px; }
-  .fact-type { font-size:20px; font-weight:800; color:#1a1a2e; text-transform:uppercase; letter-spacing:1px; }
-  .fact-num  { font-size:15px; font-weight:700; color:#f5a623; font-family:'Courier New',monospace; margin-top:4px; }
-  .fact-dates{ margin-top:8px; font-size:12px; color:#555; line-height:1.7; }
-  .statut-badge { display:inline-block; margin-top:6px; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700; }
-  .tiers-block { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
-  .tiers-card { background:#f8f9fc; border-radius:10px; padding:16px; border:1px solid #e5e7eb; }
-  .tiers-label { font-size:10px; text-transform:uppercase; letter-spacing:2px; color:#9ca3af; margin-bottom:8px; }
-  .tiers-name  { font-size:15px; font-weight:700; color:#1a1a2e; }
-  .tiers-meta  { font-size:12px; color:#555; margin-top:4px; line-height:1.6; }
-  table { width:100%; border-collapse:collapse; margin-bottom:16px; }
-  thead th { background:linear-gradient(135deg,#f5a623,#e8440a); color:#fff; padding:10px 12px; font-size:12px; text-align:left; }
+  .logo-name { font-size:20pt; font-weight:900; color:#f5a623; letter-spacing:-0.5px; }
+  .logo-sub  { font-size:7.5pt; color:#666; text-transform:uppercase; letter-spacing:2px; margin-top:2px; font-weight:600; }
+  .logo-meta { margin-top:7px; font-size:9pt; color:#444; line-height:1.6; }
+  .fact-info { text-align:right; min-width:200px; }
+  .fact-type { font-size:14pt; font-weight:900; color:#1a1a2e; text-transform:uppercase; letter-spacing:1px; }
+  .fact-num  { font-size:11pt; font-weight:800; color:#f5a623; margin-top:3px; }
+  .fact-dates{ margin-top:6px; font-size:9pt; color:#444; line-height:1.6; font-weight:500; }
+  .statut-badge { display:inline-block; margin-top:5px; padding:3px 10px; border-radius:20px; font-size:9pt; font-weight:700; }
+  .tiers-block { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+  .tiers-card { background:#f8f9fc; border-radius:8px; padding:11px; border:1.5px solid #e5e7eb; }
+  .tiers-label { font-size:7.5pt; text-transform:uppercase; letter-spacing:2px; color:#888; margin-bottom:5px; font-weight:700; }
+  .tiers-name  { font-size:11pt; font-weight:800; color:#1a1a2e; }
+  .tiers-meta  { font-size:9pt; color:#444; margin-top:3px; line-height:1.5; }
+  table { width:100%; border-collapse:collapse; margin-bottom:10px; }
+  thead th { background:linear-gradient(135deg,#f5a623,#e8440a); color:#fff; padding:7px 10px; font-size:9pt; text-align:left; font-weight:700; letter-spacing:0.5px; }
   thead th:nth-child(2),thead th:nth-child(3),thead th:nth-child(4) { text-align:right; }
-  .totaux { width:320px; margin-left:auto; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; }
-  .totaux-row { display:flex; justify-content:space-between; padding:9px 16px; border-bottom:1px solid #e5e7eb; font-size:13px; }
-  .totaux-row:last-child { background:linear-gradient(135deg,#f5a623,#e8440a); color:#fff; font-size:15px; font-weight:800; border-bottom:none; }
-  .pay-info { margin-top:20px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px 16px; font-size:13px; }
-  .notes-block { margin-top:16px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; font-size:12px; color:#78350f; line-height:1.6; }
-  .footer { margin-top:32px; border-top:2px solid #f5a623; padding-top:16px; display:flex; justify-content:space-between; align-items:flex-end; }
-  .footer-left { font-size:11px; color:#888; line-height:1.7; }
-  .qr-placeholder { width:80px; height:80px; background:#f3f4f6; border:2px dashed #d1d5db; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:9px; color:#9ca3af; text-align:center; padding:4px; }
-  .ninea-badge { background:#1a1a2e; color:#f5a623; padding:3px 10px; border-radius:4px; font-size:11px; font-family:'Courier New',monospace; display:inline-block; margin-top:4px; }
+  td { font-size:10pt; }
+  .totaux { width:290px; margin-left:auto; border:1.5px solid #e5e7eb; border-radius:8px; overflow:hidden; }
+  .totaux-row { display:flex; justify-content:space-between; padding:7px 14px; border-bottom:1px solid #e5e7eb; font-size:10pt; }
+  .totaux-row b { font-weight:700; }
+  .totaux-row:last-child { background:linear-gradient(135deg,#f5a623,#e8440a); color:#fff; font-size:12pt; font-weight:900; border-bottom:none; }
+  .pay-info { margin-top:12px; background:#f0fdf4; border:1.5px solid #86efac; border-radius:8px; padding:9px 14px; font-size:10pt; font-weight:600; }
+  .notes-block { margin-top:10px; background:#fffbeb; border:1.5px solid #fde68a; border-radius:8px; padding:9px 14px; font-size:9pt; color:#78350f; line-height:1.6; }
+  .footer { margin-top:18px; border-top:2px solid #f5a623; padding-top:10px; display:flex; justify-content:space-between; align-items:flex-end; }
+  .footer-left { font-size:8pt; color:#666; line-height:1.7; font-weight:500; }
+  .qr-placeholder { width:70px; height:70px; background:#f3f4f6; border:2px dashed #d1d5db; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#9ca3af; text-align:center; padding:4px; }
+  .ninea-badge { background:#1a1a2e; color:#f5a623; padding:3px 9px; border-radius:4px; font-size:9pt; font-weight:700; display:inline-block; margin-top:3px; }
 
   /* ===== CORRECTIFS GLOBAUX THÈME CLAIR — styles inline ===== */
   /* Force la lisibilité des textes écrits en dur avec var(--text2) ou colors sombres */
@@ -10367,9 +10381,9 @@ function printFacture(id) {
   [data-theme="light"] html { scrollbar-color: #c8cfe0 #f0f2f5; }
 
   @media print {
-    @page { size:A4; margin:15mm; }
+    @page { size:A4; margin:10mm; }
     .no-print { display:none !important; }
-    body { padding:0; }
+    body { padding:0; font-size:9pt; }
   }
 </style>
 </head>
@@ -11195,7 +11209,8 @@ function ocNav(dir) {
         _inp.className = 'form-input';
         _inp.style.cssText = 'padding:4px 8px;font-size:13px;max-width:180px;';
         _inp.placeholder = 'Nom du caissier...';
-        _inp.value = `${currentUser.prenom} ${currentUser.nom}`.trim();
+        _inp.value = ''; // Admin/Gérant doit saisir le vrai caissier
+        _inp.placeholder = 'Nom du caissier...';
         _cashierEl.parentNode.replaceChild(_inp, _cashierEl);
       }
     } else {
@@ -11272,9 +11287,12 @@ async function confirmerOuverture() {
     const fonds = parseInt(document.getElementById('oc-fonds').value)||0;
     const _cashierElem = document.getElementById('oc-s-cashier');
     const _cashierVal = _cashierElem ? (_cashierElem.tagName === 'INPUT' ? _cashierElem.value.trim() : _cashierElem.textContent.trim()) : '';
-    const cashier = (_cashierVal && _cashierVal !== 'Non identifié')
-      ? _cashierVal
-      : (currentUser ? `${currentUser.prenom} ${currentUser.nom}`.trim() : 'Caissier');
+    if(!_cashierVal) {
+      showNotif('⚠️ Veuillez saisir le nom du caissier avant de confirmer');
+      if(_cashierElem) _cashierElem.focus();
+      return;
+    }
+    const cashier = _cashierVal;
     const now = new Date();
 
     sessionCaisseActive = {
@@ -13486,6 +13504,25 @@ let COMMANDES_FOURNISSEURS = [];
 let cfArticleLines = [];
 
 function renderFournisseurs() {
+  // Lire le filtre de dates
+  const _fDu = document.getElementById('fourn-date-du')?.value || '';
+  const _fAu = document.getElementById('fourn-date-au')?.value || '';
+  const _parseFournDate = (d) => {
+    if(!d) return 0;
+    const p = d.split(/[-\/]/);
+    if(p.length === 3) {
+      if(p[0].length === 4) return new Date(p[0], p[1]-1, p[2]).getTime();
+      const yr = p[2].length === 2 ? '20'+p[2] : p[2];
+      return new Date(yr, p[1]-1, p[0]).getTime();
+    }
+    return new Date(d).getTime() || 0;
+  };
+  const _duTs = _fDu ? new Date(_fDu).getTime() : 0;
+  const _auTs = _fAu ? new Date(_fAu + 'T23:59:59').getTime() : Infinity;
+  const _hasPeriode = _fDu || _fAu;
+  const _label = document.getElementById('fourn-periode-label');
+  if(_label) _label.textContent = _hasPeriode ? `Totaux filtrés du ${_fDu||'…'} au ${_fAu||'…'}` : '';
+
   // Liste
   const grid = document.getElementById('fournisseurs-grid');
   if(grid) {
@@ -13509,7 +13546,14 @@ function renderFournisseurs() {
         <div class="fournisseur-stats">
           ${(() => {
             // ✅ FIX: calculer dynamiquement depuis COMMANDES_FOURNISSEURS pour toujours être à jour
-            const cmds = COMMANDES_FOURNISSEURS.filter(c => c.fournisseurId === (f.sbId||f.id) || c.fournisseur === f.nom);
+            const cmds = COMMANDES_FOURNISSEURS.filter(c => {
+              if(c.fournisseurId !== (f.sbId||f.id) && c.fournisseur !== f.nom) return false;
+              if(_hasPeriode) {
+                const ts = _parseFournDate(c.dateCmd || c.dateLivraison || '');
+                if(ts < _duTs || ts > _auTs) return false;
+              }
+              return true;
+            });
             const nbCmds = cmds.length;
             const totalA = cmds.reduce((s,c) => s + (c.total||0), 0);
             // Synchroniser les champs statiques pour cohérence avec Supabase
@@ -16444,7 +16488,7 @@ function printRapportXCaisse(name) {
   const tva = Math.round(ca * 18 / 118);
   const ht  = ca - tva;
   const c   = CAISSES.find(x=>x.name===name);
-  const cashier = ventes[0]?.cashier || '—';
+  const cashier = ventes[0]?.cashier_nom || ventes[0]?.cashier || caisseObj?.cashier || '—';
 
   // Top produits pour cette caisse
   const prodMap = {};
@@ -17560,8 +17604,15 @@ async function doLogin() {
       const _rawSess = JSON.parse(localStorage.getItem('kg-session') || '{}');
       _sessionAvantLogin = _rawSess.sessionCaisseActive || null;
     } catch(e) {}
-    // Ne remettre à null que si pas de session précédente OU si vraie clôture Z
-    if(_sessionAvantLogin && !_loginCloZ.includes(_sessionAvantLogin.caisse)) {
+    // ✅ FIX CAISSIER : Ne restaurer la session que si c'est le même caissier qui se reconnecte
+    // Admin/Gérant ne doivent pas hériter de la session d'un autre caissier
+    const _currentUserRole = currentUser && currentUser.role;
+    const _isAdminOrGerant = _currentUserRole === 'administrateur' || _currentUserRole === 'gerant' || _currentUserRole === 'superviseur';
+    const _sessionAppartientAuUser = _sessionAvantLogin && currentUser &&
+      (_sessionAvantLogin.cashier || '').toLowerCase().includes((currentUser.prenom || '').toLowerCase());
+    const _peutRestaurer = _sessionAvantLogin && !_loginCloZ.includes(_sessionAvantLogin.caisse) &&
+      (!_isAdminOrGerant || _sessionAppartientAuUser);
+    if(_peutRestaurer) {
       sessionCaisseActive = _sessionAvantLogin; // Conserver la session active
     } else {
       sessionCaisseActive = null;
@@ -17999,6 +18050,8 @@ async function doLogout() {
   // ✅ FIX JOURNAL : sauvegarder avant déconnexion
   _saveJournal();
   try { const sb = KGSync.getClient(); if(sb) await sb.auth.signOut(); } catch(e) {}
+  // ✅ FIX F5 : supprimer le profil mis en cache au logout
+  try { localStorage.removeItem('kg-current-user'); } catch(e) {}
   clearSession();
   currentUser = null;
   sessionCaisseActive = null;
@@ -19951,7 +20004,10 @@ async function cloturerCaisse() {
     // 2. Données de base
     let ventes  = (VENTES_PAR_CAISSE && VENTES_PAR_CAISSE[caisse]) ? VENTES_PAR_CAISSE[caisse] : [];
     const cashier = (sessionCaisseActive && sessionCaisseActive.cashier)
-      || (currentUser ? currentUser.prenom + ' ' + currentUser.nom : 'Caissier');
+      || (ventes.length > 0 && ventes[0].cashier_nom ? ventes[0].cashier_nom : null)
+      || (ventes.length > 0 && ventes[0].cashier ? ventes[0].cashier : null)
+      || (CAISSES.find(c => c.name === caisse) && CAISSES.find(c => c.name === caisse).cashier)
+      || 'Caissier';
     const now      = new Date();
 
     // ✅ FIX v8 : Essayer d'abord _loadVentesSupabase (table ventes_caisse) — plus fiable pour C1/C2/C3
@@ -20378,11 +20434,11 @@ async function cloturerCaisse() {
           if(v.payMethods.card   > 0) parts.push('Carte: ' + v.payMethods.card.toLocaleString()   + ' F');
           if(parts.length > 0) payDetail = '🔀 ' + parts.join(' + ');
         }
-        return '<tr><td>'+(v.orderNum||'')+'</td><td>'+(v.time||'')+'</td><td>'+platNoms+'</td><td style="font-size:11px">'+payDetail+'</td><td style="text-align:right">'+(v.total||0).toLocaleString()+' F</td></tr>';
+        return '<tr><td>'+(v.orderNum||'')+'</td><td>'+(v.time||'')+'</td><td>'+platNoms+'</td><td style="font-size:11pt">'+payDetail+'</td><td style="text-align:right"><span class="amt-net">'+(v.total||0).toLocaleString()+' F</span></td></tr>';
       }).join('');
 
       const lignesTop = topProds.map(function(p){
-        return '<tr><td>'+p.icon+' '+p.name+'</td><td style="text-align:right">'+p.qty+'</td><td style="text-align:right">'+p.total.toLocaleString()+' F</td></tr>';
+        return '<tr><td>'+p.icon+' '+p.name+'</td><td style="text-align:right;font-weight:700">'+p.qty+'</td><td style="text-align:right"><span class="amt">'+p.total.toLocaleString()+' F</span></td></tr>';
       }).join('');
 
       const nomResto = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.nom) ? RESTAURANT_INFO.nom : 'KEURGOUMAK';
@@ -20392,18 +20448,35 @@ async function cloturerCaisse() {
       const _rLogo = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.showLogo && TICKET_CONFIG.logo) ? TICKET_CONFIG.logo : ((typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.loginLogo) ? RESTAURANT_INFO.loginLogo : null);
       const _rLogoHtml = _rLogo ? '<div style=\"text-align:center;margin-bottom:8px;\"><img src=\"'+_rLogo+'\" style=\"max-width:90px;max-height:60px;object-fit:contain;border-radius:6px;\"></div>' : '';
       const rapportHTML = '<!DOCTYPE html><html lang=\"fr\"><head><meta charset=\"UTF-8\"><title>Rapport Z — '+nomResto+'</title>'
-        +'<style>*{box-sizing:border-box}body{font-family:"Courier New",Courier,monospace;padding:20px 24px;font-size:13px;color:#000;background:#fff;max-width:780px;margin:0 auto}'
-        +'.h{text-align:center;border-bottom:3px solid #000;padding-bottom:14px;margin-bottom:14px}'
-        +'.t{font-size:24px;font-weight:900;letter-spacing:1px}.s{font-size:12px;color:#333;margin-top:4px}'
-        +'.r{font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:3px;margin-top:10px;border:2px solid #000;display:inline-block;padding:4px 14px}'
-        +'.sec{margin:16px 0}.st{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:2px;border-bottom:2px solid #000;padding-bottom:5px;margin-bottom:10px;color:#000}'
-        +'.row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #bbb;font-size:13px}.row:last-child{border-bottom:none}'
-        +'.tot{border-top:3px double #000;border-bottom:3px double #000;font-weight:900;font-size:16px;padding:8px 0;margin:6px 0;background:#f8f8f8}'
-        +'table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}th{text-align:left;padding:6px 8px;background:#111;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px}td{padding:5px 8px;border-bottom:1px solid #ccc;font-size:12px}tr:nth-child(even) td{background:#f5f5f5}'
-        +'.sign-box{border:2px solid #333;border-radius:3px;min-height:65px;margin-top:8px}'
-        +'.sign-row{display:flex;gap:28px;margin-top:28px}'
-        +'.sign-col{flex:1}'
-        +'@media print{@page{margin:12mm;size:A4}body{padding:0}button{display:none!important}}'
+        +'<style>'
+        +'@import url(\'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap\');'
+        +'*{box-sizing:border-box;margin:0;padding:0;}'
+        +'body{font-family:\'Inter\',Arial,sans-serif;padding:28px 32px;font-size:13pt;color:#111;background:#fff;max-width:820px;margin:0 auto;line-height:1.5;}'
+        +'.h{text-align:center;border-bottom:4px solid #111;padding-bottom:16px;margin-bottom:16px;}'
+        +'.t{font-size:26pt;font-weight:900;letter-spacing:0.5px;}.s{font-size:11pt;color:#333;margin-top:5px;font-weight:500;}'
+        +'.r{font-size:14pt;font-weight:900;text-transform:uppercase;letter-spacing:3px;margin-top:12px;border:3px solid #111;display:inline-block;padding:5px 18px;}'
+        +'.sec{margin:18px 0;}.st{font-size:10pt;font-weight:900;text-transform:uppercase;letter-spacing:2px;border-bottom:3px solid #f5a623;padding-bottom:6px;margin-bottom:12px;color:#111;}'
+        +'.row{display:flex;justify-content:space-between;padding:7px 8px;border-bottom:1px solid #ccc;font-size:13pt;}.row:last-child{border-bottom:none;}'
+        +'.row span:last-child{font-weight:700;}'
+        +'.tot{border-top:4px double #111;border-bottom:4px double #111;font-weight:900;font-size:18pt;padding:10px 8px;margin:8px 0;background:#fff8e1;}'
+        +'table{width:100%;border-collapse:collapse;font-size:12pt;margin-top:6px;}'
+        +'th{text-align:left;padding:8px 10px;background:#1a1a2e;color:#fff;font-size:10pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;}'
+        +'td{padding:7px 10px;border-bottom:1px solid #ccc;font-size:12pt;}'
+        +'tr:nth-child(even) td{background:#f5f5f5;}'
+        +'.amt{display:inline-block;background:#fff3cd;border:2px solid #c07a00;border-radius:5px;padding:2px 8px;font-weight:900;font-size:12pt;color:#7a4f00;white-space:nowrap;}'
+        +'.amt-net{display:inline-block;background:#d4edda;border:2px solid #1a7a3a;border-radius:5px;padding:2px 8px;font-weight:900;font-size:12pt;color:#1a7a3a;white-space:nowrap;}'
+        +'.sign-box{border:2px solid #333;border-radius:4px;min-height:70px;margin-top:10px;}'
+        +'.sign-row{display:flex;gap:30px;margin-top:30px;}'
+        +'.sign-col{flex:1;}'
+        +'@media print{'
+        +'*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}'
+        +'@page{margin:14mm;size:A4;}body{padding:0;}button{display:none!important;}'
+        +'th{background:#1a1a2e!important;color:#fff!important;}'
+        +'tr:nth-child(even) td{background:#f5f5f5!important;}'
+        +'.tot{background:#fff8e1!important;}'
+        +'.amt{background:#fff3cd!important;border:2px solid #c07a00!important;}'
+        +'.amt-net{background:#d4edda!important;border:2px solid #1a7a3a!important;}'
+        +'}'
         +'</style></head><body>'
         +'<div class=\"h\">'+_rLogoHtml+'<div class=\"t\">'+nomResto+'</div><div class=\"s\">'+adresseResto+nineaResto+'</div><div class=\"r\">Rapport Z — Clôture de caisse</div></div>'
         +'<div class=\"sec\"><div class=\"st\">Session</div>'
@@ -20418,7 +20491,7 @@ async function cloturerCaisse() {
         +'<div class=\"row\"><span>Nombre de tickets</span><span><b>'+ventes.length+'</b></span></div>'
         +'<div class=\"row\"><span>CA HT</span><span>'+totalHT.toLocaleString()+' FCFA</span></div>'
         +'<div class=\"row\"><span>TVA 18%</span><span>'+totalTVA.toLocaleString()+' FCFA</span></div>'
-        +'<div class=\"row tot\"><span>TOTAL TTC</span><span>'+totalTTC.toLocaleString()+' FCFA</span></div>'
+        +'<div class=\"row tot\"><span>TOTAL TTC</span><span class=\"amt\">'+totalTTC.toLocaleString()+' FCFA</span></div>'
         +'</div>'
         +'<div class=\"sec\"><div class=\"st\">Paiements</div>'
         +'<div class=\"row\"><span>💵 Espèces</span><span>'+totalEspeces.toLocaleString()+' FCFA</span></div>'
@@ -20433,7 +20506,7 @@ async function cloturerCaisse() {
             + '<div class=\"row\" style=\"font-weight:700;color:#c0392b;\"><span>Total dépenses</span><span>−'+totalDepenses.toLocaleString()+' FCFA</span></div>'
             + '<div class=\"row tot\" style=\"font-size:15px;color:#155724;background:#d4edda;padding:8px 4px;border-radius:3px;\"><span>💰 SOLDE NET CAISSE</span><span>'+soldeNet.toLocaleString()+' FCFA</span></div>'
             + '</div>'
-          : '<div class=\"sec\"><div class=\"row tot\" style=\"font-size:14px;color:#155724;\"><span>💰 Solde net caisse</span><span>'+soldeNet.toLocaleString()+' FCFA</span></div></div>'
+          : '<div class=\"sec\"><div class=\"row tot\" style=\"font-size:16pt;\"><span>💰 Solde net caisse</span><span class=\"amt-net\">'+soldeNet.toLocaleString()+' FCFA</span></div></div>'
         )
         +(lignesTop ? '<div class=\"sec\"><div class=\"st\">Top produits</div><table><thead><tr><th>Produit</th><th>Qté</th><th>CA</th></tr></thead><tbody>'+lignesTop+'</tbody></table></div>' : '')
         +(lignesTickets ? '<div class=\"sec\"><div class=\"st\">Tickets ('+ventes.length+')</div><table><thead><tr><th>N°</th><th>Heure</th><th>Plat</th><th>Paiement</th><th>Montant</th></tr></thead><tbody>'+lignesTickets+'</tbody></table></div>' : '')
@@ -24535,65 +24608,72 @@ function imprimerFichePaie(employeId, mois) {
 <meta charset="UTF-8">
 <title>Bulletin de Paie — ${emp.prenom} ${emp.nom} — ${moisLabel}</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #1a1a1a; background: #fff; padding: 18mm 15mm; max-width: 210mm; margin: 0 auto; }
+  body { font-family:'Inter',Arial,sans-serif; font-size:9.5pt; color:#1a1a1a; background:#fff; padding:10mm 12mm; max-width:210mm; margin:0 auto; line-height:1.4; }
 
   /* ── En-tête ── */
-  .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 2px solid #003366; padding-bottom: 10px; margin-bottom: 12px; }
-  .header-left h1 { font-size: 15px; font-weight: 800; color: #003366; text-transform: uppercase; letter-spacing: 1px; }
-  .header-left p  { font-size: 10px; color: #555; margin-top: 2px; }
-  .header-right   { text-align: right; }
-  .bulletin-title { background: #003366; color: #fff; font-size: 13px; font-weight: 700; padding: 6px 18px; border-radius: 4px; letter-spacing: 1px; display: inline-block; margin-bottom: 6px; }
-  .bulletin-meta  { font-size: 10px; color: #555; }
+  .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #003366; padding-bottom:8px; margin-bottom:10px; }
+  .header-left h1 { font-size:14pt; font-weight:900; color:#003366; text-transform:uppercase; letter-spacing:1px; }
+  .header-left p  { font-size:8.5pt; color:#444; margin-top:2px; }
+  .header-right   { text-align:right; }
+  .bulletin-title { background:#003366; color:#fff; font-size:11pt; font-weight:800; padding:5px 16px; border-radius:4px; letter-spacing:1px; display:inline-block; margin-bottom:5px; }
+  .bulletin-meta  { font-size:8.5pt; color:#444; line-height:1.6; }
 
   /* ── Section identité ── */
-  .identity-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid #bbb; border-radius: 4px; overflow: hidden; margin-bottom: 14px; }
-  .identity-col  { padding: 10px 12px; }
-  .identity-col:first-child { border-right: 1px solid #bbb; background: #f7f9fc; }
-  .identity-col h3 { font-size: 10px; font-weight: 700; color: #003366; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #dde; margin-bottom: 6px; padding-bottom: 4px; }
-  .id-row { display: flex; justify-content: space-between; padding: 2px 0; gap: 8px; }
-  .id-row .lbl { color: #666; }
-  .id-row .val { font-weight: 600; text-align: right; }
+  .identity-grid { display:grid; grid-template-columns:1fr 1fr; gap:0; border:1.5px solid #bbb; border-radius:4px; overflow:hidden; margin-bottom:10px; }
+  .identity-col  { padding:8px 10px; }
+  .identity-col:first-child { border-right:1.5px solid #bbb; background:#f7f9fc; }
+  .identity-col h3 { font-size:8.5pt; font-weight:800; color:#003366; text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid #dde; margin-bottom:5px; padding-bottom:3px; }
+  .id-row { display:flex; justify-content:space-between; padding:2px 0; gap:8px; font-size:9pt; }
+  .id-row .lbl { color:#555; }
+  .id-row .val { font-weight:700; text-align:right; color:#111; }
 
   /* ── Tableau cotisations ── */
-  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 10.5px; }
-  thead th { background: #003366; color: #fff; padding: 6px 8px; font-weight: 700; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
-  thead th.r { text-align: right; }
-  tbody tr:nth-child(even) { background: #f7f9fc; }
-  tbody tr:hover { background: #eef3fa; }
-  td { padding: 5px 8px; border-bottom: 1px solid #e8ecf0; }
-  td.r { text-align: right; font-family: 'Courier New', monospace; }
-  td.lbl-sub { color: #777; padding-left: 18px; font-style: italic; }
-  .section-title { background: #e8ecf0; font-weight: 700; color: #003366; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+  table { width:100%; border-collapse:collapse; margin-bottom:8px; }
+  thead th { background:#003366; color:#fff; padding:5px 8px; font-weight:700; text-align:left; font-size:8pt; text-transform:uppercase; letter-spacing:0.4px; }
+  thead th.r { text-align:right; }
+  tbody tr:nth-child(even) { background:#f7f9fc; }
+  td { padding:4px 8px; border-bottom:1px solid #e8ecf0; font-size:9pt; }
+  td.r { text-align:right; font-weight:700; }
+  td.lbl-sub { color:#666; padding-left:16px; font-style:italic; }
+  .section-title { background:#e0e8f4; font-weight:800; color:#003366; font-size:8.5pt; text-transform:uppercase; letter-spacing:0.4px; }
 
   /* ── Totaux ── */
-  .totaux-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
-  .total-box { border: 1px solid #bbb; border-radius: 4px; padding: 10px 14px; }
-  .total-box.patronal { background: #fffbe6; border-color: #f0c040; }
-  .total-box h4 { font-size: 10px; font-weight: 700; color: #003366; text-transform: uppercase; margin-bottom: 6px; border-bottom: 1px solid #dde; padding-bottom: 4px; }
-  .tot-row { display: flex; justify-content: space-between; padding: 2.5px 0; }
-  .tot-row.bold { font-weight: 700; border-top: 1.5px solid #999; margin-top: 4px; padding-top: 6px; }
+  .totaux-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+  .total-box { border:1.5px solid #bbb; border-radius:4px; padding:8px 12px; }
+  .total-box.patronal { background:#fffbe6; border-color:#f0c040; }
+  .total-box h4 { font-size:8.5pt; font-weight:800; color:#003366; text-transform:uppercase; margin-bottom:5px; border-bottom:1px solid #dde; padding-bottom:3px; }
+  .tot-row { display:flex; justify-content:space-between; padding:2px 0; font-size:9pt; }
+  .tot-row.bold { font-weight:800; border-top:2px solid #999; margin-top:4px; padding-top:5px; font-size:10pt; }
 
   /* ── Net à payer ── */
-  .net-box { background: #003366; color: #fff; border-radius: 6px; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-  .net-box .net-label { font-size: 13px; font-weight: 700; letter-spacing: 1px; }
-  .net-box .net-amount { font-size: 22px; font-weight: 800; font-family: 'Courier New', monospace; }
+  .net-box { background:#003366; color:#fff; border-radius:6px; padding:10px 18px; display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .net-box .net-label { font-size:11pt; font-weight:800; letter-spacing:1px; }
+  .net-box .net-amount { font-size:20pt; font-weight:900; }
 
   /* ── Signatures ── */
-  .signatures { display: flex; justify-content: space-between; margin-top: 20px; gap: 20px; }
-  .sig-block { flex: 1; border: 1px dashed #bbb; border-radius: 4px; padding: 10px 14px; text-align: center; }
-  .sig-block .sig-title { font-size: 10px; font-weight: 700; color: #555; text-transform: uppercase; margin-bottom: 30px; }
-  .sig-line { border-top: 1px solid #555; margin-top: 10px; padding-top: 4px; font-size: 9px; color: #888; }
+  .signatures { display:flex; justify-content:space-between; margin-top:14px; gap:16px; }
+  .sig-block { flex:1; border:1.5px dashed #bbb; border-radius:4px; padding:8px 12px; text-align:center; }
+  .sig-block .sig-title { font-size:8.5pt; font-weight:800; color:#444; text-transform:uppercase; margin-bottom:24px; }
+  .sig-line { border-top:1px solid #555; margin-top:8px; padding-top:3px; font-size:8pt; color:#888; }
 
   /* ── Pied ── */
-  .footer { text-align: center; font-size: 9px; color: #aaa; border-top: 1px solid #ddd; margin-top: 16px; padding-top: 8px; }
+  .footer { text-align:center; font-size:7.5pt; color:#999; border-top:1px solid #ddd; margin-top:12px; padding-top:6px; }
 
   /* ── Impression ── */
-  .no-print { text-align: center; margin-bottom: 16px; }
+  .no-print { text-align:center; margin-bottom:12px; }
   @media print {
-    @page { size: A4; margin: 15mm; }
-    .no-print { display: none !important; }
-    body { padding: 0; }
+    *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+    @page { size:A4; margin:8mm; }
+    .no-print { display:none !important; }
+    body { padding:0; font-size:9pt; }
+    .net-box { background:#003366 !important; color:#fff !important; }
+    thead th { background:#003366 !important; color:#fff !important; }
+    .identity-col:first-child { background:#f7f9fc !important; }
+    .section-title { background:#e0e8f4 !important; }
+    tr:nth-child(even) td { background:#f7f9fc !important; }
+    .total-box.patronal { background:#fffbe6 !important; }
   }
 </style>
 </head><body>
@@ -26169,6 +26249,28 @@ setTimeout(() => {
 
 (async function checkExistingSession() {
   try {
+    // ✅ FIX F5 INSTANT : restaurer l'utilisateur depuis localStorage immédiatement
+    // sans attendre Supabase — ça évite le flash de la page login
+    const _cachedUser = localStorage.getItem('kg-current-user');
+    const _cachedSession = localStorage.getItem('kg-session');
+    if(_cachedUser && _cachedSession) {
+      try {
+        const _u = JSON.parse(_cachedUser);
+        if(_u && _u.id && _u.prenom) {
+          currentUser = _u;
+          window._KG_RESTAURANT_ID = _u.restaurant_id;
+          // Afficher l'app immédiatement avec les données en cache
+          document.getElementById('login-screen').style.display = 'none';
+          document.getElementById('app-shell').style.display = 'block';
+          const _splashFast = document.getElementById('kg-splash-screen');
+          if(_splashFast) { _splashFast.style.opacity = '0'; setTimeout(() => { _splashFast.style.display = 'none'; }, 200); }
+          restoreSession();
+          applySession();
+          showView('dashboard', null, false);
+        }
+      } catch(e) {}
+    }
+
     const sb = KGSync.getClient();
     if(!sb) return;
 
@@ -26199,6 +26301,8 @@ setTimeout(() => {
       perms: null, restaurant_id: profile.restaurant_id,
     };
     window._KG_RESTAURANT_ID = profile.restaurant_id;
+    // ✅ FIX F5 : sauvegarder le profil pour restauration rapide au rechargement
+    try { localStorage.setItem('kg-current-user', JSON.stringify(currentUser)); } catch(e) {}
 
     const { data: allUsers } = await sb.from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('restaurant_id', profile.restaurant_id);
     if(allUsers) USERS = allUsers.map(u => ({ ...u, caisse: u.caisse_assignee || 'Toutes', login: u.email || u.id, tel: u.tel || '—', lastLogin: '—' }));
