@@ -4874,6 +4874,9 @@ function _syncSportVentes()       { return []; }
     <div class="nav-item" onclick="showView('rapportx', this)">
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Rapport X
     </div>
+    <div class="nav-item" onclick="showView('rapport-mensuel', this)">
+      <span class="icon">📅</span> Rapport Mensuel
+    </div>
     <div class="nav-item" onclick="showView('shift', this)">
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span> Shifts
     </div>
@@ -6650,6 +6653,29 @@ Revenez nous voir bient&#244;t.</textarea>
         </div>
       </div>
     </div>
+    <div id="view-rapport-mensuel" class="view fade-in">
+      <div class="page-header"><h2>📅 Rapport Mensuel</h2></div>
+      <div class="card" style="margin-bottom:16px;padding:16px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <label style="font-size:13px;font-weight:700;">Mois :</label>
+          <select id="rm-mois" class="form-input" style="width:auto;" onchange="genererRapportMensuel()">
+            <option value="0">Janvier</option><option value="1">Février</option><option value="2">Mars</option>
+            <option value="3">Avril</option><option value="4">Mai</option><option value="5">Juin</option>
+            <option value="6">Juillet</option><option value="7">Août</option><option value="8">Septembre</option>
+            <option value="9">Octobre</option><option value="10">Novembre</option><option value="11">Décembre</option>
+          </select>
+          <select id="rm-annee" class="form-input" style="width:auto;" onchange="genererRapportMensuel()">
+            <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
+          </select>
+          <button class="btn btn-primary" onclick="genererRapportMensuel()">🔄 Générer</button>
+          <button class="btn" style="background:var(--accent);color:#fff;" onclick="imprimerRapportMensuel()">🖨️ Imprimer / PDF</button>
+          <button class="btn" style="background:#16a34a;color:#fff;" onclick="envoyerRapportEmail()">📧 Envoyer par email</button>
+        </div>
+      </div>
+      <div id="rm-contenu"></div>
+    </div>
+
+    <!-- ── RAPPORT X ── -->
     <div id="view-rapportx" class="view fade-in">
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:20px;">
         <div style="padding:7px 13px;background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.3);border-radius:8px;font-size:12px;color:var(--teal);flex:1;min-width:180px;">🟢 Consultation sans fermeture — Les compteurs restent ouverts</div>
@@ -9515,7 +9541,7 @@ function showView(id, el, pushState) {
     const navMatch = document.querySelector(`.nav-item[onclick*="showView('${id}'"]`);
     if(navMatch) navMatch.classList.add('active');
   }
-  const titles = { dashboard:'Tableau de bord', caisse:'Caisse POS', commandes:'Commandes', qrcommandes:'📱 Commandes en ligne — QR Code', menu:'Menu & Carte', stock:'Stocks', inventaire:'Inventaire', preparation:'🧑‍🍳 Préparation', clients:'Clients', fournisseurs:'Fournisseurs', stats:'Statistiques', settings:'Paramètres', caisses:'Gestion des Caisses', rapportx:'Rapport X — Consultation en cours', shift:'Gestion des Shifts', fermeture:'Fermeture de Caisse (Z)', reconciliation:'Réconciliation Mensuelle', historique:'Historique des Clôtures', utilisateurs:'Utilisateurs', depenses:'Module Dépenses', rh:'RH & Gestion des Salaires', compta:'Comptabilité — Résultats & Bilan', factures:'Factures — Clients & Fournisseurs', banque:'Banque — Suivi des comptes', materiel:'Matériel & Amortissements', annonces:'📢 Annonces & Publicités', 'location-salle':'🏛️ Location de Salle', 'manege':'🎠 Manège Enfants', terrain:'⚽ Terrain de Football', 'salle-sport':'💪 Salle de Sport', piscine:'🏊 Piscine', caisse3commandes:'🖥️ Caisse 3 — Commandes Clients', salle:'🏠 Salle de Location', sport:'💪 Salle de Sport', hotel:'🏨 Hôtel — Gestion des Chambres' };
+  const titles = { dashboard:'Tableau de bord', caisse:'Caisse POS', commandes:'Commandes', qrcommandes:'📱 Commandes en ligne — QR Code', menu:'Menu & Carte', stock:'Stocks', inventaire:'Inventaire', preparation:'🧑‍🍳 Préparation', clients:'Clients', fournisseurs:'Fournisseurs', stats:'Statistiques', settings:'Paramètres', caisses:'Gestion des Caisses', rapportx:'Rapport X — Consultation en cours', 'rapport-mensuel':'📅 Rapport Mensuel', shift:'Gestion des Shifts', fermeture:'Fermeture de Caisse (Z)', reconciliation:'Réconciliation Mensuelle', historique:'Historique des Clôtures', utilisateurs:'Utilisateurs', depenses:'Module Dépenses', rh:'RH & Gestion des Salaires', compta:'Comptabilité — Résultats & Bilan', factures:'Factures — Clients & Fournisseurs', banque:'Banque — Suivi des comptes', materiel:'Matériel & Amortissements', annonces:'📢 Annonces & Publicités', 'location-salle':'🏛️ Location de Salle', 'manege':'🎠 Manège Enfants', terrain:'⚽ Terrain de Football', 'salle-sport':'💪 Salle de Sport', piscine:'🏊 Piscine', caisse3commandes:'🖥️ Caisse 3 — Commandes Clients', salle:'🏠 Salle de Location', sport:'💪 Salle de Sport', hotel:'🏨 Hôtel — Gestion des Chambres' };
   document.getElementById('page-title').textContent = titles[id] || id;
 
   // ===== HISTORY API : desactive en file:// pour eviter "Unsafe attempt" ===
@@ -17043,7 +17069,7 @@ function renderReconciliation() {
 
 // ===== AUTH & USERS SYSTEM =====
 const ROLES_CONFIG = {
-  administrateur: { label:'Administrateur', icon:'🛡️', color:'#dc3545', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','gestion-roles','annonces','livreurs','serveurs','terrain','salle','sport'] },
+  administrateur: { label:'Administrateur', icon:'🛡️', color:'#dc3545', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','rapport-mensuel','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','gestion-roles','annonces','livreurs','serveurs','terrain','salle','sport'] },
   gerant:      { label:'Gérant', icon:'👑', color:'var(--accent)', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','annonces','livreurs','serveurs','terrain','salle','sport'] },
   superviseur: { label:'Superviseur', icon:'🔷', color:'var(--purple)', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','fournisseurs','caisses','rapportx','shift','fermeture','historique','stats','depenses','rh','compta','factures','banque','annonces','livreurs','serveurs','terrain','salle','sport'] },
   caissier:    { label:'Caissier', icon:'💳', color:'var(--teal)', perms: ['caisse','commandes','qrcommandes','rapportx'] },
@@ -17057,7 +17083,7 @@ const ALL_PERMS = [
   { id:'stock', label:'Stocks' }, { id:'inventaire', label:'Inventaire' }, { id:'clients', label:'Clients' },
   { id:'fournisseurs', label:'Fournisseurs' }, { id:'livreurs', label:'🛵 Livreurs' }, { id:'serveurs', label:'🍽️ Serveurs' }, { id:'utilisateurs', label:'Utilisateurs' },
   { id:'caisses', label:'🖥️ Gestion des Caisses' },
-  { id:'rapportx', label:'Rapport X' }, { id:'shift', label:'Shifts' },
+  { id:'rapportx', label:'Rapport X' }, { id:'rapport-mensuel', label:'📅 Rapport Mensuel' }, { id:'shift', label:'Shifts' },
   { id:'fermeture', label:'Fermeture (Z)' }, { id:'reconciliation', label:'Réconciliation' },
   { id:'historique', label:'Historique' }, { id:'stats', label:'Statistiques' },
   { id:'settings', label:'Paramètres' },
@@ -17607,11 +17633,7 @@ async function doLogin() {
     // ✅ FIX CAISSIER : Ne restaurer la session que si c'est le même caissier qui se reconnecte
     // Admin/Gérant ne doivent pas hériter de la session d'un autre caissier
     const _currentUserRole = currentUser && currentUser.role;
-    const _isAdminOrGerant = _currentUserRole === 'administrateur' || _currentUserRole === 'gerant' || _currentUserRole === 'superviseur';
-    const _sessionAppartientAuUser = _sessionAvantLogin && currentUser &&
-      (_sessionAvantLogin.cashier || '').toLowerCase().includes((currentUser.prenom || '').toLowerCase());
-    const _peutRestaurer = _sessionAvantLogin && !_loginCloZ.includes(_sessionAvantLogin.caisse) &&
-      (!_isAdminOrGerant || _sessionAppartientAuUser);
+    const _peutRestaurer = _sessionAvantLogin && !_loginCloZ.includes(_sessionAvantLogin.caisse);
     if(_peutRestaurer) {
       sessionCaisseActive = _sessionAvantLogin; // Conserver la session active
     } else {
@@ -18627,6 +18649,7 @@ function _refreshAllViews() {
     if(v === 'stats')        renderStats();
     if(v === 'caisses')      renderCaisses();
     if(v === 'rapportx')     renderRapportX();
+    if(v === 'rapport-mensuel') { if(typeof _initRapportMensuel === 'function') _initRapportMensuel(); }
     if(v === 'shift')        renderShifts();
     if(v === 'historique')   renderHistorique();
     if(v === 'rh')           { if(typeof renderRH === 'function') renderRH(); }
@@ -20003,10 +20026,14 @@ async function cloturerCaisse() {
 
     // 2. Données de base
     let ventes  = (VENTES_PAR_CAISSE && VENTES_PAR_CAISSE[caisse]) ? VENTES_PAR_CAISSE[caisse] : [];
-    const cashier = (sessionCaisseActive && sessionCaisseActive.cashier)
+    // ✅ FIX CAISSIER : prioriser le cashier stocké dans l'objet CAISSES pour CETTE caisse précise
+    // évite que la session d'une autre caisse (admin loggé) impose son cashier
+    const _caisseObj = CAISSES.find(c => c.name === caisse);
+    const _sessionPropre = sessionCaisseActive && sessionCaisseActive.caisse === caisse;
+    const cashier = (_caisseObj && _caisseObj.cashier && _caisseObj.cashier !== 'Caissier' ? _caisseObj.cashier : null)
+      || (_sessionPropre ? sessionCaisseActive.cashier : null)
       || (ventes.length > 0 && ventes[0].cashier_nom ? ventes[0].cashier_nom : null)
       || (ventes.length > 0 && ventes[0].cashier ? ventes[0].cashier : null)
-      || (CAISSES.find(c => c.name === caisse) && CAISSES.find(c => c.name === caisse).cashier)
       || 'Caissier';
     const now      = new Date();
 
@@ -22606,7 +22633,8 @@ const KGSync = (() => {
               }
             }
           });
-          // ✅ FIX simplifié : restaurer la session si aucune n'est active localement
+          // ✅ FIX : restaurer la session si aucune n'est active localement
+          // (Admin/Gérant voient les ventes dans Rapport X grâce à sessionCaisseActive)
           if(data.sessionActive && !sessionCaisseActive) {
             sessionCaisseActive = data.sessionActive;
           }
@@ -34896,6 +34924,237 @@ function renderSalleListe() {
   document.getElementById('sal-liste-content').innerHTML = html;
 }
 
+// ═══════════════════════════════════════════
+// 📅 RAPPORT MENSUEL
+// ═══════════════════════════════════════════
+function _initRapportMensuel() {
+  const now = new Date();
+  const sel = document.getElementById('rm-mois');
+  const selA = document.getElementById('rm-annee');
+  if(sel) sel.value = now.getMonth();
+  if(selA) selA.value = now.getFullYear();
+  genererRapportMensuel();
+}
+
+function genererRapportMensuel() {
+  const mois = parseInt(document.getElementById('rm-mois')?.value ?? new Date().getMonth());
+  const annee = parseInt(document.getElementById('rm-annee')?.value ?? new Date().getFullYear());
+  const nomMois = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][mois];
+  const debut = new Date(annee, mois, 1);
+  const fin   = new Date(annee, mois+1, 0, 23, 59, 59);
+
+  const _inP = (ds) => {
+    if(!ds) return false;
+    const p = ds.split(/[-\/]/);
+    let d;
+    if(p[0].length===4) d = new Date(p[0], p[1]-1, p[2]);
+    else { const y = p[2].length===2 ? '20'+p[2] : p[2]; d = new Date(y, p[1]-1, p[0]); }
+    return d >= debut && d <= fin;
+  };
+
+  const clotures = HISTORIQUE_CLOTURES.filter(h => _inP(h.date));
+  const caTotal  = clotures.reduce((s,h) => s+(h.ca||0), 0);
+  const nbTickets= clotures.reduce((s,h) => s + (h.nbTickets || (Array.isArray(h.tickets) ? h.tickets.length : (h.tickets||0))), 0);
+  const tickMoy  = nbTickets>0 ? Math.round(caTotal/nbTickets) : 0;
+  const especes  = clotures.reduce((s,h) => s+(h.especes||0), 0);
+  const wave     = clotures.reduce((s,h) => s+(h.wave||0), 0);
+  const orange   = clotures.reduce((s,h) => s+(h.orange||0), 0);
+  const carte    = clotures.reduce((s,h) => s+(h.carte||0), 0);
+  const deps     = (typeof DEPENSES!=='undefined'?DEPENSES:[]).filter(d=>_inP(d.date));
+  const totalDeps= deps.reduce((s,d)=>s+(d.montant||0), 0);
+  const cmdsFourn= COMMANDES_FOURNISSEURS.filter(c=>_inP(c.dateCmd||c.dateLivraison));
+  const totalAchats = Math.round(cmdsFourn.reduce((s,c)=>s+(c.total||0), 0));
+
+  // Salaires : d'abord depuis les fiches de paie marquées payées ce mois
+  const moisKey  = String(mois+1).padStart(2,'0') + '-' + String(annee);
+  const moisKeyAlt = String(annee) + '-' + String(mois+1).padStart(2,'0');
+  const _rhEmployes = typeof RH_EMPLOYES !== 'undefined' ? RH_EMPLOYES : [];
+  const paiesMois = (typeof RH_PAIES !== 'undefined' ? RH_PAIES : [])
+    .filter(p => (p.mois === moisKey || p.mois === moisKeyAlt) && (p.statut === 'paye' || p.statut === 'en_attente'));
+  let totalSalaires = 0;
+  let nbSalaries = 0;
+  if(paiesMois.length > 0) {
+    // Fiches de paie enregistrées pour ce mois
+    totalSalaires = Math.round(paiesMois.reduce((s,p) => {
+      if(p.totalVerse || p.net_paye || p.montant || p.net) return s + (p.totalVerse||p.net_paye||p.montant||p.net||0) + (p.transport||0);
+      const emp = _rhEmployes.find(e => e.id === p.employeId || e.id === p.employe_id);
+      return s + (emp ? (emp.salaire||0) + (emp.transport||0) : 0);
+    }, 0));
+    nbSalaries = paiesMois.length;
+  } else {
+    // Pas de fiches → utiliser la masse salariale des employés actifs (estimation)
+    const actifs = _rhEmployes.filter(e => e.actif !== false);
+    totalSalaires = Math.round(actifs.reduce((s,e) => s + (e.salaire||0) + (e.transport||0), 0));
+    nbSalaries = actifs.length;
+  }
+
+  const resultat = Math.round(caTotal - totalDeps - totalAchats - totalSalaires);
+
+  // Top produits — chercher dans tickets[], ventes[], topProduits[]
+  const prodMap = {};
+  clotures.forEach(h => {
+    const src = Array.isArray(h.topProduits) ? h.topProduits
+              : Array.isArray(h.tickets) ? h.tickets
+              : Array.isArray(h.ventes) ? h.ventes : [];
+    src.forEach(v => {
+      const n = v.nom||v.name||v.produit||v.plat||''; if(!n) return;
+      if(!prodMap[n]) prodMap[n]={nom:n,qty:0,ca:0};
+      prodMap[n].qty += Number(v.qty||v.quantite||v.qte||1);
+      prodMap[n].ca  += Number(v.ca||v.total||v.montant||0);
+    });
+  });
+  const topProds = Object.values(prodMap).sort((a,b)=>b.ca-a.ca).slice(0,10);
+  window._rmData = {nomMois,annee,caTotal,nbTickets,tickMoy,clotures:clotures.length,totalDeps,totalAchats,totalSalaires,nbSalaries,resultat,especes,wave,orange,carte,topProds,cloturesArr:clotures};
+
+  const kpis = [
+    ['💰 CA Total',caTotal.toLocaleString()+' F','var(--accent)'],
+    ['🎫 Tickets',nbTickets,'var(--teal)'],
+    ['📊 Ticket Moyen',tickMoy.toLocaleString()+' F','var(--purple)'],
+    ['📋 Clôtures',clotures.length,'var(--text)'],
+    ['💸 Dépenses',totalDeps.toLocaleString()+' F','var(--red)'],
+    ['📦 Achats',totalAchats.toLocaleString()+' F','#f97316'],
+    ['👨‍💼 Salaires',totalSalaires.toLocaleString()+' F','#e879f9'],
+    ['📈 Résultat',resultat.toLocaleString()+' F',resultat>=0?'var(--green)':'var(--red)'],
+  ];
+
+  document.getElementById('rm-contenu').innerHTML = `
+  <div class="card" style="padding:14px 18px;margin-bottom:14px;background:linear-gradient(135deg,rgba(245,158,42,0.12),rgba(232,69,32,0.06));border:1px solid var(--accent);">
+    <div style="font-size:16px;font-weight:900;">📅 ${nomMois} ${annee}</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:2px;">Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px;">
+    ${kpis.map(([l,v,c])=>`<div class="card" style="padding:12px;text-align:center;">
+      <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">${l}</div>
+      <div style="font-size:17px;font-weight:900;color:${c};">${v}</div>
+    </div>`).join('')}
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+    <div class="card" style="padding:14px;">
+      <div style="font-weight:800;font-size:13px;margin-bottom:10px;">💳 Paiements</div>
+      ${[['💵 Espèces',especes],['🌊 Wave',wave],['🟠 Orange Money',orange],['💳 Carte',carte]].map(([l,v])=>
+        `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span style="color:var(--text2);">${l}</span><span style="font-weight:700;">${v.toLocaleString()} F</span>
+        </div>`).join('')}
+    </div>
+    <div class="card" style="padding:14px;">
+      <div style="font-weight:800;font-size:13px;margin-bottom:10px;">🏆 Top Produits</div>
+      ${topProds.length ? topProds.map((p,i)=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">
+        <span style="color:var(--text2);">#${i+1} ${p.nom}</span>
+        <span style="font-weight:700;color:var(--accent);">${p.ca.toLocaleString()} F</span>
+      </div>`).join('') : '<div style="color:var(--text2);padding:12px;text-align:center;">Aucune donnée</div>'}
+    </div>
+  </div>
+  <div class="card" style="padding:14px;">
+    <div style="font-weight:800;font-size:13px;margin-bottom:10px;">📋 Clôtures du mois</div>
+    ${clotures.length ? `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:var(--surface2);">${['Date','Caisse','Caissier','Tickets','CA TTC'].map(h=>`<th style="padding:7px 10px;text-align:left;font-size:11px;color:var(--text2);font-weight:700;">${h}</th>`).join('')}</tr></thead>
+      <tbody>${clotures.slice().reverse().map((h,i)=>`<tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:6px 10px;">${h.date||'—'}</td>
+        <td style="padding:6px 10px;">${h.caisse||'—'}</td>
+        <td style="padding:6px 10px;">${h.cashier||h.caissier||'—'}</td>
+        <td style="padding:6px 10px;text-align:right;">${Array.isArray(h.tickets)?h.tickets.length:(h.nbTickets||h.tickets||0)}</td>
+        <td style="padding:6px 10px;text-align:right;font-weight:700;color:var(--accent);">${(h.ca||0).toLocaleString()} F</td>
+      </tr>`).join('')}</tbody>
+    </table></div>` : '<div style="color:var(--text2);text-align:center;padding:20px;">Aucune clôture ce mois</div>'}
+  </div>`;
+}
+
+function imprimerRapportMensuel() {
+  const d = window._rmData;
+  if(!d) { showNotif('⚠️ Générez d\'abord le rapport'); return; }
+  const _logo = (typeof TICKET_CONFIG!=='undefined'&&TICKET_CONFIG.showLogo&&TICKET_CONFIG.logo)?TICKET_CONFIG.logo:((typeof RESTAURANT_INFO!=='undefined'&&RESTAURANT_INFO.loginLogo)?RESTAURANT_INFO.loginLogo:null);
+  const _logoHtml = _logo?`<img src="${_logo}" style="max-height:50px;border-radius:6px;vertical-align:middle;margin-right:12px;">`:''  ;
+  const _nom = (typeof RESTAURANT_INFO!=='undefined'&&RESTAURANT_INFO.nom)||'KEURGOUMAK';
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Rapport ${d.nomMois} ${d.annee}</title>
+<style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Inter',Arial,sans-serif;font-size:10pt;color:#111;padding:16px 22px;max-width:820px;margin:auto;background:#fff;line-height:1.5;}
+.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #f5a623;padding-bottom:10px;margin-bottom:14px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.kpi{border:2px solid #e0e0e0;border-radius:8px;padding:10px;text-align:center;background:#fafafa;}
+.kpi-val{font-size:14pt;font-weight:900;color:#c07a00;}.kpi-lbl{font-size:8pt;color:#555;text-transform:uppercase;letter-spacing:1px;margin-top:2px;font-weight:700;}
+.sec{font-weight:900;font-size:10pt;text-transform:uppercase;letter-spacing:1.5px;border-bottom:3px solid #f5a623;padding-bottom:5px;margin:14px 0 10px;}
+table{width:100%;border-collapse:collapse;margin-bottom:12px;}
+th{background:#1a1a2e;color:#fff;padding:7px 10px;font-size:9pt;text-align:left;font-weight:700;}
+td{padding:6px 10px;border-bottom:1px solid #ddd;font-size:10pt;}
+tr:nth-child(even) td{background:#f9f9f9;}
+.pay{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;font-size:10pt;}
+.footer{text-align:center;font-size:8pt;color:#999;border-top:1px solid #ddd;margin-top:14px;padding-top:7px;}
+@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}@page{size:A4;margin:10mm;}body{padding:0;}.no-print{display:none!important;}th{background:#1a1a2e!important;color:#fff!important;}.kpi{background:#fafafa!important;}tr:nth-child(even) td{background:#f9f9f9!important;}}
+</style></head><body>
+<div class="no-print" style="text-align:center;margin-bottom:12px;">
+  <button onclick="window.print()" style="padding:8px 22px;background:#f5a623;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;margin-right:8px;">🖨️ Imprimer / PDF</button>
+  <button onclick="window.close()" style="padding:8px 16px;background:#888;color:#fff;border:none;border-radius:6px;cursor:pointer;">✕</button>
+</div>
+<div class="hdr"><div style="display:flex;align-items:center;">${_logoHtml}<div><div style="font-size:18pt;font-weight:900;color:#f5a623;">${_nom}</div><div style="font-size:9pt;color:#444;">Rapport Mensuel — ${d.nomMois} ${d.annee}</div></div></div><div style="text-align:right;font-size:9pt;color:#555;">Généré le ${new Date().toLocaleDateString('fr-FR')}</div></div>
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-val">${d.caTotal.toLocaleString()} F</div><div class="kpi-lbl">CA Total</div></div>
+  <div class="kpi"><div class="kpi-val">${d.nbTickets}</div><div class="kpi-lbl">Tickets</div></div>
+  <div class="kpi"><div class="kpi-val">${d.tickMoy.toLocaleString()} F</div><div class="kpi-lbl">Ticket Moyen</div></div>
+  <div class="kpi" style="border-color:${d.resultat>=0?'#1a7a3a':'#dc2626'};"><div class="kpi-val" style="color:${d.resultat>=0?'#1a7a3a':'#dc2626'};">${d.resultat.toLocaleString()} F</div><div class="kpi-lbl">Résultat Net</div></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+<div><div class="sec">💳 Paiements</div>
+${[['Espèces',d.especes],['Wave',d.wave],['Orange Money',d.orange],['Carte',d.carte]].map(([l,v])=>`<div class="pay"><span>${l}</span><span style="font-weight:700;">${v.toLocaleString()} F</span></div>`).join('')}</div>
+<div><div class="sec">💸 Charges</div>
+<div class="pay"><span>Dépenses</span><span style="font-weight:700;color:#dc2626;">−${d.totalDeps.toLocaleString()} F</span></div>
+<div class="pay"><span>Achats Fournisseurs</span><span style="font-weight:700;color:#dc2626;">−${d.totalAchats.toLocaleString()} F</span></div>
+<div class="pay"><span>👨‍💼 Salaires (${d.nbSalaries} emp.)</span><span style="font-weight:700;color:#dc2626;">−${d.totalSalaires.toLocaleString()} F</span></div>
+<div class="pay" style="border-top:2px solid #ddd;font-weight:900;font-size:11pt;"><span>Total charges</span><span style="color:#dc2626;">−${(d.totalDeps+d.totalAchats+(d.totalSalaires||0)).toLocaleString()} F</span></div></div>
+</div>
+${d.topProds.length?`<div class="sec">🏆 Top Produits</div>
+<table><thead><tr><th>Rang</th><th>Produit</th><th style="text-align:right">CA</th></tr></thead><tbody>
+${d.topProds.map((p,i)=>`<tr><td>#${i+1}</td><td>${p.nom}</td><td style="text-align:right"><span style="background:#fff3cd;border:2px solid #c07a00;border-radius:4px;padding:2px 7px;font-weight:900;color:#7a4f00;">${p.ca.toLocaleString()} F</span></td></tr>`).join('')}
+</tbody></table>`:''}
+<div class="footer">${_nom} — Rapport Mensuel ${d.nomMois} ${d.annee} — KEURGOUMAK POS</div>
+</body></html>`);
+  w.document.close(); setTimeout(()=>w.print(),500);
+}
+
+function envoyerRapportEmail() {
+  const d = window._rmData;
+  if(!d) { showNotif('⚠️ Générez d\'abord le rapport'); return; }
+  const _nom = (typeof RESTAURANT_INFO!=='undefined'&&RESTAURANT_INFO.nom)||'KEURGOUMAK';
+  const sujet = encodeURIComponent(`Rapport Mensuel ${d.nomMois} ${d.annee} — ${_nom}`);
+  const corps = encodeURIComponent(`Bonjour,
+
+Rapport mensuel de ${d.nomMois} ${d.annee} — ${_nom}
+
+═══════════════════════════════
+📊 RÉSUMÉ
+═══════════════════════════════
+💰 CA Total         : ${d.caTotal.toLocaleString()} F CFA
+🎫 Tickets          : ${d.nbTickets}
+📊 Ticket Moyen     : ${d.tickMoy.toLocaleString()} F CFA
+📋 Clôtures         : ${d.clotures}
+
+═══════════════════════════════
+💳 PAIEMENTS
+═══════════════════════════════
+💵 Espèces          : ${d.especes.toLocaleString()} F CFA
+🌊 Wave             : ${d.wave.toLocaleString()} F CFA
+🟠 Orange Money     : ${d.orange.toLocaleString()} F CFA
+💳 Carte            : ${d.carte.toLocaleString()} F CFA
+
+═══════════════════════════════
+💸 CHARGES
+═══════════════════════════════
+Dépenses            : −${d.totalDeps.toLocaleString()} F CFA
+Achats Fournisseurs : −${d.totalAchats.toLocaleString()} F CFA
+👨‍💼 Salaires         : −${d.totalSalaires.toLocaleString()} F CFA
+
+═══════════════════════════════
+📈 RÉSULTAT NET : ${d.resultat>=0?'✅':'❌'} ${d.resultat.toLocaleString()} F CFA
+═══════════════════════════════
+${d.topProds.length?'\n🏆 TOP PRODUITS\n'+d.topProds.map((p,i)=>`#${i+1} ${p.nom} — ${p.ca.toLocaleString()} F`).join('\n'):''}
+
+---
+Généré automatiquement par KEURGOUMAK POS — ${new Date().toLocaleDateString('fr-FR')}`);
+  const dest = (typeof RESTAURANT_INFO!=='undefined'&&RESTAURANT_INFO.email)||'';
+  window.location.href = `mailto:${dest}?subject=${sujet}&body=${corps}`;
+  showNotif('📧 Email ouvert — ajoutez le destinataire et envoyez !');
+}
+
 // --- Contrats panel ---
 function renderSalleContrats() {
   salLoad();
@@ -35054,11 +35313,97 @@ function openSalleContrat(id) {
 function printSalleContrat() {
   const body = document.getElementById('sal-contrat-body');
   if(!body) return;
+
+  const _logo = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.showLogo && TICKET_CONFIG.logo)
+    ? TICKET_CONFIG.logo
+    : ((typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.loginLogo) ? RESTAURANT_INFO.loginLogo : null);
+  const _logoHtml = _logo ? `<img src="${_logo}" style="max-width:80px;max-height:55px;object-fit:contain;border-radius:6px;vertical-align:middle;margin-right:14px;">` : '';
+  const _nom = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.nom) ? RESTAURANT_INFO.nom : 'KEURGOUMAK';
+  const _adr = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.adresse) ? RESTAURANT_INFO.adresse : 'Louga, Sénégal';
+  const _tel = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.tel) ? RESTAURANT_INFO.tel : '';
+  const _email = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.email) ? RESTAURANT_INFO.email : '';
+
   const w = window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Contrat Location Salle</title><style>body{margin:24px 32px;font-family:Georgia,serif;}@media print{body{margin:0;padding:16px;}}</style></head><body>${body.innerHTML}</body></html>`);
+  w.document.write(`<!DOCTYPE html><html lang="fr"><head>
+<meta charset="UTF-8">
+<title>Contrat Location Salle — ${_nom}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',Georgia,serif;font-size:10pt;color:#111;background:#fff;padding:16mm 18mm;max-width:210mm;margin:0 auto;line-height:1.6;}
+  .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1a1a2e;padding-bottom:12px;margin-bottom:14px;}
+  .header-left{display:flex;align-items:center;gap:12px;}
+  .header-logo{display:flex;align-items:center;}
+  .header-title{font-size:16pt;font-weight:900;color:#1a1a2e;}
+  .header-sub{font-size:8.5pt;color:#555;margin-top:3px;}
+  .header-right{text-align:right;font-size:8.5pt;color:#555;line-height:1.7;}
+  .doc-title{text-align:center;font-size:15pt;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;margin:16px 0 6px;color:#1a1a2e;}
+  .doc-ref{text-align:center;font-size:9pt;color:#555;margin-bottom:16px;}
+  .section{margin-bottom:14px;}
+  .section-title{font-size:10pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#1a1a2e;border-left:4px solid #f5a623;padding-left:10px;margin-bottom:10px;}
+  .parties-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;}
+  .partie-box{border:1.5px solid #ddd;border-radius:6px;padding:12px 14px;background:#fafafa;}
+  .partie-box h4{font-size:9pt;font-weight:700;color:#f5a623;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:4px;}
+  .partie-box p{font-size:9.5pt;color:#333;line-height:1.8;}
+  .partie-box strong{color:#111;font-weight:700;}
+  .detail-table{width:100%;border-collapse:collapse;margin-bottom:12px;}
+  .detail-table tr{border-bottom:1px solid #e5e5e5;}
+  .detail-table tr:last-child{border-bottom:none;}
+  .detail-table td{padding:7px 10px;font-size:9.5pt;}
+  .detail-table td:first-child{color:#555;width:42%;}
+  .detail-table td:last-child{font-weight:700;color:#111;}
+  .fin-table{width:100%;border-collapse:collapse;margin-bottom:10px;}
+  .fin-table tr{border-bottom:1px solid #e5e5e5;}
+  .fin-table td{padding:7px 10px;font-size:9.5pt;}
+  .fin-table td:last-child{text-align:right;font-weight:700;}
+  .fin-total{font-size:11pt;font-weight:900;background:#f5f5f5;border-top:2px solid #1a1a2e !important;}
+  .fin-acompte{color:#16a34a;}
+  .fin-reste{color:#dc2626;font-size:11pt;font-weight:900;}
+  .modalites{background:#fff8e1;border:1.5px solid #f5a623;border-radius:6px;padding:10px 14px;font-size:9pt;color:#5a3e00;line-height:1.7;margin-bottom:12px;}
+  .clauses{font-size:8.5pt;line-height:1.7;color:#333;}
+  .clauses p{margin-bottom:5px;}
+  .signatures{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:16px;border-top:2px solid #1a1a2e;padding-top:14px;}
+  .sig-block{text-align:center;}
+  .sig-block .sig-title{font-size:9pt;font-weight:800;color:#1a1a2e;text-transform:uppercase;margin-bottom:30px;}
+  .sig-line{border-top:1.5px solid #555;padding-top:4px;font-size:8.5pt;color:#555;}
+  .footer-doc{text-align:center;font-size:7.5pt;color:#aaa;border-top:1px solid #ddd;margin-top:14px;padding-top:8px;}
+  @media print{
+    *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+    @page{size:A4;margin:10mm;}
+    body{padding:0;font-size:9.5pt;}
+    .no-print{display:none!important;}
+    .partie-box{background:#fafafa!important;}
+    .modalites{background:#fff8e1!important;}
+    .fin-total{background:#f5f5f5!important;}
+  }
+</style>
+</head><body>
+<div class="no-print" style="text-align:center;margin-bottom:14px;">
+  <button onclick="window.print()" style="padding:9px 24px;background:#1a1a2e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;margin-right:8px;">🖨️ Imprimer / PDF</button>
+  <button onclick="window.close()" style="padding:9px 18px;background:#888;color:#fff;border:none;border-radius:6px;cursor:pointer;">✕ Fermer</button>
+</div>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-logo">${_logoHtml}</div>
+    <div>
+      <div class="header-title">🏛️ ${_nom} — Location de Salle</div>
+      <div class="header-sub">${_adr}${_tel ? ' • Tel : ' + _tel : ''}${_email ? ' • ' + _email : ''}</div>
+    </div>
+  </div>
+  <div class="header-right">
+    Document confidentiel<br>
+    <strong>${body.querySelector ? (body.querySelector('[data-ref]')?.dataset?.ref || '') : ''}</strong>
+  </div>
+</div>
+
+${body.innerHTML}
+
+<div class="footer-doc">Document généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} • ${_nom} — Logiciel KEURGOUMAK POS</div>
+</body></html>`);
   w.document.close();
   w.focus();
-  setTimeout(()=>w.print(), 400);
+  setTimeout(() => w.print(), 500);
 }
 
 // --- Open modal ---
