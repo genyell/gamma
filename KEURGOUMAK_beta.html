@@ -177,40 +177,40 @@ if(typeof jsQR === 'undefined') {
 
 <style>
   :root {
-    --bg: #0b0e1a;
-    --surface: #131829;
-    --surface2: #1a2036;
-    --surface3: #232a47;
-    --border: #2a3155;
-    --border2: #363f68;
-    --accent: #f59e2a;
+    --bg: #070b16;
+    --surface: #0d1426;
+    --surface2: #141d38;
+    --surface3: #1b2648;
+    --border: #1f2d5c;
+    --border2: #2a3d78;
+    --accent: #f5a623;
     --accent2: #e84520;
     --accent3: #ff6b35;
     --teal: #00e5c8;
     --teal2: #00b8a0;
     --purple: #9b7cf4;
     --purple2: #7c5ce8;
-    --text: #f0ece6;
-    --text2: #8c92b8;
-    --text3: #a8aece;
+    --text: #eeeaf8;
+    --text2: #8892b8;
+    --text3: #aab4d4;
     --green: #1adb6a;
     --green2: #15b557;
     --red: #f04444;
     --radius: 16px;
     --radius-sm: 10px;
     --radius-xs: 6px;
-    --shadow-sm: 0 2px 12px rgba(0,0,10,0.45);
-    --shadow-md: 0 8px 32px rgba(0,0,10,0.5);
-    --shadow-lg: 0 24px 70px rgba(0,0,15,0.6);
-    --shadow-xl: 0 40px 100px rgba(0,0,15,0.7);
-    --glow-accent: 0 0 30px rgba(245,158,42,0.3), 0 0 60px rgba(245,158,42,0.1);
+    --shadow-sm: 0 2px 14px rgba(0,0,30,0.7);
+    --shadow-md: 0 8px 32px rgba(0,0,30,0.75);
+    --shadow-lg: 0 24px 70px rgba(0,0,30,0.8);
+    --shadow-xl: 0 40px 100px rgba(0,0,30,0.9);
+    --glow-accent: 0 0 30px rgba(245,158,42,0.35), 0 0 60px rgba(245,158,42,0.12);
     --glow-green: 0 0 20px rgba(26,219,106,0.35);
     --glow-teal: 0 0 20px rgba(0,229,200,0.3);
     --glow-purple: 0 0 20px rgba(155,124,244,0.3);
-    --gradient-accent: linear-gradient(135deg, #f59e2a 0%, #e84520 100%);
+    --gradient-accent: linear-gradient(135deg, #f5a623 0%, #e84520 100%);
     --gradient-accent-soft: linear-gradient(135deg, rgba(245,158,42,0.15), rgba(232,69,32,0.08));
-    --gradient-surface: linear-gradient(160deg, #131829 0%, #181f38 100%);
-    --gradient-sidebar: linear-gradient(180deg, #161c30 0%, #1b2138 100%);
+    --gradient-surface: linear-gradient(160deg, #0d1426 0%, #121c38 100%);
+    --gradient-sidebar: linear-gradient(180deg, #060a14 0%, #0a1020 50%, #08101e 100%);
   }
 
   /* ===== THÈME CLAIR — VERSION CORRIGÉE LISIBILITÉ TOTALE ===== */
@@ -246,6 +246,41 @@ if(typeof jsQR === 'undefined') {
     --gradient-accent-soft: linear-gradient(135deg, rgba(201,127,0,0.12), rgba(184,51,6,0.06));
     --gradient-surface: linear-gradient(160deg, #ffffff 0%, #f2f4f8 100%);
     --gradient-sidebar: linear-gradient(180deg, #1e293b 0%, #1a2436 100%);
+  }
+
+  /* ══ THÈME BLEU & BLANC ══ */
+  [data-theme="blue"] {
+    --bg: #f0f4ff;
+    --surface: #ffffff;
+    --surface2: #eef2ff;
+    --surface3: #e0e7ff;
+    --border: #c7d2fe;
+    --border2: #a5b4fc;
+    --text: #0f172a;
+    --text2: #475569;
+    --text3: #1e293b;
+    --green: #16a34a;
+    --green2: #15803d;
+    --red: #dc2626;
+    --accent: #2563eb;
+    --accent2: #1d4ed8;
+    --accent3: #3b82f6;
+    --teal: #0891b2;
+    --teal2: #0e7490;
+    --purple: #7c3aed;
+    --purple2: #6d28d9;
+    --shadow-sm: 0 2px 8px rgba(37,99,235,0.08);
+    --shadow-md: 0 8px 24px rgba(37,99,235,0.12);
+    --shadow-lg: 0 20px 48px rgba(37,99,235,0.14);
+    --shadow-xl: 0 32px 64px rgba(37,99,235,0.16);
+    --glow-accent: 0 0 20px rgba(37,99,235,0.25);
+    --glow-green: 0 0 16px rgba(22,163,74,0.2);
+    --glow-teal: 0 0 16px rgba(8,145,178,0.2);
+    --glow-purple: 0 0 16px rgba(124,58,237,0.2);
+    --gradient-accent: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    --gradient-accent-soft: linear-gradient(135deg, rgba(37,99,235,0.1), rgba(29,78,216,0.05));
+    --gradient-surface: linear-gradient(160deg, #ffffff 0%, #f0f4ff 100%);
+    --gradient-sidebar: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%);
   }
 
   /* ── Corps & fond ── */
@@ -746,7 +781,10 @@ if(typeof jsQR === 'undefined') {
   }
   body {
     font-family: 'Plus Jakarta Sans', sans-serif;
-    background: var(--bg);
+    background: radial-gradient(ellipse at 20% 0%, #1a1060 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, #0d1a50 0%, transparent 50%),
+                linear-gradient(160deg, #080c18 0%, #0d1225 50%, #080c18 100%);
+    background-attachment: fixed;
     color: var(--text);
     font-size: 13px;
     overflow: hidden;
@@ -756,13 +794,13 @@ if(typeof jsQR === 'undefined') {
   .sidebar {
     position: fixed; left: 0; top: 0; bottom: 0;
     width: 224px;
-    background: var(--gradient-sidebar);
-    border-right: 1px solid rgba(255,255,255,0.10);
+    background: linear-gradient(180deg, #080d1e 0%, #0c1228 50%, #091020 100%);
+    border-right: 1px solid rgba(255,255,255,0.06);
     display: flex; flex-direction: column;
     z-index: 100;
     padding: 0 0 20px 0;
     overflow-y: auto;
-    box-shadow: 6px 0 40px rgba(0,0,0,0.6), inset -1px 0 0 rgba(255,255,255,0.03);
+    box-shadow: 6px 0 40px rgba(0,0,0,0.7), inset -1px 0 0 rgba(255,255,255,0.04);
   }
   /* Sidebar accent glow at top */
   .sidebar::before {
@@ -970,11 +1008,11 @@ if(typeof jsQR === 'undefined') {
 
   .card {
     background: linear-gradient(145deg, var(--surface) 0%, rgba(14,14,22,0.95) 100%);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius);
+    background: linear-gradient(145deg, var(--surface) 0%, var(--surface2) 100%);
+    border: 1px solid var(--border);
     padding: 24px;
-    box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.04);
-    transition: box-shadow 0.25s, transform 0.25s;
+    padding: 24px;
+    box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.05);
   }
   .card:hover { box-shadow: var(--shadow-md); }
   .card-title {
@@ -1131,9 +1169,9 @@ if(typeof jsQR === 'undefined') {
   .chart-bars { display: flex; align-items: flex-end; gap: 8px; height: 140px; }
   .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
   .bar {
-    width: 100%; border-radius: 6px 6px 0 0;
-    background: linear-gradient(180deg, #f59e2a 0%, #e84520 100%);
-    box-shadow: 0 -4px 16px rgba(245,158,42,0.3);
+    width: 100%; border-radius: 8px 8px 2px 2px;
+    background: linear-gradient(180deg, #f5a623 0%, #e05a10 70%, #c43a00 100%);
+    box-shadow: 0 -6px 20px rgba(245,158,42,0.4), 0 0 30px rgba(245,100,10,0.2);
     transition: height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
     position: relative; cursor: pointer;
   }
@@ -3042,8 +3080,9 @@ if(typeof jsQR === 'undefined') {
   body {
     font-family: 'DM Sans', 'Plus Jakarta Sans', sans-serif;
     background: var(--bg);
-    background-image:
-      radial-gradient(ellipse at 8% 6%, rgba(245,158,42,0.04) 0%, transparent 40%),
+    background: var(--bg);
+    background-image: radial-gradient(ellipse at 15% 0%, rgba(245,158,42,0.07) 0%, transparent 45%),
+                      radial-gradient(ellipse at 85% 100%, rgba(155,124,244,0.06) 0%, transparent 45%);
       radial-gradient(ellipse at 92% 94%, rgba(155,124,244,0.04) 0%, transparent 40%),
       radial-gradient(ellipse at 50% 50%, rgba(0,229,200,0.02) 0%, transparent 60%);
     background-attachment: fixed;
@@ -3243,11 +3282,11 @@ if(typeof jsQR === 'undefined') {
   /* ── CARDS PREMIUM ── */
   .card {
     background: linear-gradient(145deg,
-      rgba(12,12,20,0.98) 0%,
-      rgba(10,10,18,0.95) 100%
-    );
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 18px;
+    background: linear-gradient(145deg, var(--surface) 0%, var(--surface2) 100%);
+
+
+
+    border: 1px solid var(--border);
     padding: 24px;
     box-shadow:
       0 2px 16px rgba(0,0,0,0.5),
@@ -4529,6 +4568,54 @@ if(typeof jsQR === 'undefined') {
   [data-theme="light"] .history-cashier { color: #4b5563 !important; }
   [data-theme="light"] .history-total { color: #c97f00 !important; }
 
+
+  /* ══ THÈME BLEU — overrides CSS ══ */
+  [data-theme="blue"] body { background: var(--bg); }
+  [data-theme="blue"] .sidebar {
+    background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%) !important;
+    box-shadow: 4px 0 20px rgba(30,58,138,0.3);
+  }
+  [data-theme="blue"] .logo-text {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+  }
+  [data-theme="blue"] .nav-item { color: rgba(255,255,255,0.7) !important; }
+  [data-theme="blue"] .nav-section { color: rgba(255,255,255,0.35) !important; }
+  [data-theme="blue"] .nav-item.active,
+  [data-theme="blue"] .nav-item:hover {
+    background: rgba(255,255,255,0.15) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255,255,255,0.25) !important;
+  }
+  [data-theme="blue"] .form-input:focus {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.15) !important;
+  }
+  [data-theme="blue"] .cat-btn.active,
+  [data-theme="blue"] .btn-primary {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    color: #fff !important;
+  }
+  [data-theme="blue"] .cat-btn:hover { border-color: #2563eb !important; color: #2563eb !important; }
+  [data-theme="blue"] .pos-item-price { color: #2563eb !important; }
+  [data-theme="blue"] .pos-item:hover { background: rgba(37,99,235,0.06) !important; border-color: #2563eb !important; }
+  [data-theme="blue"] thead th {
+    background: #1e40af !important;
+    color: #ffffff !important;
+    border-bottom: 2px solid #1e3a8a !important;
+  }
+  [data-theme="blue"] .login-left { background: linear-gradient(145deg,#1e3a8a,#1e40af) !important; }
+  [data-theme="blue"] .logo-sub { color: rgba(255,255,255,0.55) !important; }
+  [data-theme="blue"] .badge-done { background: rgba(37,99,235,0.15); color: #2563eb; }
+  [data-theme="blue"] .card {
+    border: 1px solid #c7d2fe;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.08);
+  }
+  [data-theme="blue"] .page-header h2 { color: #1e40af; }
+  [data-theme="blue"] select.form-input option { background: #ffffff; color: #0f172a; }
 </style>
 </head>
 <body>
@@ -4922,7 +5009,8 @@ function _syncSportVentes()       { return []; }
       <!-- SÉLECTEUR DE THÈME -->
       <div class="theme-toggle" title="Changer le thème">
         <button class="theme-btn active" id="tbtn-dark"  onclick="setTheme('dark')"  title="Thème sombre">🌙</button>
-        <button class="theme-btn"        id="tbtn-light" onclick="setTheme('light')" title="Thème clair">☀️</button>
+        <button class="theme-btn"        id="tbtn-light" onclick="setTheme('light')" title="Thème clair (doré)">☀️</button>
+        <button class="theme-btn"        id="tbtn-blue"  onclick="setTheme('blue')"  title="Thème bleu & blanc">🔵</button>
         <button class="theme-btn"        id="tbtn-auto"  onclick="setTheme('auto')"  title="Automatique (système)">⚙️</button>
       </div>
       <!-- INDICATEUR SYNC SUPABASE (caché) -->
@@ -5926,6 +6014,7 @@ function _syncSportVentes()       { return []; }
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;" onclick="setHistPeriod('all')">Tout afficher</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(0,201,177,0.15),rgba(0,201,177,0.05));border-color:rgba(0,201,177,0.4);color:var(--teal);" onclick="_forceSyncClotures()" id="hist-sync-btn">🔄 Actualiser</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(232,69,32,0.15),rgba(245,158,42,0.05));border-color:rgba(232,69,32,0.4);color:#e84520;" onclick="ouvrirModalReconstruire()">🔧 Reconstruire clôture</button>
+          <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(26,219,106,0.15),rgba(0,229,200,0.05));border-color:rgba(26,219,106,0.4);color:var(--green);" onclick="ouvrirModalClotureManu()">➕ Ajouter clôture manuelle</button>
         </div>
       </div>
       <!-- BARRE DE RECHERCHE CLÔTURES -->
@@ -11372,9 +11461,9 @@ async function confirmerOuverture() {
     // ✅ FIX v8 RECOUVREMENT : marquer kg-modules-active AVANT le push
     // pour que pullAll (déclenché par le push) ne vide pas les ventes via Règle 4
     try {
-      const _msOpen = JSON.parse(localStorage.getItem('kg-modules-active') || '{}');
+      const _msOpen = JSON.parse(_lsGet('kg-modules-active') || '{}');
       _msOpen[caisse] = true;
-      localStorage.setItem('kg-modules-active', JSON.stringify(_msOpen));
+      _lsSet('kg-modules-active', JSON.stringify(_msOpen));
     } catch(e) {}
 
     // Mise à jour barre session POS
@@ -11754,6 +11843,17 @@ async function validateOrder() {
 // ================================================================
 // PARAMÈTRES RESTAURANT — Nom, NINEA, Coordonnées
 // ================================================================
+// ✅ FIX ISOLATION MULTI-RESTAURANT : préfixer les clés localStorage avec le restaurant_id
+// Évite que deux restaurants sur le même navigateur partagent leurs paramètres
+function _lsKey(key) {
+  const rid = window._KG_RESTAURANT_ID || '';
+  return rid ? (key + ':' + rid) : key;
+}
+function _lsGet(key) { try { return localStorage.getItem(_lsKey(key)); } catch(e) { return null; } }
+function _lsSet(key, val) { try { localStorage.setItem(_lsKey(key), val); } catch(e) {} }
+function _lsRemove(key) { try { localStorage.removeItem(_lsKey(key)); } catch(e) {} }
+
+
 let RESTAURANT_INFO = {
   nom: 'Mon Restaurant',
   ninea: '',
@@ -11808,11 +11908,11 @@ function _iconHtml(icon, imageUrl, size) {
 function loadRestaurantSettings() {
   // ✅ FIX v15 LOGO : charger restaurant_info ET ticket_config depuis localStorage
   try {
-    const saved = JSON.parse(localStorage.getItem('kg-restaurant-info') || 'null');
+    const saved = JSON.parse(_lsGet('kg-restaurant-info') || 'null');
     if(saved) RESTAURANT_INFO = { ...RESTAURANT_INFO, ...saved };
   } catch(e) {}
   try {
-    const savedTkt = JSON.parse(localStorage.getItem('kg-ticket-config') || 'null');
+    const savedTkt = JSON.parse(_lsGet('kg-ticket-config') || 'null');
     if(savedTkt) TICKET_CONFIG = { ...TICKET_CONFIG, ...savedTkt };
     // Si le logo ticket existe mais pas loginLogo, utiliser le logo ticket comme logo sidebar
     if(TICKET_CONFIG.logo && !RESTAURANT_INFO.loginLogo) {
@@ -11888,7 +11988,7 @@ function uploadLoginLogo(input) {
   const reader = new FileReader();
   reader.onload = async e => {
     RESTAURANT_INFO.loginLogo = e.target.result;
-    try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e2) {}
+    try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e2) {}
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
       await KGSync.push.restaurantInfo().catch(()=>{});
     }
@@ -11900,7 +12000,7 @@ function uploadLoginLogo(input) {
 
 function removeLoginLogo() {
   RESTAURANT_INFO.loginLogo = null;
-  try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+  try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
     KGSync.push.restaurantInfo().catch(()=>{});
   }
@@ -11960,7 +12060,7 @@ async function saveRestaurantSettings() {
   RESTAURANT_INFO = { ...RESTAURANT_INFO, nom, ninea, tel, email, adresse, devise, wave_payment_url: waveUrl, orange_payment_url: orangeUrl };
 
   // Sauvegarder localement (double persistance localStorage + session)
-  try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+  try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
   if(typeof saveSession === 'function') saveSession();
 
   // Sync Supabase
@@ -12042,7 +12142,7 @@ async function uploadPhotoRestaurant(input, type) {
 
     // Sync kg_sync
     await KGSync.push.restaurantInfo().catch(()=>{});
-    try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+    try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
 
     if(statusEl) statusEl.innerHTML = `✅ Photo enregistrée !`;
     setTimeout(() => { if(statusEl) statusEl.innerHTML = ''; }, 3000);
@@ -12081,7 +12181,7 @@ async function applyCoverUrlInput(url, save=false) {
     const rid = window._KG_RESTAURANT_ID;
     if(sb && rid) await sb.from('restaurants').update({ cover_url: url }).eq('id', rid);
     await KGSync.push.restaurantInfo().catch(()=>{});
-    try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+    try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
     if(statusEl) statusEl.innerHTML = '✅ Couverture enregistrée !';
     setTimeout(() => { if(statusEl) statusEl.innerHTML = ''; }, 3000);
   } catch(e) { if(statusEl) statusEl.innerHTML = '❌ Erreur sauvegarde'; }
@@ -12105,7 +12205,7 @@ async function applyLogoUrlInput(url, save=false) {
     const rid = window._KG_RESTAURANT_ID;
     if(sb && rid) await sb.from('restaurants').update({ logo_url: url }).eq('id', rid);
     await KGSync.push.restaurantInfo().catch(()=>{});
-    try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+    try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
     if(statusEl) statusEl.innerHTML = '✅ Logo enregistré !';
     setTimeout(() => { if(statusEl) statusEl.innerHTML = ''; }, 3000);
   } catch(e) { if(statusEl) statusEl.innerHTML = '❌ Erreur sauvegarde'; }
@@ -13368,6 +13468,7 @@ function renderOrders(status) {
       <div class="order-price">${o.price.toLocaleString()} F</div>
       <div class="badge badge-done">🎉 Livré</div>
       <button class="ticket-btn" style="font-size:11px;padding:5px 10px;margin-left:6px;" onclick="reprintTicket('${o.id}')">🖨️ Ticket</button>
+      <button style="background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.4);border-radius:8px;font-size:11px;padding:5px 10px;margin-left:4px;cursor:pointer;" onclick="modifierPaiementTicket('${o.id}')" title="Modifier le mode de paiement">✏️ Paiement</button>
       ${(currentUser && currentUser.role === 'administrateur') ? '<button onclick="supprimerVenteAdmin(\'' + o.id + '\')" style="background:rgba(220,53,69,0.15);color:#dc3545;border:1px solid rgba(220,53,69,0.4);border-radius:8px;font-size:11px;padding:5px 10px;margin-left:4px;cursor:pointer;" title="Supprimer ce ticket (erreur)">🗑️</button>' : ''}
     </div>
   `).join('');
@@ -13385,6 +13486,147 @@ function reprintTicket(orderNum) {
   printTicket(vente, caisseName);
   showNotif(`🖨️ Ticket ${orderNum} réimprimé`);
 }
+
+// ===== MODIFIER MODE DE PAIEMENT TICKET =====
+async function modifierPaiementTicket(orderNum) {
+  // Retrouver la vente
+  let vente = null, caisseName = '';
+  for(const [c, ventes] of Object.entries(VENTES_PAR_CAISSE)) {
+    const found = ventes.find(v => v.orderNum === orderNum);
+    if(found) { vente = found; caisseName = c; break; }
+  }
+  if(!vente) { showNotif('⚠️ Ticket introuvable'); return; }
+
+  const payLabels = { especes:'💵 Espèces', wave:'🌊 Wave', orange:'🟠 Orange Money', carte:'💳 Carte', mixed:'🔀 Mixte' };
+  const currentPay = vente.payMethod || 'especes';
+  const heure = vente.time || '—';
+  const montant = (vente.total||0).toLocaleString();
+
+  const html = `
+  <div style="padding:20px;">
+    <h3 style="margin-bottom:16px;font-size:16px;">✏️ Modifier le paiement — ${orderNum}</h3>
+    <div style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;">
+      <div>🕐 Heure : <strong>${heure}</strong></div>
+      <div>💰 Montant : <strong>${montant} F</strong></div>
+      <div style="margin-top:6px;color:var(--text2);font-size:12px;">Articles vendus non modifiables</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:700;display:block;margin-bottom:8px;">Nouveau mode de paiement :</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        ${Object.entries(payLabels).map(([k,l]) => `
+          <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:2px solid ${k===currentPay?'var(--accent)':'var(--border)'};border-radius:8px;cursor:pointer;font-size:13px;background:${k===currentPay?'rgba(245,158,42,0.1)':'var(--surface2)'};" onclick="document.getElementById('pay-mixte-detail').style.display=this.querySelector('input').value==='mixed'?'block':'none'">
+            <input type="radio" name="new-pay" value="${k}" ${k===currentPay?'checked':''} style="accent-color:var(--accent);">
+            ${l}
+          </label>`).join('')}
+      </div>
+      <!-- Détail paiement mixte -->
+      <div id="pay-mixte-detail" style="display:${currentPay==='mixed'?'block':'none'};margin-top:12px;background:var(--surface2);border-radius:10px;padding:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">Répartition des paiements</div>
+        <div style="display:grid;gap:8px;">
+          ${[['especes','💵 Espèces'],['wave','🌊 Wave'],['orange','🟠 Orange Money'],['carte','💳 Carte']].map(([k,l]) => `
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:13px;min-width:130px;">${l}</span>
+            <input type="number" id="mix-${k}" placeholder="0" min="0" step="100"
+              style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;text-align:right;"
+              oninput="updateMixTotal(${vente.total||0})">
+            <span style="font-size:12px;color:var(--text2);">F</span>
+          </div>`).join('')}
+        </div>
+        <div id="mix-restant" style="margin-top:10px;font-size:13px;font-weight:700;color:var(--accent);text-align:right;">Restant : ${(vente.total||0).toLocaleString()} F</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="confirmerModifPaiement('${orderNum}','${caisseName}')" class="btn btn-primary" style="flex:1;">✅ Confirmer</button>
+      <button onclick="document.getElementById('modal-modif-pay').style.display='none'" class="btn btn-ghost" style="flex:1;">Annuler</button>
+    </div>
+  </div>`;
+
+  // Afficher dans un modal
+  let modal = document.getElementById('modal-modif-pay');
+  if(!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-modif-pay';
+    modal.className = 'modal-overlay';
+    modal.style.display = 'none';
+    modal.onclick = (e) => { if(e.target === modal) modal.style.display = 'none'; };
+    modal.innerHTML = '<div class="modal-box" style="max-width:420px;">' + html + '</div>';
+    document.body.appendChild(modal);
+  } else {
+    modal.querySelector('.modal-box').innerHTML = html;
+  }
+  modal.style.display = 'flex';
+}
+
+function updateMixTotal(totalTicket) {
+  const esp = parseFloat(document.getElementById('mix-especes')?.value||0);
+  const wav = parseFloat(document.getElementById('mix-wave')?.value||0);
+  const ora = parseFloat(document.getElementById('mix-orange')?.value||0);
+  const car = parseFloat(document.getElementById('mix-carte')?.value||0);
+  const restant = totalTicket - (esp+wav+ora+car);
+  const el = document.getElementById('mix-restant');
+  if(el) {
+    el.textContent = restant===0?'✅ Montant complet':`Restant : ${restant.toLocaleString()} F`;
+    el.style.color = restant===0?'var(--green)':restant<0?'var(--red)':'var(--accent)';
+  }
+}
+
+async function confirmerModifPaiement(orderNum, caisseName) {
+  const sel = document.querySelector('input[name="new-pay"]:checked');
+  if(!sel) { showNotif('⚠️ Sélectionnez un mode de paiement'); return; }
+  const newPay = sel.value;
+  const payLabels = { especes:'💵 Espèces', wave:'🌊 Wave', orange:'🟠 Orange Money', carte:'💳 Carte', mixed:'🔀 Mixte' };
+
+  let mixDetail = null;
+  if(newPay === 'mixed') {
+    const esp = parseFloat(document.getElementById('mix-especes')?.value||0);
+    const wav = parseFloat(document.getElementById('mix-wave')?.value||0);
+    const ora = parseFloat(document.getElementById('mix-orange')?.value||0);
+    const car = parseFloat(document.getElementById('mix-carte')?.value||0);
+    const ventes2 = VENTES_PAR_CAISSE[caisseName] || [];
+    const vente2 = ventes2.find(v => v.orderNum === orderNum);
+    if(Math.round(esp+wav+ora+car) !== Math.round(vente2?.total||0)) {
+      showNotif(`⚠️ Total mixte ≠ montant ticket (${(vente2?.total||0).toLocaleString()} F)`);
+      return;
+    }
+    mixDetail = { especes:esp, wave:wav, orange:ora, carte:car };
+  }
+
+  const ventes = VENTES_PAR_CAISSE[caisseName] || [];
+  const vente = ventes.find(v => v.orderNum === orderNum);
+  if(!vente) { showNotif('⚠️ Ticket introuvable'); return; }
+
+  const oldPay = vente.payMethod;
+  vente.payMethod = newPay;
+  vente.payLabel = payLabels[newPay] || newPay;
+  if(mixDetail) {
+    vente.mixEspeces = mixDetail.especes;
+    vente.mixWave    = mixDetail.wave;
+    vente.mixOrange  = mixDetail.orange;
+    vente.mixCarte   = mixDetail.carte;
+    const parts = [];
+    if(mixDetail.especes) parts.push(`💵${mixDetail.especes.toLocaleString()}`);
+    if(mixDetail.wave) parts.push(`🌊${mixDetail.wave.toLocaleString()}`);
+    if(mixDetail.orange) parts.push(`🟠${mixDetail.orange.toLocaleString()}`);
+    if(mixDetail.carte) parts.push(`💳${mixDetail.carte.toLocaleString()}`);
+    vente.payLabel = '🔀 ' + parts.join(' + ');
+  }
+
+  try {
+    const sb = KGSync.getClient();
+    if(sb) {
+      const upd = { pay_method: newPay, pay_label: vente.payLabel };
+      if(mixDetail) { upd.mix_especes=mixDetail.especes; upd.mix_wave=mixDetail.wave; upd.mix_orange=mixDetail.orange; upd.mix_carte=mixDetail.carte; }
+      await sb.from('ventes_caisse').update(upd).eq('order_num', orderNum).eq('restaurant_id', window._KG_RESTAURANT_ID);
+    }
+  } catch(e) { console.warn('Sync paiement:', e); }
+
+  document.getElementById('modal-modif-pay').style.display = 'none';
+  saveSession();
+  KGSync.push.caisses().catch(()=>{});
+  renderOrders();
+  showNotif(`✅ Paiement ${orderNum} → ${vente.payLabel}`);
+}
+// ============================================
 
 // ===== SUPPRESSION TICKET ADMIN =====
 async function supprimerVenteAdmin(orderNum) {
@@ -16142,7 +16384,18 @@ function renderStats() {
 
   // Répartition paiements
   const payTotals = { cash:0, wave:0, orange:0, card:0 };
-  allVentes.forEach(v => { if(payTotals[v.payMethod] !== undefined) payTotals[v.payMethod] += v.total; });
+  allVentes.forEach(v => {
+    const pm = v.payMethod === 'especes' ? 'cash' : v.payMethod === 'carte' ? 'card' : v.payMethod;
+    if(payTotals[pm] !== undefined) payTotals[pm] += v.total;
+    // Pour paiements mixtes — gérer les deux formats (payMethods.cash et mixEspeces)
+    if(pm === 'mixed') {
+      const _pm = v.payMethods || {};
+      payTotals['cash']   += (v.mixEspeces || _pm.cash   || 0);
+      payTotals['wave']   += (v.mixWave    || _pm.wave   || 0);
+      payTotals['orange'] += (v.mixOrange  || _pm.orange || 0);
+      payTotals['card']   += (v.mixCarte   || _pm.card   || 0);
+    }
+  });
   const payLabels = { cash:'💵 Espèces', wave:'Wave', orange:'Orange Money', card:'💳 Carte bancaire' };
   const payColors = { cash:'var(--accent)', wave:'var(--teal)', orange:'#FF6200', card:'var(--purple)' };
   const payEl = document.getElementById('st-pays');
@@ -16276,7 +16529,7 @@ function renderRapportX() {
   // ✅ FIX v31 RAPPORT X : restaurer les états modules depuis localStorage AVANT resync
   // Sans ça, sur un 2ème navigateur, PISCINE_CAISSE.active = false → _syncPiscineVentes() retourne immédiatement → Caisse 5 invisible
   try {
-    const _km = JSON.parse(localStorage.getItem('kg-modules-active') || '{}');
+    const _km = JSON.parse(_lsGet('kg-modules-active') || '{}');
     if(_km['Caisse 4'] && typeof TERRAIN_CAISSE !== 'undefined' && !TERRAIN_CAISSE.active) {
       TERRAIN_CAISSE.active = true;
       try { const s = JSON.parse(localStorage.getItem('kg_terrain_caisse_state') || 'null'); if(s && Array.isArray(s.transactions)) TERRAIN_CAISSE.transactions = s.transactions; } catch(e) {}
@@ -16380,10 +16633,11 @@ function renderRapportX() {
         const ventes = _rxVentesParCaisse[name] || [];
         const ca = ventes.reduce((a,v)=>a+v.total,0);
         // ✅ FIX : inclure les paiements mixtes (payMethods.cash / .wave / .orange)
-        const esp = ventes.reduce((a,v)=>{ if(v.payMethod==='cash') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.cash||0); return a; },0);
-        const wav = ventes.reduce((a,v)=>{ if(v.payMethod==='wave') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.wave||0); return a; },0);
-        const ora = ventes.reduce((a,v)=>{ if(v.payMethod==='orange') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.orange||0); return a; },0);
-        const car = ventes.reduce((a,v)=>{ if(v.payMethod==='card') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.card||0); return a; },0);
+        const _pm2e = v => v.payMethods||{};
+        const esp = ventes.reduce((a,v)=>{ const pm=v.payMethod==='especes'?'cash':v.payMethod; if(pm==='cash') return a+v.total; if(pm==='mixed') return a+(v.mixEspeces||_pm2e(v).cash||0); return a; },0);
+        const wav = ventes.reduce((a,v)=>{ if(v.payMethod==='wave') return a+v.total; if(v.payMethod==='mixed') return a+(v.mixWave||_pm2e(v).wave||0); return a; },0);
+        const ora = ventes.reduce((a,v)=>{ if(v.payMethod==='orange') return a+v.total; if(v.payMethod==='mixed') return a+(v.mixOrange||_pm2e(v).orange||0); return a; },0);
+        const car = ventes.reduce((a,v)=>{ const pm=v.payMethod==='carte'?'card':v.payMethod; if(pm==='card') return a+v.total; if(pm==='mixed') return a+(v.mixCarte||_pm2e(v).card||0); return a; },0);
         const col = colors[idx % colors.length];
         const c = CAISSES.find(x=>x.name===name);
         // ✅ FIX : filtrer dépenses par session en cours (après dernière clôture)
@@ -16519,14 +16773,15 @@ function printRapportXCaisse(name) {
   // Top produits pour cette caisse
   const prodMap = {};
   ventes.forEach(v => (v.items||[]).forEach(i => {
-    if(!prodMap[i.name]) prodMap[i.name] = { icon:i.icon||'', image_url:i.image_url||(i.icon&&i.icon.startsWith('http')?i.icon:null), name:i.name, qty:0, ca:0 };
+    if(!prodMap[i.name]) prodMap[i.name] = { icon:i.icon||'🍽️', image_url:i.image_url||(i.icon&&(i.icon.startsWith('http')||i.icon.startsWith('data:'))?i.icon:null), name:i.name, qty:0, ca:0 };
     prodMap[i.name].qty += i.qty;
     prodMap[i.name].ca  += (i.price||0)*(i.qty||0);
   }));
   const topRows = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).map((p,i)=>{
-    const imgHtml = (p.image_url||(p.icon&&p.icon.startsWith('http')))
-      ? `<img src="${p.image_url||p.icon}" style="width:16px;height:16px;object-fit:cover;border-radius:2px;vertical-align:middle;margin-right:4px;" onerror="this.style.display='none'">`
-      : `<span>${p.icon||'🍽️'}</span>`;
+    const _src = p.image_url || (p.icon&&(p.icon.startsWith('http')||p.icon.startsWith('data:'))?p.icon:null);
+    const imgHtml = _src
+      ? `<img src="${_src}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;" onerror="this.outerHTML='<span style=\'font-size:20px;vertical-align:middle;\'>${p.icon||'🍽️'}</span>'">` 
+      : `<span style="font-size:20px;vertical-align:middle;margin-right:6px;">${p.icon||'🍽️'}</span>`;
     return `<tr><td>#${i+1}</td><td>${imgHtml} ${p.name}</td><td style="text-align:right;font-weight:700">${p.qty}</td><td style="text-align:right"><span style="display:inline-block;background:#fff3cd;border:2px solid #c07a00;border-radius:5px;padding:2px 8px;font-weight:900;font-size:12pt;color:#7a4f00;white-space:nowrap">${p.ca.toLocaleString()} F</span></td></tr>`;
   }).join('') || '<tr><td colspan="4" style="text-align:center;color:#888">Aucune vente</td></tr>';
 
@@ -16715,9 +16970,10 @@ function printRapportX() {
   }));
   const topRows = Object.values(prodMap).sort((a,b)=>b.qty-a.qty)
     .map((p,i) => {
-      const imgHtml = (p.image_url || (p.icon&&p.icon.startsWith('http')))
-        ? `<img src="${p.image_url||p.icon}" style="width:18px;height:18px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:4px;" onerror="this.style.display='none'">`
-        : `<span>${p.icon||'🍽️'}</span>`;
+      const _src2 = p.image_url || (p.icon&&(p.icon.startsWith('http')||p.icon.startsWith('data:'))?p.icon:null);
+      const imgHtml = _src2
+        ? `<img src="${_src2}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;" onerror="this.outerHTML='<span style=\'font-size:18px;\' >${p.icon||'🍽️'}</span>'">` 
+        : `<span style="font-size:20px;vertical-align:middle;margin-right:6px;">${p.icon||'🍽️'}</span>`;
       return `<tr><td>#${i+1}</td><td>${imgHtml} ${p.name}</td>
         <td style="text-align:right;font-weight:700;font-size:12pt">${p.qty}</td>
         <td style="text-align:right"><span style="display:inline-block;background:#fff3cd;border:2px solid #c07a00;border-radius:5px;padding:3px 8px;font-weight:900;font-size:12pt;color:#7a4f00;white-space:nowrap">${p.ca.toLocaleString()} F</span></td></tr>`;
@@ -17554,7 +17810,7 @@ async function doLogin() {
       if(resto.ticket_config && typeof resto.ticket_config === 'object') {
         RESTAURANT_INFO.ticketConfig = resto.ticket_config;
         if(typeof TICKET_CONFIG !== 'undefined') Object.assign(TICKET_CONFIG, resto.ticket_config);
-        try { localStorage.setItem('kg-ticket-config', JSON.stringify(TICKET_CONFIG)); } catch(e) {}
+        try { _lsSet('kg-ticket-config', JSON.stringify(TICKET_CONFIG)); } catch(e) {}
       }
       // ✅ Vérifier abonnement — BLOQUER si expiré
       if(resto.abonnement_fin) {
@@ -18073,12 +18329,24 @@ async function doLogout() {
   _saveJournal();
   try { const sb = KGSync.getClient(); if(sb) await sb.auth.signOut(); } catch(e) {}
   // ✅ FIX F5 : supprimer le profil mis en cache au logout
-  try { localStorage.removeItem('kg-current-user'); } catch(e) {}
+  try { _lsRemove('kg-current-user'); } catch(e) {}
   clearSession();
   currentUser = null;
   sessionCaisseActive = null;
   cart = [];
-  // ✅ FIX ISOLATION : réinitialiser les données en mémoire RAM au logout
+  // ✅ FIX FIABILITE CLOTURES : Relancer les clôtures en attente de sync
+  setTimeout(async () => {
+    try {
+      const _pending = _lsGet('kg-cloture-pending');
+      if(_pending && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+        console.log('[KG] 🔄 Clôture en attente détectée — tentative de sync...');
+        await KGSync.push.clotures();
+        await KGSync.push.ventes();
+        _lsRemove('kg-cloture-pending');
+        console.log('[KG] ✅ Clôture en attente synchronisée avec succès');
+      }
+    } catch(e) { console.warn('[KG] Recovery clôture pending:', e); }
+  }, 5000);
   // Le wrapper localStorage garde les données séparées par restaurant sur disque
   // Mais la RAM doit aussi être vidée pour ne pas polluer la connexion suivante
   HISTORIQUE_CLOTURES = [];
@@ -18690,7 +18958,7 @@ function refreshDashboard() {
     { id:8, obj: typeof SPORT_CAISSE  !=='undefined'?SPORT_CAISSE  :null, lsKey:'kg_sport_caisse_state',   kmKey:'Caisse 8' },
   ];
   try {
-    const _km = JSON.parse(localStorage.getItem('kg-modules-active')||'{}');
+    const _km = JSON.parse(_lsGet('kg-modules-active')||'{}');
     _moduleSyncMap.forEach(m => {
       if(!m.obj) return;
       const _c = CAISSES.find(c=>c.id===m.id); if(!_c) return;
@@ -19361,7 +19629,7 @@ function renderCaisses() {
     // consulter kg-modules-active (localStorage) ET VENTES_PAR_CAISSE pour refléter
     // l'état réel pushé par un autre navigateur via Supabase.
     let _kgModulesActive = {};
-    try { _kgModulesActive = JSON.parse(localStorage.getItem('kg-modules-active') || '{}'); } catch(e) {}
+    try { _kgModulesActive = JSON.parse(_lsGet('kg-modules-active') || '{}'); } catch(e) {}
 
 
   });
@@ -19878,7 +20146,7 @@ function initFermetureSelect() {
 
   // ✅ FIX v32 FERMETURE Z : synchroniser TOUS les modules AVANT affichage
   // Sans ça, Caisses 5 et 7 ont dot gris → on ne peut pas les clôturer
-  const _kma = (() => { try { return JSON.parse(localStorage.getItem('kg-modules-active')||'{}'); } catch(e) { return {}; } })();
+  const _kma = (() => { try { return JSON.parse(_lsGet('kg-modules-active')||'{}'); } catch(e) { return {}; } })();
   const _modFZ = [
     { id:4, obj:typeof TERRAIN_CAISSE!=='undefined'?TERRAIN_CAISSE:null, lsKey:'kg_terrain_caisse_state', kmKey:'Caisse 4' },
     { id:5, obj:typeof PISCINE_CAISSE!=='undefined'?PISCINE_CAISSE:null, lsKey:'kg_pisc_caisse_state',    kmKey:'Caisse 5' },
@@ -20343,28 +20611,28 @@ async function cloturerCaisse() {
 
     if(caisse === 'Caisse 4' && typeof TERRAIN_RESERVATIONS !== 'undefined') {
       TERRAIN_RESERVATIONS.forEach(r => { if((r.date||'').slice(0,10) === _todayReset) r.cloturee = true; });
-      if(typeof TERRAIN_CAISSE !== 'undefined') { TERRAIN_CAISSE.active = false; TERRAIN_CAISSE.transactions = []; _saveTerrainCaisseState(); try { const _ms = JSON.parse(localStorage.getItem('kg-modules-active') || '{}'); delete _ms['Caisse 4']; localStorage.setItem('kg-modules-active', JSON.stringify(_ms)); } catch(e) {} }
+      if(typeof TERRAIN_CAISSE !== 'undefined') { TERRAIN_CAISSE.active = false; TERRAIN_CAISSE.transactions = []; _saveTerrainCaisseState(); try { const _ms = JSON.parse(_lsGet('kg-modules-active') || '{}'); delete _ms['Caisse 4']; _lsSet('kg-modules-active', JSON.stringify(_ms)); } catch(e) {} }
       try { localStorage.setItem('kg-terrain-reservations', JSON.stringify(TERRAIN_RESERVATIONS)); } catch(e) {}
       if(typeof refreshTerrainStats === 'function') refreshTerrainStats();
     }
 
     if(caisse === 'Caisse 5' && typeof PISCINE_ENTREES !== 'undefined') {
       PISCINE_ENTREES.forEach(e => { if((e.date||'').slice(0,10) === _todayReset) e.cloturee = true; });
-      if(typeof PISCINE_CAISSE !== 'undefined') { PISCINE_CAISSE.active = false; PISCINE_CAISSE.transactions = []; try { const _ms = JSON.parse(localStorage.getItem('kg-modules-active') || '{}'); delete _ms['Caisse 5']; localStorage.setItem('kg-modules-active', JSON.stringify(_ms)); } catch(e) {} }
+      if(typeof PISCINE_CAISSE !== 'undefined') { PISCINE_CAISSE.active = false; PISCINE_CAISSE.transactions = []; try { const _ms = JSON.parse(_lsGet('kg-modules-active') || '{}'); delete _ms['Caisse 5']; _lsSet('kg-modules-active', JSON.stringify(_ms)); } catch(e) {} }
       try { localStorage.setItem('kg-piscine-entrees', JSON.stringify(PISCINE_ENTREES)); } catch(e) {}
       if(typeof refreshPiscineStats === 'function') refreshPiscineStats();
     }
 
     if(caisse === 'Caisse 6' && typeof LOC_RESERVATIONS !== 'undefined') {
       LOC_RESERVATIONS.forEach(r => { if((r.dateEvent||'').slice(0,10) === _todayReset) r.cloturee = true; });
-      if(typeof LOC_CAISSE !== 'undefined') { LOC_CAISSE.active = false; LOC_CAISSE.transactions = []; try { const _ms = JSON.parse(localStorage.getItem('kg-modules-active') || '{}'); delete _ms['Caisse 6']; localStorage.setItem('kg-modules-active', JSON.stringify(_ms)); } catch(e) {} }
+      if(typeof LOC_CAISSE !== 'undefined') { LOC_CAISSE.active = false; LOC_CAISSE.transactions = []; try { const _ms = JSON.parse(_lsGet('kg-modules-active') || '{}'); delete _ms['Caisse 6']; _lsSet('kg-modules-active', JSON.stringify(_ms)); } catch(e) {} }
       try { localStorage.setItem('kg_loc_reservations', JSON.stringify(LOC_RESERVATIONS)); } catch(e) {}
       if(typeof refreshLocStats === 'function') refreshLocStats();
     }
 
     if(caisse === 'Caisse 7' && typeof MANEGE_ENTREES !== 'undefined') {
       MANEGE_ENTREES.forEach(e => { if((e.date||'').slice(0,10) === _todayReset) e.cloturee = true; });
-      if(typeof MANEGE_CAISSE !== 'undefined') { MANEGE_CAISSE.active = false; MANEGE_CAISSE.transactions = []; try { const _ms = JSON.parse(localStorage.getItem('kg-modules-active') || '{}'); delete _ms['Caisse 7']; localStorage.setItem('kg-modules-active', JSON.stringify(_ms)); } catch(e) {} }
+      if(typeof MANEGE_CAISSE !== 'undefined') { MANEGE_CAISSE.active = false; MANEGE_CAISSE.transactions = []; try { const _ms = JSON.parse(_lsGet('kg-modules-active') || '{}'); delete _ms['Caisse 7']; _lsSet('kg-modules-active', JSON.stringify(_ms)); } catch(e) {} }
       if(typeof saveManegeEntrees === 'function') saveManegeEntrees();
       else { try { localStorage.setItem('kg-manege-entrees', JSON.stringify(MANEGE_ENTREES)); } catch(e) {} }
       if(typeof refreshManegeStats === 'function') refreshManegeStats();
@@ -20384,7 +20652,7 @@ async function cloturerCaisse() {
         SPORT_CAISSE.transactions = [];
         SPORT_CAISSE.ouvertureAt = null;
         _saveSportCaisseState(); // ✅ FIX v19 : persister fermeture forcée
-        try { const _ms = JSON.parse(localStorage.getItem('kg-modules-active') || '{}'); delete _ms['Caisse 8']; localStorage.setItem('kg-modules-active', JSON.stringify(_ms)); } catch(e) {}
+        try { const _ms = JSON.parse(_lsGet('kg-modules-active') || '{}'); delete _ms['Caisse 8']; _lsSet('kg-modules-active', JSON.stringify(_ms)); } catch(e) {}
       }
       // Remettre VENTES_PAR_CAISSE à zéro
       VENTES_PAR_CAISSE['Caisse 8'] = [];
@@ -20404,25 +20672,38 @@ async function cloturerCaisse() {
       if(btnMain) { btnMain.textContent = '🔓 Ouvrir Caisse 8'; btnMain.disabled = false; btnMain.style.opacity = '1'; }
     }
 
-    // Push Supabase v35 — système clé/valeur simple comme le v11
+    // Push Supabase — avec retry multi-niveau pour fiabilité
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
       try {
-        // ✅ FIX v8 : Wrapper avec timeout 8s pour éviter le blocage infini si Supabase est lent
         const _withTimeout = (p, ms) => Promise.race([p, new Promise((_,r) => setTimeout(() => r(new Error('timeout')), ms))]);
-        // ✅ FIX v8 CRITIQUE : Vider ventes_caisse dans Supabase AVANT les autres push
-        // Sans ça, le setTimeout de pullAll restaure les ventes depuis ventes_caisse
         await _withTimeout(_clearVentesCaisseSupabase(caisse), 6000);
-        // Push clôtures, ventes vides, caisses — dans cet ordre
         await _withTimeout(KGSync.push.clotures(), 8000);
-        await _withTimeout(KGSync.push.ventes(), 8000);   // push VENTES_PAR_CAISSE[caisse]=[] → Supabase stocke []
-        await _withTimeout(KGSync.push.caisses(), 8000);  // push statut closed
-        console.log('✅ Clôture v8 sauvegardée (clé/valeur)');
+        await _withTimeout(KGSync.push.ventes(), 8000);
+        await _withTimeout(KGSync.push.caisses(), 8000);
+        console.log('✅ Clôture sauvegardée Supabase');
+        try { _lsRemove('kg-cloture-pending'); } catch(e) {}
       } catch(ePush) {
-        console.warn('push clôture v35 erreur:', ePush);
+        console.warn('push clôture erreur:', ePush);
+        // ✅ FIX FIABILITE : Sauvegarder en pending pour retry automatique
+        try { _lsSet('kg-cloture-pending', JSON.stringify({ caisse, ts: Date.now() })); } catch(e) {}
+        // Retry 1 : 3s
         setTimeout(async () => {
-          try { await KGSync.push.clotures(); await KGSync.push.ventes(); } catch(e3) {}
+          try { await KGSync.push.clotures(); await KGSync.push.ventes(); _lsRemove('kg-cloture-pending'); console.log('✅ Clôture retry 1 ok'); }
+          catch(e3) {
+            // Retry 2 : 15s
+            setTimeout(async () => {
+              try { await KGSync.push.clotures(); _lsRemove('kg-cloture-pending'); console.log('✅ Clôture retry 2 ok'); }
+              catch(e4) {
+                // Retry 3 : 60s
+                setTimeout(async () => { try { await KGSync.push.clotures(); _lsRemove('kg-cloture-pending'); } catch(e5) {} }, 60000);
+              }
+            }, 15000);
+          }
         }, 3000);
       }
+    } else {
+      // Hors connexion — marquer en pending
+      try { _lsSet('kg-cloture-pending', JSON.stringify({ caisse, ts: Date.now() })); } catch(e) {}
     }
     // ✅ FIX : Désactiver le verrou après 10 secondes (laisser le temps à Supabase de se stabiliser)
     _CLOTURE_EN_COURS = false;
@@ -20443,7 +20724,14 @@ async function cloturerCaisse() {
       const prodMap  = {};
       ventes.forEach(function(v) {
         (v.items || []).forEach(function(i) {
-          if(!prodMap[i.name]) prodMap[i.name] = {icon: i.icon||'', name: i.name, qty:0, total:0};
+          if(!prodMap[i.name]) {
+            // Chercher l'image dans MENU_ITEMS ou STOCK_DATA
+            const _mi = (typeof MENU_ITEMS !== 'undefined' ? MENU_ITEMS : []).find(m => m.name === i.name || m.nom === i.name);
+            const _si = (typeof STOCK_DATA !== 'undefined' ? STOCK_DATA : []).find(s => s.name === i.name || s.nom === i.name);
+            const _img = i.image_url || (_mi && (_mi.image_url||_mi.image)) || (_si && (_si.image_url||_si.image)) || null;
+            const _iconEmoji = i.icon || (_mi && _mi.icon) || (_si && _si.icon) || '🍽️';
+            prodMap[i.name] = { icon: _iconEmoji, image_url: _img, name: i.name, qty:0, total:0 };
+          }
           prodMap[i.name].qty   += i.qty   || 0;
           prodMap[i.name].total += (i.price || 0) * (i.qty || 0);
         });
@@ -20465,7 +20753,11 @@ async function cloturerCaisse() {
       }).join('');
 
       const lignesTop = topProds.map(function(p){
-        return '<tr><td>'+p.icon+' '+p.name+'</td><td style="text-align:right;font-weight:700">'+p.qty+'</td><td style="text-align:right"><span class="amt">'+p.total.toLocaleString()+' F</span></td></tr>';
+        var _src = p.image_url && (p.image_url.startsWith('http') || p.image_url.startsWith('data:')) ? p.image_url : null;
+        var _imgHtml = _src
+          ? '<img src="'+_src+'" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;">'
+          : '<span style="font-size:20px;vertical-align:middle;margin-right:6px;">'+(p.icon||'🍽️')+'</span>';
+        return '<tr><td>'+_imgHtml+p.name+'</td><td style="text-align:right;font-weight:700">'+p.qty+'</td><td style="text-align:right"><span class="amt">'+p.total.toLocaleString()+' F</span></td></tr>';
       }).join('');
 
       const nomResto = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.nom) ? RESTAURANT_INFO.nom : 'KEURGOUMAK';
@@ -20583,7 +20875,7 @@ try {
   const _rid0 = window._KG_RESTAURANT_ID;
   // Essayer d'abord la clé prefixée restaurant (plus précise)
   const _clKey = _rid0 ? ('kg-historique-clotures-' + _rid0) : 'kg-historique-clotures';
-  const _stored = localStorage.getItem(_clKey) || localStorage.getItem('kg-historique-clotures');
+  const _stored = localStorage.getItem(_clKey) || _lsGet('kg-historique-clotures');
   if(_stored) {
     const _parsed = JSON.parse(_stored);
     if(Array.isArray(_parsed) && _parsed.length > 0) HISTORIQUE_CLOTURES = _parsed;
@@ -21106,37 +21398,21 @@ function showNotif(msg) {
   setTimeout(() => n.classList.remove('show'), 2800);
 }
 
-// ===== GESTION DU THÈME (Sombre / Clair / Auto) =====
+
+// ===== GESTION DU THÈME (Sombre / Clair / Bleu / Auto) =====
 function setTheme(theme) {
   const root = document.documentElement;
-  // Appliquer le thème
-  if(theme === 'light') {
-    root.setAttribute('data-theme', 'light');
-  } else if(theme === 'dark') {
-    root.removeAttribute('data-theme');
-  } else {
-    // Auto : suit le système
+  if(theme === 'light') root.setAttribute('data-theme', 'light');
+  else if(theme === 'blue') root.setAttribute('data-theme', 'blue');
+  else if(theme === 'dark') root.removeAttribute('data-theme');
+  else {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     if(prefersDark) root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', 'light');
   }
-  // Sauvegarder la préférence
   localStorage.setItem('kg-theme', theme);
-  // ✅ FIX BUG THÈME : sauvegarder aussi sans préfixe pour que le chargement initial le trouve
-  // (au chargement, _KG_RESTAURANT_ID n'est pas encore défini → le wrapper ne préfixe pas)
-  try {
-    const _realSet = Storage.prototype._kgRealSet || localStorage.setItem.bind(localStorage);
-    // Écrire directement la clé brute sans passer par le wrapper qui préfixerait
-    const _rid = window._KG_RESTAURANT_ID;
-    if(_rid) {
-      // Forcer l'écriture de la clé brute en contournant le wrapper localStorage
-      Object.getPrototypeOf(localStorage).__kgOrigSet
-        ? Object.getPrototypeOf(localStorage).__kgOrigSet.call(localStorage, 'kg-theme', theme)
-        : null;
-    }
-  } catch(e) {}
-  // Mettre à jour les boutons actifs
-  ['dark','light','auto'].forEach(t => {
+  try { Object.getPrototypeOf(localStorage).__kgOrigSet?.call(localStorage, 'kg-theme', theme); } catch(e) {}
+  ['dark','light','blue','auto'].forEach(t => {
     const btn = document.getElementById('tbtn-' + t);
     if(btn) btn.classList.toggle('active', t === theme);
   });
@@ -21146,16 +21422,14 @@ function initTheme() {
   let saved = 'dark';
   try {
     saved = localStorage.getItem('kg-theme') || 'dark';
-    // ✅ FIX BUG THÈME : chercher aussi la clé préfixée rid_ (sauvée après login)
     for(let i = 0; i < localStorage.length; i++) {
       const _k = localStorage.key(i);
       if(_k && _k.startsWith('rid_') && _k.endsWith(':kg-theme')) {
         const _tv = localStorage.getItem(_k);
-        if(_tv === 'light' || _tv === 'dark' || _tv === 'auto') { saved = _tv; break; }
+        if(['light','dark','blue','auto'].includes(_tv)) { saved = _tv; break; }
       }
     }
   } catch(e) { saved = 'dark'; }
-  // Sur fichier local (content://), forcer dark
   if(window.location.protocol === 'content:') saved = 'dark';
   setTheme(saved);
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -21315,7 +21589,7 @@ function restoreSession() {
     // AVANT la logique de filtrage des ventes qui se base sur MODULE_CAISSE.active
     // Sans ça, après F5, tous les modules sont inactive → leurs ventes sont vidées
     try {
-      const _msActive = JSON.parse(localStorage.getItem('kg-modules-active') || '{}');
+      const _msActive = JSON.parse(_lsGet('kg-modules-active') || '{}');
       if(_msActive['Caisse 4'] && typeof TERRAIN_CAISSE !== 'undefined') {
         TERRAIN_CAISSE.active = true;
         // ✅ FIX v20 : recharger transactions Terrain depuis localStorage (comme Caisse 8)
@@ -21505,7 +21779,7 @@ TICKETS_ARCHIVES = [];
     if(data.USERS && data.USERS.length) USERS = data.USERS;
     if(data.RESTAURANT_INFO) {
       RESTAURANT_INFO = { ...RESTAURANT_INFO, ...data.RESTAURANT_INFO };
-      try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+      try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
     }
     if(data.FOURNISSEURS && data.FOURNISSEURS.length) FOURNISSEURS = data.FOURNISSEURS;
     if(data.COMMANDES_FOURNISSEURS && data.COMMANDES_FOURNISSEURS.length) COMMANDES_FOURNISSEURS = data.COMMANDES_FOURNISSEURS;
@@ -22376,9 +22650,9 @@ const KGSync = (() => {
               VENTES_PAR_CAISSE[caisse] = [];
               // Nettoyer kg-modules-active
               try {
-                const _km = JSON.parse(localStorage.getItem('kg-modules-active') || '{}');
+                const _km = JSON.parse(_lsGet('kg-modules-active') || '{}');
                 delete _km[caisse];
-                localStorage.setItem('kg-modules-active', JSON.stringify(_km));
+                _lsSet('kg-modules-active', JSON.stringify(_km));
               } catch(e) {}
               // Marquer la clôture locale pour bloquer toute restauration parasite
               try {
@@ -22402,8 +22676,8 @@ const KGSync = (() => {
 
             // Juste propager kg-modules-active si absent
             try {
-              const _km = JSON.parse(localStorage.getItem('kg-modules-active') || '{}');
-              if(!_km[caisse]) { _km[caisse] = true; localStorage.setItem('kg-modules-active', JSON.stringify(_km)); }
+              const _km = JSON.parse(_lsGet('kg-modules-active') || '{}');
+              if(!_km[caisse]) { _km[caisse] = true; _lsSet('kg-modules-active', JSON.stringify(_km)); }
             } catch(e) {}
             // Ne PAS écraser les ventes locales — mais accepter les ventes distantes nouvelles
             const _locales = (VENTES_PAR_CAISSE[caisse] || []).slice();
@@ -22426,7 +22700,7 @@ const KGSync = (() => {
           const _moduleActifDistant = data.moduleActive === true;
           let _moduleActifLocalStorage = false;
           try {
-            const _kgModules = JSON.parse(localStorage.getItem('kg-modules-active') || '{}');
+            const _kgModules = JSON.parse(_lsGet('kg-modules-active') || '{}');
             _moduleActifLocalStorage = _kgModules[caisse] === true;
           } catch(e) {}
 
@@ -22445,9 +22719,9 @@ const KGSync = (() => {
             }
             // Propager dans localStorage
             try {
-              const _km2 = JSON.parse(localStorage.getItem('kg-modules-active') || '{}');
+              const _km2 = JSON.parse(_lsGet('kg-modules-active') || '{}');
               _km2[caisse] = true;
-              localStorage.setItem('kg-modules-active', JSON.stringify(_km2));
+              _lsSet('kg-modules-active', JSON.stringify(_km2));
             } catch(e) {}
             console.log('[pullAll] ✅ Module actif distant — fusion :', caisse, _merged2.length, 'ventes');
             return; // continuer forEach
@@ -22578,9 +22852,9 @@ const KGSync = (() => {
               else { try { localStorage.setItem(info.saveKey, JSON.stringify(info.obj)); } catch(e) {} }
               // Marquer module actif dans kg-modules-active
               try {
-                const _km = JSON.parse(localStorage.getItem('kg-modules-active') || '{}');
+                const _km = JSON.parse(_lsGet('kg-modules-active') || '{}');
                 _km[info.caisse] = true;
-                localStorage.setItem('kg-modules-active', JSON.stringify(_km));
+                _lsSet('kg-modules-active', JSON.stringify(_km));
               } catch(e) {}
               console.log('[pullAll] ✅ Module restauré depuis Supabase :', info.caisse, _merged.length, 'transactions');
             }
@@ -22677,7 +22951,7 @@ const KGSync = (() => {
           // ✅ FIX v32 SYNC CLOTURES : persister en localStorage + rafraîchir l'interface
           try {
             // Sauvegarder sous les 2 clés pour compatibilité tous appareils
-            localStorage.setItem('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
+            _lsSet('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
             const _ridSave = window._KG_RESTAURANT_ID;
             if(_ridSave) localStorage.setItem('kg-historique-clotures-' + _ridSave, JSON.stringify(HISTORIQUE_CLOTURES));
           } catch(e) {}
@@ -22699,9 +22973,9 @@ const KGSync = (() => {
                 if(VENTES_PAR_CAISSE[h.caisse]) VENTES_PAR_CAISSE[h.caisse] = [];
                 // Mettre à jour kg-modules-active
                 try {
-                  const _km = JSON.parse(localStorage.getItem('kg-modules-active')||'{}');
+                  const _km = JSON.parse(_lsGet('kg-modules-active')||'{}');
                   delete _km[h.caisse];
-                  localStorage.setItem('kg-modules-active', JSON.stringify(_km));
+                  _lsSet('kg-modules-active', JSON.stringify(_km));
                 } catch(e) {}
                 console.log('[pullAll] 🔒 Clôture appliquée localement depuis Supabase:', h.caisse);
               }
@@ -22842,7 +23116,7 @@ const KGSync = (() => {
           if(myId) { const me = USERS.find(u => u.id === myId); if(me) currentUser = me; }
         } else if(key === 'restaurant_info' && data.info) {
           RESTAURANT_INFO = { ...RESTAURANT_INFO, ...data.info };
-          try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+          try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
           // ✅ FIX v15 LOGO : appliquer IMMÉDIATEMENT le logo dès réception depuis Supabase
           if(typeof applyRestaurantSettingsToUI === 'function') applyRestaurantSettingsToUI();
           // Aussi charger le logo ticket si présent dans Supabase
@@ -22850,7 +23124,7 @@ const KGSync = (() => {
           // ✅ FIX TICKET_CONFIG : restaurer la personnalisation ticket depuis Supabase
           if(data.info.ticketConfig && typeof TICKET_CONFIG !== 'undefined') {
             Object.assign(TICKET_CONFIG, data.info.ticketConfig);
-            try { localStorage.setItem('kg-ticket-config', JSON.stringify(TICKET_CONFIG)); } catch(e) {}
+            try { _lsSet('kg-ticket-config', JSON.stringify(TICKET_CONFIG)); } catch(e) {}
             if(typeof loadTicketConfig === 'function') loadTicketConfig();
           }
         } else if(key === 'depenses_data') {
@@ -23972,7 +24246,7 @@ function handleLogoUpload(input) {
     updateTicketPreview();
     // Sauvegarder en local
     try { localStorage.setItem('kg-ticket-config', JSON.stringify({...TICKET_CONFIG, logo: logoData})); } catch(e2) {}
-    try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e2) {}
+    try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e2) {}
     // Pousser vers Supabase
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
       await KGSync.push.restaurantInfo().catch(()=>{});
@@ -24003,7 +24277,7 @@ async function applyTicketLogoUrl(url) {
   if(typeof _applyLoginLogo === 'function') _applyLoginLogo();
   updateTicketPreview();
   try { localStorage.setItem('kg-ticket-config', JSON.stringify(Object.assign({}, TICKET_CONFIG, {logo: url}))); } catch(e) {}
-  try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+  try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
     await KGSync.push.restaurantInfo().catch(function(){});
   }
@@ -24026,7 +24300,7 @@ async function applyCoverUrlInput(url, save) {
     var rid = window._KG_RESTAURANT_ID;
     if(sb && rid) await sb.from('restaurants').update({ cover_url: url }).eq('id', rid);
     await KGSync.push.restaurantInfo().catch(function(){});
-    try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+    try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
     if(statusEl) { statusEl.innerHTML = 'Couverture enregistree !'; setTimeout(function(){ statusEl.innerHTML = ''; }, 3000); }
   } catch(e) { if(statusEl) statusEl.innerHTML = 'Erreur sauvegarde'; }
 }
@@ -24047,7 +24321,7 @@ async function applyLogoUrlInput(url, save) {
     var rid = window._KG_RESTAURANT_ID;
     if(sb && rid) await sb.from('restaurants').update({ logo_url: url }).eq('id', rid);
     await KGSync.push.restaurantInfo().catch(function(){});
-    try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+    try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
     if(statusEl) { statusEl.innerHTML = 'Logo enregistre !'; setTimeout(function(){ statusEl.innerHTML = ''; }, 3000); }
   } catch(e) { if(statusEl) statusEl.innerHTML = 'Erreur sauvegarde'; }
 }
@@ -24063,7 +24337,7 @@ function removeLogo() {
   if(typeof _applyLoginLogo === 'function') _applyLoginLogo();
   updateTicketPreview();
   try { localStorage.setItem('kg-ticket-config', JSON.stringify({...TICKET_CONFIG, logo: null})); } catch(e) {}
-  try { localStorage.setItem('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+  try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
     KGSync.push.restaurantInfo().catch(()=>{});
   }
@@ -24201,7 +24475,7 @@ function saveTicketSettings() {
 
 function loadTicketConfig() {
   try {
-    const saved = JSON.parse(localStorage.getItem('kg-ticket-config') || 'null');
+    const saved = JSON.parse(_lsGet('kg-ticket-config') || 'null');
     if(saved) {
       TICKET_CONFIG = { ...TICKET_CONFIG, ...saved };
       // Restore logo preview + sync sidebar + connexion
@@ -26279,7 +26553,7 @@ setTimeout(() => {
   try {
     // ✅ FIX F5 INSTANT : restaurer l'utilisateur depuis localStorage immédiatement
     // sans attendre Supabase — ça évite le flash de la page login
-    const _cachedUser = localStorage.getItem('kg-current-user');
+    const _cachedUser = _lsGet('kg-current-user');
     const _cachedSession = localStorage.getItem('kg-session');
     if(_cachedUser && _cachedSession) {
       try {
@@ -26330,7 +26604,7 @@ setTimeout(() => {
     };
     window._KG_RESTAURANT_ID = profile.restaurant_id;
     // ✅ FIX F5 : sauvegarder le profil pour restauration rapide au rechargement
-    try { localStorage.setItem('kg-current-user', JSON.stringify(currentUser)); } catch(e) {}
+    try { _lsSet('kg-current-user', JSON.stringify(currentUser)); } catch(e) {}
 
     const { data: allUsers } = await sb.from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('restaurant_id', profile.restaurant_id);
     if(allUsers) USERS = allUsers.map(u => ({ ...u, caisse: u.caisse_assignee || 'Toutes', login: u.email || u.id, tel: u.tel || '—', lastLogin: '—' }));
@@ -26346,7 +26620,7 @@ setTimeout(() => {
       if(resto.ticket_config && typeof resto.ticket_config === 'object') {
         RESTAURANT_INFO.ticketConfig = resto.ticket_config;
         if(typeof TICKET_CONFIG !== 'undefined') Object.assign(TICKET_CONFIG, resto.ticket_config);
-        try { localStorage.setItem('kg-ticket-config', JSON.stringify(TICKET_CONFIG)); } catch(e) {}
+        try { _lsSet('kg-ticket-config', JSON.stringify(TICKET_CONFIG)); } catch(e) {}
       }
     }
 
@@ -26808,6 +27082,15 @@ function _updateDepTVADisplay() { depUpdateTotal(); }
 async function saveDepense() {
   if(!KGSync.isConnected) { showNotif('❌ Connexion Supabase requise pour enregistrer une dépense.'); return; }
 
+  // ✅ MODE ÉDITION : si on modifie une dépense existante
+  const _editId = window._depEditId;
+  if(_editId) {
+    window._depEditId = null;
+    // Réinitialiser le titre
+    const _title = document.querySelector('#modal-addDepense .modal-title, #modal-addDepense h2, #modal-addDepense h3');
+    if(_title) _title.textContent = 'Ajouter une dépense';
+  }
+
   // Collecter toutes les lignes valides
   const lignes = [];
   document.querySelectorAll('[id^="dep-ligne-"]').forEach(row => {
@@ -26863,17 +27146,35 @@ async function saveDepense() {
   };
 
   try {
-    const { data: inserted, error } = await KGSync.getClient().from('depenses').insert(payload).select().single();
-    if(error) throw error;
-    const dep = {
-      id: inserted.id, sbId: inserted.id, libelle, montant, date,
-      categorie: payload.categorie, mode: payload.mode_paiement, caisse,
-      source: payload.source, cloturee: false,
-      avec_tva: avecTVA, montant_ht: montantHT, montant_tva: montantTVA,
-      // ✅ FIX : conserver le détail des lignes localement
-      lignes: lignes,
-    };
-    DEPENSES.unshift(dep);
+    let dep;
+    if(_editId) {
+      // ✅ MODE ÉDITION : mettre à jour la dépense existante
+      const existingDep = DEPENSES.find(d => d.id === _editId);
+      const sbId = existingDep?.sbId || _editId;
+      const { error: updErr } = await KGSync.getClient().from('depenses').update(payload).eq('id', sbId);
+      if(updErr) throw updErr;
+      // Mettre à jour localement
+      const idx = DEPENSES.findIndex(d => d.id === _editId);
+      if(idx !== -1) {
+        DEPENSES[idx] = { ...DEPENSES[idx], libelle, montant, date, categorie: payload.categorie,
+          mode: payload.mode_paiement, caisse, avec_tva: avecTVA, montant_ht: montantHT, montant_tva: montantTVA, lignes };
+        dep = DEPENSES[idx];
+      }
+      showNotif('✅ Dépense modifiée avec succès');
+    } else {
+      // ✅ MODE CRÉATION : insérer une nouvelle dépense
+      const { data: inserted, error } = await KGSync.getClient().from('depenses').insert(payload).select().single();
+      if(error) throw error;
+      dep = {
+        id: inserted.id, sbId: inserted.id, libelle, montant, date,
+        categorie: payload.categorie, mode: payload.mode_paiement, caisse,
+        source: payload.source, cloturee: false,
+        avec_tva: avecTVA, montant_ht: montantHT, montant_tva: montantTVA,
+        lignes: lignes,
+      };
+      DEPENSES.unshift(dep);
+      showNotif('✅ Dépense ajoutée avec succès');
+    }
     // ✅ FIX persistance lignes hors-ligne
     try {
       const _lkey = 'kg_dep_lignes_' + (window._KG_RESTAURANT_ID||'local');
@@ -26919,6 +27220,72 @@ async function saveDepense() {
   } catch(err) {
     showNotif('❌ Erreur Supabase : ' + (err.message || err));
   }
+}
+
+async function modifierDepense(id) {
+  const dep = DEPENSES.find(d => d.id === id);
+  if(!dep) { showNotif('⚠️ Dépense introuvable'); return; }
+
+  // Réinitialiser le modal proprement
+  document.getElementById('dep-lignes-container').innerHTML = '';
+  _depLigneCount = 0;
+  document.getElementById('dep-total-display').textContent = '0 F CFA';
+
+  // Pré-remplir les champs de base
+  const dateVal = dep.date
+    ? (dep.date.includes('/') ? dep.date.split('/').reverse().map((v,i) => i===0?'20'+v:v.padStart(2,'0')).join('-') : dep.date)
+    : new Date().toISOString().split('T')[0];
+  document.getElementById('dep-date').value = dateVal;
+
+  const _glbInp = document.getElementById('dep-libelle-global');
+  if(_glbInp) _glbInp.value = dep.libelle || '';
+
+  const _cat = document.getElementById('dep-categorie');
+  if(_cat) { _cat.value = dep.categorie || 'divers'; if(typeof onDepCategorieChange === 'function') onDepCategorieChange(); }
+
+  const _source = document.getElementById('dep-source');
+  if(_source) _source.value = dep.source || 'fonds_propres';
+
+  const _mode = document.getElementById('dep-mode');
+  if(_mode) _mode.value = dep.mode || dep.mode_paiement || 'especes';
+
+  // Pré-remplir les lignes avec les bons IDs
+  const lignes = dep.lignes || dep.articles || [];
+
+  if(lignes.length > 0) {
+    lignes.forEach((l, i) => {
+      depAddLigne();
+      const idx = i; // _depLigneCount est incrémenté dans depAddLigne
+      setTimeout(() => {
+        const libEl = document.getElementById('dep-lib-' + idx);
+        const qtyEl = document.getElementById('dep-qty-' + idx);
+        const mntEl = document.getElementById('dep-mnt-' + idx);
+        if(libEl) libEl.value = l.nom || l.name || l.libelle || '';
+        if(qtyEl) { qtyEl.value = l.qty || l.quantite || 1; }
+        if(mntEl) { mntEl.value = l.prix || l.pu || l.montant || 0; depCalcLigne(idx); }
+      }, 50 + i * 20);
+    });
+  } else {
+    // Si pas de lignes, créer une ligne avec le libellé et montant de la dépense
+    depAddLigne();
+    setTimeout(() => {
+      const libEl = document.getElementById('dep-lib-0');
+      const mntEl = document.getElementById('dep-mnt-0');
+      if(libEl) libEl.value = dep.libelle || '';
+      if(mntEl) { mntEl.value = dep.montant || 0; depCalcLigne(0); }
+    }, 50);
+  }
+
+  // Marquer comme édition
+  window._depEditId = id;
+
+  // Changer le titre du modal
+  setTimeout(() => {
+    const _title = document.querySelector('#modal-addDepense h2, #modal-addDepense h3, #modal-addDepense .modal-title');
+    if(_title) _title.textContent = '✏️ Modifier la dépense';
+  }, 30);
+
+  showModal('addDepense');
 }
 
 async function deleteDepense(id) {
@@ -27101,6 +27468,7 @@ function renderDepenses() {
         <div style="font-size:15px;font-weight:800;color:var(--red);white-space:nowrap;">${d.montant.toLocaleString()} F</div>
         <div style="display:flex;gap:5px;">
           <button onclick="imprimerDepense('${d.id}')" style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:5px 9px;" title="Imprimer / PDF">🖨️</button>
+          <button onclick="modifierDepense('${d.id}')" style="background:rgba(37,99,235,0.1);border:1px solid rgba(37,99,235,0.3);border-radius:8px;color:#3b82f6;cursor:pointer;font-size:13px;padding:5px 9px;" title="Modifier cette dépense">✏️</button>
           <button onclick="deleteDepense('${d.id}')" style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);border-radius:8px;color:var(--red);cursor:pointer;font-size:13px;padding:5px 9px;" title="Supprimer">🗑️</button>
         </div>
       </div>
@@ -30502,7 +30870,7 @@ async function supprimerCloture(key) {
       localStorage.setItem('rid_' + rid + ':kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
       localStorage.setItem('kg-historique-clotures-' + rid, JSON.stringify(HISTORIQUE_CLOTURES));
     }
-    localStorage.setItem('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
+    _lsSet('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
   } catch(e) {}
 
   // ✅ Sauvegarder dans Supabase via KGSync.push.clotures() — la vraie fonction
@@ -32284,7 +32652,7 @@ async function _reconcilierServeursClôtures() {
       console.log('[serveurs] ✅ Serveurs réconciliés depuis ventes_caisse');
       // Sauvegarder en local
       try {
-        localStorage.setItem('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
+        _lsSet('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
         if(_rid) localStorage.setItem('kg-historique-clotures-' + _rid, JSON.stringify(HISTORIQUE_CLOTURES));
       } catch(e) {}
     }
@@ -37289,6 +37657,91 @@ document.addEventListener('DOMContentLoaded', function() {
 //  RECONSTRUIRE CLÔTURE — fonction manquante ajoutée
 // ═══════════════════════════════════════════════════════════════
 
+// ── Clôture manuelle ──
+function ouvrirModalClotureManu() {
+  const today = new Date().toISOString().split('T')[0];
+  const caisseOptions = CAISSES.map(c => `<option value="${c.name}">${c.name} — ${c.label||c.name}</option>`).join('');
+  const html = `
+  <div style="background:var(--surface);border-radius:16px;padding:24px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;">
+    <div style="font-size:17px;font-weight:800;margin-bottom:18px;">➕ Ajouter une clôture manuelle</div>
+    <div style="display:grid;gap:12px;">
+      <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">CAISSE</label>
+        <select id="cm-caisse" class="form-input">${caisseOptions}</select></div>
+      <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">CAISSIER</label>
+        <input id="cm-caissier" class="form-input" placeholder="Nom du caissier" type="text"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">DATE</label>
+          <input id="cm-date" class="form-input" type="date" value="${today}"></div>
+        <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">HEURE CLÔTURE</label>
+          <input id="cm-heure" class="form-input" type="time" value="${new Date().toTimeString().slice(0,5)}"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">HEURE OUVERTURE</label>
+          <input id="cm-heure-ouv" class="form-input" type="time" value="08:00"></div>
+        <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">NB TICKETS</label>
+          <input id="cm-tickets" class="form-input" type="number" min="0" value="0"></div>
+      </div>
+      <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">CA TOTAL TTC (F)</label>
+        <input id="cm-ca" class="form-input" type="number" min="0" placeholder="0" oninput="updateCmTotal()"></div>
+      <div style="background:var(--surface2);border-radius:10px;padding:12px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Détail paiements</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          ${[['cm-esp','💵 Espèces'],['cm-wav','🌊 Wave'],['cm-ora','🟠 Orange Money'],['cm-car','💳 Carte']].map(([id,l])=>`
+          <div><label style="font-size:11px;color:var(--text2);">${l}</label>
+            <input id="${id}" class="form-input" type="number" min="0" placeholder="0" style="font-size:12px;padding:7px;" oninput="updateCmTotal()"></div>`).join('')}
+        </div>
+        <div id="cm-restant" style="font-size:12px;margin-top:8px;text-align:right;color:var(--text2);"></div>
+      </div>
+      <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">FONDS DE DÉPART (F)</label>
+        <input id="cm-fonds" class="form-input" type="number" min="0" placeholder="0" value="0"></div>
+      <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">RAISON / NOTE</label>
+        <input id="cm-raison" class="form-input" placeholder="Ex: Clôture manquante du 04/07/2026" type="text"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;">
+      <button onclick="confirmerClotureManu()" class="btn btn-primary" style="flex:1;">✅ Enregistrer</button>
+      <button onclick="document.getElementById('modal-cloture-manu').style.display='none'" class="btn btn-ghost" style="flex:1;">Annuler</button>
+    </div>
+  </div>`;
+  let m = document.getElementById('modal-cloture-manu');
+  if(!m) { m = document.createElement('div'); m.id='modal-cloture-manu'; m.className='modal-overlay'; m.onclick=e=>{if(e.target===m)m.style.display='none';}; document.body.appendChild(m); }
+  m.innerHTML = html;
+  m.style.display = 'flex';
+}
+function updateCmTotal() {
+  const ca=parseFloat(document.getElementById('cm-ca')?.value||0);
+  const total=[['cm-esp'],['cm-wav'],['cm-ora'],['cm-car']].reduce((s,[id])=>s+parseFloat(document.getElementById(id)?.value||0),0);
+  const el=document.getElementById('cm-restant');
+  if(el&&ca>0){const d=ca-total;el.textContent=d===0?'✅ Répartition complète':d>0?`Restant : ${d.toLocaleString()} F`:`⚠️ Dépassement : ${Math.abs(d).toLocaleString()} F`;el.style.color=d===0?'var(--green)':d<0?'var(--red)':'var(--text2)';}
+}
+async function confirmerClotureManu() {
+  const caisse=(document.getElementById('cm-caisse')?.value||'');
+  const caissier=(document.getElementById('cm-caissier')?.value||'').trim();
+  const date=(document.getElementById('cm-date')?.value||'');
+  const heure=(document.getElementById('cm-heure')?.value||'23:59');
+  const heureOuv=(document.getElementById('cm-heure-ouv')?.value||'08:00');
+  const ca=parseFloat(document.getElementById('cm-ca')?.value||0);
+  const nbTickets=parseInt(document.getElementById('cm-tickets')?.value||0);
+  const fonds=parseFloat(document.getElementById('cm-fonds')?.value||0);
+  const especes=parseFloat(document.getElementById('cm-esp')?.value||0);
+  const wave=parseFloat(document.getElementById('cm-wav')?.value||0);
+  const orange=parseFloat(document.getElementById('cm-ora')?.value||0);
+  const carte=parseFloat(document.getElementById('cm-car')?.value||0);
+  const raison=(document.getElementById('cm-raison')?.value||'');
+  if(!caisse||!caissier||!date){showNotif('⚠️ Caisse, caissier et date obligatoires');return;}
+  if(ca<=0){showNotif('⚠️ Le CA total doit être > 0');return;}
+  const [yr,mo,dy]=date.split('-');
+  const dateStr=dy+'/'+mo+'/'+yr.slice(2);
+  const cloture={id:'MANU-'+Date.now(),caisse,cashier:caissier,caissier,date:dateStr,heure,heureOuverture:heureOuv,fonds,ca,caTotal:ca,especes,wave,orange,carte,tickets:nbTickets,nbTickets,statut:'conforme',source:'manuelle',raison,saisieManuelle:true,dateSaisie:new Date().toISOString()};
+  HISTORIQUE_CLOTURES.unshift(cloture);
+  try{_lsSet('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));}catch(e){}
+  try{
+    if(typeof KGSync!=='undefined'&&KGSync.isConnected){await KGSync.push.clotures();showNotif(`✅ Clôture ${caisse} (${dateStr}) ajoutée et synchronisée !`);}
+    else{showNotif('✅ Clôture ajoutée localement (sync au prochain démarrage)');}
+  }catch(e){showNotif('✅ Clôture ajoutée — sync Supabase en attente');}
+  document.getElementById('modal-cloture-manu').style.display='none';
+  if(typeof renderHistoriqueClotures==='function')renderHistoriqueClotures();
+}
+// ── Modal reconstruire ──
 function ouvrirModalReconstruire() {
   const modal = document.getElementById('modal-reconstruire');
   if(modal) { modal.style.display = 'flex'; }
