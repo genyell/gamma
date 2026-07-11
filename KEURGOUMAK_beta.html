@@ -1,6 +1,48 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<script>
+// ✅ ISOLATION MULTI-RESTAURANT : helpers localStorage préfixés
+// Définis très tôt pour être disponibles dès le chargement
+(function() {
+  window._lsKey = function(key) {
+    var rid = window._KG_RESTAURANT_ID || '';
+    return rid ? (key + ':' + rid) : key;
+  };
+  window._lsGet = function(key) {
+    try {
+      // Essayer d'abord la clé préfixée (avec restaurant_id)
+      var rid = window._KG_RESTAURANT_ID || '';
+      if(rid) {
+        var v = localStorage.getItem(key + ':' + rid);
+        if(v !== null) return v;
+      }
+      // Fallback sur la clé brute (migration)
+      return localStorage.getItem(key);
+    } catch(e) { return null; }
+  };
+  window._lsSet = function(key, val) {
+    try {
+      var rid = window._KG_RESTAURANT_ID || '';
+      if(rid) {
+        localStorage.setItem(key + ':' + rid, val);
+        // Supprimer l'ancienne clé non préfixée pour éviter la contamination
+        try { localStorage.removeItem(key); } catch(e2) {}
+      } else {
+        localStorage.setItem(key, val);
+      }
+    } catch(e) {}
+  };
+  window._lsRemove = function(key) {
+    try {
+      var rid = window._KG_RESTAURANT_ID || '';
+      if(rid) localStorage.removeItem(key + ':' + rid);
+      localStorage.removeItem(key); // Nettoyer aussi la version non préfixée
+    } catch(e) {}
+  };
+})();
+</script>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -248,39 +290,39 @@ if(typeof jsQR === 'undefined') {
     --gradient-sidebar: linear-gradient(180deg, #1e293b 0%, #1a2436 100%);
   }
 
-  /* ══ THÈME BLEU & BLANC ══ */
+  /* ══ THÈME INDIGO PRO ══ */
   [data-theme="blue"] {
     --bg: #f0f4ff;
     --surface: #ffffff;
-    --surface2: #eef2ff;
-    --surface3: #e0e7ff;
-    --border: #c7d2fe;
-    --border2: #a5b4fc;
-    --text: #0f172a;
-    --text2: #475569;
-    --text3: #1e293b;
+    --surface2: #f5f3ff;
+    --surface3: #ede9fe;
+    --border: #ddd6fe;
+    --border2: #c4b5fd;
+    --text: #0d1340;
+    --text2: #5b6a9e;
+    --text3: #1a2160;
     --green: #16a34a;
     --green2: #15803d;
     --red: #dc2626;
-    --accent: #2563eb;
-    --accent2: #1d4ed8;
-    --accent3: #3b82f6;
+    --accent: #4f46e5;
+    --accent2: #4338ca;
+    --accent3: #6366f1;
     --teal: #0891b2;
     --teal2: #0e7490;
     --purple: #7c3aed;
     --purple2: #6d28d9;
-    --shadow-sm: 0 2px 8px rgba(37,99,235,0.08);
-    --shadow-md: 0 8px 24px rgba(37,99,235,0.12);
-    --shadow-lg: 0 20px 48px rgba(37,99,235,0.14);
-    --shadow-xl: 0 32px 64px rgba(37,99,235,0.16);
-    --glow-accent: 0 0 20px rgba(37,99,235,0.25);
+    --shadow-sm: 0 2px 8px rgba(79,70,229,0.06);
+    --shadow-md: 0 8px 24px rgba(79,70,229,0.10);
+    --shadow-lg: 0 20px 48px rgba(79,70,229,0.13);
+    --shadow-xl: 0 32px 64px rgba(79,70,229,0.16);
+    --glow-accent: 0 0 20px rgba(99,102,241,0.3);
     --glow-green: 0 0 16px rgba(22,163,74,0.2);
     --glow-teal: 0 0 16px rgba(8,145,178,0.2);
     --glow-purple: 0 0 16px rgba(124,58,237,0.2);
-    --gradient-accent: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-    --gradient-accent-soft: linear-gradient(135deg, rgba(37,99,235,0.1), rgba(29,78,216,0.05));
-    --gradient-surface: linear-gradient(160deg, #ffffff 0%, #f0f4ff 100%);
-    --gradient-sidebar: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%);
+    --gradient-accent: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    --gradient-accent-soft: linear-gradient(135deg, rgba(79,70,229,0.1), rgba(99,102,241,0.05));
+    --gradient-surface: linear-gradient(160deg, #ffffff 0%, #f5f3ff 100%);
+    --gradient-sidebar: linear-gradient(180deg, #ffffff 0%, #fafaff 100%);
   }
 
   /* ── Corps & fond ── */
@@ -4569,53 +4611,286 @@ if(typeof jsQR === 'undefined') {
   [data-theme="light"] .history-total { color: #c97f00 !important; }
 
 
-  /* ══ THÈME BLEU — overrides CSS ══ */
-  [data-theme="blue"] body { background: var(--bg); }
+  /* ═══════════════════════════════════════════════════
+     🔵 THÈME INDIGO PRO — Design épuré & moderne
+     ═══════════════════════════════════════════════════ */
+
+  /* ── Variables pour le thème bleu ── */
+  [data-theme="blue"] {
+    --bg: #f8faff;
+    --surface: #ffffff;
+    --surface2: #f0f4fe;
+    --surface3: #e5edff;
+    --border: #dde6ff;
+    --border2: #c3d0ff;
+    --text: #0d1340;
+    --text2: #5b6a9e;
+    --text3: #1a2160;
+    --accent: #4f46e5;
+    --accent2: #6366f1;
+    --accent3: #818cf8;
+  }
+
+  /* ── Layout global ── */
+  [data-theme="blue"] body {
+    background: #f0f4ff !important;
+    background-image:
+      radial-gradient(ellipse 60% 40% at 5% 0%, rgba(99,102,241,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 95% 100%, rgba(79,70,229,0.05) 0%, transparent 60%) !important;
+  }
+  [data-theme="blue"] .app-shell { background: #f0f4ff !important; }
+  [data-theme="blue"] .main, [data-theme="blue"] .content { background: #f0f4ff !important; }
+
+  /* ── Sidebar ── */
   [data-theme="blue"] .sidebar {
-    background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%) !important;
-    box-shadow: 4px 0 20px rgba(30,58,138,0.3);
+    background: #ffffff !important;
+    border-right: 1px solid #e0e7ff !important;
+    box-shadow: 4px 0 20px rgba(79,70,229,0.06) !important;
+  }
+  [data-theme="blue"] .sidebar-header {
+    background: #ffffff !important;
+    border-bottom: 1px solid #e0e7ff !important;
+    padding: 16px 14px;
   }
   [data-theme="blue"] .logo-text {
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
-    background: none !important;
-    -webkit-background-clip: unset !important;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    font-weight: 900 !important;
   }
-  [data-theme="blue"] .nav-item { color: rgba(255,255,255,0.7) !important; }
-  [data-theme="blue"] .nav-section { color: rgba(255,255,255,0.35) !important; }
-  [data-theme="blue"] .nav-item.active,
+  [data-theme="blue"] .logo-sub { color: #a5b4fc !important; font-size: 9px !important; }
+  [data-theme="blue"] .nav-section {
+    color: #c7d2fe !important;
+    font-size: 10px;
+    letter-spacing: 1px;
+    font-weight: 700;
+  }
+  [data-theme="blue"] .nav-item {
+    color: #6b7ab8 !important;
+    border-radius: 10px !important;
+    margin: 1px 0;
+  }
+  [data-theme="blue"] .nav-item svg, [data-theme="blue"] .nav-item .icon { opacity: 0.7; }
   [data-theme="blue"] .nav-item:hover {
-    background: rgba(255,255,255,0.15) !important;
+    background: #eef2ff !important;
+    color: #4f46e5 !important;
+    border: none !important;
+    transform: translateX(2px);
+  }
+  [data-theme="blue"] .nav-item:hover svg,
+  [data-theme="blue"] .nav-item:hover .icon { opacity: 1; }
+  [data-theme="blue"] .nav-item.active {
+    background: linear-gradient(135deg, #eef2ff, #e0e7ff) !important;
+    color: #4f46e5 !important;
+    border: 1px solid #c7d2fe !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(79,70,229,0.12) !important;
+  }
+  [data-theme="blue"] .user-info-bar {
+    background: #fafbff !important;
+    border-top: 1px solid #e0e7ff !important;
+  }
+
+  /* ── Topbar ── */
+  [data-theme="blue"] .topbar {
+    background: rgba(255,255,255,0.92) !important;
+    backdrop-filter: blur(12px) !important;
+    border-bottom: 1px solid #e0e7ff !important;
+    box-shadow: 0 1px 12px rgba(79,70,229,0.06) !important;
+  }
+  [data-theme="blue"] .page-header h2,
+  [data-theme="blue"] h2 .de {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    font-weight: 900 !important;
+  }
+
+  /* ── Cards ── */
+  [data-theme="blue"] .card {
+    background: #ffffff !important;
+    border: 1px solid #e8eeff !important;
+    box-shadow: 0 1px 8px rgba(79,70,229,0.05), 0 4px 20px rgba(79,70,229,0.04) !important;
+    border-radius: 16px !important;
+  }
+  [data-theme="blue"] .card:hover {
+    border-color: #c7d2fe !important;
+    box-shadow: 0 4px 24px rgba(79,70,229,0.12) !important;
+  }
+  [data-theme="blue"] .kpi-card {
+    background: #ffffff !important;
+    border: 1px solid #e8eeff !important;
+    box-shadow: 0 2px 12px rgba(79,70,229,0.06) !important;
+    border-radius: 16px !important;
+  }
+  [data-theme="blue"] .kpi-card::before {
+    background: linear-gradient(135deg, rgba(79,70,229,0.04) 0%, transparent 60%) !important;
+  }
+
+  /* ── KPI values ── */
+  [data-theme="blue"] .kpi-val,
+  [data-theme="blue"] .kpi-value,
+  [data-theme="blue"] .dash-val { color: #4f46e5 !important; }
+  [data-theme="blue"] .dash-label { color: #8a96c4 !important; }
+
+  /* ── Boutons ── */
+  [data-theme="blue"] .btn-primary {
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
+    border-color: #4f46e5 !important;
     color: #ffffff !important;
-    border: 1px solid rgba(255,255,255,0.25) !important;
+    box-shadow: 0 4px 14px rgba(79,70,229,0.3) !important;
+  }
+  [data-theme="blue"] .btn-primary:hover {
+    background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%) !important;
+    box-shadow: 0 6px 20px rgba(79,70,229,0.42) !important;
+    transform: translateY(-1px) !important;
+  }
+  [data-theme="blue"] .cat-btn.active {
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
+    border-color: #4f46e5 !important;
+    color: #ffffff !important;
+    box-shadow: 0 3px 10px rgba(79,70,229,0.25) !important;
+  }
+  [data-theme="blue"] .cat-btn {
+    background: #f5f3ff !important;
+    border-color: #ddd6fe !important;
+    color: #6366f1 !important;
+  }
+  [data-theme="blue"] .cat-btn:hover {
+    background: #ede9fe !important;
+    border-color: #a78bfa !important;
+    color: #4f46e5 !important;
+  }
+  [data-theme="blue"] .btn-ghost {
+    border-color: #c7d2fe !important;
+    color: #4f46e5 !important;
+    background: #f5f3ff !important;
+  }
+  [data-theme="blue"] .ticket-btn {
+    background: #f5f3ff !important;
+    border-color: #c4b5fd !important;
+    color: #6d28d9 !important;
+  }
+
+  /* ── Formulaires ── */
+  [data-theme="blue"] .form-input {
+    background: #fafbff !important;
+    border-color: #d1d9ff !important;
+    color: #0d1340 !important;
+    border-radius: 10px !important;
   }
   [data-theme="blue"] .form-input:focus {
-    border-color: #2563eb !important;
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.15) !important;
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
+    background: #ffffff !important;
   }
-  [data-theme="blue"] .cat-btn.active,
-  [data-theme="blue"] .btn-primary {
-    background: #2563eb !important;
-    border-color: #2563eb !important;
-    color: #fff !important;
-  }
-  [data-theme="blue"] .cat-btn:hover { border-color: #2563eb !important; color: #2563eb !important; }
-  [data-theme="blue"] .pos-item-price { color: #2563eb !important; }
-  [data-theme="blue"] .pos-item:hover { background: rgba(37,99,235,0.06) !important; border-color: #2563eb !important; }
+  [data-theme="blue"] select.form-input option { background: #ffffff; color: #0d1340; }
+
+  /* ── Tableaux ── */
+  [data-theme="blue"] table { border-radius: 12px; overflow: hidden; }
   [data-theme="blue"] thead th {
-    background: #1e40af !important;
+    background: linear-gradient(135deg, #4f46e5, #6366f1) !important;
     color: #ffffff !important;
-    border-bottom: 2px solid #1e3a8a !important;
+    border-bottom: none !important;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    font-weight: 700;
   }
-  [data-theme="blue"] .login-left { background: linear-gradient(145deg,#1e3a8a,#1e40af) !important; }
-  [data-theme="blue"] .logo-sub { color: rgba(255,255,255,0.55) !important; }
-  [data-theme="blue"] .badge-done { background: rgba(37,99,235,0.15); color: #2563eb; }
-  [data-theme="blue"] .card {
-    border: 1px solid #c7d2fe;
-    box-shadow: 0 2px 8px rgba(37,99,235,0.08);
+  [data-theme="blue"] tbody tr:nth-child(even) td { background: #fafbff !important; }
+  [data-theme="blue"] tbody tr:hover td {
+    background: #f0f0ff !important;
+    cursor: pointer;
   }
-  [data-theme="blue"] .page-header h2 { color: #1e40af; }
-  [data-theme="blue"] select.form-input option { background: #ffffff; color: #0f172a; }
+  [data-theme="blue"] td { border-bottom: 1px solid #eef0ff !important; }
+
+  /* ── Graphique barres ── */
+  [data-theme="blue"] .bar {
+    background: linear-gradient(180deg, #818cf8 0%, #4f46e5 100%) !important;
+    box-shadow: 0 -4px 16px rgba(99,102,241,0.35) !important;
+    border-radius: 8px 8px 2px 2px !important;
+  }
+  [data-theme="blue"] .bar-label { color: #8a96c4 !important; font-size: 10px !important; }
+
+  /* ── Progress bars (top produits) ── */
+  [data-theme="blue"] .prod-bar { background: #e0e7ff !important; }
+  [data-theme="blue"] .prod-bar-fill {
+    background: linear-gradient(90deg, #6366f1, #818cf8) !important;
+  }
+
+  /* ── POS ── */
+  [data-theme="blue"] .pos-item-price { color: #4f46e5 !important; font-weight: 800 !important; }
+  [data-theme="blue"] .pos-item:hover {
+    background: #f5f3ff !important;
+    border-color: #a78bfa !important;
+    box-shadow: 0 4px 16px rgba(99,102,241,0.15) !important;
+    transform: translateY(-2px) !important;
+  }
+  [data-theme="blue"] .pos-item.selected {
+    background: linear-gradient(135deg, #ede9fe, #f5f3ff) !important;
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 2px rgba(99,102,241,0.25) !important;
+  }
+
+  /* ── Badges ── */
+  [data-theme="blue"] .badge-done {
+    background: #dcfce7 !important; color: #15803d !important;
+    border-radius: 20px; padding: 3px 10px; font-weight: 700;
+  }
+  [data-theme="blue"] .badge {
+    background: #f5f3ff !important; color: #6d28d9 !important;
+    border: 1px solid #ddd6fe !important;
+  }
+
+  /* ── Modals ── */
+  [data-theme="blue"] .modal-overlay { background: rgba(15,23,100,0.4) !important; }
+  [data-theme="blue"] .modal-box {
+    background: #ffffff !important;
+    border-top: 4px solid #6366f1 !important;
+    box-shadow: 0 24px 60px rgba(79,70,229,0.2), 0 8px 32px rgba(0,0,0,0.08) !important;
+  }
+  [data-theme="blue"] .modal-title { color: #4338ca !important; }
+
+  /* ── Login ── */
+  [data-theme="blue"] .login-screen { background: #f0f4ff !important; }
+  [data-theme="blue"] .login-left {
+    background: linear-gradient(145deg, #312e81, #4338ca, #4f46e5) !important;
+  }
+  [data-theme="blue"] .login-feat-item { color: rgba(255,255,255,0.75) !important; }
+  [data-theme="blue"] .login-tagline { color: rgba(255,255,255,0.55) !important; }
+  [data-theme="blue"] .login-right { background: #ffffff !important; }
+
+  /* ── Caisse buttons ── */
+  [data-theme="blue"] .caisse-btn {
+    background: #f5f3ff !important;
+    border-color: #c4b5fd !important;
+    color: #5b21b6 !important;
+  }
+  [data-theme="blue"] .caisse-btn:hover {
+    background: #ede9fe !important;
+    border-color: #7c3aed !important;
+  }
+  [data-theme="blue"] .caisse-btn.success {
+    background: linear-gradient(135deg, #4f46e5, #6366f1) !important;
+    color: #fff !important;
+    border-color: #4f46e5 !important;
+    box-shadow: 0 4px 14px rgba(79,70,229,0.3) !important;
+  }
+
+  /* ── Scrollbar ── */
+  [data-theme="blue"] ::-webkit-scrollbar-track { background: #f0f4ff; }
+  [data-theme="blue"] ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #a5b4fc, #818cf8);
+    border-radius: 4px;
+  }
+  [data-theme="blue"] ::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+
+  /* ── Step numbers ── */
+  [data-theme="blue"] .step-num { background: #4f46e5 !important; color: #fff !important; }
+
+  /* ── Alertes & Notifs ── */
+  [data-theme="blue"] .alerte-stock { border-left: 3px solid #f87171 !important; }
+  [data-theme="blue"] .notif { background: #4f46e5 !important; }
+
 </style>
 </head>
 <body>
@@ -4673,7 +4948,7 @@ function _syncSportVentes()       { return []; }
 (function() {
   try {
     const hasSbSession = Object.keys(localStorage).some(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
-    const hasKgSession = !!localStorage.getItem('kg-session');
+    const hasKgSession = !!_lsGet('kg-session');
     if(!hasSbSession || !hasKgSession) {
       // Pas de session → afficher le login normalement
       document.getElementById('login-screen').style.display = '';
@@ -4810,7 +5085,7 @@ function _syncSportVentes()       { return []; }
 (function() {
   try {
     var _hasSb = Object.keys(localStorage).some(function(k){ return k.startsWith('sb-') && k.endsWith('-auth-token'); });
-    var _hasKg = !!localStorage.getItem('kg-session');
+    var _hasKg = !!_lsGet('kg-session');
     if(!_hasSb || !_hasKg) {
       var _sp = document.getElementById('kg-splash-screen');
       if(_sp) _sp.style.display = 'none';
@@ -9813,7 +10088,7 @@ function showView(id, el, pushState) {
       try {
         const _rid = window._KG_RESTAURANT_ID;
         const _raw = (_rid ? localStorage.getItem('kg_val_' + _rid + ':depenses_data') : null)
-                  || localStorage.getItem('kg_depenses');
+                  || _lsGet('kg_depenses');
         if(_raw) {
           const _d = JSON.parse(_raw);
           const _d2 = (_d && _d.value) ? (typeof _d.value === 'string' ? JSON.parse(_d.value) : _d.value) : _d;
@@ -9827,11 +10102,11 @@ function showView(id, el, pushState) {
   if(id === 'rh') {
     // ✅ FIX v50 : Pré-remplir depuis localStorage avant même que pullAll arrive
     if(RH_EMPLOYES.length === 0) {
-      try { const _e = JSON.parse(localStorage.getItem('kg-rh-employes')||'null'); if(Array.isArray(_e) && _e.length > 0) RH_EMPLOYES = _e; } catch(e) {}
+      try { const _e = JSON.parse(_lsGet('kg-rh-employes')||'null'); if(Array.isArray(_e) && _e.length > 0) RH_EMPLOYES = _e; } catch(e) {}
     }
-    if(RH_PAIES.length === 0)   { try { const _p = JSON.parse(localStorage.getItem('kg-rh-paies')  ||'null'); if(Array.isArray(_p)) RH_PAIES   = _p; } catch(e) {} }
-    if(RH_CONGES.length === 0)  { try { const _c = JSON.parse(localStorage.getItem('kg-rh-conges') ||'null'); if(Array.isArray(_c)) RH_CONGES  = _c; } catch(e) {} }
-    if(RH_AVANCES.length === 0) { try { const _a = JSON.parse(localStorage.getItem('kg-rh-avances')||'null'); if(Array.isArray(_a)) RH_AVANCES = _a; } catch(e) {} }
+    if(RH_PAIES.length === 0)   { try { const _p = JSON.parse(_lsGet('kg-rh-paies')  ||'null'); if(Array.isArray(_p)) RH_PAIES   = _p; } catch(e) {} }
+    if(RH_CONGES.length === 0)  { try { const _c = JSON.parse(_lsGet('kg-rh-conges') ||'null'); if(Array.isArray(_c)) RH_CONGES  = _c; } catch(e) {} }
+    if(RH_AVANCES.length === 0) { try { const _a = JSON.parse(_lsGet('kg-rh-avances')||'null'); if(Array.isArray(_a)) RH_AVANCES = _a; } catch(e) {} }
     renderRH();
   }
   if(id === 'fournisseurs') {
@@ -10294,7 +10569,7 @@ function deleteFacture(id) {
 
 // ---------- LocalStorage + Supabase ----------
 async function saveFacturesLocal() {
-  try { localStorage.setItem('kg-factures', JSON.stringify(FACTURES)); } catch(e){}
+  try { _lsSet('kg-factures', JSON.stringify(FACTURES)); } catch(e){}
   if(typeof saveSession === 'function' && currentUser) saveSession();
   // ✅ FIX v39 : Sync via kg_sync (realtime sur tous les navigateurs)
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
@@ -10313,7 +10588,7 @@ async function loadFacturesLocal() {
           const items = parsed.items || parsed;
           if(Array.isArray(items) && items.length > 0) {
             FACTURES = items;
-            try { localStorage.setItem("kg-factures", JSON.stringify(FACTURES)); } catch(e) {}
+            try { _lsSet("kg-factures", JSON.stringify(FACTURES)); } catch(e) {}
             return;
           }
         }
@@ -10321,9 +10596,9 @@ async function loadFacturesLocal() {
     } catch(eSb) { console.warn("loadFacturesLocal kg_sync:", eSb); }
   }
   try {
-    const sess = JSON.parse(localStorage.getItem("kg-session") || "null");
+    const sess = JSON.parse(_lsGet("kg-session") || "null");
     if(sess && Array.isArray(sess.FACTURES) && sess.FACTURES.length) { FACTURES = sess.FACTURES; return; }
-    const d = JSON.parse(localStorage.getItem("kg-factures")||"null");
+    const d = JSON.parse(_lsGet("kg-factures")||"null");
     if(Array.isArray(d)) FACTURES = d;
   } catch(e){}
 }
@@ -11003,7 +11278,7 @@ function _getNextOrderNum(caisse) {
   // Fallback local (utilisé si Supabase indisponible)
   if(!_orderCounters[caisse]) {
     try {
-      const saved = JSON.parse(localStorage.getItem('kg-order-counters') || '{}');
+      const saved = JSON.parse(_lsGet('kg-order-counters') || '{}');
       _orderCounters[caisse] = saved[caisse] || 1;
     } catch(e) {
       _orderCounters[caisse] = 1;
@@ -11012,9 +11287,9 @@ function _getNextOrderNum(caisse) {
   const num = _orderCounters[caisse];
   _orderCounters[caisse]++;
   try {
-    const saved = JSON.parse(localStorage.getItem('kg-order-counters') || '{}');
+    const saved = JSON.parse(_lsGet('kg-order-counters') || '{}');
     saved[caisse] = _orderCounters[caisse];
-    localStorage.setItem('kg-order-counters', JSON.stringify(saved));
+    _lsSet('kg-order-counters', JSON.stringify(saved));
   } catch(e) {}
   return '#' + String(num).padStart(3, '0');
 }
@@ -11158,9 +11433,9 @@ async function _getNextOrderNumGlobal(caisse) {
         // Synchroniser le compteur local pour la cohérence de la preview
         _orderCounters[caisse] = Math.max(_orderCounters[caisse] || 1, num + 1);
         try {
-          const saved = JSON.parse(localStorage.getItem('kg-order-counters') || '{}');
+          const saved = JSON.parse(_lsGet('kg-order-counters') || '{}');
           saved[caisse] = _orderCounters[caisse];
-          localStorage.setItem('kg-order-counters', JSON.stringify(saved));
+          _lsSet('kg-order-counters', JSON.stringify(saved));
         } catch(e) {}
         orderCounter = Math.max(orderCounter, num + 1);
         return '#' + String(num).padStart(3, '0');
@@ -11198,9 +11473,9 @@ async function _getNextTicketNumCaisse(caisseKey) {
         const num = parseInt(data);
         // Synchroniser le compteur local
         try {
-          const saved = JSON.parse(localStorage.getItem('kg-order-counters') || '{}');
+          const saved = JSON.parse(_lsGet('kg-order-counters') || '{}');
           saved[caisseKey] = Math.max(saved[caisseKey] || 1, num + 1);
-          localStorage.setItem('kg-order-counters', JSON.stringify(saved));
+          _lsSet('kg-order-counters', JSON.stringify(saved));
         } catch(e) {}
         orderCounter = Math.max(orderCounter || 1, num + 1);
         console.log('[Ticket] Supabase global (' + caisseKey + ') → #' + String(num).padStart(3,'0'));
@@ -11215,12 +11490,12 @@ async function _getNextTicketNumCaisse(caisseKey) {
   let _fbNum = 1;
   try {
     // Utiliser le même compteur local que les autres caisses pour éviter doublons offline
-    const saved = JSON.parse(localStorage.getItem('kg-order-counters') || '{}');
+    const saved = JSON.parse(_lsGet('kg-order-counters') || '{}');
     _fbNum = Math.max(orderCounter || 1, saved[caisseKey] || 1, saved['global'] || 1);
     saved[caisseKey] = _fbNum + 1;
     saved['global'] = _fbNum + 1;
     orderCounter = _fbNum + 1;
-    localStorage.setItem('kg-order-counters', JSON.stringify(saved));
+    _lsSet('kg-order-counters', JSON.stringify(saved));
   } catch(e) {}
   return '#' + String(_fbNum).padStart(3, '0');
 }
@@ -11252,10 +11527,10 @@ async function _syncOrderCounterFromSupabase() {
         _orderCounters[c] = Math.max(_orderCounters[c] || 1, maxNum + 1);
       });
       try {
-        const saved = JSON.parse(localStorage.getItem('kg-order-counters') || '{}');
+        const saved = JSON.parse(_lsGet('kg-order-counters') || '{}');
         Object.keys(saved).forEach(c => { saved[c] = Math.max(saved[c]||1, maxNum+1); });
         // Forcer le prochain numéro pour chaque caisse
-        localStorage.setItem('kg-order-counters', JSON.stringify(saved));
+        _lsSet('kg-order-counters', JSON.stringify(saved));
       } catch(e) {}
       console.log('✅ FIX v33 : orderCounter synchronisé depuis Supabase → prochain numéro :', orderCounter);
     }
@@ -11424,7 +11699,7 @@ async function confirmerOuverture() {
     const _todayOpen = new Date().toISOString().split('T')[0];
     let _estVraieCloture = false;
     try {
-      const _sessCheck = JSON.parse(localStorage.getItem('kg-session') || '{}');
+      const _sessCheck = JSON.parse(_lsGet('kg-session') || '{}');
       const _cloList = (_sessCheck._caissesClotureesAujourdhui || []);
       _estVraieCloture = _cloList.some(x => x.caisse === caisse && x.date === _todayOpen);
     } catch(e) {}
@@ -11435,18 +11710,18 @@ async function confirmerOuverture() {
     // sinon : réouverture simple → on garde les ventes en cours existantes
     // ✅ FIX v35 : effacer le timestamp de clôture — nouvelle session = nouvelles ventes autorisées
     try {
-      const _ct = JSON.parse(localStorage.getItem('kg_cloture_timestamps') || '{}');
+      const _ct = JSON.parse(_lsGet('kg_cloture_timestamps') || '{}');
       delete _ct[caisse];
-      localStorage.setItem('kg_cloture_timestamps', JSON.stringify(_ct));
+      _lsSet('kg_cloture_timestamps', JSON.stringify(_ct));
     } catch(e) {}
     // ✅ FIX v15 FINAL : retirer la caisse de _caissesClotureesAujourdhui à la réouverture
     // Sans ce fix : clôture Z → rouvrir → pullAll bloque les nouvelles ventes
     try {
-      const _sessOpen = JSON.parse(localStorage.getItem('kg-session') || '{}');
+      const _sessOpen = JSON.parse(_lsGet('kg-session') || '{}');
       if(_sessOpen._caissesClotureesAujourdhui) {
         _sessOpen._caissesClotureesAujourdhui = _sessOpen._caissesClotureesAujourdhui
           .filter(x => x.caisse !== caisse);
-        localStorage.setItem('kg-session', JSON.stringify(_sessOpen));
+        _lsSet('kg-session', JSON.stringify(_sessOpen));
       }
     } catch(e) {}
 
@@ -11536,7 +11811,7 @@ function openConfirmTicket() {
   const _previewCaisse = sessionCaisseActive?.caisse || (currentUser?.caisse !== 'Toutes' ? currentUser?.caisse : 'Caisse 1');
   let _previewCounter = orderCounter;
   try {
-    const _saved = JSON.parse(localStorage.getItem('kg-order-counters') || '{}');
+    const _saved = JSON.parse(_lsGet('kg-order-counters') || '{}');
     if(_saved[_previewCaisse]) _previewCounter = Math.max(orderCounter, _saved[_previewCaisse]);
   } catch(e) {}
   const orderNum = '#' + String(_previewCounter).padStart(3, '0');
@@ -15814,7 +16089,7 @@ async function deleteMenuItem(menuIdx) {
 let INVENTAIRES = (function() {          // historique des inventaires validés
   // ✅ FIX v32b : Charger immédiatement depuis localStorage au démarrage
   try {
-    const _saved = JSON.parse(localStorage.getItem('kg-inventaires') || '[]');
+    const _saved = JSON.parse(_lsGet('kg-inventaires') || '[]');
     if(Array.isArray(_saved) && _saved.length > 0) return _saved;
   } catch(e) {}
   return [];
@@ -16030,7 +16305,7 @@ function validerInventaire() {
   INVENTAIRES.unshift({ id: Date.now(), date: dateStr, heure: heureStr, agent, lignes, nbCorr });
 
   // ✅ FIX v32b : Sauvegarder immédiatement dans la clé autonome (survit aux déconnexions)
-  try { localStorage.setItem('kg-inventaires', JSON.stringify(INVENTAIRES)); } catch(e) {}
+  try { _lsSet('kg-inventaires', JSON.stringify(INVENTAIRES)); } catch(e) {}
 
   // Sync Supabase si dispo
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
@@ -17790,6 +18065,7 @@ async function doLogin() {
       restaurant_id: profile.restaurant_id,
     };
     window._KG_RESTAURANT_ID = profile.restaurant_id;
+    setTimeout(_migrateLocalStorageKeys, 200);
 
     // ✅ v12 : Mettre à jour last_login dans Supabase
     sb.from('users').update({ last_login: new Date().toISOString() }).eq('id', profile.id).then(() => {}).catch(() => {});
@@ -17823,7 +18099,7 @@ async function doLogin() {
           // Déconnecter immédiatement de Supabase
           await sb.auth.signOut();
           // Effacer la session locale
-          try { localStorage.removeItem('kg-session'); } catch(e) {}
+          try { _lsRemove('kg-session'); } catch(e) {}
           // Afficher erreur sur la page de login
           const _errEl = document.getElementById('login-error');
           if(_errEl) {
@@ -17856,7 +18132,7 @@ async function doLogin() {
     const _loginToday = new Date().toISOString().split('T')[0];
     let _loginCloZ = [];
     try {
-      const _loginSess = JSON.parse(localStorage.getItem('kg-session') || '{}');
+      const _loginSess = JSON.parse(_lsGet('kg-session') || '{}');
       _loginCloZ = (_loginSess._caissesClotureesAujourdhui || [])
         .filter(x => x.date === _loginToday).map(x => x.caisse);
     } catch(e) {}
@@ -17883,7 +18159,7 @@ async function doLogin() {
     // Si une session était active (caisse ouverte), la conserver après F5 / reconnexion
     let _sessionAvantLogin = null;
     try {
-      const _rawSess = JSON.parse(localStorage.getItem('kg-session') || '{}');
+      const _rawSess = JSON.parse(_lsGet('kg-session') || '{}');
       _sessionAvantLogin = _rawSess.sessionCaisseActive || null;
     } catch(e) {}
     // ✅ FIX CAISSIER : Ne restaurer la session que si c'est le même caissier qui se reconnecte
@@ -17979,7 +18255,7 @@ async function doLogin() {
           }
           // Fallback : ancienne clé kg_depenses
           if(!DEPENSES || !DEPENSES.length) {
-            const _rawOld = localStorage.getItem('kg_depenses');
+            const _rawOld = _lsGet('kg_depenses');
             if(_rawOld) {
               const _dOld = JSON.parse(_rawOld);
               if(Array.isArray(_dOld) && _dOld.length) {
@@ -18027,7 +18303,7 @@ async function doLogin() {
       const _loginT2 = new Date().toISOString().split('T')[0];
       let _cloZLogin = [];
       try {
-        const _sL = JSON.parse(localStorage.getItem('kg-session') || '{}');
+        const _sL = JSON.parse(_lsGet('kg-session') || '{}');
         _cloZLogin = (_sL._caissesClotureesAujourdhui || []).filter(x => x.date === _loginT2).map(x => x.caisse);
       } catch(e) {}
       for(const _c of _caisses123) {
@@ -18059,7 +18335,7 @@ async function doLogin() {
       if(_sbNettoyage && _ridNettoyage) {
         // ✅ FIX v15 : uniquement les caisses avec VRAIE clôture Z (pas juste closed local)
         const _loginT = new Date().toISOString().split('T')[0];
-        const _sessLogin = JSON.parse(localStorage.getItem('kg-session') || '{}');
+        const _sessLogin = JSON.parse(_lsGet('kg-session') || '{}');
         const caissesClosedNoms = (_sessLogin._caissesClotureesAujourdhui || [])
           .filter(x => x.date === _loginT).map(x => x.caisse);
         if(caissesClosedNoms.length > 0) {
@@ -18102,6 +18378,33 @@ async function doLogin() {
     document.getElementById('login-pass').classList.add('error');
     btn.textContent = 'Se connecter →'; btn.classList.remove('loading');
   }
+}
+
+
+// ✅ MIGRATION ISOLATION : nettoyer les clés non préfixées après login
+function _migrateLocalStorageKeys() {
+  const rid = window._KG_RESTAURANT_ID;
+  if(!rid) return;
+  const keysToMigrate = [
+    'kg-session','kg-restaurant-info','kg-ticket-config','kg-modules-active',
+    'kg-historique-clotures','kg-current-user','kg-cloture-pending',
+    'kg-order-counters','kg_depenses','kg-factures','kg-rh-paies',
+    'kg-rh-conges','kg-rh-avances','kg-rh-employes','kg_cloture_timestamps',
+    'kg-inventaires','kg-terrain-config','kg-salle-config','kg-sport-config',
+  ];
+  keysToMigrate.forEach(key => {
+    try {
+      const raw = localStorage.getItem(key);
+      const prefixed = localStorage.getItem(key + ':' + rid);
+      // Si données non préfixées existent sans version préfixée → migrer
+      if(raw && !prefixed) {
+        localStorage.setItem(key + ':' + rid, raw);
+        console.log('[KG] Migration clé:', key, '→', key + ':' + rid);
+      }
+      // Supprimer la clé non préfixée pour éviter contamination
+      if(raw) localStorage.removeItem(key);
+    } catch(e) {}
+  });
 }
 
 function applySession() {
@@ -18355,7 +18658,7 @@ async function doLogout() {
   STOCK_DATA = [];
   STOCK_ENTREES = [];
   // ✅ FIX DEPENSES : sauvegarder avant de vider (récupérable au prochain login)
-  try { if(DEPENSES && DEPENSES.length) localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES)); } catch(e) {}
+  try { if(DEPENSES && DEPENSES.length) _lsSet('kg_depenses', JSON.stringify(DEPENSES)); } catch(e) {}
   DEPENSES = [];
   CLIENTS = [];
   MENU = [];
@@ -20125,7 +20428,7 @@ function initFermetureSelect() {
         // Ne pas charger si la caisse est déjà clôturée aujourd'hui
         let _cloZFZ = [];
         try {
-          const _sFZ = JSON.parse(localStorage.getItem('kg-session') || '{}');
+          const _sFZ = JSON.parse(_lsGet('kg-session') || '{}');
           const _tFZ = new Date().toISOString().split('T')[0];
           _cloZFZ = (_sFZ._caissesClotureesAujourdhui || []).filter(x => x.date === _tFZ).map(x => x.caisse);
         } catch(e) {}
@@ -20298,11 +20601,18 @@ async function cloturerCaisse() {
     // évite que la session d'une autre caisse (admin loggé) impose son cashier
     const _caisseObj = CAISSES.find(c => c.name === caisse);
     const _sessionPropre = sessionCaisseActive && sessionCaisseActive.caisse === caisse;
-    const cashier = (_caisseObj && _caisseObj.cashier && _caisseObj.cashier !== 'Caissier' ? _caisseObj.cashier : null)
-      || (_sessionPropre ? sessionCaisseActive.cashier : null)
-      || (ventes.length > 0 && ventes[0].cashier_nom ? ventes[0].cashier_nom : null)
-      || (ventes.length > 0 && ventes[0].cashier ? ventes[0].cashier : null)
-      || 'Caissier';
+    const _cashierFromCaisses = _caisseObj && _caisseObj.cashier && _caisseObj.cashier !== 'Caissier' ? _caisseObj.cashier : null;
+    const _cashierFromSession = _sessionPropre ? sessionCaisseActive.cashier : null;
+    const _cashierFromVentes  = (ventes.length > 0 && ventes[0].cashier_nom ? ventes[0].cashier_nom : null)
+                              || (ventes.length > 0 && ventes[0].cashier ? ventes[0].cashier : null);
+    // ✅ Ne jamais laisser le caissier vide — toujours trouver un nom valide
+    const cashier = (_cashierFromCaisses && _cashierFromCaisses !== '' && _cashierFromCaisses !== '—')
+      ? _cashierFromCaisses
+      : (_cashierFromSession && _cashierFromSession !== '' && _cashierFromSession !== '—')
+        ? _cashierFromSession
+        : (_cashierFromVentes && _cashierFromVentes !== '' && _cashierFromVentes !== '—')
+          ? _cashierFromVentes
+          : 'Caissier ' + caisse; // Fallback lisible : "Caissier Caisse 2"
     const now      = new Date();
 
     // ✅ FIX v8 : Essayer d'abord _loadVentesSupabase (table ventes_caisse) — plus fiable pour C1/C2/C3
@@ -20366,10 +20676,10 @@ async function cloturerCaisse() {
             // ✅ FIX CRITIQUE : vider immédiatement localStorage pour que ces ventes
             // ne soient pas sauvegardées par saveSession() avant la fin de la clôture
             try {
-              const _sess = JSON.parse(localStorage.getItem('kg-session') || '{}');
+              const _sess = JSON.parse(_lsGet('kg-session') || '{}');
               if(_sess.VENTES_PAR_CAISSE) {
                 _sess.VENTES_PAR_CAISSE[caisse] = [];
-                localStorage.setItem('kg-session', JSON.stringify(_sess));
+                _lsSet('kg-session', JSON.stringify(_sess));
               }
             } catch(e) {}
           }
@@ -20492,7 +20802,7 @@ async function cloturerCaisse() {
 
     // Sauvegarder immédiatement le tableau vide + marquer la caisse comme clôturée
     try {
-      const _sess = JSON.parse(localStorage.getItem('kg-session') || '{}');
+      const _sess = JSON.parse(_lsGet('kg-session') || '{}');
       if(!_sess.VENTES_PAR_CAISSE) _sess.VENTES_PAR_CAISSE = {};
       _sess.VENTES_PAR_CAISSE[caisse] = [];
       _sess._caissesClotureesAujourdhui = _sess._caissesClotureesAujourdhui || [];
@@ -20500,7 +20810,7 @@ async function cloturerCaisse() {
       if(!_sess._caissesClotureesAujourdhui.find(x => x.caisse === caisse && x.date === todayKey)) {
         _sess._caissesClotureesAujourdhui.push({ caisse, date: todayKey, ts: Date.now() });
       }
-      localStorage.setItem('kg-session', JSON.stringify(_sess));
+      _lsSet('kg-session', JSON.stringify(_sess));
     } catch(e) {}
 
     _resetOrderCounter(caisse);
@@ -20537,11 +20847,11 @@ async function cloturerCaisse() {
       // ✅ FIX BUG CLÔTURE : sauvegarder DEPENSES immédiatement dans les 2 clés
       // AVANT d'appeler saveSession() pour éviter que le setInterval (5s) ou saveSession()
       // écrase kg-session avec une ancienne version non clôturée des dépenses.
-      try { localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES)); } catch(e) {}
+      try { _lsSet('kg_depenses', JSON.stringify(DEPENSES)); } catch(e) {}
       try {
-        const _sess = JSON.parse(localStorage.getItem('kg-session') || '{}');
+        const _sess = JSON.parse(_lsGet('kg-session') || '{}');
         _sess.DEPENSES = DEPENSES;
-        localStorage.setItem('kg-session', JSON.stringify(_sess));
+        _lsSet('kg-session', JSON.stringify(_sess));
       } catch(e) {}
       // ✅ FIX : Mettre à jour table depenses Supabase directement (source de vérité)
       if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
@@ -20590,9 +20900,9 @@ async function cloturerCaisse() {
     // pullAll() utilisera ce timestamp pour rejeter les ventes antérieures,
     // sans dépendre de cloturee=true dans Supabase
     try {
-      const _ct = JSON.parse(localStorage.getItem('kg_cloture_timestamps') || '{}');
+      const _ct = JSON.parse(_lsGet('kg_cloture_timestamps') || '{}');
       _ct[caisse] = now.getTime();
-      localStorage.setItem('kg_cloture_timestamps', JSON.stringify(_ct));
+      _lsSet('kg_cloture_timestamps', JSON.stringify(_ct));
     } catch(e) {}
 
     if(typeof saveSession === 'function') saveSession();
@@ -20612,7 +20922,7 @@ async function cloturerCaisse() {
     if(caisse === 'Caisse 4' && typeof TERRAIN_RESERVATIONS !== 'undefined') {
       TERRAIN_RESERVATIONS.forEach(r => { if((r.date||'').slice(0,10) === _todayReset) r.cloturee = true; });
       if(typeof TERRAIN_CAISSE !== 'undefined') { TERRAIN_CAISSE.active = false; TERRAIN_CAISSE.transactions = []; _saveTerrainCaisseState(); try { const _ms = JSON.parse(_lsGet('kg-modules-active') || '{}'); delete _ms['Caisse 4']; _lsSet('kg-modules-active', JSON.stringify(_ms)); } catch(e) {} }
-      try { localStorage.setItem('kg-terrain-reservations', JSON.stringify(TERRAIN_RESERVATIONS)); } catch(e) {}
+      try { _lsSet('kg-terrain-reservations', JSON.stringify(TERRAIN_RESERVATIONS)); } catch(e) {}
       if(typeof refreshTerrainStats === 'function') refreshTerrainStats();
     }
 
@@ -21476,7 +21786,7 @@ function _saveSessionImmediate() {
     // une VRAIE clôture Z — une caisse "closed" sans clôture Z doit garder ses ventes
     let _caissesCloturees = [];
     try {
-      const _sessCheck = JSON.parse(localStorage.getItem('kg-session') || '{}');
+      const _sessCheck = JSON.parse(_lsGet('kg-session') || '{}');
       _caissesCloturees = (_sessCheck._caissesClotureesAujourdhui || [])
         .filter(x => x.date === _todayISO)
         .map(x => x.caisse);
@@ -21535,14 +21845,14 @@ function _saveSessionImmediate() {
     };
     // ✅ FIX v15 : toujours inclure _caissesClotureesAujourdhui dans la session sauvegardée
     try {
-      const _sessExist = JSON.parse(localStorage.getItem('kg-session') || '{}');
+      const _sessExist = JSON.parse(_lsGet('kg-session') || '{}');
       data._caissesClotureesAujourdhui = _sessExist._caissesClotureesAujourdhui || [];
     } catch(e) { data._caissesClotureesAujourdhui = []; }
-    localStorage.setItem('kg-session', JSON.stringify(data));
+    _lsSet('kg-session', JSON.stringify(data));
     // Synchroniser aussi les clés autonomes pour compatibilité modules
-    try { localStorage.setItem('kg_depenses', JSON.stringify(data.DEPENSES)); } catch(e) {}
-    try { localStorage.setItem('kg-factures', JSON.stringify(data.FACTURES)); } catch(e) {}
-    try { localStorage.setItem('kg-inventaires', JSON.stringify(INVENTAIRES)); } catch(e) {}
+    try { _lsSet('kg_depenses', JSON.stringify(data.DEPENSES)); } catch(e) {}
+    try { _lsSet('kg-factures', JSON.stringify(data.FACTURES)); } catch(e) {}
+    try { _lsSet('kg-inventaires', JSON.stringify(INVENTAIRES)); } catch(e) {}
 
     // ✅ OPT REALTIME v7-4 : les pushes Supabase sont maintenant gérés par le debounce
     // de saveSession (4s) — on ne push plus ici pour éviter les rafales de messages Realtime
@@ -21572,11 +21882,11 @@ function _saveSessionImmediate() {
 
 function restoreSession() {
   try {
-    const raw = localStorage.getItem('kg-session');
+    const raw = _lsGet('kg-session');
     if(!raw) return false;
     const data = JSON.parse(raw);
     const user = USERS.find(u => u.id === data.currentUserId);
-    if(!user) { localStorage.removeItem('kg-session'); return false; }
+    if(!user) { _lsRemove('kg-session'); return false; }
 
     currentUser = user;
 
@@ -21763,7 +22073,7 @@ TICKETS_ARCHIVES = [];
     if(data.INVENTAIRES && data.INVENTAIRES.length) INVENTAIRES = data.INVENTAIRES;
     // ✅ FIX v32b : Charger aussi depuis la clé autonome kg-inventaires (plus fiable)
     try {
-      const _invLocal = JSON.parse(localStorage.getItem('kg-inventaires') || '[]');
+      const _invLocal = JSON.parse(_lsGet('kg-inventaires') || '[]');
       if(_invLocal.length > 0) {
         // Fusionner : prendre le plus grand des deux (par ID unique)
         const existIds = new Set(INVENTAIRES.map(i => String(i.id)));
@@ -21787,28 +22097,28 @@ TICKETS_ARCHIVES = [];
     // ✅ FIX: restaurer DÉPENSES
     if(Array.isArray(data.DEPENSES)) {
       DEPENSES = data.DEPENSES;
-      try { localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES)); } catch(e) {}
+      try { _lsSet('kg_depenses', JSON.stringify(DEPENSES)); } catch(e) {}
     } else {
       // fallback clé autonome
-      try { const d = JSON.parse(localStorage.getItem('kg_depenses')||'null'); if(Array.isArray(d)) DEPENSES = d; } catch(e) {}
+      try { const d = JSON.parse(_lsGet('kg_depenses')||'null'); if(Array.isArray(d)) DEPENSES = d; } catch(e) {}
     }
 
     // ✅ FIX v50 : restaurer RH depuis localStorage EN ATTENDANT pullAll Supabase
     // RH_EMPLOYES : fallback localStorage si pullAll pas encore arrivé
-    try { const _e = JSON.parse(localStorage.getItem('kg-rh-employes')||'null'); if(Array.isArray(_e) && _e.length > 0 && RH_EMPLOYES.length === 0) RH_EMPLOYES = _e; } catch(e) {}
-    if(Array.isArray(data.RH_PAIES))   { RH_PAIES   = data.RH_PAIES;   try { localStorage.setItem('kg-rh-paies',   JSON.stringify(RH_PAIES));   } catch(e) {} }
-    else { try { const _p = JSON.parse(localStorage.getItem('kg-rh-paies')||'null');   if(Array.isArray(_p))  RH_PAIES   = _p;  } catch(e) {} }
-    if(Array.isArray(data.RH_CONGES))  { RH_CONGES  = data.RH_CONGES;  try { localStorage.setItem('kg-rh-conges',  JSON.stringify(RH_CONGES));  } catch(e) {} }
-    else { try { const _c = JSON.parse(localStorage.getItem('kg-rh-conges')||'null');  if(Array.isArray(_c))  RH_CONGES  = _c;  } catch(e) {} }
-    if(Array.isArray(data.RH_AVANCES)) { RH_AVANCES = data.RH_AVANCES; try { localStorage.setItem('kg-rh-avances', JSON.stringify(RH_AVANCES)); } catch(e) {} }
-    else { try { const _a = JSON.parse(localStorage.getItem('kg-rh-avances')||'null'); if(Array.isArray(_a))  RH_AVANCES = _a;  } catch(e) {} }
+    try { const _e = JSON.parse(_lsGet('kg-rh-employes')||'null'); if(Array.isArray(_e) && _e.length > 0 && RH_EMPLOYES.length === 0) RH_EMPLOYES = _e; } catch(e) {}
+    if(Array.isArray(data.RH_PAIES))   { RH_PAIES   = data.RH_PAIES;   try { _lsSet('kg-rh-paies',   JSON.stringify(RH_PAIES));   } catch(e) {} }
+    else { try { const _p = JSON.parse(_lsGet('kg-rh-paies')||'null');   if(Array.isArray(_p))  RH_PAIES   = _p;  } catch(e) {} }
+    if(Array.isArray(data.RH_CONGES))  { RH_CONGES  = data.RH_CONGES;  try { _lsSet('kg-rh-conges',  JSON.stringify(RH_CONGES));  } catch(e) {} }
+    else { try { const _c = JSON.parse(_lsGet('kg-rh-conges')||'null');  if(Array.isArray(_c))  RH_CONGES  = _c;  } catch(e) {} }
+    if(Array.isArray(data.RH_AVANCES)) { RH_AVANCES = data.RH_AVANCES; try { _lsSet('kg-rh-avances', JSON.stringify(RH_AVANCES)); } catch(e) {} }
+    else { try { const _a = JSON.parse(_lsGet('kg-rh-avances')||'null'); if(Array.isArray(_a))  RH_AVANCES = _a;  } catch(e) {} }
 
     // ✅ FIX: restaurer FACTURES
     if(Array.isArray(data.FACTURES) && data.FACTURES.length) {
       FACTURES = data.FACTURES;
-      try { localStorage.setItem('kg-factures', JSON.stringify(FACTURES)); } catch(e) {}
+      try { _lsSet('kg-factures', JSON.stringify(FACTURES)); } catch(e) {}
     } else {
-      try { const f = JSON.parse(localStorage.getItem('kg-factures')||'null'); if(Array.isArray(f)) FACTURES = f; } catch(e) {}
+      try { const f = JSON.parse(_lsGet('kg-factures')||'null'); if(Array.isArray(f)) FACTURES = f; } catch(e) {}
     }
 
     // ✅ FIX: restaurer CATEGORIES (pour le menu)
@@ -21888,7 +22198,7 @@ TICKETS_ARCHIVES = [];
         if(_sbR && _ridR) {
           // Utiliser uniquement les caisses avec VRAIE clôture Z
           const _f5T = new Date().toISOString().split('T')[0];
-          const _sessForClean = JSON.parse(localStorage.getItem('kg-session') || '{}');
+          const _sessForClean = JSON.parse(_lsGet('kg-session') || '{}');
           const _vraisCloZ = (_sessForClean._caissesClotureesAujourdhui || [])
             .filter(x => x.date === _f5T).map(x => x.caisse);
           if(_vraisCloZ.length > 0) {
@@ -21916,13 +22226,13 @@ TICKETS_ARCHIVES = [];
     return true;
   } catch(e) {
     console.warn('Restauration session echouee', e);
-    localStorage.removeItem('kg-session');
+    _lsRemove('kg-session');
     return false;
   }
 }
 
 function clearSession() {
-  localStorage.removeItem('kg-session');
+  _lsRemove('kg-session');
 }
 
 // Sauvegarde toutes les 5 secondes si connecte
@@ -21935,7 +22245,7 @@ setInterval(() => {
     if(_hasOpenCaisse && !_hasVentes) {
       // Caisse ouverte mais pas de ventes en mémoire — ne pas écraser le localStorage
       // qui peut contenir des ventes valides non encore restaurées
-      const _sessRaw = localStorage.getItem('kg-session');
+      const _sessRaw = _lsGet('kg-session');
       if(_sessRaw) {
         try {
           const _sessCheck = JSON.parse(_sessRaw);
@@ -22232,7 +22542,7 @@ const KGSync = (() => {
     // ✅ OPTION A : lire les caisses clôturées localement pour bloquer leur push
     let _cloZPush = [];
     try {
-      const _sPush = JSON.parse(localStorage.getItem('kg-session') || '{}');
+      const _sPush = JSON.parse(_lsGet('kg-session') || '{}');
       const _todayPush = new Date().toISOString().split('T')[0];
       _cloZPush = (_sPush._caissesClotureesAujourdhui || [])
         .filter(x => x.date === _todayPush).map(x => x.caisse);
@@ -22352,10 +22662,10 @@ const KGSync = (() => {
     _invalidateCache('rh_data');
     const _rhPayload = { employes: (typeof RH_EMPLOYES !== 'undefined' ? RH_EMPLOYES : []), paies: (typeof RH_PAIES !== 'undefined' ? RH_PAIES : []), conges: (typeof RH_CONGES !== 'undefined' ? RH_CONGES : []), avances: (typeof RH_AVANCES !== 'undefined' ? RH_AVANCES : []) };
     // ✅ FIX v50 : Double persistance localStorage — évite la disparition au refresh
-    try { localStorage.setItem('kg-rh-employes', JSON.stringify(_rhPayload.employes)); } catch(e) {}
-    try { localStorage.setItem('kg-rh-paies',    JSON.stringify(_rhPayload.paies));    } catch(e) {}
-    try { localStorage.setItem('kg-rh-conges',   JSON.stringify(_rhPayload.conges));   } catch(e) {}
-    try { localStorage.setItem('kg-rh-avances',  JSON.stringify(_rhPayload.avances));  } catch(e) {}
+    try { _lsSet('kg-rh-employes', JSON.stringify(_rhPayload.employes)); } catch(e) {}
+    try { _lsSet('kg-rh-paies',    JSON.stringify(_rhPayload.paies));    } catch(e) {}
+    try { _lsSet('kg-rh-conges',   JSON.stringify(_rhPayload.conges));   } catch(e) {}
+    try { _lsSet('kg-rh-avances',  JSON.stringify(_rhPayload.avances));  } catch(e) {}
     _debouncedUpsert('rh_data', _rhPayload, 8000);
   }
   async function pushInventaires() { _invalidateCache('inventaires_data'); _debouncedUpsert('inventaires_data', () => ({ items: (typeof INVENTAIRES !== 'undefined' ? INVENTAIRES : []) }), 3000); } // ✅ FIX v39
@@ -22363,7 +22673,7 @@ const KGSync = (() => {
   async function pushTerrainReservations() {
     try {
       const items = (typeof TERRAIN_RESERVATIONS !== 'undefined') ? TERRAIN_RESERVATIONS : [];
-      const cfg   = (() => { try { return JSON.parse(localStorage.getItem('kg-terrain-config')||'{}'); } catch(e){return{};} })();
+      const cfg   = (() => { try { return JSON.parse(_lsGet('kg-terrain-config')||'{}'); } catch(e){return{};} })();
       _debouncedUpsert('terrain_reservations_data', { items, config: cfg }, 3000);
     } catch(e) { console.warn('KGSync pushTerrainReservations error:', e); }
   }
@@ -22377,7 +22687,7 @@ const KGSync = (() => {
   async function pushSalleReservations() {
     try {
       const items = (typeof SALLE_RESERVATIONS !== 'undefined') ? SALLE_RESERVATIONS : [];
-      const cfg   = (() => { try { return JSON.parse(localStorage.getItem('kg-salle-config')||'{}'); } catch(e){return{};} })();
+      const cfg   = (() => { try { return JSON.parse(_lsGet('kg-salle-config')||'{}'); } catch(e){return{};} })();
       _debouncedUpsert('salle_reservations_data', { items, config: cfg }, 3000);
     } catch(e) { console.warn('KGSync pushSalleReservations error:', e); }
   }
@@ -22386,7 +22696,7 @@ const KGSync = (() => {
     try {
       const membres = (typeof SP_MEMBRES !== 'undefined') ? SP_MEMBRES : [];
       const log     = (typeof SP_LOG_ACCES !== 'undefined') ? SP_LOG_ACCES.slice(0,100) : [];
-      const cfg     = (() => { try { return JSON.parse(localStorage.getItem('kg-sport-config')||'{}'); } catch(e){return{};} })();
+      const cfg     = (() => { try { return JSON.parse(_lsGet('kg-sport-config')||'{}'); } catch(e){return{};} })();
       _debouncedUpsert('sport_membres_data', { membres, log, config: cfg }, 3000);
     } catch(e) { console.warn('KGSync pushSportMembres error:', e); }
   }
@@ -22564,7 +22874,7 @@ const KGSync = (() => {
       // Lire le timestamp de clôture local pour filtrer les ventes
       let _clotTimestamps = {};
       try {
-        const _ct = localStorage.getItem('kg_cloture_timestamps');
+        const _ct = _lsGet('kg_cloture_timestamps');
         if(_ct) _clotTimestamps = JSON.parse(_ct);
       } catch(e) {}
 
@@ -22573,7 +22883,7 @@ const KGSync = (() => {
       const _pullToday = new Date().toISOString().split('T')[0];
       let _cloZListGlobal = [];
       try {
-        const _pullSessGlobal = JSON.parse(localStorage.getItem('kg-session') || '{}');
+        const _pullSessGlobal = JSON.parse(_lsGet('kg-session') || '{}');
         // ✅ FIX : nettoyer les anciennes clôtures des jours précédents pour éviter
         // que Caisse 2/3 soient bloquées indéfiniment après minuit
         const _allClo = _pullSessGlobal._caissesClotureesAujourdhui || [];
@@ -22581,7 +22891,7 @@ const KGSync = (() => {
         if(_oldOnes.length > 0) {
           // Nettoyer localStorage
           _pullSessGlobal._caissesClotureesAujourdhui = _allClo.filter(x => x.date === _pullToday);
-          localStorage.setItem('kg-session', JSON.stringify(_pullSessGlobal));
+          _lsSet('kg-session', JSON.stringify(_pullSessGlobal));
           console.log('[pullAll] 🧹 Anciennes clôtures nettoyées :', _oldOnes.map(x=>x.caisse+'@'+x.date));
         }
         _cloZListGlobal = (_pullSessGlobal._caissesClotureesAujourdhui || [])
@@ -22656,12 +22966,12 @@ const KGSync = (() => {
               } catch(e) {}
               // Marquer la clôture locale pour bloquer toute restauration parasite
               try {
-                const _sOA = JSON.parse(localStorage.getItem('kg-session') || '{}');
+                const _sOA = JSON.parse(_lsGet('kg-session') || '{}');
                 _sOA._caissesClotureesAujourdhui = _sOA._caissesClotureesAujourdhui || [];
                 const _todayClo = new Date().toISOString().split('T')[0];
                 if(!_sOA._caissesClotureesAujourdhui.find(x => x.caisse === caisse && x.date === _todayClo)) {
                   _sOA._caissesClotureesAujourdhui.push({ caisse, date: _todayClo, ts: Date.now(), source: 'distant' });
-                  localStorage.setItem('kg-session', JSON.stringify(_sOA));
+                  _lsSet('kg-session', JSON.stringify(_sOA));
                 }
               } catch(e) {}
               // Mettre à jour le statut CAISSES
@@ -22869,7 +23179,7 @@ const KGSync = (() => {
               const _todayPull = new Date().toISOString().split('T')[0];
               let _cloZPull = [];
               try {
-                const _spull = JSON.parse(localStorage.getItem('kg-session') || '{}');
+                const _spull = JSON.parse(_lsGet('kg-session') || '{}');
                 _cloZPull = (_spull._caissesClotureesAujourdhui || [])
                   .filter(x => x.date === _todayPull).map(x => x.caisse);
               } catch(e) {}
@@ -22881,7 +23191,7 @@ const KGSync = (() => {
               // ✅ FIX DÉFINITIF : si la caisse a été clôturée aujourd'hui (localStorage),
               // ne JAMAIS la rouvrir via pullAll, même après le délai de 5min
               try {
-                const _sess2 = JSON.parse(localStorage.getItem('kg-session') || '{}');
+                const _sess2 = JSON.parse(_lsGet('kg-session') || '{}');
                 const _cca = _sess2._caissesClotureesAujourdhui || [];
                 const _todayISO = new Date().toISOString().split('T')[0];
                 const _wasClosed = _cca.find(x => x.caisse === l.name && x.date === _todayISO);
@@ -22918,39 +23228,59 @@ const KGSync = (() => {
           if(data.items)        COMMANDES_FOURNISSEURS = data.items;
           if(data.fournisseurs) FOURNISSEURS           = data.fournisseurs;
         } else if(key === 'clotures_data' && data.items) {
-          // Fusion sécurisée — on garde le plus grand tableau
+          // Fusion sécurisée — merge bi-directionnel
           const remote = Array.isArray(data.items) ? data.items : [];
-          // ✅ FIX v40 CA=0 : S'assurer que chaque clôture a bien ca et caTotal remplis
           const _fixCA = (h) => {
             if(!h) return h;
-            // Calculer depuis les tickets si ca/caTotal manquants ou = 0
-            const caFromTickets = (h.tickets || []).reduce((a, t) => a + (t.total || 0), 0);
+            const caFromTickets = Array.isArray(h.tickets) ? h.tickets.reduce((a, t) => a + (t.total || 0), 0) : 0;
             if((!h.ca && !h.caTotal) || (h.ca === 0 && h.caTotal === 0 && caFromTickets > 0)) {
-              h.ca = caFromTickets;
-              h.caTotal = caFromTickets;
+              h.ca = caFromTickets; h.caTotal = caFromTickets;
             } else {
-              // Toujours synchroniser ca et caTotal
               h.ca = h.ca || h.caTotal || 0;
               h.caTotal = h.caTotal || h.ca || 0;
             }
-            h.orders = h.orders || h.nbTickets || (h.tickets || []).length || 0;
+            h.orders = h.orders || h.nbTickets || (Array.isArray(h.tickets) ? h.tickets.length : 0) || 0;
             h.nbTickets = h.nbTickets || h.orders || 0;
             return h;
           };
-          // ✅ FIX v44 SYNC CLOTURES : merge par clé unique (date+heure+caisse) dans les deux sens
-          // Avant: comparaison par length → si local avait plus de clôtures, les nouvelles de Supabase étaient perdues
+          // ✅ FIX MERGE ROBUSTE : clé unique par id + date+heure+caisse
+          // Utiliser l'id unique en priorité pour éviter les doublons
           {
             const mergedMap = new Map();
+            const _mkKey = (h) => h.id && !h.id.startsWith('MANU-')
+              ? h.id  // ID Supabase = clé unique fiable
+              : (h.date||'')+'_'+(h.heure||'')+'_'+(h.caisse||'');
             // 1. Partir de l'état local
-            HISTORIQUE_CLOTURES.forEach(h => mergedMap.set(h.date+'_'+h.heure+'_'+h.caisse, _fixCA(h)));
-            // 2. Écraser/ajouter avec les données Supabase (source de vérité)
-            remote.forEach(h => mergedMap.set(h.date+'_'+h.heure+'_'+h.caisse, _fixCA(h)));
+            HISTORIQUE_CLOTURES.forEach(h => mergedMap.set(_mkKey(h), _fixCA(h)));
+            // 2. Fusionner avec Supabase (source de vérité)
+            // ✅ FIX : ne jamais écraser une clôture locale qui a plus de données
+            remote.forEach(h => {
+              const k = _mkKey(h);
+              const existing = mergedMap.get(k);
+              if(!existing) {
+                mergedMap.set(k, _fixCA(h)); // Nouvelle clôture de Supabase → ajouter
+              } else {
+                // Garder la version avec le CA non nul et le plus de tickets
+                const remoteFixed = _fixCA(h);
+                const winRemote = (remoteFixed.ca > 0 && existing.ca === 0) ||
+                                  (remoteFixed.nbTickets > existing.nbTickets);
+                mergedMap.set(k, winRemote ? remoteFixed : existing);
+              }
+            });
             HISTORIQUE_CLOTURES = Array.from(mergedMap.values());
-            HISTORIQUE_CLOTURES.sort((a,b) => (b.date+b.heure).localeCompare(a.date+a.heure));
+            // ✅ FIX TRI : convertir date DD/MM/YY en timestamp pour tri correct
+            const _ts = (h) => {
+              const d = (h.date||'').split('/');
+              if(d.length===3) {
+                const yr = d[2].length===2?'20'+d[2]:d[2];
+                return new Date(yr+'-'+d[1]+'-'+d[0]+'T'+(h.heure||'00:00')).getTime();
+              }
+              return 0;
+            };
+            HISTORIQUE_CLOTURES.sort((a,b) => _ts(b) - _ts(a));
           }
-          // ✅ FIX v32 SYNC CLOTURES : persister en localStorage + rafraîchir l'interface
+          // Persister en localStorage
           try {
-            // Sauvegarder sous les 2 clés pour compatibilité tous appareils
             _lsSet('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
             const _ridSave = window._KG_RESTAURANT_ID;
             if(_ridSave) localStorage.setItem('kg-historique-clotures-' + _ridSave, JSON.stringify(HISTORIQUE_CLOTURES));
@@ -23154,7 +23484,7 @@ const KGSync = (() => {
           // ✅ FIX v39 : Factures synchronisées via kg_sync
           if(Array.isArray(data.items) && data.items.length > 0) {
             FACTURES = data.items;
-            try { localStorage.setItem('kg-factures', JSON.stringify(FACTURES)); } catch(e) {}
+            try { _lsSet('kg-factures', JSON.stringify(FACTURES)); } catch(e) {}
           }
         } else if(key === 'inventaires_data' && data.items) {
           // ✅ FIX v39 : Inventaires synchronisés via kg_sync
@@ -23163,7 +23493,7 @@ const KGSync = (() => {
             const existIds = new Set(INVENTAIRES.map(i => String(i.id)));
             remote.forEach(i => { if(!existIds.has(String(i.id))) INVENTAIRES.push(i); });
             INVENTAIRES.sort((a, b) => String(b.id).localeCompare(String(a.id)));
-            try { localStorage.setItem('kg-inventaires', JSON.stringify(INVENTAIRES)); } catch(e) {}
+            try { _lsSet('kg-inventaires', JSON.stringify(INVENTAIRES)); } catch(e) {}
           }
         } else if(key === 'rh_data') {
           // ✅ FIX v39 : RH synchronisé via kg_sync
@@ -23180,11 +23510,11 @@ const KGSync = (() => {
           if(Array.isArray(data.employes) && data.employes.length > 0) {
             RH_EMPLOYES = data.employes.map(_normEmploye);
             // ✅ FIX v50 : Persister dans localStorage pour survie au refresh
-            try { localStorage.setItem('kg-rh-employes', JSON.stringify(RH_EMPLOYES)); } catch(e) {}
+            try { _lsSet('kg-rh-employes', JSON.stringify(RH_EMPLOYES)); } catch(e) {}
           }
-          if(Array.isArray(data.paies))   { RH_PAIES   = data.paies;   try { localStorage.setItem('kg-rh-paies',   JSON.stringify(RH_PAIES));   } catch(e) {} }
-          if(Array.isArray(data.conges))  { RH_CONGES  = data.conges;  try { localStorage.setItem('kg-rh-conges',  JSON.stringify(RH_CONGES));  } catch(e) {} }
-          if(Array.isArray(data.avances)) { RH_AVANCES = data.avances; try { localStorage.setItem('kg-rh-avances', JSON.stringify(RH_AVANCES)); } catch(e) {} }
+          if(Array.isArray(data.paies))   { RH_PAIES   = data.paies;   try { _lsSet('kg-rh-paies',   JSON.stringify(RH_PAIES));   } catch(e) {} }
+          if(Array.isArray(data.conges))  { RH_CONGES  = data.conges;  try { _lsSet('kg-rh-conges',  JSON.stringify(RH_CONGES));  } catch(e) {} }
+          if(Array.isArray(data.avances)) { RH_AVANCES = data.avances; try { _lsSet('kg-rh-avances', JSON.stringify(RH_AVANCES)); } catch(e) {} }
         } else if(key === 'sport_data') {
           // ✅ FIX v40 SPORT : Restaurer membres et entrées sport
           try {
@@ -23196,7 +23526,7 @@ const KGSync = (() => {
                 else { const ld = new Date(localMap[m.id].createdAt||0).getTime(); const rd = new Date(m.createdAt||0).getTime(); if(rd > ld) localMap[m.id] = m; }
               });
               SPORT_MEMBRES = Object.values(localMap);
-              try { localStorage.setItem('kg-sport-membres', JSON.stringify(SPORT_MEMBRES)); } catch(e) {}
+              try { _lsSet('kg-sport-membres', JSON.stringify(SPORT_MEMBRES)); } catch(e) {}
             }
             if(Array.isArray(data.entrees) && data.entrees.length > 0) {
               const localIds = new Set((SPORT_ENTREES||[]).map(e => e.id));
@@ -23245,10 +23575,10 @@ const KGSync = (() => {
               }
             });
             TERRAIN_RESERVATIONS = Object.values(localMap);
-            try { localStorage.setItem('kg-terrain-reservations', JSON.stringify(TERRAIN_RESERVATIONS)); } catch(e) {}
+            try { _lsSet('kg-terrain-reservations', JSON.stringify(TERRAIN_RESERVATIONS)); } catch(e) {}
             // ✅ Restaurer config terrain (horaires, tarif)
             if(data.config && typeof data.config === 'object' && Object.keys(data.config).length > 0) {
-              try { localStorage.setItem('kg-terrain-config', JSON.stringify(data.config)); } catch(e) {}
+              try { _lsSet('kg-terrain-config', JSON.stringify(data.config)); } catch(e) {}
             }
             if(typeof renderTerrainReservations === 'function') renderTerrainReservations();
             if(typeof updateTerrainKPI === 'function') updateTerrainKPI();
@@ -23296,7 +23626,7 @@ const KGSync = (() => {
               try { localStorage.setItem('kg-salle-reservations', JSON.stringify(Object.values(localMap))); } catch(e) {}
             }
             if(data.config && typeof data.config === 'object') {
-              try { localStorage.setItem('kg-salle-config', JSON.stringify(data.config)); } catch(e) {}
+              try { _lsSet('kg-salle-config', JSON.stringify(data.config)); } catch(e) {}
             }
             if(typeof updateSalleKPI === 'function') updateSalleKPI();
             if(typeof renderSalleListe === 'function') renderSalleListe();
@@ -23320,7 +23650,7 @@ const KGSync = (() => {
                 }
               });
               if(typeof SP_MEMBRES !== 'undefined') SP_MEMBRES = Object.values(localMap);
-              try { localStorage.setItem('kg-sport-membres', JSON.stringify(Object.values(localMap))); } catch(e) {}
+              try { _lsSet('kg-sport-membres', JSON.stringify(Object.values(localMap))); } catch(e) {}
             }
             if(Array.isArray(data.log)) {
               if(typeof SP_LOG_ACCES !== 'undefined') {
@@ -23331,7 +23661,7 @@ const KGSync = (() => {
               try { localStorage.setItem('kg-sport-log', JSON.stringify(data.log)); } catch(e) {}
             }
             if(data.config && typeof data.config === 'object') {
-              try { localStorage.setItem('kg-sport-config', JSON.stringify(data.config)); } catch(e) {}
+              try { _lsSet('kg-sport-config', JSON.stringify(data.config)); } catch(e) {}
             }
             if(typeof spUpdateKPI === 'function') spUpdateKPI();
             if(typeof spRenderMembres === 'function') spRenderMembres();
@@ -23411,7 +23741,7 @@ const KGSync = (() => {
       const _rtToday = new Date().toISOString().split('T')[0];
       let _rtCloZ = [];
       try {
-        const _rtSess = JSON.parse(localStorage.getItem('kg-session') || '{}');
+        const _rtSess = JSON.parse(_lsGet('kg-session') || '{}');
         _rtCloZ = (_rtSess._caissesClotureesAujourdhui || [])
           .filter(x => x.date === _rtToday).map(x => x.caisse);
       } catch(e) {}
@@ -23424,7 +23754,7 @@ const KGSync = (() => {
         if(c.name === 'Caisse 8' && typeof SPORT_CAISSE !== 'undefined' && SPORT_CAISSE.active) return;
         // Caisses 1-3 : vider SEULEMENT si vraie clôture Z ET clôture postérieure à ouverture session
         if(_rtCloZ.includes(c.name)) {
-          const _rtCloEntry = (JSON.parse(localStorage.getItem('kg-session') || '{}')
+          const _rtCloEntry = (JSON.parse(_lsGet('kg-session') || '{}')
             ._caissesClotureesAujourdhui || []).find(x => x.caisse === c.name);
           const _rtSessionTS = (sessionCaisseActive?.caisse === c.name && sessionCaisseActive?.ouvertureISO)
             ? new Date(sessionCaisseActive.ouvertureISO).getTime() : 0;
@@ -23514,7 +23844,7 @@ const KGSync = (() => {
         // Lire les caisses clôturées aujourd'hui pour ne pas les restaurer
         let _cloZRestore = [];
         try {
-          const _sR = JSON.parse(localStorage.getItem('kg-session') || '{}');
+          const _sR = JSON.parse(_lsGet('kg-session') || '{}');
           const _todayR = new Date().toISOString().split('T')[0];
           _cloZRestore = (_sR._caissesClotureesAujourdhui || [])
             .filter(x => x.date === _todayR).map(x => x.caisse);
@@ -24520,16 +24850,16 @@ function loadTicketConfig() {
 
 let RH_EMPLOYES = []; // Chargé depuis Supabase via pullAll() + fallback localStorage v50
 // ✅ FIX v50 : Pré-charger RH depuis localStorage dès le démarrage (avant pullAll)
-(function(){ try { const _e = JSON.parse(localStorage.getItem('kg-rh-employes')||'null'); if(Array.isArray(_e) && _e.length > 0) RH_EMPLOYES = _e; } catch(e) {} })();
+(function(){ try { const _e = JSON.parse(_lsGet('kg-rh-employes')||'null'); if(Array.isArray(_e) && _e.length > 0) RH_EMPLOYES = _e; } catch(e) {} })();
 
 let RH_PAIES = [];       // fiches de paie générées
 let RH_CONGES = [];      // congés / absences
 let RH_AVANCES = [];     // avances sur salaire
 // ✅ FIX v50 : Pré-charger depuis localStorage dès le démarrage
 (function(){
-  try { const _p = JSON.parse(localStorage.getItem('kg-rh-paies')  ||'null'); if(Array.isArray(_p)) RH_PAIES   = _p; } catch(e) {}
-  try { const _c = JSON.parse(localStorage.getItem('kg-rh-conges') ||'null'); if(Array.isArray(_c)) RH_CONGES  = _c; } catch(e) {}
-  try { const _a = JSON.parse(localStorage.getItem('kg-rh-avances')||'null'); if(Array.isArray(_a)) RH_AVANCES = _a; } catch(e) {}
+  try { const _p = JSON.parse(_lsGet('kg-rh-paies')  ||'null'); if(Array.isArray(_p)) RH_PAIES   = _p; } catch(e) {}
+  try { const _c = JSON.parse(_lsGet('kg-rh-conges') ||'null'); if(Array.isArray(_c)) RH_CONGES  = _c; } catch(e) {}
+  try { const _a = JSON.parse(_lsGet('kg-rh-avances')||'null'); if(Array.isArray(_a)) RH_AVANCES = _a; } catch(e) {}
 })();
 
 const RH_POSTES = {
@@ -26554,7 +26884,7 @@ setTimeout(() => {
     // ✅ FIX F5 INSTANT : restaurer l'utilisateur depuis localStorage immédiatement
     // sans attendre Supabase — ça évite le flash de la page login
     const _cachedUser = _lsGet('kg-current-user');
-    const _cachedSession = localStorage.getItem('kg-session');
+    const _cachedSession = _lsGet('kg-session');
     if(_cachedUser && _cachedSession) {
       try {
         const _u = JSON.parse(_cachedUser);
@@ -26630,7 +26960,7 @@ setTimeout(() => {
     const _f5Today = new Date().toISOString().split('T')[0];
     let _f5CloZ = [];
     try {
-      const _f5Sess = JSON.parse(localStorage.getItem('kg-session') || '{}');
+      const _f5Sess = JSON.parse(_lsGet('kg-session') || '{}');
       _f5CloZ = (_f5Sess._caissesClotureesAujourdhui || [])
         .filter(x => x.date === _f5Today).map(x => x.caisse);
     } catch(e) {}
@@ -26829,10 +27159,10 @@ function copySbSql() {
 // FIX: charger DEPENSES depuis localStorage SANS filtrer les cloturees
 let DEPENSES = (() => {
   try {
-    const _s = JSON.parse(localStorage.getItem('kg-session')||'null');
+    const _s = JSON.parse(_lsGet('kg-session')||'null');
     const _d = (_s && Array.isArray(_s.DEPENSES)) ? _s.DEPENSES :
-               (Array.isArray(JSON.parse(localStorage.getItem('kg_depenses')||'null')) ?
-                JSON.parse(localStorage.getItem('kg_depenses')) : []);
+               (Array.isArray(JSON.parse(_lsGet('kg_depenses')||'null')) ?
+                JSON.parse(_lsGet('kg_depenses')) : []);
     return Array.isArray(_d) ? _d : [];
   } catch(e) { return []; }
 })();
@@ -26840,10 +27170,10 @@ let DEPENSES = (() => {
 // ✅ FIX : Fonction manquante — sauvegarder DEPENSES dans localStorage + session
 function saveDepensesLocal() {
   try {
-    localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES));
-    const _s = JSON.parse(localStorage.getItem('kg-session') || '{}');
+    _lsSet('kg_depenses', JSON.stringify(DEPENSES));
+    const _s = JSON.parse(_lsGet('kg-session') || '{}');
     _s.DEPENSES = DEPENSES;
-    localStorage.setItem('kg-session', JSON.stringify(_s));
+    _lsSet('kg-session', JSON.stringify(_s));
   } catch(e) { console.warn('[saveDepensesLocal]', e); }
 }
 
@@ -26908,9 +27238,9 @@ async function loadDepensesFromSupabase() {
     }
 
     try {
-      localStorage.setItem('kg_depenses', JSON.stringify(DEPENSES));
-      const _s = JSON.parse(localStorage.getItem('kg-session')||'{}');
-      _s.DEPENSES = DEPENSES; localStorage.setItem('kg-session', JSON.stringify(_s));
+      _lsSet('kg_depenses', JSON.stringify(DEPENSES));
+      const _s = JSON.parse(_lsGet('kg-session')||'{}');
+      _s.DEPENSES = DEPENSES; _lsSet('kg-session', JSON.stringify(_s));
     } catch(e) {}
     if(typeof renderDepenses === 'function') renderDepenses();
     if(typeof renderRapportX === 'function') renderRapportX();
@@ -34263,10 +34593,10 @@ function copyItemIconUrl() {
 
 // --- Configuration horaires (chargée depuis localStorage) ---
 function trnGetConfig() {
-  try { return JSON.parse(localStorage.getItem('kg-terrain-config') || '{}'); } catch(e) { return {}; }
+  try { return JSON.parse(_lsGet('kg-terrain-config') || '{}'); } catch(e) { return {}; }
 }
 function trnSaveConfig(cfg) {
-  try { localStorage.setItem('kg-terrain-config', JSON.stringify(cfg)); } catch(e) {}
+  try { _lsSet('kg-terrain-config', JSON.stringify(cfg)); } catch(e) {}
   // ✅ SYNC Supabase config + réservations terrain
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
     KGSync.push.terrainReservations().catch(()=>{});
@@ -34319,7 +34649,7 @@ function trnSetToday() {
 function initTerrainView() {
   // Charger depuis localStorage si TERRAIN_RESERVATIONS est vide
   try {
-    const saved = JSON.parse(localStorage.getItem('kg-terrain-reservations') || '[]');
+    const saved = JSON.parse(_lsGet('kg-terrain-reservations') || '[]');
     if(Array.isArray(saved) && saved.length > 0 && (!TERRAIN_RESERVATIONS || TERRAIN_RESERVATIONS.length === 0)) {
       TERRAIN_RESERVATIONS = saved;
     }
@@ -34830,7 +35160,7 @@ function saveTerrainReservation() {
   }
 
   // Sauvegarder dans localStorage
-  try { localStorage.setItem('kg-terrain-reservations', JSON.stringify(TERRAIN_RESERVATIONS)); } catch(e) {}
+  try { _lsSet('kg-terrain-reservations', JSON.stringify(TERRAIN_RESERVATIONS)); } catch(e) {}
 
   closeModal('terrainReservation');
   updateTerrainKPI();
@@ -34878,7 +35208,7 @@ function deleteTerrainReservation(id) {
   if(!r) return;
   if(!confirm(`Supprimer la réservation de ${r.nom} (${r.date} ${trnFmt(r.heure)}) ?`)) return;
   TERRAIN_RESERVATIONS = TERRAIN_RESERVATIONS.filter(x => x.id !== id);
-  try { localStorage.setItem('kg-terrain-reservations', JSON.stringify(TERRAIN_RESERVATIONS)); } catch(e) {}
+  try { _lsSet('kg-terrain-reservations', JSON.stringify(TERRAIN_RESERVATIONS)); } catch(e) {}
   showNotif('🗑️ Réservation supprimée');
   updateTerrainKPI();
   renderTerrainGrille();
@@ -35106,10 +35436,10 @@ if(typeof SALLE_RESERVATIONS === 'undefined') var SALLE_RESERVATIONS = [];
 
 // --- Config ---
 function salGetConfig() {
-  try { return JSON.parse(localStorage.getItem('kg-salle-config') || '{}'); } catch(e) { return {}; }
+  try { return JSON.parse(_lsGet('kg-salle-config') || '{}'); } catch(e) { return {}; }
 }
 function salSaveConfig(cfg) {
-  try { localStorage.setItem('kg-salle-config', JSON.stringify(cfg)); } catch(e) {}
+  try { _lsSet('kg-salle-config', JSON.stringify(cfg)); } catch(e) {}
   // ✅ SYNC Supabase config
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.salleReservations().catch(()=>{});
 }
@@ -36097,20 +36427,20 @@ let _spScannerStream = null;
 let _spScannerInterval = null;
 
 function spLoad() {
-  try { SP_MEMBRES = JSON.parse(localStorage.getItem('kg-sport-membres') || '[]'); } catch(e) { SP_MEMBRES = []; }
+  try { SP_MEMBRES = JSON.parse(_lsGet('kg-sport-membres') || '[]'); } catch(e) { SP_MEMBRES = []; }
   try { SP_LOG_ACCES = JSON.parse(localStorage.getItem('kg-sport-log') || '[]'); } catch(e) { SP_LOG_ACCES = []; }
 }
 
 function spSave() {
-  try { localStorage.setItem('kg-sport-membres', JSON.stringify(SP_MEMBRES)); } catch(e) {}
+  try { _lsSet('kg-sport-membres', JSON.stringify(SP_MEMBRES)); } catch(e) {}
   try { localStorage.setItem('kg-sport-log', JSON.stringify(SP_LOG_ACCES)); } catch(e) {}
 }
 
 function spGetConfig() {
-  try { return JSON.parse(localStorage.getItem('kg-sport-config') || '{}'); } catch(e) { return {}; }
+  try { return JSON.parse(_lsGet('kg-sport-config') || '{}'); } catch(e) { return {}; }
 }
 function spSaveConfigData(cfg) {
-  try { localStorage.setItem('kg-sport-config', JSON.stringify(cfg)); } catch(e) {}
+  try { _lsSet('kg-sport-config', JSON.stringify(cfg)); } catch(e) {}
 }
 
 // ── Helpers dates ──
@@ -36891,7 +37221,7 @@ async function _pullTicketsAttenteSupabase() {
       // ✅ FIX : ne pas réintroduire un ticket déjà validé localement
       // On garde uniquement les tickets Supabase qui ne sont PAS dans une liste noire locale
       let _blacklist = [];
-      try { _blacklist = JSON.parse(localStorage.getItem('kg-tickets-valides') || '[]'); } catch(e) {}
+      try { _blacklist = JSON.parse(_lsGet('kg-tickets-valides') || '[]'); } catch(e) {}
 
       TICKETS_ATTENTE = data
         .filter(r => !_blacklist.includes(r.id))  // exclure les tickets déjà encaissés
@@ -37195,11 +37525,11 @@ async function validerTicketAttente() {
   _saveTicketsAttente();
   // ✅ FIX : blacklister cet ID pour qu'un pull Supabase tardif ne le réintroduise pas
   try {
-    const _bl = JSON.parse(localStorage.getItem('kg-tickets-valides') || '[]');
+    const _bl = JSON.parse(_lsGet('kg-tickets-valides') || '[]');
     _bl.push(_paidId);
     // Garder seulement les 100 derniers pour ne pas grossir indéfiniment
     if(_bl.length > 100) _bl.splice(0, _bl.length - 100);
-    localStorage.setItem('kg-tickets-valides', JSON.stringify(_bl));
+    _lsSet('kg-tickets-valides', JSON.stringify(_bl));
   } catch(e) {}
   _deleteTicketAttenteSupabase(_paidId);
 
@@ -37228,9 +37558,9 @@ function supprimerTicketAttente(ticketId) {
   _saveTicketsAttente();
   // ✅ Blacklister aussi les tickets supprimés manuellement
   try {
-    const _bl = JSON.parse(localStorage.getItem('kg-tickets-valides') || '[]');
+    const _bl = JSON.parse(_lsGet('kg-tickets-valides') || '[]');
     if(!_bl.includes(ticketId)) { _bl.push(ticketId); if(_bl.length > 100) _bl.splice(0,_bl.length-100); }
-    localStorage.setItem('kg-tickets-valides', JSON.stringify(_bl));
+    _lsSet('kg-tickets-valides', JSON.stringify(_bl));
   } catch(e) {}
   _deleteTicketAttenteSupabase(ticketId);
   _updateAttenteCounter();
