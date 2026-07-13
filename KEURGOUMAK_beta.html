@@ -10057,7 +10057,7 @@ function showView(id, el, pushState) {
           if(remote.length === 0) { renderHistorique(); return; }
           const _fixCA = (h) => {
             if(!h) return h;
-            const caFromTickets = (h.tickets || []).reduce((a,t) => a+(t.total||0), 0);
+            const caFromTickets = (Array.isArray(h.tickets) ? h.tickets : []).reduce((a,t) => a+(t.total||0), 0);
             if((!h.ca && !h.caTotal) || (h.ca === 0 && h.caTotal === 0 && caFromTickets > 0)) {
               h.ca = caFromTickets; h.caTotal = caFromTickets;
             } else { h.ca = h.ca || h.caTotal || 0; h.caTotal = h.caTotal || h.ca || 0; }
@@ -10068,9 +10068,9 @@ function showView(id, el, pushState) {
           // ✅ FIX v44 SYNC CLOTURES : merge par clé unique
           {
             const mergedMap = new Map();
-            HISTORIQUE_CLOTURES.forEach(h => mergedMap.set(h.date+'_'+h.heure+'_'+h.caisse, _fixCA(h)));
-            remote.forEach(h => mergedMap.set(h.date+'_'+h.heure+'_'+h.caisse, _fixCA(h)));
-            HISTORIQUE_CLOTURES = Array.from(mergedMap.values());
+            HISTORIQUE_CLOTURES.forEach(h => mergedMap.set(_clotureKey(h), _fixCA(h)));
+            remote.forEach(h => mergedMap.set(_clotureKey(h), _fixCA(h)));
+            HISTORIQUE_CLOTURES = _dedupHistoriqueClotures(Array.from(mergedMap.values()));
             HISTORIQUE_CLOTURES.sort((a,b)=>(b.date+b.heure).localeCompare(a.date+a.heure));
           }
           renderHistorique();
@@ -17465,7 +17465,7 @@ function renderReconciliation() {
 
   // Historique clôtures
   (HISTORIQUE_CLOTURES || []).forEach(h => {
-    (h.tickets || []).forEach(t => {
+    (Array.isArray(h.tickets) ? h.tickets : []).forEach(t => {
       const key = String(t.numero || t.id || '');
       if(key && ventesDejaVues.has(key)) return;
       if(key) ventesDejaVues.add(key);
@@ -18065,6 +18065,12 @@ async function doLogin() {
       restaurant_id: profile.restaurant_id,
     };
     window._KG_RESTAURANT_ID = profile.restaurant_id;
+    // ✅ FIX F5 AU LOGIN : mettre en cache le profil dès la connexion.
+    // Avant ce fix, kg-current-user n'était sauvegardé que lors d'un F5
+    // ultérieur (checkExistingSession) — donc le tout premier F5 après une
+    // connexion ne trouvait rien en cache et affichait un flash de l'écran
+    // de connexion (impression de déconnexion/reconnexion).
+    try { _lsSet('kg-current-user', JSON.stringify(currentUser)); } catch(e) {}
     setTimeout(_migrateLocalStorageKeys, 200);
 
     // ✅ v12 : Mettre à jour last_login dans Supabase
@@ -19529,7 +19535,7 @@ function refreshDashboard() {
       }
       if(!hDate || hDate < _moisDebut || hDate > _moisFin) return; // hors du mois en cours
       // Parcourir les tickets de la clôture
-      (h.tickets || h.ventes || h.items || []).forEach(v => {
+      (Array.isArray(h.tickets) ? h.tickets : (Array.isArray(h.ventes) ? h.ventes : (Array.isArray(h.items) ? h.items : []))).forEach(v => {
         (v.items||[]).forEach(i => {
           const key = i.id || i.nom || i.name;
           // ✅ Enrichir image_url depuis MENU si manquant dans la clôture
@@ -20781,7 +20787,7 @@ async function cloturerCaisse() {
     } catch(e) {}
     // ✅ Peupler aussi TICKETS_ARCHIVES avec les tickets de cette clôture
     if(typeof TICKETS_ARCHIVES !== 'undefined') {
-      (cloture.tickets || []).forEach(t => {
+      (Array.isArray(cloture.tickets) ? cloture.tickets : []).forEach(t => {
         if(!TICKETS_ARCHIVES.find(x => x.id === t.id)) {
           TICKETS_ARCHIVES.unshift({
             id: t.id, numero: t.numero, date: t.date,
@@ -21179,6 +21185,39 @@ async function cloturerCaisse() {
 
 // ===== HISTORIQUE — données réelles uniquement =====
 let HISTORIQUE_CLOTURES = [];
+
+// ✅ FIX ANTI-DOUBLON : clé unique partagée par TOUS les points de fusion.
+// Priorité à l'id Supabase (fiable) sauf pour les saisies manuelles (id MANU-*,
+// qui change à chaque saisie et ne doit pas servir de clé), auquel cas on retombe
+// sur date+heure+caisse.
+function _clotureKey(h) {
+  if(!h) return '';
+  return (h.id && !String(h.id).startsWith('MANU-'))
+    ? ('id:' + h.id)
+    : ((h.date||'') + '_' + (h.heure||'') + '_' + (h.caisse||''));
+}
+
+// ✅ FIX ANTI-DOUBLON : passe de nettoyage — regroupe les entrées qui partagent
+// la même clé et garde la version la plus complète (CA non nul, plus de tickets).
+// Sûr à appeler à tout moment : ne supprime jamais une clôture unique, ne fait
+// que fusionner des doublons détectés.
+function _dedupHistoriqueClotures(list) {
+  if(!Array.isArray(list) || list.length === 0) return list || [];
+  const map = new Map();
+  list.forEach(h => {
+    if(!h) return;
+    const k = _clotureKey(h);
+    const existing = map.get(k);
+    if(!existing) { map.set(k, h); return; }
+    const hTickets = Array.isArray(h.tickets) ? h.tickets.length : 0;
+    const eTickets = Array.isArray(existing.tickets) ? existing.tickets.length : 0;
+    const hScore = (h.ca || h.caTotal || 0) * 1000 + hTickets;
+    const eScore = (existing.ca || existing.caTotal || 0) * 1000 + eTickets;
+    map.set(k, hScore >= eScore ? h : existing);
+  });
+  return Array.from(map.values());
+}
+
 // ✅ FIX AFFICHAGE IMMÉDIAT : charger depuis localStorage au démarrage
 // Sans ça, les autres appareils voient l'historique vide jusqu'au prochain pullAll
 try {
@@ -21188,7 +21227,7 @@ try {
   const _stored = localStorage.getItem(_clKey) || _lsGet('kg-historique-clotures');
   if(_stored) {
     const _parsed = JSON.parse(_stored);
-    if(Array.isArray(_parsed) && _parsed.length > 0) HISTORIQUE_CLOTURES = _parsed;
+    if(Array.isArray(_parsed) && _parsed.length > 0) HISTORIQUE_CLOTURES = _dedupHistoriqueClotures(_parsed);
   }
 } catch(e) {}
 // ✅ Tickets archivés — chargés directement depuis Supabase (ventes cloturee=true)
@@ -21266,7 +21305,7 @@ async function _forceSyncClotures() {
     const remote = Array.isArray(parsed.items) ? parsed.items : [];
     const _fixCA = (h) => {
       if(!h) return h;
-      const caFromTickets = (h.tickets || []).reduce((a,t) => a+(t.total||0), 0);
+      const caFromTickets = (Array.isArray(h.tickets) ? h.tickets : []).reduce((a,t) => a+(t.total||0), 0);
       if((!h.ca && !h.caTotal) || (h.ca === 0 && h.caTotal === 0 && caFromTickets > 0)) {
         h.ca = caFromTickets; h.caTotal = caFromTickets;
       } else { h.ca = h.ca || h.caTotal || 0; h.caTotal = h.caTotal || h.ca || 0; }
@@ -21274,7 +21313,19 @@ async function _forceSyncClotures() {
       h.nbTickets = h.nbTickets || h.orders || 0;
       return h;
     };
-    HISTORIQUE_CLOTURES = remote.map(_fixCA);
+    if(remote.length === 0) {
+      showNotif('ℹ️ Aucune clôture distante — historique local conservé');
+      renderHistorique();
+      return;
+    }
+    // ✅ FIX : fusionner avec l'historique local par clé unique au lieu
+    // d'écraser — une réponse distante vide ou partielle ne doit jamais
+    // faire disparaître des clôtures déjà présentes localement.
+    const mergedMap = new Map();
+    (Array.isArray(HISTORIQUE_CLOTURES) ? HISTORIQUE_CLOTURES : []).forEach(h => mergedMap.set(_clotureKey(h), h));
+    remote.forEach(h => mergedMap.set(_clotureKey(h), _fixCA(h)));
+    HISTORIQUE_CLOTURES = _dedupHistoriqueClotures(Array.from(mergedMap.values()));
+    HISTORIQUE_CLOTURES.sort((a,b)=>(b.date+b.heure).localeCompare(a.date+a.heure));
     renderHistorique();
     showNotif('✅ ' + HISTORIQUE_CLOTURES.length + ' clôture(s) chargée(s)');
   } catch(e) {
@@ -21415,7 +21466,7 @@ function renderCatVentes() {
   // --- Agréger les articles ---
   const catMap = {};
   source.forEach(h => {
-    (h.tickets || []).forEach(t => {
+    (Array.isArray(h.tickets) ? h.tickets : []).forEach(t => {
       (t.items || []).forEach(it => {
         const catRaw = (it.categorie || it.category || '').trim();
         let catNom = catRaw || 'Sans catégorie';
@@ -21579,7 +21630,7 @@ function renderHistorique() {
   // ✅ FIX v40 : Fallback final sur la somme des tickets si ca=0
   const caTotal = filtered.reduce((a,h) => {
     let ca = h.ca || h.caTotal || 0;
-    if(ca === 0 && h.tickets && h.tickets.length > 0) {
+    if(ca === 0 && Array.isArray(h.tickets) && h.tickets.length > 0) {
       ca = h.tickets.reduce((s, t) => s + (t.total || 0), 0);
     }
     return a + ca;
@@ -21633,7 +21684,7 @@ function renderHistorique() {
 
   el.innerHTML = filtered.map((h, idx) => {
     // ✅ FIX : sécuriser toutes les valeurs numériques — undefined crash toLocaleString
-    const _ca    = Number(h.ca || h.caTotal || (h.tickets||[]).reduce((a,t)=>a+(t.total||0),0) || 0);
+    const _ca    = Number(h.ca || h.caTotal || (Array.isArray(h.tickets) ? h.tickets : []).reduce((a,t)=>a+(t.total||0),0) || 0);
     const _ecart = Number(h.ecart || 0);
     const _solde = Number(h.soldeNet !== undefined ? h.soldeNet : (h.ca || h.caTotal || 0));
     const _dep   = Number(h.depenses || 0);
@@ -21654,6 +21705,7 @@ function renderHistorique() {
       <div style="margin-top:10px;">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <button onclick="voirDetailCloture(${HISTORIQUE_CLOTURES.indexOf(h)})" style="background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);color:var(--accent);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;">🧾 Voir les ventes</button>
+          ${(currentUser && currentUser.role === 'administrateur') ? `<button onclick="supprimerCloture('${(h.date||'').replace(/'/g,"\\'")}_${(h.heure||'').replace(/'/g,"\\'")}_${(h.caisse||'').replace(/'/g,"\\'")}')" style="background:rgba(220,53,69,0.12);border:1px solid rgba(220,53,69,0.35);color:#dc3545;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;" title="Réservé à l'administrateur">🗑️ Supprimer</button>` : ''}
         </div>
       </div>
       ${hasDep ? `
@@ -22592,7 +22644,14 @@ const KGSync = (() => {
   }
   async function pushClients()        { _debouncedUpsert('clients_data', () => ({ items: CLIENTS }), 8000); }
   async function pushCommandesFourn() { _debouncedUpsert('commandes_fourn_data', () => ({ items: COMMANDES_FOURNISSEURS, fournisseurs: FOURNISSEURS }), 3000); }
-  async function pushClotures()       { _invalidateCache('clotures_data'); _debouncedUpsert('clotures_data', () => ({ items: HISTORIQUE_CLOTURES }), 2000); }
+  async function pushClotures() {
+    _invalidateCache('clotures_data');
+    // ✅ FIX : figer un instantané maintenant — si HISTORIQUE_CLOTURES est
+    // vidée en mémoire avant que le push différé (2s) ne parte (ex: logout),
+    // on ne doit jamais écraser Supabase avec une liste vide accidentelle.
+    const _snapshot = Array.isArray(HISTORIQUE_CLOTURES) ? HISTORIQUE_CLOTURES.slice() : [];
+    _debouncedUpsert('clotures_data', () => ({ items: _snapshot }), 2000);
+  }
   // ✅ FIX iOS : cache mémoire en complément localStorage (Safari navigation privée bloque localStorage)
   const _memCache = {};
   function _invalidateCache(...keys) {
@@ -23247,15 +23306,12 @@ const KGSync = (() => {
           // Utiliser l'id unique en priorité pour éviter les doublons
           {
             const mergedMap = new Map();
-            const _mkKey = (h) => h.id && !h.id.startsWith('MANU-')
-              ? h.id  // ID Supabase = clé unique fiable
-              : (h.date||'')+'_'+(h.heure||'')+'_'+(h.caisse||'');
             // 1. Partir de l'état local
-            HISTORIQUE_CLOTURES.forEach(h => mergedMap.set(_mkKey(h), _fixCA(h)));
+            HISTORIQUE_CLOTURES.forEach(h => mergedMap.set(_clotureKey(h), _fixCA(h)));
             // 2. Fusionner avec Supabase (source de vérité)
             // ✅ FIX : ne jamais écraser une clôture locale qui a plus de données
             remote.forEach(h => {
-              const k = _mkKey(h);
+              const k = _clotureKey(h);
               const existing = mergedMap.get(k);
               if(!existing) {
                 mergedMap.set(k, _fixCA(h)); // Nouvelle clôture de Supabase → ajouter
@@ -23267,7 +23323,7 @@ const KGSync = (() => {
                 mergedMap.set(k, winRemote ? remoteFixed : existing);
               }
             });
-            HISTORIQUE_CLOTURES = Array.from(mergedMap.values());
+            HISTORIQUE_CLOTURES = _dedupHistoriqueClotures(Array.from(mergedMap.values()));
             // ✅ FIX TRI : convertir date DD/MM/YY en timestamp pour tri correct
             const _ts = (h) => {
               const d = (h.date||'').split('/');
@@ -23311,7 +23367,7 @@ const KGSync = (() => {
               }
             }
           });
-          if(typeof renderHistoriqueList === 'function') try { renderHistoriqueList(); } catch(e) {}
+          if(typeof renderHistorique === 'function') try { renderHistorique(); } catch(e) {}
           if(typeof renderCaisses === 'function') try { renderCaisses(); } catch(e) {}
           if(typeof refreshDashboard === 'function') try { refreshDashboard(); } catch(e) {}
           console.log('[pullAll] ✅ Clôtures sync:', HISTORIQUE_CLOTURES.length, 'clôture(s)');
@@ -23519,10 +23575,18 @@ const KGSync = (() => {
           // ✅ FIX v40 SPORT : Restaurer membres et entrées sport
           try {
             if(Array.isArray(data.membres) && data.membres.length > 0) {
+              // ✅ FIX : repartir des vraies données persistées en localStorage
+              // (source commune avec le module SP_MEMBRES) plutôt que de la
+              // variable SPORT_MEMBRES legacy, jamais rechargée depuis le disque.
+              let _baseMembres = [];
+              try { _baseMembres = JSON.parse(_lsGet('kg-sport-membres') || '[]'); } catch(e) {}
+              if(!Array.isArray(_baseMembres) || _baseMembres.length === 0) {
+                _baseMembres = Array.isArray(SPORT_MEMBRES) ? SPORT_MEMBRES : [];
+              }
               const localMap = {};
-              (SPORT_MEMBRES || []).forEach(m => { localMap[m.id] = m; });
+              _baseMembres.forEach(m => { localMap[m.id] = m; });
               data.membres.forEach(m => {
-                if(!localMap[m.id]) { if(!Array.isArray(SPORT_MEMBRES)) SPORT_MEMBRES = []; SPORT_MEMBRES.push(m); }
+                if(!localMap[m.id]) { localMap[m.id] = m; }
                 else { const ld = new Date(localMap[m.id].createdAt||0).getTime(); const rd = new Date(m.createdAt||0).getTime(); if(rd > ld) localMap[m.id] = m; }
               });
               SPORT_MEMBRES = Object.values(localMap);
@@ -23638,8 +23702,16 @@ const KGSync = (() => {
           // ✅ Salle de Sport (nouveau module SP_MEMBRES)
           try {
             if(Array.isArray(data.membres)) {
+              // ✅ FIX : repartir des vraies données persistées en localStorage,
+              // pas de la variable SP_MEMBRES qui peut valoir [] par défaut
+              // si l'onglet Sport n'a jamais été ouvert dans cette session.
+              let _baseMembres = [];
+              try { _baseMembres = JSON.parse(_lsGet('kg-sport-membres') || '[]'); } catch(e) {}
+              if(!Array.isArray(_baseMembres) || _baseMembres.length === 0) {
+                _baseMembres = (typeof SP_MEMBRES !== 'undefined' && Array.isArray(SP_MEMBRES)) ? SP_MEMBRES : [];
+              }
               const localMap = {};
-              (typeof SP_MEMBRES !== 'undefined' ? SP_MEMBRES : []).forEach(m => { localMap[m.id] = m; });
+              _baseMembres.forEach(m => { localMap[m.id] = m; });
               data.membres.forEach(m => {
                 if(!m || !m.id) return;
                 if(!localMap[m.id]) { localMap[m.id] = m; }
@@ -26049,7 +26121,7 @@ function _getAllVentesForCompta() {
 
   // FIX: inclure ventes des clotures passees (sinon bilan/TVA disparaissent apres cloture)
   (typeof HISTORIQUE_CLOTURES !== 'undefined' ? HISTORIQUE_CLOTURES : []).forEach(h => {
-    (h.tickets || []).forEach(t => {
+    (Array.isArray(h.tickets) ? h.tickets : []).forEach(t => {
       const key = String(t.numero || t.id);
       if(vuesIds.has(key)) return;
       vuesIds.add(key);
@@ -26314,7 +26386,7 @@ function buildJournalEntries() {
   Object.values(VENTES_PAR_CAISSE).flat().forEach(v => { if(v.orderNum) ventesDejaVues.add(String(v.orderNum)); });
 
   (typeof HISTORIQUE_CLOTURES !== 'undefined' ? HISTORIQUE_CLOTURES : []).forEach(h => {
-    (h.tickets || []).forEach(t => {
+    (Array.isArray(h.tickets) ? h.tickets : []).forEach(t => {
       const key = String(t.numero || t.id);
       if(ventesDejaVues.has(key)) return;
       ventesDejaVues.add(key);
@@ -28102,7 +28174,7 @@ async function loadAndRenderTicketsArchives() {
         if(!e1 && d1) { fetched = d1; }
 
         // Tentative 2 : ventes antérieures à aujourd'hui
-        if(!fetched) {
+        if(!fetched || fetched.length === 0) {
           const { data: d2, error: e2 } = await _cl.from('ventes')
             .select('id, ticket_ref, created_at, caisse_nom, cashier_nom, total_ttc, pay_method, restaurant_id')
             .eq('restaurant_id', rid)
@@ -28179,7 +28251,7 @@ function renderTicketsArchives() {
   } else {
     // Fallback local : extraire depuis HISTORIQUE_CLOTURES
     (HISTORIQUE_CLOTURES || []).forEach(session => {
-      (session.tickets || []).forEach(t => {
+      (Array.isArray(session.tickets) ? session.tickets : []).forEach(t => {
         allTickets.push({
           ...t,
           caisse:   t.caisse   || session.caisse   || '',
@@ -29578,7 +29650,7 @@ async function executeReset() {
 // ✅ v4 FIX: Rattache les tickets archivés Supabase à la clôture par date+caisse
 function _getTicketsPourCloture(h) {
   // 1. Si la clôture a déjà ses tickets (ancienne donnée locale), on les prend
-  if(h.tickets && h.tickets.length > 0) return h.tickets;
+  if(Array.isArray(h.tickets) && h.tickets.length > 0) return h.tickets;
 
   // 2. Sinon on cherche dans TICKETS_ARCHIVES (chargés depuis Supabase)
   if(typeof TICKETS_ARCHIVES === 'undefined' || !TICKETS_ARCHIVES.length) return [];
@@ -31183,6 +31255,12 @@ async function initBanqueView() {
 // ══════════════════════════════════════════════════════════════════════════
 
 async function supprimerCloture(key) {
+  // ✅ FIX SÉCURITÉ : seul l'administrateur peut supprimer une clôture,
+  // même si l'appel ne passe pas par le bouton (ex: console, autre écran).
+  if(!currentUser || currentUser.role !== 'administrateur') {
+    showNotif('🔒 Réservé à l\'administrateur');
+    return;
+  }
   if(!confirm('⚠️ Supprimer cette clôture ? Cette action est irréversible.')) return;
   // Trouver par la clé date_heure_caisse
   const parts = key.split('_');
@@ -31211,7 +31289,7 @@ async function supprimerCloture(key) {
     }
   } catch(e) { console.warn('[supprimerCloture]', e); }
 
-  if(typeof renderHistoriqueList === 'function') renderHistoriqueList();
+  if(typeof renderHistorique === 'function') renderHistorique();
   showNotif('✅ Clôture supprimée !');
 }
 
@@ -32903,7 +32981,7 @@ function _getVentesAllCaisses() {
   // Sans ça, les stats serveurs sont vides dès qu'on clôture
   if(typeof HISTORIQUE_CLOTURES !== 'undefined' && Array.isArray(HISTORIQUE_CLOTURES)) {
     HISTORIQUE_CLOTURES.forEach(h => {
-      const tickets = h.tickets || h.ventes || h.items || [];
+      const tickets = Array.isArray(h.tickets) ? h.tickets : (Array.isArray(h.ventes) ? h.ventes : (Array.isArray(h.items) ? h.items : []));
       tickets.forEach(t => {
         const uid = t.id || t.ticketId || (t.date + '_' + t.total + '_' + (t.serveur||'') + '_' + (h.date||''));
         if(!seen.has(uid)) {
@@ -32971,7 +33049,7 @@ async function _reconcilierServeursClôtures() {
     // Patcher les tickets dans HISTORIQUE_CLOTURES
     let changed = false;
     (HISTORIQUE_CLOTURES || []).forEach(h => {
-      (h.tickets || []).forEach(t => {
+      (Array.isArray(h.tickets) ? h.tickets : []).forEach(t => {
         if(!t.serveur && t.numero) {
           const s = idx[String(t.numero)];
           if(s) { t.serveur = s; changed = true; }
@@ -37466,8 +37544,15 @@ function calcAttenteMixed() {
 }
 
 // ── Encaisser le ticket en attente ──
+let _attenteValidationEnCours = false;
 async function validerTicketAttente() {
   if(!_attenteCurrentId) return;
+  // ✅ FIX : verrou anti double-clic — si une validation est déjà en cours
+  // (ex: connexion lente pendant l'attente du numéro de commande), on ignore
+  // les appels suivants pour éviter de créer un ticket en double.
+  if(_attenteValidationEnCours) { showNotif('⏳ Validation déjà en cours, merci de patienter...'); return; }
+  _attenteValidationEnCours = true;
+  try {
   _loadTicketsAttente();
   const ticket = TICKETS_ATTENTE.find(t => t.id === _attenteCurrentId);
   if(!ticket) { showNotif('⚠️ Ticket introuvable'); return; }
@@ -37542,6 +37627,9 @@ async function validerTicketAttente() {
   refreshDashboard();
   saveSession();
   renderOrders('all');
+  } finally {
+    _attenteValidationEnCours = false;
+  }
 }
 
 // ── Supprimer un ticket en attente ──
@@ -38131,9 +38219,9 @@ async function executerReconstruction() {
             if(remote.length > 0) {
               // Fusionner local + distant
               const mergedMap = new Map();
-              (HISTORIQUE_CLOTURES || []).forEach(h => mergedMap.set(h.date+'_'+h.heure+'_'+(h.caisse||''), h));
-              remote.forEach(h => mergedMap.set(h.date+'_'+h.heure+'_'+(h.caisse||''), h));
-              HISTORIQUE_CLOTURES = Array.from(mergedMap.values());
+              (HISTORIQUE_CLOTURES || []).forEach(h => mergedMap.set(_clotureKey(h), h));
+              remote.forEach(h => mergedMap.set(_clotureKey(h), h));
+              HISTORIQUE_CLOTURES = _dedupHistoriqueClotures(Array.from(mergedMap.values()));
               console.log('[reconstruire] Fusionné avec Supabase : ' + HISTORIQUE_CLOTURES.length + ' clôture(s)');
             }
           }
@@ -38144,7 +38232,13 @@ async function executerReconstruction() {
     // ── Étape 3 : Recalculer les CA depuis les tickets ──
     let nbCorrigees = 0;
     HISTORIQUE_CLOTURES = (HISTORIQUE_CLOTURES || []).map(h => {
-      const caFromTickets = (h.tickets || []).reduce((a, t) => a + (t.total || 0), 0);
+      // ✅ FIX : sur les clôtures saisies manuellement, "tickets" peut être
+      // un nombre (ex: tickets:235) au lieu d'un tableau — normaliser avant tout calcul
+      if(h.tickets !== undefined && !Array.isArray(h.tickets)) {
+        h.nbTickets = h.nbTickets || h.tickets;
+        h.tickets = [];
+      }
+      const caFromTickets = (Array.isArray(h.tickets) ? h.tickets : []).reduce((a, t) => a + (t.total || 0), 0);
       // Corriger CA à 0 si des tickets existent
       if(caFromTickets > 0 && (!h.ca || h.ca === 0)) {
         h.ca      = caFromTickets;
@@ -38155,7 +38249,7 @@ async function executerReconstruction() {
         h.caTotal = h.caTotal || h.ca      || 0;
       }
       // Corriger le nombre de tickets
-      h.orders    = h.orders    || h.nbTickets || (h.tickets || []).length || 0;
+      h.orders    = h.orders    || h.nbTickets || (Array.isArray(h.tickets) ? h.tickets.length : 0) || 0;
       h.nbTickets = h.nbTickets || h.orders    || 0;
       return h;
     });
