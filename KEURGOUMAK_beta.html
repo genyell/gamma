@@ -280,10 +280,10 @@ if(typeof jsQR === 'undefined') {
     --shadow-md: 0 8px 24px rgba(0,0,0,0.1);
     --shadow-lg: 0 20px 48px rgba(0,0,0,0.12);
     --shadow-xl: 0 32px 64px rgba(0,0,0,0.14);
-    --glow-accent: 0 0 20px rgba(201,127,0,0.2);
-    --glow-green: 0 0 16px rgba(22,163,74,0.2);
-    --glow-teal: 0 0 16px rgba(14,122,114,0.2);
-    --glow-purple: 0 0 16px rgba(108,40,212,0.2);
+    --glow-accent: 0 0 26px rgba(201,127,0,0.32);
+    --glow-green: 0 0 20px rgba(22,163,74,0.3);
+    --glow-teal: 0 0 20px rgba(14,122,114,0.3);
+    --glow-purple: 0 0 20px rgba(108,40,212,0.3);
     --gradient-accent: linear-gradient(135deg, #c97f00 0%, #b83306 100%);
     --gradient-accent-soft: linear-gradient(135deg, rgba(201,127,0,0.12), rgba(184,51,6,0.06));
     --gradient-surface: linear-gradient(160deg, #ffffff 0%, #f2f4f8 100%);
@@ -326,7 +326,14 @@ if(typeof jsQR === 'undefined') {
   }
 
   /* ── Corps & fond ── */
-  [data-theme="light"] body { background: var(--bg); color: var(--text); }
+  [data-theme="light"] body {
+    background:
+      radial-gradient(ellipse 55% 40% at 8% 0%, rgba(201,127,0,0.07) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 40% at 95% 15%, rgba(108,40,212,0.06) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 45% at 50% 100%, rgba(14,122,114,0.05) 0%, transparent 55%),
+      var(--bg);
+    color: var(--text);
+  }
 
   /* ── Topbar ── */
   [data-theme="light"] .topbar {
@@ -384,7 +391,25 @@ if(typeof jsQR === 'undefined') {
   [data-theme="light"] .stat-label { color: #374151 !important; font-weight: 600; }
   [data-theme="light"] .stat-value { color: #111827 !important; }
   [data-theme="light"] .stat-sub { color: #374151 !important; }
-  [data-theme="light"] .stat-icon { opacity: 0.6; }
+  [data-theme="light"] .stat-icon { opacity: 0.85; filter: saturate(1.3); }
+
+  /* Touche de couleur : liseré dégradé en haut des cartes génériques */
+  [data-theme="light"] .card {
+    position: relative;
+    overflow: hidden;
+  }
+  [data-theme="light"] .card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--purple), var(--teal));
+    opacity: 0.85;
+  }
+  [data-theme="light"] .fournisseur-card,
+  [data-theme="light"] .client-card,
+  [data-theme="light"] .caisse-card {
+    border-top: 3px solid transparent;
+    border-image: linear-gradient(90deg, var(--accent), var(--teal)) 1;
+  }
 
   /* ── Éléments de liste ── */
   [data-theme="light"] .order-item,
@@ -1112,7 +1137,9 @@ if(typeof jsQR === 'undefined') {
     border-radius: var(--radius);
     overflow: hidden; transition: all 0.25s; cursor: pointer;
   }
-  .menu-card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 12px 32px rgba(245,166,35,0.15); }
+  @media (hover: hover) {
+    .menu-card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 12px 32px rgba(245,166,35,0.15); }
+  }
   .menu-img {
     height: 120px; font-size: 54px;
     display: flex; align-items: center; justify-content: center;
@@ -1150,6 +1177,9 @@ if(typeof jsQR === 'undefined') {
     position: sticky; top: 0;
   }
   .pos-cats { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* ✅ Bouton flottant "Voir le panier" : mobile uniquement, le panier
+     desktop étant déjà visible en permanence dans la barre latérale. */
+  @media (min-width: 769px) { #cart-checkout-summary { display: none !important; } }
   .cat-btn * { pointer-events: none; } /* ✅ FIX PC : éviter clic sur enfant du bouton */
   .pos-items-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   .pos-item {
@@ -1167,6 +1197,9 @@ if(typeof jsQR === 'undefined') {
 
   .cart-title { font-family: 'Syne', sans-serif; font-size: 18px; margin-bottom: 16px; }
   .cart-items { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+  #cart-checkout-summary::-webkit-details-marker { display: none; }
+  #cart-checkout-summary { -webkit-user-select: none; user-select: none; }
+  details[open] > #cart-checkout-summary .cart-checkout-chevron { transform: rotate(180deg); display: inline-block; }
   .cart-item {
     display: flex; align-items: center; gap: 10px;
     background: var(--surface2); border-radius: var(--radius-sm);
@@ -1352,6 +1385,10 @@ if(typeof jsQR === 'undefined') {
     .pos-right { position: static; height: auto; }
   }
 
+  /* FERMETURE — 2 colonnes toujours, y compris sur mobile (préférence utilisateur) */
+  .fermeture-layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
+  .fermeture-recap-card { position: sticky; top: 80px; }
+
   /* ===== TABLETTE (768px - 1024px) ===== */
   @media (max-width: 1024px) {
     .sidebar { width: 200px; }
@@ -1364,7 +1401,6 @@ if(typeof jsQR === 'undefined') {
     .topbar-actions .btn { padding: 7px 12px; font-size: 12px; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
     .stat-value { font-size: 20px; }
-    .fermeture-layout { grid-template-columns: 1fr; }
     .content { padding: 14px 16px; }
     .pos-items-grid { grid-template-columns: repeat(3, 1fr) !important; }
     .caisses-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1428,8 +1464,20 @@ if(typeof jsQR === 'undefined') {
 
     /* POS mobile */
     .pos-layout { grid-template-columns: 1fr; gap: 10px; }
-    .pos-right { position: static; height: auto; max-height: 55vh; overflow-y: auto; order: -1; border-radius: var(--radius-sm); }
-    .pos-left { order: 1; }
+    /* ✅ FIX MOBILE : ne pas comprimer TOUT le panier (titre+articles+remise+
+       totaux+paiement+valider) dans une seule boîte à hauteur limitée — ça
+       écrasait la liste d'articles (et ses boutons +/− de suppression) à une
+       hauteur quasi nulle, invisible/impossible à toucher. Le panier grandit
+       maintenant naturellement ; seule la liste d'articles défile en interne. */
+    /* ✅ FIX MOBILE : le menu passe AVANT le panier — sinon, à mesure qu'on
+       ajoute des articles, le panier grandit et repousse le menu toujours
+       plus bas, obligeant à scroller de plus en plus pour continuer à
+       ajouter des articles, jusqu'à donner l'impression qu'il a disparu. */
+    .pos-right { position: static; height: auto; max-height: none; overflow-y: visible; order: 1; border-radius: var(--radius-sm); }
+    /* Zone de défilement CSS abandonnée (non fiable sur certains
+       navigateurs Android) — remplacée par un repli natif <details>. */
+    .pos-right .cart-items .cart-item { margin-bottom: 10px; }
+    .pos-left { order: 2; }
     .pos-items-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
     .pos-item { padding: 10px 8px; }
     .pos-item-icon { font-size: 28px; }
@@ -1447,9 +1495,14 @@ if(typeof jsQR === 'undefined') {
     /* Dashboard mobile */
     .chart-bars { height: 100px; }
 
-    /* Fermeture mobile */
-    .fermeture-layout { grid-template-columns: 1fr; gap: 12px; }
+    /* Fermeture mobile — colonnes conservées côte à côte */
     .fermeture-step { padding: 14px; }
+    /* ✅ FIX : en sticky, la carte récap restait "collée" en haut pendant
+       que la colonne de gauche (plus haute) défilait, ce qui coupait
+       visuellement le bas de la carte (bouton Clôturer) hors de l'écran
+       sur mobile. On la remet en position normale pour qu'elle défile
+       comme le reste et que le bouton soit toujours atteignable. */
+    .fermeture-recap-card { position: static; top: auto; }
 
     /* Modal mobile */
     .modal { width: 95vw !important; padding: 16px; margin: 8px; }
@@ -1693,7 +1746,6 @@ if(typeof jsQR === 'undefined') {
   .cashier-since { color: var(--text2); font-size: 11px; }
 
   /* FERMETURE */
-  .fermeture-layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
   .fermeture-step {
     display: flex; gap: 16px; padding: 18px;
     background: var(--surface2); border-radius: var(--radius-sm);
@@ -2723,8 +2775,10 @@ if(typeof jsQR === 'undefined') {
   }
 
   /* Refined card hover */
-  .menu-card:hover {
-    box-shadow: 0 16px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(240,160,48,0.2);
+  @media (hover: hover) {
+    .menu-card:hover {
+      box-shadow: 0 16px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(240,160,48,0.2);
+    }
   }
 
   /* Cat buttons refinement */
@@ -2926,8 +2980,10 @@ if(typeof jsQR === 'undefined') {
     position: absolute; inset: 0;
     background: radial-gradient(ellipse at 50% 80%, rgba(245,158,42,0.08) 0%, transparent 70%);
   }
-  .menu-card:hover .menu-img::after {
-    background: radial-gradient(ellipse at 50% 80%, rgba(245,158,42,0.15) 0%, transparent 70%);
+  @media (hover: hover) {
+    .menu-card:hover .menu-img::after {
+      background: radial-gradient(ellipse at 50% 80%, rgba(245,158,42,0.15) 0%, transparent 70%);
+    }
   }
 
   /* Category pill buttons */
@@ -4115,8 +4171,8 @@ if(typeof jsQR === 'undefined') {
     .pos-right {
       position: static;
       height: auto;
-      max-height: 42vh;
-      overflow-y: auto;
+      max-height: none;
+      overflow-y: visible;
       order: 1;
       border-radius: 16px;
       flex-shrink: 0;
@@ -4127,6 +4183,22 @@ if(typeof jsQR === 'undefined') {
       flex-direction: column;
       gap: 8px;
     }
+    /* ✅ FIX MOBILE : le placeholder "panier vide" prenait énormément de
+       place (padding 40px + icône 48px, pensé pour un grand panier desktop
+       toujours visible). Sur mobile ça pousse tout le reste (remise, total,
+       paiement, valider) hors de l'écran pour rien. */
+    .pos-right .empty-cart { padding: 14px 10px; }
+    .pos-right .empty-cart-icon { font-size: 26px; margin-bottom: 4px; }
+    /* ✅ FIX MOBILE : compacter tout le panier (marges/espacements pensés
+       pour desktop) — sinon, même vide, il occupe presque tout l'écran et
+       ne laisse plus de place pour voir le menu en dessous. */
+    .pos-right { padding: 14px; }
+    .pos-right .cart-title { margin-bottom: 8px; font-size: 15px; }
+    .pos-right .cart-sep { margin: 8px 0; }
+    .pos-right .cart-total-row { margin-bottom: 5px; }
+    .pos-right .cart-grand-total { margin-bottom: 10px; font-size: 16px; }
+    .pos-right .pay-methods { gap: 6px; margin-bottom: 10px; }
+    .pos-right .pay-btn { padding: 8px; min-height: 42px; }
     /* Catégories — barre scrollable horizontalement */
     .pos-cats {
       order: 1;
@@ -4188,7 +4260,8 @@ if(typeof jsQR === 'undefined') {
     tbody td { font-size: 12px; padding: 9px 12px; }
 
     /* Boutons grands */
-    .btn-validate { padding: 15px; font-size: 15px; border-radius: 14px; }
+    .btn-validate { padding: 12px; font-size: 14px; border-radius: 14px; }
+    .pos-right button[onclick="mettreEnAttente()"] { height: 40px !important; }
 
     /* Notification */
     .notif {
@@ -4635,8 +4708,9 @@ if(typeof jsQR === 'undefined') {
   [data-theme="blue"] body {
     background: #f0f4ff !important;
     background-image:
-      radial-gradient(ellipse 60% 40% at 5% 0%, rgba(99,102,241,0.07) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 40% at 95% 100%, rgba(79,70,229,0.05) 0%, transparent 60%) !important;
+      radial-gradient(ellipse 60% 40% at 5% 0%, rgba(99,102,241,0.14) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 95% 100%, rgba(79,70,229,0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 45% 35% at 60% 40%, rgba(124,58,237,0.06) 0%, transparent 60%) !important;
   }
   [data-theme="blue"] .app-shell { background: #f0f4ff !important; }
   [data-theme="blue"] .main, [data-theme="blue"] .content { background: #f0f4ff !important; }
@@ -4680,11 +4754,11 @@ if(typeof jsQR === 'undefined') {
   [data-theme="blue"] .nav-item:hover svg,
   [data-theme="blue"] .nav-item:hover .icon { opacity: 1; }
   [data-theme="blue"] .nav-item.active {
-    background: linear-gradient(135deg, #eef2ff, #e0e7ff) !important;
-    color: #4f46e5 !important;
+    background: linear-gradient(135deg, #e0e7ff, #ddd6fe) !important;
+    color: #4338ca !important;
     border: 1px solid #c7d2fe !important;
     font-weight: 700 !important;
-    box-shadow: 0 2px 8px rgba(79,70,229,0.12) !important;
+    box-shadow: 0 2px 10px rgba(79,70,229,0.18) !important;
   }
   [data-theme="blue"] .user-info-bar {
     background: #fafbff !important;
@@ -4712,7 +4786,16 @@ if(typeof jsQR === 'undefined') {
     border: 1px solid #e8eeff !important;
     box-shadow: 0 1px 8px rgba(79,70,229,0.05), 0 4px 20px rgba(79,70,229,0.04) !important;
     border-radius: 16px !important;
+    position: relative;
+    overflow: hidden;
   }
+  [data-theme="blue"] .card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, #4f46e5, #7c3aed, #0891b2);
+    opacity: 0.9;
+  }
+  [data-theme="blue"] .stat-icon { opacity: 0.8; filter: saturate(1.4); }
   [data-theme="blue"] .card:hover {
     border-color: #c7d2fe !important;
     box-shadow: 0 4px 24px rgba(79,70,229,0.12) !important;
@@ -4726,6 +4809,18 @@ if(typeof jsQR === 'undefined') {
   [data-theme="blue"] .kpi-card::before {
     background: linear-gradient(135deg, rgba(79,70,229,0.04) 0%, transparent 60%) !important;
   }
+
+  /* ── Stat cards (tableau de bord) — corrige le dégradé gris terne
+       hérité du thème sombre (le fond partait vers un bleu marine
+       quasi noir même en thème clair/bleu) ── */
+  [data-theme="blue"] .stat-card {
+    background: #ffffff !important;
+    border: 1px solid #e0e7ff !important;
+    box-shadow: 0 2px 12px rgba(79,70,229,0.07), inset 0 1px 0 rgba(255,255,255,0.6) !important;
+  }
+  [data-theme="blue"] .stat-card::after { display: none !important; }
+  [data-theme="blue"] .stat-label { color: #5b6a9e !important; }
+  [data-theme="blue"] .stat-value { color: #0d1340 !important; }
 
   /* ── KPI values ── */
   [data-theme="blue"] .kpi-val,
@@ -5407,7 +5502,15 @@ function _syncSportVentes()       { return []; }
               <div>Cliquez sur les articles pour les ajouter</div>
             </div>
           </div>
-          <hr class="cart-sep">
+          <hr class="cart-sep" id="cart-checkout-sep">
+          <details id="cart-checkout-section">
+          <summary id="cart-checkout-summary" style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;padding:10px 4px;background:var(--surface2);border-radius:10px;margin-bottom:8px;">
+            <span style="font-weight:700;font-size:14px;">💰 Paiement</span>
+            <span style="display:flex;align-items:center;gap:8px;">
+              <span id="cart-checkout-summary-total" style="color:var(--accent);font-weight:800;font-family:'JetBrains Mono',monospace;">0 FCFA</span>
+              <span class="cart-checkout-chevron" style="color:var(--text2);">▼</span>
+            </span>
+          </summary>
           <!-- REMISE GLOBALE COMMANDE -->
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
             <span style="font-size:12px;color:var(--text2);flex:1;">🏷️ Remise commande</span>
@@ -5435,6 +5538,7 @@ function _syncSportVentes()       { return []; }
             <button onclick="mettreEnAttente()" title="Mettre en attente de paiement" style="flex:0 0 auto;padding:0 14px;height:48px;border-radius:12px;border:1.5px solid var(--accent);background:rgba(245,158,42,0.10);color:var(--accent);font-size:18px;cursor:pointer;font-weight:800;transition:all .2s ease;display:flex;align-items:center;justify-content:center;gap:6px;" onmouseover="this.style.background='rgba(245,158,42,0.2)'" onmouseout="this.style.background='rgba(245,158,42,0.10)'">⏳</button>
             <button class="btn-validate" style="flex:1;" onclick="openConfirmTicket()">✅ Valider la commande</button>
           </div>
+          </details><!-- /cart-checkout-section -->
         </div>
       </div>
     </div>
@@ -6223,7 +6327,7 @@ function _syncSportVentes()       { return []; }
 
         <!-- RÉCAP + BOUTON CLÔTURE -->
         <div>
-          <div class="card" style="position:sticky;top:80px;">
+          <div class="card fermeture-recap-card">
             <div class="card-title">Récapitulatif fermeture</div>
             <div style="font-size:15px;font-weight:800;color:var(--accent);margin-bottom:12px;background:rgba(245,158,42,0.08);border:1px solid rgba(245,158,42,0.3);border-radius:8px;padding:8px 12px;" id="recap-caisse-name">— Sélectionnez une caisse</div>
             <div class="recap-row"><span class="recap-label">CA théorique système</span><span class="recap-val" id="recap-ca-total">0 F</span></div>
@@ -6287,9 +6391,11 @@ function _syncSportVentes()       { return []; }
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;" onclick="setHistPeriod('week')">Cette semaine</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;" onclick="setHistPeriod('month')">Ce mois</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;" onclick="setHistPeriod('all')">Tout afficher</button>
+          <span id="hist-admin-tools" style="display:contents;">
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(0,201,177,0.15),rgba(0,201,177,0.05));border-color:rgba(0,201,177,0.4);color:var(--teal);" onclick="_forceSyncClotures()" id="hist-sync-btn">🔄 Actualiser</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(232,69,32,0.15),rgba(245,158,42,0.05));border-color:rgba(232,69,32,0.4);color:#e84520;" onclick="ouvrirModalReconstruire()">🔧 Reconstruire clôture</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(26,219,106,0.15),rgba(0,229,200,0.05));border-color:rgba(26,219,106,0.4);color:var(--green);" onclick="ouvrirModalClotureManu()">➕ Ajouter clôture manuelle</button>
+          </span>
         </div>
       </div>
       <!-- BARRE DE RECHERCHE CLÔTURES -->
@@ -8065,19 +8171,87 @@ Revenez nous voir bient&#244;t.</textarea>
     </div>
   </div>
 
-  <!-- ACTIONS -->
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:center;">
-    <button class="btn btn-primary" onclick="openModalAddChambre()">➕ Ajouter une chambre</button>
-    <button class="btn btn-ghost" onclick="renderHotelGrid()">🔄 Actualiser</button>
-    <div style="margin-left:auto;display:flex;gap:8px;">
-      <button class="btn btn-ghost" id="hotel-filter-all" onclick="hotelSetFilter('all',this)" style="background:var(--primary);color:#fff;">Toutes</button>
-      <button class="btn btn-ghost" id="hotel-filter-dispo" onclick="hotelSetFilter('disponible',this)">Disponibles</button>
-      <button class="btn btn-ghost" id="hotel-filter-occupe" onclick="hotelSetFilter('occupee',this)">Occupées</button>
-    </div>
+  <!-- SOUS-ONGLETS -->
+  <div style="display:flex;gap:10px;margin-bottom:18px;">
+    <button class="cat-btn active" id="hotel-tab-chambres" onclick="hotelSwitchTab('chambres',this)">🛏️ Chambres</button>
+    <button class="cat-btn" id="hotel-tab-historique" onclick="hotelSwitchTab('historique',this)">📜 Historique &amp; Traçabilité</button>
   </div>
 
-  <!-- GRILLE CHAMBRES -->
-  <div id="hotel-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;"></div>
+  <!-- PANNEAU CHAMBRES -->
+  <div id="hotel-panel-chambres">
+    <!-- ACTIONS -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:center;">
+      <button class="btn btn-primary" onclick="openModalAddChambre()">➕ Ajouter une chambre</button>
+      <button class="btn btn-ghost" onclick="renderHotelGrid()">🔄 Actualiser</button>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button class="btn btn-ghost" id="hotel-filter-all" onclick="hotelSetFilter('all',this)" style="background:var(--primary);color:#fff;">Toutes</button>
+        <button class="btn btn-ghost" id="hotel-filter-dispo" onclick="hotelSetFilter('disponible',this)">Disponibles</button>
+        <button class="btn btn-ghost" id="hotel-filter-occupe" onclick="hotelSetFilter('occupee',this)">Occupées</button>
+      </div>
+    </div>
+
+    <!-- GRILLE CHAMBRES -->
+    <div id="hotel-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;"></div>
+  </div>
+
+  <!-- PANNEAU HISTORIQUE & TRAÇABILITÉ -->
+  <div id="hotel-panel-historique" style="display:none;">
+    <!-- KPI historique -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:18px;">
+      <div class="stat-card" style="text-align:center;">
+        <div class="stat-icon">📖</div>
+        <div class="stat-val" id="hotel-hist-total-sejours">0</div>
+        <div class="stat-label">Séjours enregistrés</div>
+      </div>
+      <div class="stat-card" style="text-align:center;">
+        <div class="stat-icon">🧑‍🤝‍🧑</div>
+        <div class="stat-val" id="hotel-hist-clients-uniques">0</div>
+        <div class="stat-label">Clients uniques</div>
+      </div>
+      <div class="stat-card" style="text-align:center;">
+        <div class="stat-icon" style="color:#22c55e;">💰</div>
+        <div class="stat-val" id="hotel-hist-encaisse" style="color:#22c55e;font-size:16px;">0 F</div>
+        <div class="stat-label">Total encaissé</div>
+      </div>
+      <div class="stat-card" style="text-align:center;">
+        <div class="stat-icon" style="color:#ef4444;">⏳</div>
+        <div class="stat-val" id="hotel-hist-reste" style="color:#ef4444;font-size:16px;">0 F</div>
+        <div class="stat-label">Reste à percevoir</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+      <input class="search-input" id="hotel-hist-search" placeholder="🔎 Rechercher un client, un téléphone, une chambre..." style="flex:1;min-width:220px;" oninput="renderHotelHistorique()">
+      <select class="form-input" id="hotel-hist-filter-statut" style="width:auto;" onchange="renderHotelHistorique()">
+        <option value="all">Tous les séjours</option>
+        <option value="active">En cours</option>
+        <option value="terminee">Terminés</option>
+      </select>
+      <button class="btn btn-ghost" onclick="exportHotelHistoriqueCSV()">📥 Exporter CSV</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Client</th>
+            <th>Téléphone</th>
+            <th>Chambre</th>
+            <th>Arrivée</th>
+            <th>Départ</th>
+            <th>Nuits</th>
+            <th>Montant</th>
+            <th>Payé</th>
+            <th>Reste</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody id="hotel-hist-tbody">
+          <tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text2);">Aucun séjour enregistré pour le moment</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
 </div>
 
@@ -10784,7 +10958,6 @@ function printFacture(id) {
   <div class="logo-block">
     ${(TICKET_CONFIG.showLogo && TICKET_CONFIG.logo) ? `<div style="margin-bottom:8px;"><img src="${TICKET_CONFIG.logo}" style="max-width:100px;max-height:70px;object-fit:contain;border-radius:8px;"></div>` : (RESTAURANT_INFO.loginLogo ? `<div style="margin-bottom:8px;"><img src="${RESTAURANT_INFO.loginLogo}" style="max-width:100px;max-height:70px;object-fit:contain;border-radius:8px;"></div>` : '')}
     <div class="logo-name">${resto}</div>
-    <div class="logo-sub">La plateforme tout-en-un qui transforme votre fast-food en machine à performance</div>
     <div class="logo-meta">
       📍 ${adresse}<br>
       ${tel ? '📞 ' + tel + '<br>' : ''}
@@ -11095,6 +11268,10 @@ function renderPOS() {
       try { searchEl.setSelectionRange(len, len); } catch(e) {}
     }
   }
+  // ✅ FIX MOBILE : appliquer immédiatement le masquage remise/totaux/paiement
+  // (panier vide) dès l'ouverture de l'onglet Caisse, pas seulement après
+  // un ajout d'article.
+  if(typeof renderCart === 'function') renderCart();
 }
 
 // Garde la catégorie active pour que la recherche ne la perde pas
@@ -11171,6 +11348,15 @@ function changeQty(cartIdx, delta) {
 
 function renderCart() {
   const el = document.getElementById('cart-items');
+  // (Tentative de limite de hauteur abandonnée : incompatible avec certains
+  // navigateurs Android qui n'affichaient plus le contenu. Le panier
+  // s'affiche maintenant normalement, en entier, sans limite de hauteur.)
+  // ✅ FIX MOBILE : sur mobile, masquer remise/totaux/paiement/valider tant
+  // que le panier est vide — ça ne sert à rien avant d'avoir un article, et
+  // ça libère beaucoup de place pour voir le menu sans scroller autant.
+  const _checkoutSection = document.getElementById('cart-checkout-section');
+  const _checkoutSep = document.getElementById('cart-checkout-sep');
+  const _isMobile = window.innerWidth <= 768;
   if(cart.length === 0) {
     el.innerHTML = '<div class="empty-cart"><div class="empty-cart-icon">🛒</div><div>Cliquez sur les articles pour les ajouter</div></div>';
     document.getElementById('subtotal').textContent = '0 FCFA';
@@ -11178,9 +11364,19 @@ function renderCart() {
     document.getElementById('grand-total').textContent = '0 FCFA';
     const remEl = document.getElementById('cart-remise-row');
     if(remEl) remEl.style.display = 'none';
+    if(_isMobile && _checkoutSection) { _checkoutSection.style.display = 'none'; if(_checkoutSep) _checkoutSep.style.display = 'none'; }
     return;
   }
-  el.innerHTML = cart.map((item, cartIdx) => {
+  if(_isMobile && _checkoutSection) { _checkoutSection.style.display = ''; if(_checkoutSep) _checkoutSep.style.display = ''; }
+  // ✅ Sur PC, la section paiement reste toujours ouverte (comme avant).
+  // Sur mobile, on ne force PAS l'état ouvert/fermé à chaque rendu — l'utilisateur
+  // choisit quand l'ouvrir (repliée par défaut au premier article ajouté),
+  // pour pouvoir continuer à ajouter des articles sans être dérangé.
+  if(!_isMobile && _checkoutSection) { _checkoutSection.open = true; }
+  else if(_isMobile && _checkoutSection && !_checkoutSection.dataset.userToggled) {
+    _checkoutSection.open = false;
+  }
+  const _renderItem = (item, cartIdx) => {
     const prixOriginal = item.priceOriginal || item.price;
     const hasPromo = item.discount > 0;
     const prixFinal = hasPromo ? Math.round(prixOriginal * (1 - item.discount / 100)) : item.price;
@@ -11203,7 +11399,19 @@ function renderCart() {
         </div>
       </div>
     </div>`;
-  }).join('');
+  };
+  // ✅ FIX MOBILE : au lieu d'une zone à défilement (overflow/max-height mal
+  // supportés sur certains navigateurs Android), on n'affiche que les 2
+  // premiers articles sur mobile ; le reste se déroule via <details>, un
+  // élément natif du navigateur qui ne dépend d'aucun CSS de défilement.
+  const _isMobileCart = window.innerWidth <= 768;
+  if(_isMobileCart && cart.length > 2) {
+    const visibles = cart.slice(0, 2).map((item, i) => _renderItem(item, i)).join('');
+    const reste = cart.slice(2).map((item, i) => _renderItem(item, i + 2)).join('');
+    el.innerHTML = visibles + `<details style="margin-top:2px;"><summary style="cursor:pointer;color:var(--accent);font-weight:700;font-size:13px;padding:8px 4px;list-style:none;">▼ Voir les ${cart.length - 2} autre(s) article(s)</summary>${reste}</details>`;
+  } else {
+    el.innerHTML = cart.map((item, cartIdx) => _renderItem(item, cartIdx)).join('');
+  }
 
   // Calcul totaux avec promos articles
   const totalTTC = cart.reduce((a, c) => {
@@ -11222,6 +11430,8 @@ function renderCart() {
   document.getElementById('subtotal').textContent = ht.toLocaleString() + ' FCFA HT';
   document.getElementById('tva').textContent = tvaIncluse.toLocaleString() + ' FCFA (18% inclus)';
   document.getElementById('grand-total').textContent = totalApresRemise.toLocaleString() + ' FCFA';
+  const _summaryTotalEl = document.getElementById('cart-checkout-summary-total');
+  if(_summaryTotalEl) _summaryTotalEl.textContent = totalApresRemise.toLocaleString() + ' FCFA';
 
   // Afficher/masquer ligne remise globale
   const remEl = document.getElementById('cart-remise-row');
@@ -11233,6 +11443,13 @@ function renderCart() {
     if(remVal) remVal.textContent = '-' + remiseMontant.toLocaleString() + ' F';
   }
 }
+
+// ✅ Mémoriser si l'utilisateur a ouvert/fermé manuellement la section
+// paiement, pour ne plus la forcer à se refermer aux prochains ajouts.
+(function(){
+  const _cs = document.getElementById('cart-checkout-section');
+  if(_cs) _cs.addEventListener('toggle', function(){ _cs.dataset.userToggled = '1'; });
+})();
 
 // ── Promo sur un article du panier ──────────────────────────────
 function openPromoArticle(cartIdx) {
@@ -21283,6 +21500,7 @@ function clearHistDates() {
 
 // ✅ FIX MULTI-NAVIGATEUR : forcer la synchronisation des clôtures depuis Supabase
 async function _forceSyncClotures() {
+  if(!currentUser || currentUser.role !== 'administrateur') { showNotif('🔒 Réservé à l\'administrateur'); return; }
   const btn = document.getElementById('hist-sync-btn');
   if(btn) { btn.textContent = '⏳ Sync…'; btn.disabled = true; }
   try {
@@ -21587,6 +21805,13 @@ function renderCatVentes() {
 function renderHistorique() {
   const el = document.getElementById('historique-list');
   if(!el) return;
+
+  // ✅ Outils réservés à l'administrateur (Actualiser, Reconstruire clôture,
+  // Ajouter clôture manuelle) — invisibles pour gérants et superviseurs.
+  const _histAdminTools = document.getElementById('hist-admin-tools');
+  if(_histAdminTools) {
+    _histAdminTools.style.display = (currentUser && currentUser.role === 'administrateur') ? 'contents' : 'none';
+  }
 
   // Lire les dates de la plage
   const debutVal = (document.getElementById('hist-date-debut') || {}).value || '';
@@ -27496,10 +27721,16 @@ async function saveDepense() {
   // Collecter toutes les lignes valides
   const lignes = [];
   document.querySelectorAll('[id^="dep-ligne-"]').forEach(row => {
-    const idx  = row.id.replace('dep-ligne-', '');
-    const lib  = document.getElementById('dep-lib-' + idx)?.value.trim();
-    const qty  = parseFloat(document.getElementById('dep-qty-' + idx)?.value) || 1;
-    const prix = parseFloat(document.getElementById('dep-mnt-' + idx)?.value) || 0;
+    // ✅ FIX : chercher les champs À L'INTÉRIEUR de la ligne (par attribut id
+    // préfixé) plutôt que de reconstruire l'id depuis le nom de la ligne —
+    // un décalage d'index faisait retomber qty sur la valeur par défaut (1),
+    // donnant un total = somme des prix unitaires seuls (bug observé).
+    const libEl  = row.querySelector('[id^="dep-lib-"]');
+    const qtyEl  = row.querySelector('[id^="dep-qty-"]');
+    const mntEl  = row.querySelector('[id^="dep-mnt-"]');
+    const lib  = libEl?.value.trim();
+    const qty  = parseFloat(qtyEl?.value) || 1;
+    const prix = parseFloat(mntEl?.value) || 0;
     const mnt  = Math.round(qty * prix);
     if(lib && mnt > 0) lignes.push({ libelle: lib, montant: mnt, qty, prix_unitaire: prix });
   });
@@ -27664,7 +27895,11 @@ async function modifierDepense(id) {
         const mntEl = document.getElementById('dep-mnt-' + idx);
         if(libEl) libEl.value = l.nom || l.name || l.libelle || '';
         if(qtyEl) { qtyEl.value = l.qty || l.quantite || 1; }
-        if(mntEl) { mntEl.value = l.prix || l.pu || l.montant || 0; depCalcLigne(idx); }
+        // ✅ FIX : prix_unitaire est le champ réel sauvegardé pour le prix
+        // unitaire ; "montant" est le TOTAL de la ligne (qty × prix), pas le
+        // prix unitaire — l'utiliser en fallback gonflait ou faussait le
+        // prix unitaire à la réouverture du formulaire d'édition.
+        if(mntEl) { mntEl.value = l.prix_unitaire ?? l.prix ?? l.pu ?? (l.montant && l.qty ? Math.round(l.montant / l.qty) : l.montant) ?? 0; depCalcLigne(idx); }
       }, 50 + i * 20);
     });
   } else {
@@ -37748,6 +37983,20 @@ function imprimerTicketAttente(ticketId) {
   .bottom-band { border:3px solid #000; margin:0 6px 6px; padding:6px 4px; text-align:center; }
   .bottom-band-txt { font-size:13px; font-weight:900; letter-spacing:2px; text-transform:uppercase; }
 
+  /* ══ TICKET CUISINE (2ème exemplaire) ══ */
+  .page-cut { margin-top:0; padding-top:0; }
+  .cuisine-ticket { width:100%; font-family:Arial,Helvetica,sans-serif; padding:6px 10px 10px; border-top:3px dashed #000; }
+  .cuisine-header { text-align:center; background:#000; color:#fff; padding:8px 8px; margin-bottom:6px; }
+  .cuisine-header-title { font-size:16px; font-weight:900; letter-spacing:2px; text-transform:uppercase; color:#fff; }
+  .cuisine-header-num { font-size:30px; font-weight:900; letter-spacing:4px; color:#fff; margin-top:2px; }
+  .cuisine-meta { font-size:12px; color:#000; font-weight:600; margin-bottom:6px; border-bottom:1px dashed #000; padding-bottom:5px; line-height:1.6; }
+  .cuisine-items-title { font-size:11px; font-weight:900; letter-spacing:2px; text-transform:uppercase; color:#000; margin-bottom:5px; border-bottom:2px solid #000; padding-bottom:3px; }
+  .cuisine-item { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px dashed #000; font-size:15px; font-weight:700; }
+  .cuisine-item:last-child { border-bottom:none; }
+  .cuisine-item-price { font-size:13px; color:#000; white-space:nowrap; text-align:right; font-weight:900; }
+  .cuisine-total { margin-top:6px; padding:8px 10px; background:#000; color:#fff; display:flex; justify-content:space-between; align-items:center; font-size:15px; font-weight:900; }
+  .cuisine-total-amount { color:#fff; font-size:18px; font-weight:900; }
+
   .no-print { padding:8px; display:flex; gap:8px; justify-content:center; background:#eee; border-bottom:1px solid #ccc; }
   .no-print button { padding:7px 18px; border:none; border-radius:6px; font-size:13px; font-weight:700; cursor:pointer; }
 
@@ -37844,6 +38093,57 @@ ${wifiSSID ? `<div class="wifi-section"><div class="wifi-title">WiFi : ${wifiSSI
   <div class="bottom-band-txt">⏳ EN ATTENTE DE PAIEMENT</div>
 </div>
 <div style="height:8px;"></div>
+
+<!-- ══ TICKET CUISINE (2ème exemplaire) ══ -->
+${(function(){
+  if(!(typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.printCuisine)) return '';
+  var _cats = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.cuisineCategories) || [];
+  var _items0 = ticket.items || [];
+  var _hasItems = _cats.length > 0 ? _items0.some(function(it){ return _cats.indexOf(it.cat) !== -1; }) : _items0.length > 0;
+  return _hasItems ? '<div class="page-cut"></div><div class="cuisine-ticket">' : '';
+})()}
+${(function(){
+  if(!(typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.printCuisine)) return '';
+  var _cats = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.cuisineCategories) || [];
+  var _items0 = ticket.items || [];
+  var _hasItems = _cats.length > 0 ? _items0.some(function(it){ return _cats.indexOf(it.cat) !== -1; }) : _items0.length > 0;
+  if(!_hasItems) return '';
+  return `
+  <div class="cuisine-header">
+    <div class="cuisine-header-title">🍳 BON DE CUISINE</div>
+    <div class="cuisine-header-num">${ticket.id}</div>
+  </div>
+  <div class="cuisine-meta">
+    ⏳ EN ATTENTE — À PRÉPARER<br>
+    📅 ${ticket.date||''} ${ticket.time||''}<br>
+    🏪 ${ticket.caisse||''}${showCashier && ticket.cashier ? ' · 👤 ' + ticket.cashier : ''}${ticket.serveur && ticket.serveur !== ticket.cashier ? '<br>🍽️ Serveur : <strong>' + ticket.serveur + '</strong>' : ''}${ticket.client && ticket.client !== 'Client' ? '<br>🙋 Client : ' + ticket.client : ''}
+  </div>
+  <div class="cuisine-items-title">Articles à préparer</div>
+  ${(function(){
+    var _items = _cats.length > 0 ? _items0.filter(function(it){ return _cats.indexOf(it.cat) !== -1; }) : _items0;
+    return _items.map(function(it){
+      var _st = ((it.price||0) * (it.qty||1)).toLocaleString('fr-FR');
+      var _imgHtml = '';
+      if(it.image_url) { _imgHtml = '<img src=' + JSON.stringify(it.image_url) + ' style="width:48px;height:48px;object-fit:cover;border-radius:6px;margin-right:8px;flex-shrink:0" onError="this.remove()">'; }
+      return '<div class="cuisine-item" style="display:flex;align-items:center;gap:6px;">'
+        + _imgHtml
+        + '<div style="flex:1;">'
+        + '<div style="font-size:20px;font-weight:900;color:#000;">' + (it.qty||1) + '× ' + (it.name||it.nom||'') + '</div>'
+        + (it.note ? '<div style="font-size:12px;color:#555;font-style:italic;">📝 ' + it.note + '</div>' : '')
+        + '</div>'
+        + '<div class="cuisine-item-price">' + _st + ' F</div>'
+        + '</div>';
+    }).join('');
+  })()}
+  <div class="cuisine-total">
+    <span>TOTAL CUISINE</span>
+    <span class="cuisine-total-amount">${(function(){
+      var _items = _cats.length > 0 ? _items0.filter(function(i){ return _cats.indexOf(i.cat) !== -1; }) : _items0;
+      return _items.reduce(function(s,i){ return s + (i.price||0) * (i.qty||1); }, 0).toLocaleString('fr-FR');
+    })()} F</span>
+  </div>
+  </div>`;
+})()}
 
 </body></html>`;
 
@@ -38077,6 +38377,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ── Clôture manuelle ──
 function ouvrirModalClotureManu() {
+  if(!currentUser || currentUser.role !== 'administrateur') { showNotif('🔒 Réservé à l\'administrateur'); return; }
   const today = new Date().toISOString().split('T')[0];
   const caisseOptions = CAISSES.map(c => `<option value="${c.name}">${c.name} — ${c.label||c.name}</option>`).join('');
   const html = `
@@ -38161,6 +38462,7 @@ async function confirmerClotureManu() {
 }
 // ── Modal reconstruire ──
 function ouvrirModalReconstruire() {
+  if(!currentUser || currentUser.role !== 'administrateur') { showNotif('🔒 Réservé à l\'administrateur'); return; }
   const modal = document.getElementById('modal-reconstruire');
   if(modal) { modal.style.display = 'flex'; }
 }
@@ -38457,6 +38759,94 @@ function setChambreNettoyage() {
   const ch=HOTEL_CHAMBRES.find(c=>c.id===id);
   if(ch)ch.statut='nettoyage';
   closeModal('detailChambre');saveHotelData();renderHotelGrid();showNotif('🧹 Chambre en nettoyage !');
+}
+
+// ── HISTORIQUE & TRAÇABILITÉ HÔTEL ──
+function hotelSwitchTab(tab, el) {
+  document.getElementById('hotel-panel-chambres').style.display = tab==='chambres' ? '' : 'none';
+  document.getElementById('hotel-panel-historique').style.display = tab==='historique' ? '' : 'none';
+  document.querySelectorAll('#hotel-tab-chambres, #hotel-tab-historique').forEach(function(b){b.classList.remove('active');});
+  if(el) el.classList.add('active');
+  if(tab==='historique') renderHotelHistorique();
+}
+
+function _hotelNuits(arr, dep) {
+  if(!arr||!dep) return 0;
+  return Math.max(0, Math.round((new Date(dep)-new Date(arr))/(1000*60*60*24)));
+}
+
+function _hotelHistoriqueRows() {
+  const search=(document.getElementById('hotel-hist-search')?.value||'').trim().toLowerCase();
+  const statutFilter=document.getElementById('hotel-hist-filter-statut')?.value||'all';
+  return HOTEL_RESERVATIONS
+    .filter(r=>{
+      if(statutFilter!=='all' && r.statut!==statutFilter) return false;
+      if(!search) return true;
+      const ch=HOTEL_CHAMBRES.find(c=>c.id===r.chambreId);
+      const hay=[r.clientNom,r.clientTel,ch?ch.numero:''].join(' ').toLowerCase();
+      return hay.includes(search);
+    })
+    .sort((a,b)=> new Date(b.createdAt||b.dateArrivee) - new Date(a.createdAt||a.dateArrivee));
+}
+
+function renderHotelHistorique() {
+  const tbody=document.getElementById('hotel-hist-tbody');
+  if(!tbody) return;
+  const rows=_hotelHistoriqueRows();
+  const setEl=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+
+  // KPIs sur l'ensemble des séjours (non filtré par la recherche)
+  const clientsUniques=new Set(HOTEL_RESERVATIONS.map(r=>(r.clientNom||'').trim().toLowerCase()+'|'+(r.clientTel||'').trim())).size;
+  const totalEncaisse=HOTEL_RESERVATIONS.reduce((s,r)=>s+(r.acompte||0),0);
+  const totalReste=HOTEL_RESERVATIONS.reduce((s,r)=>s+Math.max(0,(r.montant||0)-(r.acompte||0)),0);
+  setEl('hotel-hist-total-sejours', HOTEL_RESERVATIONS.length);
+  setEl('hotel-hist-clients-uniques', clientsUniques);
+  setEl('hotel-hist-encaisse', totalEncaisse.toLocaleString()+' F');
+  setEl('hotel-hist-reste', totalReste.toLocaleString()+' F');
+
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--text2);">Aucun séjour ne correspond à cette recherche</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML=rows.map(function(r){
+    const ch=HOTEL_CHAMBRES.find(c=>c.id===r.chambreId);
+    const nuits=_hotelNuits(r.dateArrivee,r.dateDepart);
+    const reste=Math.max(0,(r.montant||0)-(r.acompte||0));
+    const statutBadge=r.statut==='active'
+      ? '<span style="background:rgba(239,68,68,0.12);color:#ef4444;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700;">🔴 En cours</span>'
+      : '<span style="background:rgba(34,197,94,0.12);color:#15803d;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700;">✅ Terminé</span>';
+    return '<tr>'
+      +'<td style="font-weight:700;">'+(r.clientNom||'—')+'</td>'
+      +'<td>'+(r.clientTel||'—')+'</td>'
+      +'<td>N° '+(ch?ch.numero:'—')+(ch?' <span style="color:var(--text2);font-size:11px;">('+_hotelTypeLabel(ch.type)+')</span>':'')+'</td>'
+      +'<td>'+_hotelFormatDate(r.dateArrivee)+'</td>'
+      +'<td>'+_hotelFormatDate(r.dateDepart)+'</td>'
+      +'<td style="text-align:center;">'+nuits+'</td>'
+      +'<td style="text-align:right;font-weight:700;">'+(r.montant||0).toLocaleString()+' F</td>'
+      +'<td style="text-align:right;color:#15803d;">'+(r.acompte||0).toLocaleString()+' F</td>'
+      +'<td style="text-align:right;color:'+(reste>0?'#ef4444':'#15803d')+';font-weight:700;">'+reste.toLocaleString()+' F</td>'
+      +'<td>'+statutBadge+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function exportHotelHistoriqueCSV() {
+  const rows=_hotelHistoriqueRows();
+  if(!rows.length){ showNotif('⚠️ Aucun séjour à exporter'); return; }
+  const csvRows=[['Client','Téléphone','Chambre','Type','Arrivée','Départ','Nuits','Montant','Payé','Reste','Statut','Notes']];
+  rows.forEach(function(r){
+    const ch=HOTEL_CHAMBRES.find(c=>c.id===r.chambreId);
+    const nuits=_hotelNuits(r.dateArrivee,r.dateDepart);
+    const reste=Math.max(0,(r.montant||0)-(r.acompte||0));
+    csvRows.push([r.clientNom||'',r.clientTel||'',ch?ch.numero:'',ch?_hotelTypeLabel(ch.type):'',r.dateArrivee||'',r.dateDepart||'',nuits,r.montant||0,r.acompte||0,reste,r.statut,(r.notes||'').replace(/,/g,' ')]);
+  });
+  const csv=csvRows.map(row=>row.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download='hotel_historique_'+new Date().toISOString().split('T')[0]+'.csv';
+  a.click();
+  showNotif('📥 Export CSV téléchargé');
 }
 
 // ═══════════════════════════════════════════════════════════════
