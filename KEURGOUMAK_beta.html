@@ -4158,6 +4158,31 @@ if(typeof jsQR === 'undefined') {
     .card { padding: 16px; border-radius: 14px; }
     .card-title { font-size: 12px; margin-bottom: 14px; }
 
+    /* ✅ FIX : "Commandes" — la ligne (num, infos, heure, prix, badge,
+       boutons) débordait à droite sur mobile car display:flex sans
+       wrap, avec des largeurs fixes. On empile proprement. */
+    .order-item {
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      padding: 12px 14px;
+    }
+    .order-num { width: auto; order: 1; }
+    .order-info { flex: 1 1 100%; order: 2; }
+    .order-time { order: 3; }
+    .order-price { width: auto; order: 4; }
+    .order-item .badge { order: 5; }
+    .order-item .ticket-btn,
+    .order-item button { order: 6; }
+
+    /* ✅ FIX : "Fournisseurs → Commandes" — la grille à 6 colonnes fixes
+       forçait un débordement horizontal, coupant le badge "Livré" et
+       les boutons d'action hors de l'écran. On repasse en 1 colonne. */
+    .commande-fourn-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      padding: 14px;
+    }
+
     /* Content */
     .content { padding: 12px; }
 
@@ -7119,7 +7144,7 @@ Revenez nous voir bient&#244;t.</textarea>
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" onclick="copyQRUrl(document.getElementById('qr-zoom-url').textContent)">📋 Copier lien</button>
-          <button class="btn btn-primary" onclick="downloadQRZoom()">💾 Télécharger</button>
+          <button class="btn btn-primary" onclick="downloadZoomQR()">💾 Télécharger</button>
         </div>
       </div>
     </div>
@@ -12380,6 +12405,35 @@ let TICKET_CONFIG = {
 
 
 // ✅ FIX GLOBAL : Convertir icon URL → emoji pour l'affichage texte
+// ══════════════════════════════════════════════════════════════
+// 🔒 SÉCURITÉ — Échappement anti-XSS pour données non fiables
+// (ex: nom client / note saisis par un client anonyme via commande QR,
+// avant injection dans le HTML de l'appli caissier/admin)
+// ══════════════════════════════════════════════════════════════
+function _escHTML(str) {
+  if(str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+// Pour une valeur insérée à l'intérieur d'un onclick="...('VALEUR')" —
+// échappe d'abord pour la chaîne JS (guillemet simple), puis pour
+// l'attribut HTML (guillemet double), afin qu'aucune des deux couches
+// ne puisse être "cassée" par une entrée malveillante.
+function _escJsAttr(str) {
+  if(str === null || str === undefined) return '';
+  return String(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
 function _safeIconText(icon, fallback) {
   fallback = fallback || '🍽️';
   if(!icon) return fallback;
@@ -12766,34 +12820,34 @@ function printTicket(vente, caisse) {
   .header {
     background: #111;
     color: #fff;
-    padding: 8px 10px 6px;
+    padding: 4px 8px 3px;
     text-align: center;
   }
   .header-logo {
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 900;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     text-transform: uppercase;
     color: #f5a623;
-    margin-bottom: 1px;
+    margin-bottom: 0px;
   }
   .header-tagline {
-    font-size: 9px;
+    font-size: 8px;
     color: #aaa;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     text-transform: uppercase;
-    margin-bottom: 4px;
+    margin-bottom: 1px;
   }
   .header-addr {
-    font-size: 10px;
+    font-size: 9px;
     color: #ccc;
-    line-height: 1.4;
+    line-height: 1.15;
   }
   .header-tel {
-    font-size: 10px;
+    font-size: 9px;
     color: #f5a623;
     font-weight: 600;
-    margin-top: 1px;
+    margin-top: 0px;
   }
 
   /* ══ BANDEAU TICKET NUM ══ */
@@ -12801,7 +12855,7 @@ function printTicket(vente, caisse) {
     background: #f5a623;
     color: #000;
     text-align: center;
-    padding: 4px 0 3px;
+    padding: 2px 0 2px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -12823,37 +12877,37 @@ function printTicket(vente, caisse) {
   /* ══ INFOS COMMANDE ══ */
   .meta-block {
     background: #f8f8f8;
-    padding: 5px 10px;
+    padding: 2px 8px;
     border-bottom: 1px dashed #ddd;
   }
   .meta-row {
     display: flex;
     justify-content: space-between;
     font-size: 11px;
-    padding: 2px 0;
+    padding: 1px 0;
     color: #333;
   }
   .meta-row .lbl { color: #777; }
   .meta-row .val { font-weight: 700; color: #111; }
 
   /* ══ SECTION ARTICLES ══ */
-  .articles-section { padding: 6px 10px; }
+  .articles-section { padding: 3px 8px; }
   .articles-title {
     font-size: 9px;
     font-weight: 800;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     text-transform: uppercase;
     color: #777;
-    margin-bottom: 5px;
-    padding-bottom: 4px;
+    margin-bottom: 2px;
+    padding-bottom: 2px;
     border-bottom: 1px solid #ddd;
   }
 
   .article-item {
     display: flex;
     align-items: flex-start;
-    gap: 6px;
-    padding: 4px 0;
+    gap: 5px;
+    padding: 2px 0;
     border-bottom: 1px solid #eee;
   }
   .article-item:last-child { border-bottom: none; }
@@ -12890,9 +12944,9 @@ function printTicket(vente, caisse) {
     min-width: 55px;
   }
   .article-unit-price {
-    font-size: 10px;
+    font-size: 9px;
     color: #999;
-    margin-top: 1px;
+    margin-top: 0px;
   }
   .article-promo {
     display: inline-block;
@@ -12912,30 +12966,30 @@ function printTicket(vente, caisse) {
     font-size: 11px;
     font-weight: 700;
     color: #e74c3c;
-    padding: 3px 10px;
+    padding: 2px 8px;
     background: #fff5f5;
   }
 
   /* ══ TOTAUX ══ */
   .totaux-section {
-    padding: 5px 10px 0;
+    padding: 2px 8px 0;
     border-top: 1px dashed #ddd;
   }
   .subtotal-row {
     display: flex;
     justify-content: space-between;
-    font-size: 11px;
+    font-size: 10px;
     color: #666;
-    padding: 2px 0;
+    padding: 0px 0;
   }
 
   /* ══ TOTAL FINAL ══ */
   .total-final {
-    margin: 5px 10px;
+    margin: 3px 8px;
     background: #111;
     color: #fff;
     border-radius: 6px;
-    padding: 8px 12px;
+    padding: 5px 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -12954,10 +13008,10 @@ function printTicket(vente, caisse) {
 
   /* ══ PAIEMENT ══ */
   .pay-section {
-    margin: 0 10px 5px;
+    margin: 0 8px 3px;
     background: #f8f8f8;
     border-radius: 5px;
-    padding: 5px 10px;
+    padding: 3px 8px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -12968,19 +13022,19 @@ function printTicket(vente, caisse) {
   /* ══ TVA NOTE ══ */
   .tva-note {
     text-align: center;
-    font-size: 10px;
+    font-size: 9px;
     color: #999;
-    padding: 3px 10px;
+    padding: 1px 8px;
   }
 
   /* ══ WIFI ══ */
   .wifi-section {
-    margin: 4px 10px;
-    padding: 5px 10px;
+    margin: 2px 8px;
+    padding: 3px 8px;
     border: 1px dashed #ddd;
     border-radius: 5px;
     text-align: center;
-    font-size: 10px;
+    font-size: 9px;
     color: #555;
   }
   .wifi-title { font-weight: 800; font-size: 11px; margin-bottom: 1px; }
@@ -12991,12 +13045,12 @@ function printTicket(vente, caisse) {
     font-size: 10px;
     letter-spacing: 2px;
     color: #ccc;
-    margin: 5px 0;
+    margin: 2px 0;
     overflow: hidden;
   }
 
   /* ══ QR CODE ══ */
-  .qr-section { text-align: center; padding: 5px 10px; }
+  .qr-section { text-align: center; padding: 2px 8px; }
   .qr-section img { border: 2px solid #111; border-radius: 5px; }
   .qr-label { font-size: 9px; color: #888; margin-bottom: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
 
@@ -13004,20 +13058,20 @@ function printTicket(vente, caisse) {
   .footer-section {
     background: #f8f8f8;
     border-top: 2px solid #f5a623;
-    padding: 6px 10px 8px;
+    padding: 3px 8px 4px;
     text-align: center;
   }
   .footer-msg {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     color: #111;
-    line-height: 1.5;
-    margin-bottom: 3px;
+    line-height: 1.2;
+    margin-bottom: 1px;
   }
   .footer-meta {
-    font-size: 10px;
+    font-size: 9px;
     color: #888;
-    line-height: 1.6;
+    line-height: 1.2;
   }
   .footer-ninea {
     display: inline-block;
@@ -13067,7 +13121,7 @@ function printTicket(vente, caisse) {
       padding: 0 !important;
       overflow: visible !important;
       height: auto !important;
-      font-size: 15px !important;
+      font-size: 12px !important;
     }
     .no-print { display: none !important; }
     .page-cut {
@@ -13080,25 +13134,25 @@ function printTicket(vente, caisse) {
       background: #fff !important;
       color: #000 !important;
       border-bottom: 2px solid #000 !important;
-      padding: 5px 6px 4px !important;
+      padding: 2px 6px 2px !important;
     }
     .header-logo {
       color: #000 !important;
-      font-size: 18px !important;
+      font-size: 14px !important;
       font-weight: 900 !important;
-      letter-spacing: 2px !important;
+      letter-spacing: 1px !important;
     }
     .header-tagline {
       color: #000 !important;
-      font-size: 10px !important;
+      font-size: 8px !important;
     }
     .header-addr {
       color: #000 !important;
-      font-size: 11px !important;
+      font-size: 9px !important;
     }
     .header-tel {
       color: #000 !important;
-      font-size: 12px !important;
+      font-size: 10px !important;
       font-weight: 900 !important;
     }
     .header-logo img {
@@ -13107,15 +13161,15 @@ function printTicket(vente, caisse) {
     .ticket-band {
       background: #000 !important;
       color: #fff !important;
-      padding: 3px 0 !important;
+      padding: 2px 0 !important;
     }
     .ticket-band-label {
       color: #fff !important;
-      font-size: 9px !important;
+      font-size: 8px !important;
     }
     .ticket-band-num {
       color: #fff !important;
-      font-size: 20px !important;
+      font-size: 16px !important;
       font-weight: 900 !important;
     }
     .meta-block {
@@ -13128,7 +13182,7 @@ function printTicket(vente, caisse) {
     }
     .meta-row .lbl { color: #000 !important; font-weight: 600 !important; }
     .meta-row .val { color: #000 !important; font-weight: 900 !important; }
-    .articles-section { padding: 6px 8px !important; }
+    .articles-section { padding: 2px 8px !important; }
     .articles-title {
       color: #000 !important;
       font-size: 10px !important;
@@ -13143,10 +13197,10 @@ function printTicket(vente, caisse) {
     .article-qty-badge {
       background: #000 !important;
       color: #fff !important;
-      font-size: 12px !important;
+      font-size: 11px !important;
       font-weight: 900 !important;
-      min-width: 22px !important;
-      height: 22px !important;
+      min-width: 18px !important;
+      height: 18px !important;
     }
     .article-total {
       font-size: 13px !important;
@@ -13159,7 +13213,7 @@ function printTicket(vente, caisse) {
     }
     .article-item {
       border-bottom: 1px dashed #000 !important;
-      padding: 4px 0 !important;
+      padding: 2px 0 !important;
     }
     .totaux-section {
       border-top: 2px solid #000 !important;
@@ -13172,32 +13226,33 @@ function printTicket(vente, caisse) {
       background: #000 !important;
       color: #fff !important;
       border-radius: 0 !important;
-      margin: 4px 0 !important;
+      margin: 2px 0 !important;
+      padding: 4px 8px !important;
     }
     .total-final-label {
       color: #fff !important;
-      font-size: 13px !important;
+      font-size: 12px !important;
       font-weight: 900 !important;
     }
     .total-final-amount {
       color: #fff !important;
-      font-size: 20px !important;
+      font-size: 16px !important;
       font-weight: 900 !important;
     }
     .pay-section {
       background: #fff !important;
       border: 1px solid #000 !important;
       border-radius: 0 !important;
-      margin: 3px 0 !important;
+      margin: 2px 0 !important;
     }
     .pay-label {
       color: #000 !important;
-      font-size: 10px !important;
+      font-size: 9px !important;
       font-weight: 700 !important;
     }
     .pay-value {
       color: #000 !important;
-      font-size: 14px !important;
+      font-size: 12px !important;
       font-weight: 900 !important;
     }
     .tva-note {
@@ -13210,12 +13265,12 @@ function printTicket(vente, caisse) {
     }
     .footer-msg {
       color: #000 !important;
-      font-size: 12px !important;
+      font-size: 10px !important;
       font-weight: 700 !important;
     }
     .footer-meta {
       color: #000 !important;
-      font-size: 10px !important;
+      font-size: 8px !important;
     }
     .footer-ninea {
       background: #000 !important;
@@ -13249,95 +13304,95 @@ function printTicket(vente, caisse) {
     text-align: center;
     background: #000;
     color: #fff;
-    padding: 8px 8px;
-    margin-bottom: 6px;
+    padding: 3px 6px;
+    margin-bottom: 3px;
   }
   .cuisine-header-title {
-    font-size: 16px;
+    font-size: 12px;
     font-weight: 900;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     text-transform: uppercase;
     color: #fff;
   }
   .cuisine-header-num {
-    font-size: 30px;
-    font-weight: 900;
-    letter-spacing: 4px;
-    color: #fff;
-    margin-top: 2px;
-  }
-  .cuisine-meta {
-    font-size: 12px;
-    color: #000;
-    font-weight: 600;
-    margin-bottom: 6px;
-    border-bottom: 1px dashed #000;
-    padding-bottom: 5px;
-    line-height: 1.6;
-  }
-  .cuisine-items-title {
-    font-size: 11px;
+    font-size: 20px;
     font-weight: 900;
     letter-spacing: 2px;
+    color: #fff;
+    margin-top: 0px;
+  }
+  .cuisine-meta {
+    font-size: 11px;
+    color: #000;
+    font-weight: 600;
+    margin-bottom: 3px;
+    border-bottom: 1px dashed #000;
+    padding-bottom: 2px;
+    line-height: 1.25;
+  }
+  .cuisine-items-title {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1px;
     text-transform: uppercase;
     color: #000;
-    margin-bottom: 5px;
+    margin-bottom: 2px;
     border-bottom: 2px solid #000;
-    padding-bottom: 3px;
+    padding-bottom: 1px;
   }
   .cuisine-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 7px 0;
+    gap: 6px;
+    padding: 3px 0;
     border-bottom: 1px dashed #000;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 700;
   }
   .cuisine-item:last-child { border-bottom: none; }
   .cuisine-item-qty {
     background: #000;
     color: #fff;
-    font-size: 16px;
+    font-size: 13px;
     font-weight: 900;
-    min-width: 30px;
-    height: 30px;
+    min-width: 22px;
+    height: 22px;
     border-radius: 3px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
-  .cuisine-item-name { flex: 1; font-size: 15px; color: #000; font-weight: 900; }
+  .cuisine-item-name { flex: 1; font-size: 13px; color: #000; font-weight: 900; }
   .cuisine-item-price { font-size: 13px; color: #000; white-space: nowrap; text-align: right; font-weight: 900; }
   .cuisine-total {
-    margin-top: 6px;
-    padding: 8px 10px;
+    margin-top: 3px;
+    padding: 5px 8px;
     background: #000;
     color: #fff;
     border-radius: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 900;
   }
-  .cuisine-total-amount { color: #fff; font-size: 18px; font-weight: 900; }
+  .cuisine-total-amount { color: #fff; font-size: 15px; font-weight: 900; }
   .cuisine-pay-section {
-    margin-top: 6px;
+    margin-top: 3px;
     border: 2px solid #000;
-    padding: 6px 10px;
+    padding: 3px 8px;
     background: #f5f5f5;
   }
   .cuisine-pay-title {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 900;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     text-transform: uppercase;
     color: #000;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     border-bottom: 1px solid #000;
-    padding-bottom: 3px;
+    padding-bottom: 1px;
   }
   .cuisine-pay-row {
     display: flex;
@@ -13404,7 +13459,7 @@ function printTicket(vente, caisse) {
   <div class="article-qty-badge">${item.qty}</div>
   <div class="article-details">
     <div class="article-name">${((_ic=>((_ic.startsWith('http')||_ic.startsWith('data:')||_ic.includes('ibb.co'))?'<img src="'+(_ic.startsWith('http')||_ic.startsWith('data:')?_ic:'https://'+_ic)+'" style="width:18px;height:18px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:3px;" alt="">':(_ic&&!_ic.startsWith('http')&&!_ic.includes('ibb.co')?_ic+' ':''))))(item.image_url||item.icon||'')} ${item.name}${promoTag}</div>
-    <div class="article-unit-price">${prixUnit} F / unité${item.discount>0?` · base : ${prixOrig.toLocaleString()} F`:''}</div>
+    ${(item.qty>1||item.discount>0)?`<div class="article-unit-price">${prixUnit} F / unité${item.discount>0?` · base : ${prixOrig.toLocaleString()} F`:''}</div>`:''}
   </div>
   <div class="article-total">${sousTotal} F</div>
 </div>`;
@@ -13420,8 +13475,7 @@ ${vente.remiseMontant > 0 ? `
 
 <!-- ══ SOUS-TOTAUX ══ -->
 <div class="totaux-section">
-  <div class="subtotal-row"><span>Montant HT</span><span>${ht.toLocaleString()} F</span></div>
-  <div class="subtotal-row"><span>TVA 18% (incluse)</span><span>${tvaIncluse.toLocaleString()} F</span></div>
+  <div class="subtotal-row"><span>HT ${ht.toLocaleString()} F · TVA 18% ${tvaIncluse.toLocaleString()} F</span><span></span></div>
 </div>
 
 <!-- ══ TOTAL ══ -->
@@ -13445,8 +13499,6 @@ ${vente.remiseMontant > 0 ? `
   </div>
   <div style="font-size:22px;">${vente.payMethod === 'mixed' ? '🔀' : payIcon}</div>
 </div>
-
-<div class="tva-note">Prix TTC · TVA 18% incluse · Document fiscal</div>
 
 <!-- ══ WIFI ══ -->
 ${(TICKET_CONFIG.showWifi && TICKET_CONFIG.wifiSSID) ? `
@@ -13506,18 +13558,12 @@ ${(function(){
     if(_items.length === 0) return '';
     return _items.map(function(it){
       var _st = (it.price * it.qty).toLocaleString();
-      // Image du plat si disponible
-      var _imgHtml = '';
-      if(it.image_url) {
-        _imgHtml = '<img src=' + JSON.stringify(it.image_url) + ' style="width:48px;height:48px;object-fit:cover;border-radius:6px;margin-right:8px;flex-shrink:0" onError="this.remove()">';
-      }
-      return '<div class="cuisine-item" style="display:flex;align-items:center;gap:6px;padding:10px 6px;border-bottom:1px dashed #ccc;">'
-        + _imgHtml
+      return '<div class="cuisine-item" style="display:flex;align-items:center;gap:6px;padding:3px 4px;border-bottom:1px dashed #ccc;">'
         + '<div style="flex:1;">' 
-        + '<div style="font-size:20px;font-weight:900;color:#000;">' + it.qty + '× ' + it.name + '</div>'
-        + (it.note ? '<div style="font-size:12px;color:#555;font-style:italic;">📝 ' + it.note + '</div>' : '')
+        + '<div style="font-size:14px;font-weight:900;color:#000;">' + it.qty + '× ' + it.name + '</div>'
+        + (it.note ? '<div style="font-size:10px;color:#555;font-style:italic;">📝 ' + it.note + '</div>' : '')
         + '</div>'
-        + '<div class="cuisine-item-price" style="font-size:14px;font-weight:900;color:#000;white-space:nowrap;"><strong>' + _st + ' F</strong></div>'
+        + '<div class="cuisine-item-price" style="font-size:12px;font-weight:900;color:#000;white-space:nowrap;"><strong>' + _st + ' F</strong></div>'
         + '</div>';
     }).join('');
   })()}
@@ -27618,6 +27664,25 @@ function onDepCategorieChange() {
   toggleDepTVA();
 }
 
+// ✅ FIX : fonction manquante — affiche une info contextuelle selon la
+// source de la dépense sélectionnée (fonds propres ou une caisse précise)
+function updateDepSourceInfo() {
+  const src = document.getElementById('dep-caisse')?.value;
+  const info = document.getElementById('dep-source-info');
+  if(!info) return;
+  if(!src || src === 'Fonds propres') {
+    info.style.display = 'none';
+    info.textContent = '';
+    return;
+  }
+  const caisseObj = (typeof CAISSES !== 'undefined') ? CAISSES.find(c => c.name === src) : null;
+  const ca = caisseObj ? (caisseObj.ca||0).toLocaleString() + ' F' : null;
+  info.textContent = ca
+    ? `💡 Cette dépense sera déduite de ${src} (CA actuel : ${ca})`
+    : `💡 Cette dépense sera rattachée à ${src}`;
+  info.style.display = 'block';
+}
+
 // ✅ v12 : Toggle affichage détail TVA sur dépenses
 function toggleDepTVA() {
   const checked = document.getElementById('dep-avec-tva')?.checked;
@@ -32161,7 +32226,7 @@ function renderQROrdersPanel() {
       </div>
 
       ${(nomClient || telClient) ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
-        ${nomClient ? `<span style="font-size:13px;font-weight:700;color:var(--text);">👤 ${nomClient}</span>` : ''}
+        ${nomClient ? `<span style="font-size:13px;font-weight:700;color:var(--text);">👤 ${_escHTML(nomClient)}</span>` : ''}
         ${telClient ? `<a href="tel:${telClient}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:800;color:#fff;background:rgba(46,204,113,0.2);border:1.5px solid rgba(46,204,113,0.5);border-radius:20px;padding:5px 14px;text-decoration:none;">📞 ${telClient}</a>` : ''}
       </div>` : ''}
       ${adresse ? `<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">📍 ${adresse}</div>` : ''}
@@ -32299,14 +32364,14 @@ function envoyerAdditionCaisse(orderId) {
         <button onclick="document.getElementById('_bill_caisse_modal').remove()" style="background:none;border:none;color:var(--text2,#6e6e8e);font-size:20px;cursor:pointer;">✕</button>
       </div>
       <div style="background:var(--surface2,#13131e);border-radius:12px;padding:14px;margin-bottom:18px;">
-        <div style="font-size:13px;font-weight:700;color:var(--text,#f0ece6);margin-bottom:4px;">📋 ${tableLabel} — ${clientNom}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text,#f0ece6);margin-bottom:4px;">📋 ${_escHTML(tableLabel)} — ${_escHTML(clientNom)}</div>
         <div style="font-size:12px;color:var(--text2,#6e6e8e);">${articles.length} article(s)</div>
         <div style="font-size:20px;font-weight:900;color:var(--accent,#f59e2a);margin-top:6px;">${total.toLocaleString()} F</div>
       </div>
       <div style="font-size:12px;font-weight:600;color:var(--text2,#6e6e8e);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Choisir la caisse :</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
         ${caissesOuvertes.map(c => `
-          <button onclick="_confirmerEnvoiAddition('${orderId}','${c.name}','${tableLabel}','${clientNom}',${total})"
+          <button onclick="_confirmerEnvoiAddition('${orderId}','${c.name}','${_escJsAttr(tableLabel)}','${_escJsAttr(clientNom)}',${total})"
             style="padding:13px 16px;background:var(--surface2,#13131e);border:1.5px solid var(--border,#1e1e32);border-radius:12px;cursor:pointer;color:var(--text,#f0ece6);font-size:14px;font-weight:700;text-align:left;display:flex;align-items:center;justify-content:space-between;">
             <span>🖥️ ${c.name}</span>
             <span style="font-size:11px;color:var(--green,#1adb6a);font-weight:600;">● Ouverte</span>
@@ -32705,7 +32770,7 @@ function _afficherRecuClientModal(o, rawOrder) {
             <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#333;border-bottom:1px solid #eee;">
               <span>📅 Date</span><strong>${o.dateStr} · ${o.heureStr}</strong>
             </div>
-            ${o.clientNom ? `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#333;border-bottom:1px solid #eee;"><span>🙋 Client</span><strong>${o.clientNom}</strong></div>` : ''}
+            ${o.clientNom ? `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#333;border-bottom:1px solid #eee;"><span>🙋 Client</span><strong>${_escHTML(o.clientNom)}</strong></div>` : ''}
             ${o.clientTel ? `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#333;border-bottom:1px solid #eee;"><span>📞 Téléphone</span><strong>${o.clientTel}</strong></div>` : ''}
             ${o.clientAdr ? `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#333;border-bottom:1px solid #eee;"><span>📍 Adresse</span><strong style="max-width:55%;text-align:right;">${o.clientAdr}</strong></div>` : ''}
             <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#333;"><span>📦 Type</span><strong>🛵 Livraison</strong></div>
@@ -32763,10 +32828,10 @@ function reprintQRCommande(orderId) {
   const artRows    = items.map(i =>
     '<tr><td>' + i.icon + ' ' + i.name + '</td><td style="text-align:center;">' + i.qty + '</td><td style="text-align:right;">' + (i.price*i.qty).toLocaleString() + ' F</td></tr>'
   ).join('');
-  const metaExtra = (nomClient ? '<tr><td>Client</td><td>' + nomClient + '</td></tr>' : '')
+  const metaExtra = (nomClient ? '<tr><td>Client</td><td>' + _escHTML(nomClient) + '</td></tr>' : '')
     + (telClient  ? '<tr><td>Tel</td><td>' + telClient + '</td></tr>' : '')
     + (adresseClient ? '<tr><td>Adresse</td><td>' + adresseClient + '</td></tr>' : '')
-    + (note ? '<tr><td>Note</td><td>' + note + '</td></tr>' : '');
+    + (note ? '<tr><td>Note</td><td>' + _escHTML(note) + '</td></tr>' : '');
   const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Ticket ' + numero + '</title>'
     + '<style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;width:302px;margin:0 auto;line-height:1.5;}'
     + '.header{background:#111;color:#fff;padding:14px;text-align:center;}'
@@ -32834,10 +32899,10 @@ function _buildRecuHTML(o) {
   ).join('');
 
   const metaRows = ''
-    + (nomClient     ? `<tr><td style="color:#888;">Client</td><td style="font-weight:600;">${nomClient}</td></tr>`     : '')
+    + (nomClient     ? `<tr><td style="color:#888;">Client</td><td style="font-weight:600;">${_escHTML(nomClient)}</td></tr>`     : '')
     + (telClient     ? `<tr><td style="color:#888;">Tél</td><td>${telClient}</td></tr>`                                  : '')
     + (adresseClient ? `<tr><td style="color:#888;">Adresse</td><td>${adresseClient}</td></tr>`                          : '')
-    + (note          ? `<tr><td style="color:#888;">Note</td><td style="color:#00c9b1;">${note}</td></tr>`               : '');
+    + (note          ? `<tr><td style="color:#888;">Note</td><td style="color:#00c9b1;">${_escHTML(note)}</td></tr>`               : '');
 
   return {
     restaurant, adresse, tel, numero, nomClient, telClient, adresseClient, note, total, tableLabel, dateStr, heureStr, items,
@@ -33777,7 +33842,7 @@ async function updateQRStatut(orderId, newStatut) {
         _overlay.innerHTML = `
           <div style="background:var(--surface,#0c0c14);border:1px solid var(--border,#1e1e32);border-radius:16px;padding:24px;max-width:320px;width:90%;text-align:center;">
             <div style="font-size:20px;font-weight:800;margin-bottom:6px;">💳 Mode de paiement</div>
-            <div style="font-size:13px;color:var(--text2,#6e6e8e);margin-bottom:18px;">Commande ${o.client_nom||'QR'} — ${(o.total||0).toLocaleString()} F</div>
+            <div style="font-size:13px;color:var(--text2,#6e6e8e);margin-bottom:18px;">Commande ${_escHTML(o.client_nom||'QR')} — ${(o.total||0).toLocaleString()} F</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
               <button onclick="this.closest('div[style*=fixed]')._resolve('cash')" style="padding:12px;background:var(--surface2,#13131e);border:1.5px solid var(--border,#1e1e32);border-radius:10px;cursor:pointer;color:var(--text,#f0ece6);font-size:13px;font-weight:600;">💵 Espèces</button>
               <button onclick="this.closest('div[style*=fixed]')._resolve('wave')" style="padding:12px;background:var(--surface2,#13131e);border:1.5px solid var(--teal,#00e5c8);border-radius:10px;cursor:pointer;color:var(--teal,#00e5c8);font-size:13px;font-weight:600;">🌊 Wave</button>
@@ -34036,6 +34101,11 @@ function copyQRBaseUrl() {
 }
 
 function openQRModal() { document.getElementById('modal-qrAddTable').style.display = 'flex'; }
+function openQRLinkInTab() {
+  const url = (document.getElementById('qr-lien-general')?.textContent || '').trim();
+  if(!url || url === '—') { if(typeof _qrToast === 'function') _qrToast('⚠️ Lien non disponible'); return; }
+  window.open(url, '_blank');
+}
 function closeQRModal() { document.getElementById('modal-qrAddTable').style.display = 'none'; }
 async function deleteQRTable(tableId, label) {
   if(!confirm('Supprimer la table "' + label + '" ?\nLes commandes liées seront dissociées.')) return;
@@ -34868,11 +34938,7 @@ function copyItemIconUrl() {
     </div>
 
     <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Montant (FCFA)</label>
-        <input class="form-input" type="number" id="trn-res-montant" placeholder="Ex: 10000" min="0">
-      </div>
-      <div class="form-group">
+      <div class="form-group" style="flex:1;">
         <label class="form-label">Statut paiement</label>
         <select class="form-input" id="trn-res-statut">
           <option value="payee">✅ Payée</option>
@@ -37829,6 +37895,12 @@ async function validerTicketAttente() {
   VENTES_PAR_CAISSE[caisse].push(venteSaved);
   _saveVenteSupabase(caisse, venteSaved);
 
+  // ✅ FIX : le stock n'était jamais déduit pour un ticket validé depuis
+  // "En attente" (contrairement à un encaissement direct). On aligne ce
+  // chemin sur les autres points de vente pour que les articles liés
+  // sortent bien du stock au moment de l'encaissement.
+  if(typeof deduireStockVente === 'function') deduireStockVente(ticket.items, caisse);
+
   // MAJ caisse
   const caisseObj = (typeof CAISSES !== 'undefined' ? CAISSES : []).find(c => c.name === caisse);
   if(caisseObj) {
@@ -37916,86 +37988,86 @@ function imprimerTicketAttente(ticketId) {
   body { font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#000; background:#fff; width:302px; margin:0 auto; line-height:1.5; overflow:visible; }
 
   /* ══ BANDEAU TOP — EN ATTENTE ══ */
-  .top-band { border:3px solid #000; margin:6px 6px 0; padding:6px 4px 5px; text-align:center; }
-  .top-band-title { font-size:16px; font-weight:900; letter-spacing:3px; text-transform:uppercase; }
-  .top-band-sub   { font-size:10px; font-weight:700; letter-spacing:1px; margin-top:1px; }
+  .top-band { border:2px solid #000; margin:3px 6px 0; padding:3px 4px 2px; text-align:center; }
+  .top-band-title { font-size:13px; font-weight:900; letter-spacing:2px; text-transform:uppercase; }
+  .top-band-sub   { font-size:8px; font-weight:700; letter-spacing:1px; margin-top:0px; }
 
   /* ══ SÉPARATEUR ══ */
-  .sep-line { border:none; border-top:2px dashed #000; margin:6px 0; }
+  .sep-line { border:none; border-top:2px dashed #000; margin:3px 0; }
   .sep-solid { border:none; border-top:2px solid #000; margin:0; }
 
   /* ══ EN-TÊTE RESTAURANT ══ */
-  .header { padding:7px 10px 5px; text-align:center; }
-  .header-logo-img { max-width:70px; max-height:50px; object-fit:contain; margin-bottom:4px; }
-  .header-name { font-size:16px; font-weight:900; letter-spacing:2px; text-transform:uppercase; }
-  .header-addr { font-size:10px; color:#444; line-height:1.4; }
-  .header-tel  { font-size:11px; font-weight:700; margin-top:1px; }
+  .header { padding:3px 8px 2px; text-align:center; }
+  .header-logo-img { max-width:55px; max-height:38px; object-fit:contain; margin-bottom:2px; }
+  .header-name { font-size:13px; font-weight:900; letter-spacing:1px; text-transform:uppercase; }
+  .header-addr { font-size:9px; color:#444; line-height:1.15; }
+  .header-tel  { font-size:9px; font-weight:700; margin-top:0px; }
 
   /* ══ NUMÉRO COMMANDE ══ */
-  .cmd-band { background:#000; color:#fff; text-align:center; padding:7px 0 6px; }
-  .cmd-band-lbl { font-size:9px; font-weight:700; letter-spacing:3px; text-transform:uppercase; opacity:.7; display:block; }
-  .cmd-band-num { font-size:24px; font-weight:900; letter-spacing:2px; display:block; margin-top:1px; }
+  .cmd-band { background:#000; color:#fff; text-align:center; padding:3px 0 3px; }
+  .cmd-band-lbl { font-size:8px; font-weight:700; letter-spacing:2px; text-transform:uppercase; opacity:.7; display:block; }
+  .cmd-band-num { font-size:18px; font-weight:900; letter-spacing:1px; display:block; margin-top:0px; }
 
   /* ══ MÉTA ══ */
-  .meta-block { padding:5px 10px; border-bottom:1px dashed #000; }
-  .meta-row { display:flex; justify-content:space-between; font-size:11px; padding:2px 0; }
+  .meta-block { padding:2px 8px; border-bottom:1px dashed #000; }
+  .meta-row { display:flex; justify-content:space-between; font-size:10px; padding:1px 0; }
   .meta-lbl { color:#555; }
   .meta-val { font-weight:700; }
 
   /* ══ ARTICLES ══ */
-  .articles-section { padding:6px 10px; }
-  .articles-title { font-size:10px; font-weight:800; letter-spacing:2px; text-transform:uppercase; margin-bottom:5px; padding-bottom:4px; border-bottom:1px solid #000; }
-  .article-item { display:flex; align-items:flex-start; gap:6px; padding:5px 0; border-bottom:1px dashed #aaa; }
+  .articles-section { padding:2px 8px; }
+  .articles-title { font-size:9px; font-weight:800; letter-spacing:1px; text-transform:uppercase; margin-bottom:2px; padding-bottom:2px; border-bottom:1px solid #000; }
+  .article-item { display:flex; align-items:flex-start; gap:5px; padding:2px 0; border-bottom:1px dashed #aaa; }
   .article-item:last-child { border-bottom:none; }
-  .article-qty { background:#000; color:#fff; font-size:12px; font-weight:900; min-width:22px; height:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-  .article-name  { font-size:12px; font-weight:700; flex:1; line-height:1.3; }
-  .article-pu    { font-size:10px; color:#555; }
-  .article-total { font-size:13px; font-weight:900; white-space:nowrap; text-align:right; min-width:58px; }
+  .article-qty { background:#000; color:#fff; font-size:11px; font-weight:900; min-width:18px; height:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .article-name  { font-size:11px; font-weight:700; flex:1; line-height:1.2; }
+  .article-pu    { font-size:9px; color:#555; }
+  .article-total { font-size:12px; font-weight:900; white-space:nowrap; text-align:right; min-width:55px; }
 
   /* ══ REMISE ══ */
-  .remise-row { display:flex; justify-content:space-between; font-size:12px; font-weight:700; padding:4px 10px; border-top:1px dashed #000; border-bottom:1px dashed #000; }
+  .remise-row { display:flex; justify-content:space-between; font-size:11px; font-weight:700; padding:2px 8px; border-top:1px dashed #000; border-bottom:1px dashed #000; }
 
   /* ══ SOUS-TOTAUX ══ */
-  .totaux-section { padding:4px 10px 6px; }
-  .subtotal-row { display:flex; justify-content:space-between; font-size:11px; color:#444; padding:2px 0; }
+  .totaux-section { padding:2px 8px 2px; }
+  .subtotal-row { display:flex; justify-content:space-between; font-size:10px; color:#444; padding:0px 0; }
 
   /* ══ MONTANT À PAYER — zone centrale claire ══ */
-  .montant-block { border:3px solid #000; margin:0 6px 6px; padding:8px 10px 7px; text-align:center; }
-  .montant-label  { font-size:10px; font-weight:800; letter-spacing:3px; text-transform:uppercase; margin-bottom:3px; }
-  .montant-amount { font-size:30px; font-weight:900; letter-spacing:1px; line-height:1.1; }
-  .montant-fcfa   { font-size:14px; font-weight:700; }
+  .montant-block { border:2px solid #000; margin:0 6px 3px; padding:4px 8px 3px; text-align:center; }
+  .montant-label  { font-size:9px; font-weight:800; letter-spacing:2px; text-transform:uppercase; margin-bottom:1px; }
+  .montant-amount { font-size:22px; font-weight:900; letter-spacing:1px; line-height:1.05; }
+  .montant-fcfa   { font-size:11px; font-weight:700; }
 
   /* ══ MODES DE PAIEMENT ══ */
-  .pay-section { padding:5px 10px 6px; border-top:1px dashed #000; }
-  .pay-title { font-size:9px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:#555; margin-bottom:4px; }
-  .pay-list { font-size:11px; font-weight:700; }
+  .pay-section { padding:2px 8px 2px; border-top:1px dashed #000; }
+  .pay-title { font-size:8px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:#555; margin-bottom:1px; }
+  .pay-list { font-size:9px; font-weight:700; }
 
   /* ══ WIFI ══ */
-  .wifi-section { padding:5px 10px; border-top:1px dashed #000; text-align:center; font-size:10px; }
-  .wifi-title { font-weight:800; font-size:11px; margin-bottom:1px; }
+  .wifi-section { padding:2px 8px; border-top:1px dashed #000; text-align:center; font-size:9px; }
+  .wifi-title { font-weight:800; font-size:10px; margin-bottom:0px; }
 
   /* ══ FOOTER ══ */
-  .footer-section { border-top:2px solid #000; padding:6px 10px 6px; text-align:center; }
-  .footer-msg { font-size:11px; color:#333; line-height:1.5; }
-  .footer-ninea { display:inline-block; border:1px solid #000; font-size:10px; font-weight:700; padding:1px 6px; letter-spacing:1px; margin-top:3px; }
+  .footer-section { border-top:2px solid #000; padding:2px 8px 2px; text-align:center; }
+  .footer-msg { font-size:9px; color:#333; line-height:1.2; }
+  .footer-ninea { display:inline-block; border:1px solid #000; font-size:9px; font-weight:700; padding:1px 5px; letter-spacing:1px; margin-top:1px; }
 
   /* ══ BANDEAU BAS ATTENTE ══ */
-  .bottom-band { border:3px solid #000; margin:0 6px 6px; padding:6px 4px; text-align:center; }
-  .bottom-band-txt { font-size:13px; font-weight:900; letter-spacing:2px; text-transform:uppercase; }
+  .bottom-band { border:2px solid #000; margin:0 6px 3px; padding:3px 4px; text-align:center; }
+  .bottom-band-txt { font-size:11px; font-weight:900; letter-spacing:1px; text-transform:uppercase; }
 
   /* ══ TICKET CUISINE (2ème exemplaire) ══ */
   .page-cut { margin-top:0; padding-top:0; }
-  .cuisine-ticket { width:100%; font-family:Arial,Helvetica,sans-serif; padding:6px 10px 10px; border-top:3px dashed #000; }
-  .cuisine-header { text-align:center; background:#000; color:#fff; padding:8px 8px; margin-bottom:6px; }
-  .cuisine-header-title { font-size:16px; font-weight:900; letter-spacing:2px; text-transform:uppercase; color:#fff; }
-  .cuisine-header-num { font-size:30px; font-weight:900; letter-spacing:4px; color:#fff; margin-top:2px; }
-  .cuisine-meta { font-size:12px; color:#000; font-weight:600; margin-bottom:6px; border-bottom:1px dashed #000; padding-bottom:5px; line-height:1.6; }
-  .cuisine-items-title { font-size:11px; font-weight:900; letter-spacing:2px; text-transform:uppercase; color:#000; margin-bottom:5px; border-bottom:2px solid #000; padding-bottom:3px; }
-  .cuisine-item { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px dashed #000; font-size:15px; font-weight:700; }
+  .cuisine-ticket { width:100%; font-family:Arial,Helvetica,sans-serif; padding:3px 8px 6px; border-top:3px dashed #000; }
+  .cuisine-header { text-align:center; background:#000; color:#fff; padding:3px 6px; margin-bottom:3px; }
+  .cuisine-header-title { font-size:12px; font-weight:900; letter-spacing:1px; text-transform:uppercase; color:#fff; }
+  .cuisine-header-num { font-size:20px; font-weight:900; letter-spacing:2px; color:#fff; margin-top:0px; }
+  .cuisine-meta { font-size:11px; color:#000; font-weight:600; margin-bottom:3px; border-bottom:1px dashed #000; padding-bottom:2px; line-height:1.25; }
+  .cuisine-items-title { font-size:10px; font-weight:900; letter-spacing:1px; text-transform:uppercase; color:#000; margin-bottom:2px; border-bottom:2px solid #000; padding-bottom:1px; }
+  .cuisine-item { display:flex; align-items:center; gap:6px; padding:3px 0; border-bottom:1px dashed #000; font-size:13px; font-weight:700; }
   .cuisine-item:last-child { border-bottom:none; }
-  .cuisine-item-price { font-size:13px; color:#000; white-space:nowrap; text-align:right; font-weight:900; }
-  .cuisine-total { margin-top:6px; padding:8px 10px; background:#000; color:#fff; display:flex; justify-content:space-between; align-items:center; font-size:15px; font-weight:900; }
-  .cuisine-total-amount { color:#fff; font-size:18px; font-weight:900; }
+  .cuisine-item-price { font-size:12px; color:#000; white-space:nowrap; text-align:right; font-weight:900; }
+  .cuisine-total { margin-top:3px; padding:5px 8px; background:#000; color:#fff; display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:900; }
+  .cuisine-total-amount { color:#fff; font-size:15px; font-weight:900; }
 
   .no-print { padding:8px; display:flex; gap:8px; justify-content:center; background:#eee; border-bottom:1px solid #ccc; }
   .no-print button { padding:7px 18px; border:none; border-radius:6px; font-size:13px; font-weight:700; cursor:pointer; }
@@ -38004,8 +38076,9 @@ function imprimerTicketAttente(ticketId) {
     .no-print { display:none !important; }
     @page { size:302px auto; margin:0 !important; }
     * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
-    body { width:302px !important; }
+    body { width:302px !important; font-size:11px !important; }
     .cmd-band { background:#000 !important; color:#fff !important; }
+    .page-cut { page-break-before:always !important; break-before:always !important; display:block !important; }
   }
 </style></head><body>
 
@@ -38054,7 +38127,7 @@ function imprimerTicketAttente(ticketId) {
     <div class="article-qty">${i.qty||1}</div>
     <div style="flex:1;">
       <div class="article-name">${i.name||i.nom||''}</div>
-      <div class="article-pu">${(i.price||0).toLocaleString('fr-FR')} F x ${i.qty||1}</div>
+      ${(i.qty||1)>1 ? `<div class="article-pu">${(i.price||0).toLocaleString('fr-FR')} F x ${i.qty||1}</div>` : ''}
     </div>
     <div class="article-total">${((i.price||0)*(i.qty||1)).toLocaleString('fr-FR')} F</div>
   </div>`).join('')}
@@ -38064,8 +38137,7 @@ ${(ticket.remiseMontant||0) > 0 ? `<div class="remise-row"><span>Remise ${ticket
 
 <!-- SOUS-TOTAUX -->
 <div class="totaux-section">
-  <div class="subtotal-row"><span>Sous-total HT</span><span>${(ticket.sub||0).toLocaleString('fr-FR')} F</span></div>
-  <div class="subtotal-row"><span>TVA 18% (incluse)</span><span>${(ticket.tva||0).toLocaleString('fr-FR')} F</span></div>
+  <div class="subtotal-row"><span>HT ${(ticket.sub||0).toLocaleString('fr-FR')} F · TVA 18% ${(ticket.tva||0).toLocaleString('fr-FR')} F</span><span></span></div>
 </div>
 
 <!-- MONTANT À PAYER -->
@@ -38123,13 +38195,10 @@ ${(function(){
     var _items = _cats.length > 0 ? _items0.filter(function(it){ return _cats.indexOf(it.cat) !== -1; }) : _items0;
     return _items.map(function(it){
       var _st = ((it.price||0) * (it.qty||1)).toLocaleString('fr-FR');
-      var _imgHtml = '';
-      if(it.image_url) { _imgHtml = '<img src=' + JSON.stringify(it.image_url) + ' style="width:48px;height:48px;object-fit:cover;border-radius:6px;margin-right:8px;flex-shrink:0" onError="this.remove()">'; }
       return '<div class="cuisine-item" style="display:flex;align-items:center;gap:6px;">'
-        + _imgHtml
         + '<div style="flex:1;">'
-        + '<div style="font-size:20px;font-weight:900;color:#000;">' + (it.qty||1) + '× ' + (it.name||it.nom||'') + '</div>'
-        + (it.note ? '<div style="font-size:12px;color:#555;font-style:italic;">📝 ' + it.note + '</div>' : '')
+        + '<div style="font-size:14px;font-weight:900;color:#000;">' + (it.qty||1) + '× ' + (it.name||it.nom||'') + '</div>'
+        + (it.note ? '<div style="font-size:10px;color:#555;font-style:italic;">📝 ' + it.note + '</div>' : '')
         + '</div>'
         + '<div class="cuisine-item-price">' + _st + ' F</div>'
         + '</div>';
