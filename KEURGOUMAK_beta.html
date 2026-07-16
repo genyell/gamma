@@ -12197,6 +12197,14 @@ let _validateOrderInProgress = false;
 async function validateOrder() {
   if(_validateOrderInProgress) { showNotif('⏳ Validation en cours, patientez...'); return; }
   if(!sessionCaisseActive) { showNotif('🔒 Impossible de valider — Ouvrez une caisse !'); _highlightOpenBtn(); return; }
+  // ✅ FIX VENTES CROISÉES : verrou final — un caissier assigné à une caisse précise
+  // ne peut JAMAIS enregistrer une vente sur une autre caisse, même si la session
+  // active (sessionCaisseActive) pointe par erreur ailleurs (ex: session héritée).
+  if(currentUser && currentUser.role === 'caissier' && currentUser.caisse !== 'Toutes'
+     && sessionCaisseActive.caisse !== currentUser.caisse) {
+    showNotif('🔒 Session incohérente : vous êtes assigné à ' + currentUser.caisse + ' mais la session ouverte est ' + sessionCaisseActive.caisse + '. Reconnectez-vous.');
+    return;
+  }
   if(cart.length === 0) { showNotif('⚠️ Panier vide !'); return; }
   _validateOrderInProgress = true;
   const _valBtn = document.querySelector('#modal-confirmTicket .btn-primary, .pay-confirm-btn.selected');
@@ -18434,7 +18442,14 @@ async function doLogin() {
     // ✅ FIX CAISSIER : Ne restaurer la session que si c'est le même caissier qui se reconnecte
     // Admin/Gérant ne doivent pas hériter de la session d'un autre caissier
     const _currentUserRole = currentUser && currentUser.role;
-    const _peutRestaurer = _sessionAvantLogin && !_loginCloZ.includes(_sessionAvantLogin.caisse);
+    // ✅ FIX BUG VENTES CROISÉES : vérifier réellement que c'est le même caissier
+    // (le commentaire ci-dessus l'annonçait mais la condition ne le vérifiait pas,
+    // ce qui faisait hériter la session d'un autre caissier/caisse — ex: ventes
+    // faites sur "Caisse 4" enregistrées dans "Caisse 2" resté ouvert sur l'appareil)
+    const _prevCashierName = (_sessionAvantLogin && _sessionAvantLogin.cashier || '').trim().toLowerCase();
+    const _curCashierName  = (currentUser ? `${currentUser.prenom} ${currentUser.nom}` : '').trim().toLowerCase();
+    const _memeCaissier    = !!_prevCashierName && !!_curCashierName && _prevCashierName === _curCashierName;
+    const _peutRestaurer = _sessionAvantLogin && !_loginCloZ.includes(_sessionAvantLogin.caisse) && _memeCaissier;
     if(_peutRestaurer) {
       sessionCaisseActive = _sessionAvantLogin; // Conserver la session active
     } else {
