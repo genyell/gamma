@@ -7160,7 +7160,7 @@ Revenez nous voir bient&#244;t.</textarea>
             <option value="9">Octobre</option><option value="10">Novembre</option><option value="11">Décembre</option>
           </select>
           <select id="rm-annee" class="form-input" style="width:auto;" onchange="genererRapportMensuel()">
-            <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
+            <option value="2022">2022</option><option value="2023">2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
           </select>
           <button class="btn btn-primary" onclick="genererRapportMensuel()">🔄 Générer</button>
           <button class="btn" style="background:var(--accent);color:#fff;" onclick="imprimerRapportMensuel()">🖨️ Imprimer / PDF</button>
@@ -12284,44 +12284,7 @@ async function validateOrder() {
   // Deduire les ingredients du stock (recette)
   // ✅ FIX DÉFINITIF : charger les recettes depuis menu_items Supabase AVANT déduction (await)
   // Garantit que MENU a les recettes même si pullAll async n'est pas encore terminé
-  try {
-    const _sbStock = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
-    const _ridStock = window._KG_RESTAURANT_ID;
-    if(_sbStock && _ridStock) {
-      const { data: _recetteRows } = await _sbStock
-        .from('menu_items')
-        .select('id, name, recette')
-        .eq('restaurant_id', _ridStock);
-      if(_recetteRows && _recetteRows.length) {
-        _recetteRows.forEach(function(row) {
-          if(!row.recette || !row.recette.length) return;
-          // Mettre à jour MENU
-          const mItem = MENU.find(function(m) { return m.sbId === row.id || m.id === row.id; });
-          if(mItem) mItem.recette = row.recette;
-          // Mettre à jour itemsSaved directement
-          itemsSaved.forEach(function(cartItem) {
-            if(cartItem.id === row.id || cartItem.sbId === row.id || cartItem.name === row.name) {
-              cartItem.recette = row.recette;
-              console.log('[stock-fix] ✅ Recette chargée Supabase pour:', row.name, '|', row.recette.length, 'ligne(s)');
-            }
-          });
-        });
-      }
-    }
-  } catch(_e) {
-    // Si Supabase échoue, fallback sur MENU local
-    console.warn('[stock-fix] fallback MENU local:', _e);
-    itemsSaved.forEach(function(cartItem) {
-      if(!cartItem.recette || !cartItem.recette.length) {
-        const menuItem = MENU.find(function(m) {
-          return m.id === cartItem.id || m.sbId === cartItem.id || m.name === cartItem.name;
-        });
-        if(menuItem && menuItem.recette && menuItem.recette.length) {
-          cartItem.recette = menuItem.recette;
-        }
-      }
-    });
-  }
+  await _ensureRecettesLoaded(itemsSaved);
   deduireStockVente(itemsSaved, caisse);
 
   // Synchroniser CAISSES en temps réel
@@ -12786,8 +12749,14 @@ function _initPhotosPreviews() {
 // ===== GÉNÉRATION DU TICKET DE CAISSE =====
 function printTicket(vente, caisse) {
   const now      = new Date();
-  const dateStr  = now.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'});
-  const heureStr = now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+  // ✅ FIX : afficher la date/heure RÉELLE de la vente, pas l'heure de réouverture/réimpression du ticket
+  let dateStr = '';
+  if (vente.date) {
+    const dParts = String(vente.date).split('T')[0].split('-');
+    if (dParts.length === 3) dateStr = dParts[2] + '/' + dParts[1] + '/' + dParts[0];
+  }
+  if (!dateStr) dateStr = now.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'});
+  const heureStr = vente.time || now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
   const restaurant = RESTAURANT_INFO.nom     || 'KEURGOUMAK';
   const adresse    = RESTAURANT_INFO.adresse || 'Louga, Sénégal';
   const tel        = RESTAURANT_INFO.tel     || '';
@@ -13611,7 +13580,7 @@ ${(function(){
 <!-- ══ BOUTONS ÉCRAN ══ -->
 <div class="no-print">
   <button onclick="window.print()" style="background:#f5a623;color:#fff;">🖨️ Imprimer (2 tickets)</button>
-  <button onclick="window.close()" style="background:#444;color:#fff;">✕ Fermer</button>
+  <button onclick="try{ if(window.opener){ window.close(); } else if(window.parent && window.parent !== window && window.parent.document.getElementById('kg-ticket-overlay')){ window.parent.document.getElementById('kg-ticket-overlay').remove(); } else { window.close(); } }catch(e){}" style="background:#444;color:#fff;">✕ Fermer</button>
 </div>
 
 </body></html>`;
@@ -14014,7 +13983,7 @@ function renderOrders(status) {
       <div class="order-price">${o.price.toLocaleString()} F</div>
       <div class="badge badge-done">🎉 Livré</div>
       <button class="ticket-btn" style="font-size:11px;padding:5px 10px;margin-left:6px;" onclick="reprintTicket('${o.id}')">🖨️ Ticket</button>
-      <button style="background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.4);border-radius:8px;font-size:11px;padding:5px 10px;margin-left:4px;cursor:pointer;" onclick="modifierPaiementTicket('${o.id}')" title="Modifier le mode de paiement">✏️ Paiement</button>
+      ${(currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant')) ? `<button style="background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.4);border-radius:8px;font-size:11px;padding:5px 10px;margin-left:4px;cursor:pointer;" onclick="modifierPaiementTicket('${o.id}')" title="Modifier le mode de paiement">✏️ Paiement</button>` : ''}
       ${(currentUser && currentUser.role === 'administrateur') ? '<button onclick="supprimerVenteAdmin(\'' + o.id + '\')" style="background:rgba(220,53,69,0.15);color:#dc3545;border:1px solid rgba(220,53,69,0.4);border-radius:8px;font-size:11px;padding:5px 10px;margin-left:4px;cursor:pointer;" title="Supprimer ce ticket (erreur)">🗑️</button>' : ''}
     </div>
   `).join('');
@@ -14035,6 +14004,11 @@ function reprintTicket(orderNum) {
 
 // ===== MODIFIER MODE DE PAIEMENT TICKET =====
 async function modifierPaiementTicket(orderNum) {
+  // ✅ FIX : réservé à l'administrateur et au gérant
+  if(!currentUser || (currentUser.role !== 'administrateur' && currentUser.role !== 'gerant')) {
+    showNotif('🔒 Seul l\'administrateur ou le gérant peut modifier le mode de paiement.');
+    return;
+  }
   // Retrouver la vente
   let vente = null, caisseName = '';
   for(const [c, ventes] of Object.entries(VENTES_PAR_CAISSE)) {
@@ -14117,6 +14091,11 @@ function updateMixTotal(totalTicket) {
 }
 
 async function confirmerModifPaiement(orderNum, caisseName) {
+  // ✅ FIX : réservé à l'administrateur et au gérant (double verrou avec modifierPaiementTicket)
+  if(!currentUser || (currentUser.role !== 'administrateur' && currentUser.role !== 'gerant')) {
+    showNotif('🔒 Seul l\'administrateur ou le gérant peut modifier le mode de paiement.');
+    return;
+  }
   const sel = document.querySelector('input[name="new-pay"]:checked');
   if(!sel) { showNotif('⚠️ Sélectionnez un mode de paiement'); return; }
   const newPay = sel.value;
@@ -14144,6 +14123,7 @@ async function confirmerModifPaiement(orderNum, caisseName) {
   const oldPay = vente.payMethod;
   vente.payMethod = newPay;
   vente.payLabel = payLabels[newPay] || newPay;
+  vente._payUpdatedAt = Date.now(); // ✅ FIX : sert à la fusion anti-écrasement lors du push
   if(mixDetail) {
     vente.mixEspeces = mixDetail.especes;
     vente.mixWave    = mixDetail.wave;
@@ -14160,15 +14140,37 @@ async function confirmerModifPaiement(orderNum, caisseName) {
   try {
     const sb = KGSync.getClient();
     if(sb) {
-      const upd = { pay_method: newPay, pay_label: vente.payLabel };
-      if(mixDetail) { upd.mix_especes=mixDetail.especes; upd.mix_wave=mixDetail.wave; upd.mix_orange=mixDetail.orange; upd.mix_carte=mixDetail.carte; }
-      await sb.from('ventes_caisse').update(upd).eq('order_num', orderNum).eq('restaurant_id', window._KG_RESTAURANT_ID);
+      // ✅ FIX DÉFINITIF : la table ventes_caisse a des colonnes pay_mode / pay_methods
+      // (voir le schéma SQL), PAS pay_method / pay_label / mix_especes / mix_wave / ...
+      // Ces mauvais noms de colonnes faisaient échouer CET UPDATE en silence à chaque
+      // fois (erreur "colonne inconnue" avalée par le catch) — c'est la vraie raison
+      // pour laquelle le changement de mode de paiement ne survivait jamais à un
+      // rechargement / une déconnexion / un autre navigateur : rien n'était jamais
+      // réellement écrit dans la table que _loadVentesSupabase relit ensuite.
+      const upd = { pay_mode: newPay };
+      if(mixDetail) {
+        upd.pay_methods = JSON.stringify({ cash: mixDetail.especes||0, wave: mixDetail.wave||0, orange: mixDetail.orange||0, card: mixDetail.carte||0 });
+      }
+      const { error: _errPay } = await sb.from('ventes_caisse').update(upd).eq('order_num', orderNum).eq('restaurant_id', window._KG_RESTAURANT_ID);
+      if(_errPay) console.warn('Sync paiement (update rejeté):', _errPay);
     }
   } catch(e) { console.warn('Sync paiement:', e); }
 
   document.getElementById('modal-modif-pay').style.display = 'none';
   saveSession();
-  KGSync.push.caisses().catch(()=>{});
+  // ✅ FIX : la modification touche VENTES_PAR_CAISSE, il faut donc pousser "ventes"
+  // (push.caisses() ne synchronise pas les tickets — la modif restait locale et
+  // revenait à l'ancienne valeur après déconnexion/reconnexion ou sur un autre appareil).
+  // ✅ FIX RAFRAÎCHISSEMENT (F5) : envoi immédiat (flushVentes), pas différé de 5s
+  // (push.ventes() throttlé) — sinon un F5 juste après la modif coupait l'envoi avant
+  // qu'il ne parte, et l'ancienne valeur revenait après rechargement.
+  try {
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.push?.flushVentes === 'function') {
+      await KGSync.push.flushVentes();
+    } else {
+      KGSync.push.ventes().catch(()=>{});
+    }
+  } catch(e) { console.warn('[confirmerModifPaiement] flush ventes:', e); }
   renderOrders();
   showNotif(`✅ Paiement ${orderNum} → ${vente.payLabel}`);
 }
@@ -17235,11 +17237,13 @@ function renderRapportX() {
   // --- Modes de paiement ---
   const payEl = document.getElementById('rapportx-pay');
   if(payEl) {
+    const _pmNormPay = v => v.payMethod === 'especes' ? 'cash' : v.payMethod === 'carte' ? 'card' : v.payMethod;
+    const _mixPart = (v, key, mixKey) => (v.mixEspeces!==undefined||v.payMethods) ? (v[mixKey] || v.payMethods?.[key] || 0) : 0;
     const payData = [
-      { mode:'💵 Espèces', total: allVentes.filter(v=>v.payMethod==='cash').reduce((a,v)=>a+v.total,0), color:'var(--accent)' },
-      { mode:'<img src="data:image/jpeg;base64,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" style="width:18px;height:18px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px;"> Wave', total: allVentes.filter(v=>v.payMethod==='wave').reduce((a,v)=>a+v.total,0), color:'var(--teal)' },
-      { mode:'<img src="data:image/jpeg;base64,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" style="width:18px;height:18px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px;"> Orange Money', total: allVentes.filter(v=>v.payMethod==='orange').reduce((a,v)=>a+v.total,0), color:'#FF6200' },
-      { mode:'💳 Carte bancaire', total: allVentes.filter(v=>v.payMethod==='card').reduce((a,v)=>a+v.total,0), color:'var(--purple)' },
+      { mode:'💵 Espèces', total: allVentes.reduce((a,v)=>{ const pm=_pmNormPay(v); if(pm==='cash') return a+v.total; if(pm==='mixed') return a+_mixPart(v,'cash','mixEspeces'); return a; },0), color:'var(--accent)' },
+      { mode:'<img src="data:image/jpeg;base64,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" style="width:18px;height:18px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px;"> Wave', total: allVentes.reduce((a,v)=>{ const pm=_pmNormPay(v); if(pm==='wave') return a+v.total; if(pm==='mixed') return a+_mixPart(v,'wave','mixWave'); return a; },0), color:'var(--teal)' },
+      { mode:'<img src="data:image/jpeg;base64,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" style="width:18px;height:18px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px;"> Orange Money', total: allVentes.reduce((a,v)=>{ const pm=_pmNormPay(v); if(pm==='orange') return a+v.total; if(pm==='mixed') return a+_mixPart(v,'orange','mixOrange'); return a; },0), color:'#FF6200' },
+      { mode:'💳 Carte bancaire', total: allVentes.reduce((a,v)=>{ const pm=_pmNormPay(v); if(pm==='card') return a+v.total; if(pm==='mixed') return a+_mixPart(v,'card','mixCarte'); return a; },0), color:'var(--purple)' },
     ].filter(p => p.total > 0);
     payEl.innerHTML = payData.length === 0
       ? '<div style="text-align:center;padding:20px;color:var(--text2);">Aucune vente</div>'
@@ -17305,10 +17309,15 @@ function printRapportXCaisse(name) {
   const heureStr = now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
   const nomResto = (RESTAURANT_INFO?.nom) || 'KEURGOUMAK';
   const ca  = ventes.reduce((a,v)=>a+v.total,0);
-  const esp = ventes.reduce((a,v)=>{ if(v.payMethod==='cash') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.cash||0); return a; },0);
-  const wav = ventes.reduce((a,v)=>{ if(v.payMethod==='wave') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.wave||0); return a; },0);
-  const ora = ventes.reduce((a,v)=>{ if(v.payMethod==='orange') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.orange||0); return a; },0);
-  const car = ventes.reduce((a,v)=>{ if(v.payMethod==='card') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.card||0); return a; },0);
+  // ✅ FIX : normaliser payMethod ('especes'→'cash','carte'→'card') et supporter les
+  // deux formats de détail mixte (payMethods.* ET mixEspeces/mixWave/mixOrange/mixCarte),
+  // pour rester cohérent avec les autres rapports (sinon ce popup sous-comptait les
+  // tickets dont le mode de paiement avait été modifié après coup).
+  const _pmNormC = v => v.payMethod === 'especes' ? 'cash' : v.payMethod === 'carte' ? 'card' : v.payMethod;
+  const esp = ventes.reduce((a,v)=>{ const pm=_pmNormC(v); if(pm==='cash') return a+v.total; if(pm==='mixed') return a+(v.mixEspeces||v.payMethods?.cash||0); return a; },0);
+  const wav = ventes.reduce((a,v)=>{ const pm=_pmNormC(v); if(pm==='wave') return a+v.total; if(pm==='mixed') return a+(v.mixWave||v.payMethods?.wave||0); return a; },0);
+  const ora = ventes.reduce((a,v)=>{ const pm=_pmNormC(v); if(pm==='orange') return a+v.total; if(pm==='mixed') return a+(v.mixOrange||v.payMethods?.orange||0); return a; },0);
+  const car = ventes.reduce((a,v)=>{ const pm=_pmNormC(v); if(pm==='card') return a+v.total; if(pm==='mixed') return a+(v.mixCarte||v.payMethods?.card||0); return a; },0);
   const dep = (DEPENSES||[]).filter(d=>d.caisse===name&&!d.cloturee).reduce((a,d)=>a+(d.montant||0),0);
   const net = ca - dep;
   const tva = Math.round(ca * 18 / 118);
@@ -17472,25 +17481,32 @@ function printRapportX() {
     .map(name => {
       const vs = _pxVentesParCaisse[name] || [];
       const ca  = vs.reduce((a,v)=>a+v.total,0);
-      // ✅ FIX MIXTE : inclure les paiements mixtes (v.payMethods) dans le calcul par mode
+      // ✅ FIX MIXTE + FIX CLÉS FR/EN : inclure les paiements mixtes (deux formats) et
+      // normaliser 'especes'→'cash' / 'carte'→'card' pour rester cohérent avec les
+      // autres rapports (sinon les tickets modifiés après coup étaient sous-comptés).
+      const _pmNormX = v => v.payMethod === 'especes' ? 'cash' : v.payMethod === 'carte' ? 'card' : v.payMethod;
       const esp = vs.reduce((a,v)=>{
-        if(v.payMethod==='cash') return a+v.total;
-        if(v.payMethod==='mixed' && v.payMethods) return a+(v.payMethods.cash||0);
+        const pm = _pmNormX(v);
+        if(pm==='cash') return a+v.total;
+        if(pm==='mixed') return a+(v.mixEspeces||v.payMethods?.cash||0);
         return a;
       },0);
       const wav = vs.reduce((a,v)=>{
-        if(v.payMethod==='wave') return a+v.total;
-        if(v.payMethod==='mixed' && v.payMethods) return a+(v.payMethods.wave||0);
+        const pm = _pmNormX(v);
+        if(pm==='wave') return a+v.total;
+        if(pm==='mixed') return a+(v.mixWave||v.payMethods?.wave||0);
         return a;
       },0);
       const ora = vs.reduce((a,v)=>{
-        if(v.payMethod==='orange') return a+v.total;
-        if(v.payMethod==='mixed' && v.payMethods) return a+(v.payMethods.orange||0);
+        const pm = _pmNormX(v);
+        if(pm==='orange') return a+v.total;
+        if(pm==='mixed') return a+(v.mixOrange||v.payMethods?.orange||0);
         return a;
       },0);
       const car = vs.reduce((a,v)=>{
-        if(v.payMethod==='card') return a+v.total;
-        if(v.payMethod==='mixed' && v.payMethods) return a+(v.payMethods.card||0);
+        const pm = _pmNormX(v);
+        if(pm==='card') return a+v.total;
+        if(pm==='mixed') return a+(v.mixCarte||v.payMethods?.card||0);
         return a;
       },0);
       const dep = (DEPENSES||[]).filter(d=>d.caisse===name&&!d.cloturee).reduce((a,d)=>a+(d.montant||0),0);
@@ -18485,8 +18501,11 @@ async function doLogin() {
     await _kgRegisterSessionToken(currentUser.id, window._KG_RESTAURANT_ID);
     _kgStartSessionWatch();
 
-    // ✅ FIX EGRESS : pullAll login — PAS de reset throttle, on respecte le cache
-    // Si pullAll bloqué par throttle → charger stock/fourn depuis localStorage directement
+    // ✅ FIX EGRESS : pullAll login — on force un vrai rechargement (reset throttle),
+    // car juste après une (re)connexion, la fraîcheur des données prime sur l'économie
+    // réseau. Sans ce reset, une reconnexion rapide (<8s) après déconnexion pouvait
+    // ignorer complètement le rechargement et laisser d'anciennes données affichées.
+    window._lastPullAllTs = 0;
     try { await KGSync.pullAll(); } catch(_e1) {
       console.warn('[login] pullAll échoué, retry dans 3s…', _e1);
       setTimeout(() => KGSync.pullAll().catch(e => console.warn('[login] pullAll retry:', e)), 3000);
@@ -18904,6 +18923,18 @@ function openUserMenuOrUtilisateurs() {
 
 async function doLogout() {
   if(!currentUser) return;
+  // ✅ FIX DÉCONNEXION : forcer l'envoi immédiat des ventes (ex: mode de paiement
+  // modifié juste avant) AVANT d'effacer les données locales. Sans ça, une modif
+  // faite dans les 5 dernières secondes pouvait ne jamais partir vers le cloud —
+  // VENTES_PAR_CAISSE était vidée avant que le push différé n'ait eu le temps de partir,
+  // et le push finissait par envoyer un tableau vide (ou rien), donc à la reconnexion
+  // l'ancienne valeur (non modifiée) revenait.
+  try { if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.push?.flushVentes === 'function') await KGSync.push.flushVentes(); } catch(e) { console.warn('[doLogout] flush ventes:', e); }
+  // ✅ FIX MULTI-RESTAURANT : vider aussi TOUS les autres envois différés en attente
+  // (stock, caisses, clients, menu, dépenses, fournisseurs, etc.) avant de changer de
+  // compte — sinon ils pouvaient partir après coup sous l'identifiant du NOUVEAU
+  // restaurant/compte connecté, mélangeant les données des deux.
+  try { if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.flushAllPending === 'function') await KGSync.flushAllPending(); } catch(e) { console.warn('[doLogout] flush pending:', e); }
   // ✅ SESSION UNIQUE : arrêter la surveillance + libérer le token
   _kgStopSessionWatch();
   await _kgUnregisterSessionToken();
@@ -20477,7 +20508,7 @@ function calcTotal() {
   // Écart par rapport aux espèces réelles de session
   const caisseKey = _currentFCaisse || sessionCaisseActive?.caisse || (currentUser?.caisse !== 'Toutes' ? currentUser?.caisse : 'Caisse 1');
   const ventes = VENTES_PAR_CAISSE[caisseKey] || [];
-  const especesReelles = ventes.filter(v => v.payMethod === 'cash').reduce((a, v) => a + v.total, 0);
+  const especesReelles = ventes.filter(v => (v.payMethod === 'cash' || v.payMethod === 'especes')).reduce((a, v) => a + v.total, 0);
   const ecart = totalComptage - especesReelles;
   const ecartEl = document.getElementById('recap-ecart');
   if(ecartEl) {
@@ -20510,10 +20541,11 @@ function _refreshRecapFermeture(c) {
     }
   }
   const totalTTC  = ventes.reduce((a, v) => a + v.total, 0);
-  const especes   = ventes.reduce((a,v)=>{ if(v.payMethod==='cash') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.cash||0); return a; },0);
-  const wave      = ventes.reduce((a,v)=>{ if(v.payMethod==='wave') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.wave||0); return a; },0);
-  const orange    = ventes.reduce((a,v)=>{ if(v.payMethod==='orange') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.orange||0); return a; },0);
-  const carte     = ventes.reduce((a,v)=>{ if(v.payMethod==='card') return a+v.total; if(v.payMethod==='mixed'&&v.payMethods) return a+(v.payMethods.card||0); return a; },0);
+  const _pmNormRC = (v) => v.payMethod === 'especes' ? 'cash' : v.payMethod === 'carte' ? 'card' : v.payMethod;
+  const especes   = ventes.reduce((a,v)=>{ const pm=_pmNormRC(v); if(pm==='cash') return a+v.total; if(pm==='mixed') return a+(v.mixEspeces||v.payMethods?.cash||0); return a; },0);
+  const wave      = ventes.reduce((a,v)=>{ const pm=_pmNormRC(v); if(pm==='wave') return a+v.total; if(pm==='mixed') return a+(v.mixWave||v.payMethods?.wave||0); return a; },0);
+  const orange    = ventes.reduce((a,v)=>{ const pm=_pmNormRC(v); if(pm==='orange') return a+v.total; if(pm==='mixed') return a+(v.mixOrange||v.payMethods?.orange||0); return a; },0);
+  const carte     = ventes.reduce((a,v)=>{ const pm=_pmNormRC(v); if(pm==='card') return a+v.total; if(pm==='mixed') return a+(v.mixCarte||v.payMethods?.card||0); return a; },0);
   const nbCmd     = ventes.length;
   const moy       = nbCmd > 0 ? Math.round(totalTTC / nbCmd) : 0;
 
@@ -20537,9 +20569,9 @@ function _refreshRecapFermeture(c) {
   const soldeNet = totalTTC - depCaisse;
 
   // Nb tickets par mode
-  const nbWave   = ventes.filter(v => v.payMethod === 'wave').length;
-  const nbOrange = ventes.filter(v => v.payMethod === 'orange').length;
-  const nbCarte  = ventes.filter(v => v.payMethod === 'card').length;
+  const nbWave   = ventes.filter(v => _pmNormRC(v) === 'wave').length;
+  const nbOrange = ventes.filter(v => _pmNormRC(v) === 'orange').length;
+  const nbCarte  = ventes.filter(v => _pmNormRC(v) === 'card').length;
   const totalElec = wave + orange + carte;
 
   const set = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
@@ -20985,24 +21017,34 @@ async function cloturerCaisse() {
     const totalTVA     = ventes.reduce((a,v) => a + (v.tva   || 0), 0);
     const totalTTC     = ventes.reduce((a,v) => a + (v.total || 0), 0);
     // FIX MIXTE : inclure les paiements mixtes dans le calcul par mode
+    // ✅ FIX MODIF PAIEMENT : normaliser payMethod ('especes'→'cash', 'carte'→'card')
+    // et supporter les deux formats de détail mixte (payMethods.* et mixEspeces/mixWave/...)
+    // — sans ça, un ticket dont le mode de paiement a été modifié par le caissier
+    // disparaissait de la répartition Espèces/Wave/Orange/Carte du rapport Z
+    // (le CA total restait juste, mais la caisse ne "collait" plus par mode).
+    const _pmNorm = (v) => v.payMethod === 'especes' ? 'cash' : v.payMethod === 'carte' ? 'card' : v.payMethod;
     const totalEspeces = ventes.reduce((a,v) => {
-      if(v.payMethod === 'cash') return a + (v.total||0);
-      if(v.payMethod === 'mixed' && v.payMethods) return a + (v.payMethods.cash||0);
+      const pm = _pmNorm(v);
+      if(pm === 'cash') return a + (v.total||0);
+      if(pm === 'mixed') return a + (v.mixEspeces || v.payMethods?.cash || 0);
       return a;
     }, 0);
     const totalWave = ventes.reduce((a,v) => {
-      if(v.payMethod === 'wave') return a + (v.total||0);
-      if(v.payMethod === 'mixed' && v.payMethods) return a + (v.payMethods.wave||0);
+      const pm = _pmNorm(v);
+      if(pm === 'wave') return a + (v.total||0);
+      if(pm === 'mixed') return a + (v.mixWave || v.payMethods?.wave || 0);
       return a;
     }, 0);
     const totalOrange = ventes.reduce((a,v) => {
-      if(v.payMethod === 'orange') return a + (v.total||0);
-      if(v.payMethod === 'mixed' && v.payMethods) return a + (v.payMethods.orange||0);
+      const pm = _pmNorm(v);
+      if(pm === 'orange') return a + (v.total||0);
+      if(pm === 'mixed') return a + (v.mixOrange || v.payMethods?.orange || 0);
       return a;
     }, 0);
     const totalCarte = ventes.reduce((a,v) => {
-      if(v.payMethod === 'card') return a + (v.total||0);
-      if(v.payMethod === 'mixed' && v.payMethods) return a + (v.payMethods.card||0);
+      const pm = _pmNorm(v);
+      if(pm === 'card') return a + (v.total||0);
+      if(pm === 'mixed') return a + (v.mixCarte || v.payMethods?.card || 0);
       return a;
     }, 0);
 
@@ -22853,24 +22895,46 @@ const KGSync = (() => {
   // ── Debounce global pour TOUS les push (anti-egress) ─────────
   // Évite les appels répétés en rafale — regroupe en 1 seul push toutes les 3s
   const _debounceTimers = {};
+  const _debouncePayloads = {}; // ✅ FIX MULTI-RESTAURANT : garder la fonction de données pour pouvoir flush immédiatement
   function _debouncedUpsert(key, dataFn, delay) {
     delay = delay || 3000;
     if(_debounceTimers[key]) { clearTimeout(_debounceTimers[key]); }
+    _debouncePayloads[key] = dataFn;
     _debounceTimers[key] = setTimeout(async () => {
       delete _debounceTimers[key];
+      delete _debouncePayloads[key];
       try {
         const data = (typeof dataFn === 'function') ? dataFn() : dataFn;
         if(data !== null && data !== undefined) await upsert(key, data);
       } catch(e) { console.warn('[debounce upsert]', key, e); }
     }, delay);
   }
+  // ✅ FIX MULTI-RESTAURANT / DÉCONNEXION : envoyer immédiatement TOUT ce qui est en
+  // attente (stock, caisses, clients, menu, dépenses, etc.) avant de changer de compte
+  // ou de restaurant. Sans ça, un envoi différé programmé pour le restaurant A pouvait
+  // se déclencher APRÈS la connexion au restaurant B (le restaurant_id ayant déjà changé)
+  // et écrire les données de A sous la clé de B — mélangeant les données des deux comptes.
+  async function _flushAllPending() {
+    const keys = Object.keys(_debounceTimers);
+    for(const key of keys) {
+      clearTimeout(_debounceTimers[key]);
+      delete _debounceTimers[key];
+      const dataFn = _debouncePayloads[key];
+      delete _debouncePayloads[key];
+      try {
+        const data = (typeof dataFn === 'function') ? dataFn() : dataFn;
+        if(data !== null && data !== undefined) await upsert(key, data);
+      } catch(e) { console.warn('[flushAllPending]', key, e); }
+    }
+  }
 
   // ── Push ──────────────────────────────────────────────────────
   let _pushVentesTimer = null;
-  async function pushVentes() {
-    // ✅ OPT EGRESS : debounce 2s pour éviter les pushes répétés en rafale
-    if(_pushVentesTimer) return;
-    _pushVentesTimer = setTimeout(() => { _pushVentesTimer = null; }, 5000); // ✅ OPT REALTIME : 2s → 5s
+  let _pushVentesPending = false; // ✅ FIX : une modif arrivée pendant le cooldown ne doit jamais être perdue
+  // ✅ FIX DÉCONNEXION : logique d'envoi extraite dans une fonction séparée, appelable
+  // immédiatement (sans throttle) juste avant une déconnexion, pour ne jamais perdre
+  // une modification (ex: changement de mode de paiement) faite juste avant de se déconnecter.
+  async function _doPushVentesNow() {
     // ✅ FIX v31 : resync TOUS les modules avant push — source de vérité locale
     if(typeof _syncTerrainVentes === 'function') _syncTerrainVentes();
     if(typeof _syncPiscineVentes === 'function') _syncPiscineVentes();
@@ -22907,8 +22971,44 @@ const KGSync = (() => {
         (caisse === 'Caisse 7' && typeof MANEGE_CAISSE  !== 'undefined' && MANEGE_CAISSE.active)  ||
         (caisse === 'Caisse 8' && typeof SPORT_CAISSE   !== 'undefined' && SPORT_CAISSE.active)
       );
-      await upsert('ventes_' + caisse.replace(/\s+/g,'_'), { caisse, ventes, orderCounter, caisseStatus: _caisseStatus, moduleActive: _moduleActive });
+      // ✅ FIX PERTE CROISÉE ENTRE NAVIGATEURS : tout appareil qui a cette caisse en
+      // mémoire (même juste pour consultation, ex: Rapport X, tableau de bord admin)
+      // pousse TOUTE sa copie locale à chaque sync. Si un autre appareil vient de
+      // modifier un ticket (ex: mode de paiement) et n'a pas encore été re-pull par
+      // celui-ci, cet appareil écrasait purement et simplement cette modification en
+      // repoussant sa propre copie, plus ancienne. On fusionne donc avec la version
+      // distante avant d'écraser : par ticket (orderNum), on garde le plus "riche"
+      // (celui avec le plus de champs mode de paiement/mixte renseignés), et on
+      // récupère les tickets distants absents localement (ajoutés par un autre appareil).
+      let _ventesToPush = ventes;
+      try {
+        const { data: _remRow } = await client.from(TABLE).select('value').eq('key', _rkey('ventes_' + caisse.replace(/\s+/g,'_'))).limit(1);
+        const _remData = _remRow && _remRow[0] ? dec(_remRow[0].value) : null;
+        const _remVentes = (_remData && Array.isArray(_remData.ventes)) ? _remData.ventes : [];
+        if(_remVentes.length) {
+          const _vMap = new Map();
+          _remVentes.forEach(v => _vMap.set(String(v.orderNum||v.id), v));
+          (ventes||[]).forEach(v => {
+            const k = String(v.orderNum||v.id);
+            const _rv = _vMap.get(k);
+            // Le ticket local l'emporte s'il n'existe pas côté distant, ou si son
+            // "updatedAt paiement" est plus récent / il a plus d'infos de paiement.
+            if(!_rv || (v._payUpdatedAt||0) >= (_rv._payUpdatedAt||0)) _vMap.set(k, v);
+          });
+          _ventesToPush = Array.from(_vMap.values());
+        }
+      } catch(e) { console.warn('[pushVentes] fusion distante échouée pour', caisse, '— push local seul:', e); }
+      await upsert('ventes_' + caisse.replace(/\s+/g,'_'), { caisse, ventes: _ventesToPush, orderCounter, caisseStatus: _caisseStatus, moduleActive: _moduleActive });
     }
+  }
+  // Wrapper throttlé (usage normal) — voir _doPushVentesNow() pour le flush immédiat
+  async function pushVentes() {
+    if(_pushVentesTimer) { _pushVentesPending = true; return; }
+    _pushVentesTimer = setTimeout(() => {
+      _pushVentesTimer = null;
+      if(_pushVentesPending) { _pushVentesPending = false; pushVentes(); }
+    }, 5000);
+    await _doPushVentesNow();
   }
   async function pushStock()          { _invalidateCache('stock_data'); _debouncedUpsert('stock_data', () => ({ items: STOCK_DATA, entries: STOCK_ENTREES }), 1000); } // ✅ FIX STOCK LOCK : 3s→1s pour partir avant tout pullAll
   async function pushCaisses()        { _debouncedUpsert('caisses_data', () => ({ items: CAISSES, sessionActive: sessionCaisseActive }), 5000); }
@@ -22935,8 +23035,34 @@ const KGSync = (() => {
     // ✅ FIX : figer un instantané maintenant — si HISTORIQUE_CLOTURES est
     // vidée en mémoire avant que le push différé (2s) ne parte (ex: logout),
     // on ne doit jamais écraser Supabase avec une liste vide accidentelle.
-    const _snapshot = Array.isArray(HISTORIQUE_CLOTURES) ? HISTORIQUE_CLOTURES.slice() : [];
-    _debouncedUpsert('clotures_data', () => ({ items: _snapshot }), 2000);
+    let _snapshot = Array.isArray(HISTORIQUE_CLOTURES) ? HISTORIQUE_CLOTURES.slice() : [];
+    // ✅ FIX PERTE CROISÉE ENTRE APPAREILS : avant d'écraser Supabase, on relit
+    // la version distante et on fusionne (union local+distant) au lieu de pousser
+    // aveuglément notre seule liste locale. Sans ça, si un autre appareil a poussé
+    // une clôture juste avant nous (et qu'on ne l'a pas encore pull), notre push
+    // efface DÉFINITIVEMENT cette clôture — perte visible même après resync/F5.
+    try {
+      if(client && syncEnabled && window._KG_RESTAURANT_ID) {
+        const { data: rows } = await client.from(TABLE).select('value').eq('key', _rkey('clotures_data')).limit(1);
+        const remoteData = rows && rows[0] ? dec(rows[0].value) : null;
+        const remoteItems = (remoteData && Array.isArray(remoteData.items)) ? remoteData.items : [];
+        if(remoteItems.length) {
+          const mergedMap = new Map();
+          remoteItems.forEach(h => mergedMap.set(_clotureKey(h), h));
+          _snapshot.forEach(h => {
+            const k = _clotureKey(h);
+            const existing = mergedMap.get(k);
+            if(!existing || ((h.ca||h.caTotal||0) > 0 && (existing.ca||existing.caTotal||0) === 0) || ((h.nbTickets||0) > (existing.nbTickets||0))) {
+              mergedMap.set(k, h);
+            }
+          });
+          _snapshot = _dedupHistoriqueClotures(Array.from(mergedMap.values()));
+          HISTORIQUE_CLOTURES = _snapshot; // appliquer aussi la fusion en local
+        }
+      }
+    } catch(e) { console.warn('[pushClotures] fusion distante échouée, push local seul:', e); }
+    const _finalSnapshot = _snapshot;
+    _debouncedUpsert('clotures_data', () => ({ items: _finalSnapshot }), 2000);
   }
   // ✅ FIX iOS : cache mémoire en complément localStorage (Safari navigation privée bloque localStorage)
   const _memCache = {};
@@ -24365,6 +24491,7 @@ const KGSync = (() => {
     connect,
     disconnect: () => { _stopRealtime(); syncEnabled = false; client = null; setStatus('disconnected'); },
     pullAll:    _pullAll,
+    flushAllPending: _flushAllPending, // ✅ FIX MULTI-RESTAURANT : à appeler avant tout changement de compte/restaurant
     startRealtime: _startRealtime,
     _stopRealtime: _stopRealtime,
     _startRealtime: _startRealtime,
@@ -24376,6 +24503,7 @@ const KGSync = (() => {
     setStatus,
     push: {
       ventes:         pushVentes,
+      flushVentes:    _doPushVentesNow, // ✅ FIX DÉCONNEXION : flush immédiat, sans throttle
       vente:          () => pushVentes(),
       caisses:        pushCaisses,
       caisse:         () => pushCaisses(),
@@ -24532,6 +24660,48 @@ function _removeRecetteLine(i) {
 }
 
 // Déduire les ingrédients du stock lors d'une vente
+// ✅ FIX COHÉRENCE STOCK : recharge les recettes depuis Supabase avant toute déduction
+// de stock, quel que soit le circuit de vente (caisse directe, addition serveur, QR,
+// ticket en attente). Avant ce fix, seul le circuit de caisse principal le faisait —
+// les autres circuits pouvaient rater la déduction si le MENU local n'avait pas encore
+// ses recettes chargées (ex: juste après ouverture de l'app), donnant une impression
+// aléatoire ("des fois ça sort, des fois non").
+async function _ensureRecettesLoaded(items) {
+  try {
+    const _sbStock = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+    const _ridStock = window._KG_RESTAURANT_ID;
+    if(_sbStock && _ridStock) {
+      const { data: _recetteRows } = await _sbStock
+        .from('menu_items')
+        .select('id, name, recette')
+        .eq('restaurant_id', _ridStock);
+      if(_recetteRows && _recetteRows.length) {
+        _recetteRows.forEach(function(row) {
+          if(!row.recette || !row.recette.length) return;
+          const mItem = MENU.find(function(m) { return m.sbId === row.id || m.id === row.id; });
+          if(mItem) mItem.recette = row.recette;
+          (items||[]).forEach(function(cartItem) {
+            if(cartItem.id === row.id || cartItem.sbId === row.id || cartItem.name === row.name) {
+              cartItem.recette = row.recette;
+            }
+          });
+        });
+      }
+    }
+  } catch(_e) {
+    console.warn('[stock-fix] fallback MENU local:', _e);
+    (items||[]).forEach(function(cartItem) {
+      if(!cartItem.recette || !cartItem.recette.length) {
+        const menuItem = MENU.find(function(m) {
+          return m.id === cartItem.id || m.sbId === cartItem.id || m.name === cartItem.name;
+        });
+        if(menuItem && menuItem.recette && menuItem.recette.length) {
+          cartItem.recette = menuItem.recette;
+        }
+      }
+    });
+  }
+}
 function deduireStockVente(items, caisseName) {
   if(!items || !items.length) return;
   let hasChanges = false;
@@ -26407,13 +26577,28 @@ function _getAllVentesForCompta() {
 
   // FIX: inclure ventes des clotures passees (sinon bilan/TVA disparaissent apres cloture)
   (typeof HISTORIQUE_CLOTURES !== 'undefined' ? HISTORIQUE_CLOTURES : []).forEach(h => {
-    (Array.isArray(h.tickets) ? h.tickets : []).forEach(t => {
-      const key = String(t.numero || t.id);
-      if(vuesIds.has(key)) return;
-      vuesIds.add(key);
-      const dateT = t.date ? t.date.split('T')[0] : (h.date ? _histParseDateStr(h.date) : null);
-      ventes.push({ date: dateT, total: t.total || 0, tva: t.tva || Math.round((t.total||0)*18/118) });
-    });
+    if(Array.isArray(h.tickets) && h.tickets.length) {
+      h.tickets.forEach(t => {
+        const key = String(t.numero || t.id);
+        if(vuesIds.has(key)) return;
+        vuesIds.add(key);
+        const dateT = t.date ? t.date.split('T')[0] : (h.date ? _histParseDateStr(h.date) : null);
+        ventes.push({ date: dateT, total: t.total || 0, tva: t.tva || Math.round((t.total||0)*18/118) });
+      });
+    } else {
+      // ✅ FIX CLÔTURE MANUELLE : une clôture ajoutée manuellement (ou toute clôture
+      // sans détail de tickets) n'a qu'un total agrégé (ca/caTotal), pas de tableau
+      // `tickets`. Sans ce bloc, son CA n'était jamais compté en comptabilité.
+      const caAgg = h.caTotal || h.ca || 0;
+      if(caAgg > 0) {
+        const key = 'CLOTURE-' + (h.id || (h.caisse + '|' + h.date));
+        if(!vuesIds.has(key)) {
+          vuesIds.add(key);
+          const dateH = h.date ? _histParseDateStr(h.date) : null;
+          ventes.push({ date: dateH, total: caAgg, tva: Math.round(caAgg*18/118), source: h.source || 'cloture' });
+        }
+      }
+    }
   });
 
   // FIX: inclure aussi TICKETS_ARCHIVES (Supabase)
@@ -26950,7 +27135,12 @@ function renderBilan() {
   const salaires = calcMasseSalariale();
   const avances  = calcAvancesRHTotal();
   const tva      = calcTVACollectee();
-  const tresorerie = ca - depenses - achats;
+  // ✅ FIX ÉQUILIBRE BILAN : les achats fournisseurs (commandes livrées) ne sont
+  // PAS déduits de la trésorerie ici, car ils sont déjà comptés comme une dette
+  // ("Dettes fournisseurs") au Passif tant qu'ils ne sont pas marqués payés.
+  // Les soustraire des deux côtés à la fois revenait à les compter deux fois et
+  // cassait l'égalité Actif = Passif + Capitaux propres.
+  const tresorerie = ca - depenses;
   const stockValeur = (typeof STOCK_DATA !== 'undefined' ? STOCK_DATA : []).reduce((s,x) => s + (x.qty * 2000), 0); // estimation
 
   const bilanRow = (label, val, color) =>
@@ -32476,7 +32666,7 @@ function _renderCaisseBillPanel() {
     </div>`;
 }
 
-function _validerAdditionCaisse(billId) {
+async function _validerAdditionCaisse(billId) {
   _loadBillRequests();
   const bill = window._BILL_REQUESTS.find(b => b.id === billId);
   if(!bill) return;
@@ -32516,7 +32706,7 @@ function _validerAdditionCaisse(billId) {
     </div>`;
   document.body.appendChild(overlay);
 
-  window._finalisserBill = function(bId, payMethod) {
+  window._finalisserBill = async function(bId, payMethod) {
     overlay.remove();
     _loadBillRequests();
     const b = window._BILL_REQUESTS.find(x => x.id === bId);
@@ -32558,7 +32748,7 @@ function _validerAdditionCaisse(billId) {
     }
 
     // Déduire le stock
-    if(typeof deduireStockVente === 'function' && items.length) deduireStockVente(items, caisse);
+    if(typeof deduireStockVente === 'function' && items.length) { await _ensureRecettesLoaded(items); deduireStockVente(items, caisse); }
 
     // Imprimer ticket
     setTimeout(() => { if(typeof printTicket === 'function') printTicket(venteSaved, caisse); }, 400);
@@ -33938,7 +34128,7 @@ async function updateQRStatut(orderId, newStatut) {
       }
 
       // ③ Déduire le stock selon les recettes
-      if(typeof deduireStockVente === 'function') deduireStockVente(items, caisse);
+      if(typeof deduireStockVente === 'function') { await _ensureRecettesLoaded(items); deduireStockVente(items, caisse); }
 
       // ④ Imprimer le ticket (avec délai pour laisser le DOM respirer)
       setTimeout(function() {
@@ -36023,6 +36213,15 @@ function _initRapportMensuel() {
   const now = new Date();
   const sel = document.getElementById('rm-mois');
   const selA = document.getElementById('rm-annee');
+  // ✅ FIX : régénérer la liste des années dynamiquement (ne plus s'arrêter à une année codée en dur)
+  if(selA) {
+    const curYear = now.getFullYear();
+    const startYear = curYear - 4; // quelques années d'historique
+    const endYear = 2100;          // plus de limite dans le futur
+    let optsHtml = '';
+    for(let y = startYear; y <= endYear; y++) optsHtml += `<option value="${y}">${y}</option>`;
+    selA.innerHTML = optsHtml;
+  }
   if(sel) sel.value = now.getMonth();
   if(selA) selA.value = now.getFullYear();
   genererRapportMensuel();
@@ -37914,7 +38113,7 @@ async function validerTicketAttente() {
   // "En attente" (contrairement à un encaissement direct). On aligne ce
   // chemin sur les autres points de vente pour que les articles liés
   // sortent bien du stock au moment de l'encaissement.
-  if(typeof deduireStockVente === 'function') deduireStockVente(ticket.items, caisse);
+  if(typeof deduireStockVente === 'function') { await _ensureRecettesLoaded(ticket.items); deduireStockVente(ticket.items, caisse); }
 
   // MAJ caisse
   const caisseObj = (typeof CAISSES !== 'undefined' ? CAISSES : []).find(c => c.name === caisse);
@@ -38337,7 +38536,7 @@ renderOrders = function(status) {
           <button onclick="imprimerTicketAttente('${t.id}')" title="Imprimer ticket d'attente" style="font-size:11px;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2);">🖨️</button>
           ${(currentUser && (currentUser.role==='gerant'||currentUser.role==='superviseur'||currentUser.role==='administrateur')) ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / ajouter articles" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
           <button onclick="ouvrirPaiementAttente('${t.id}')" style="font-size:11px;padding:5px 10px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:6px;cursor:pointer;color:#fff;font-weight:700;">💳 Encaisser</button>
-          <button onclick="supprimerTicketAttente('${t.id}')" title="Supprimer" style="font-size:11px;padding:5px 8px;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);border-radius:6px;cursor:pointer;color:var(--red);">🗑</button>
+          ${(currentUser && (currentUser.role==='gerant'||currentUser.role==='superviseur'||currentUser.role==='administrateur')) ? `<button onclick="supprimerTicketAttente('${t.id}')" title="Supprimer" style="font-size:11px;padding:5px 8px;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);border-radius:6px;cursor:pointer;color:var(--red);">🗑</button>` : ''}
         </div>
       </div>
     `).join('');
@@ -38460,8 +38659,47 @@ document.addEventListener('DOMContentLoaded', function() {
 // ═══════════════════════════════════════════════════════════════
 
 // ── Clôture manuelle ──
+let _cmPlatsListe = [];
+function _cmAjouterPlat() {
+  const sel = document.getElementById('cm-plat-select');
+  const qtyEl = document.getElementById('cm-plat-qty');
+  if(!sel || !sel.value) return;
+  const qty = parseInt(qtyEl?.value || 1) || 1;
+  const m = MENU.find(x => String(x.id) === String(sel.value));
+  if(!m || qty <= 0) return;
+  const existing = _cmPlatsListe.find(p => String(p.id) === String(m.id));
+  if(existing) existing.qty += qty;
+  else _cmPlatsListe.push({ id: m.id, nom: m.name, icon: m.icon || '🍽️', cat: m.cat || '', prix: m.price || 0, qty });
+  if(qtyEl) qtyEl.value = 1;
+  _cmRenderPlats();
+}
+function _cmRetirerPlat(id) {
+  _cmPlatsListe = _cmPlatsListe.filter(p => String(p.id) !== String(id));
+  _cmRenderPlats();
+}
+function _cmRenderPlats() {
+  const el = document.getElementById('cm-plats-liste');
+  if(!el) return;
+  el.innerHTML = _cmPlatsListe.length === 0
+    ? '<div style="font-size:12px;color:var(--text2);">Aucun plat ajouté pour l\'instant</div>'
+    : _cmPlatsListe.map(p => `
+      <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;">
+        <span style="flex:1;">${p.icon} ${p.nom}</span>
+        <span style="color:var(--text2);">${p.qty}× ${(p.prix||0).toLocaleString()} F</span>
+        <span style="font-weight:700;color:var(--green);min-width:70px;text-align:right;">${(p.qty*(p.prix||0)).toLocaleString()} F</span>
+        <button type="button" onclick="_cmRetirerPlat('${p.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;">✕</button>
+      </div>`).join('');
+  const totalPlats = _cmPlatsListe.reduce((s,p)=>s+p.qty,0);
+  const totalCA = _cmPlatsListe.reduce((s,p)=>s+p.qty*(p.prix||0),0);
+  const totEl = document.getElementById('cm-plats-total');
+  if(totEl) totEl.textContent = totalPlats > 0 ? `${totalPlats} plat(s) sélectionné(s) — ${totalCA.toLocaleString()} F` : '';
+  // Le CA total se remplit automatiquement depuis les plats choisis (reste modifiable ensuite)
+  const caEl = document.getElementById('cm-ca');
+  if(caEl && _cmPlatsListe.length > 0) { caEl.value = totalCA; updateCmTotal(); }
+}
 function ouvrirModalClotureManu() {
   if(!currentUser || currentUser.role !== 'administrateur') { showNotif('🔒 Réservé à l\'administrateur'); return; }
+  _cmPlatsListe = [];
   const today = new Date().toISOString().split('T')[0];
   const caisseOptions = CAISSES.map(c => `<option value="${c.name}">${c.name} — ${c.label||c.name}</option>`).join('');
   const html = `
@@ -38484,8 +38722,19 @@ function ouvrirModalClotureManu() {
         <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">NB TICKETS</label>
           <input id="cm-tickets" class="form-input" type="number" min="0" value="0"></div>
       </div>
+      <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">PLATS VENDUS (choisir dans le menu)</label>
+        <div style="display:flex;gap:8px;">
+          <select id="cm-plat-select" class="form-input" style="flex:1;">
+            ${MENU.slice().sort((a,b)=>(a.cat||'').localeCompare(b.cat||'')||(a.name||'').localeCompare(b.name||'')).map(m=>`<option value="${m.id}">${m.icon||'🍽️'} ${m.name} — ${(m.price||0).toLocaleString()} F (${m.cat||'?'})</option>`).join('')}
+          </select>
+          <input id="cm-plat-qty" type="number" min="1" value="1" class="form-input" style="width:64px;">
+          <button type="button" onclick="_cmAjouterPlat()" class="btn btn-ghost" style="padding:0 14px;">➕</button>
+        </div>
+        <div id="cm-plats-liste" style="margin-top:10px;display:grid;gap:6px;"></div>
+        <div id="cm-plats-total" style="font-size:12px;margin-top:6px;text-align:right;color:var(--text2);"></div>
+      </div>
       <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">CA TOTAL TTC (F)</label>
-        <input id="cm-ca" class="form-input" type="number" min="0" placeholder="0" oninput="updateCmTotal()"></div>
+        <input id="cm-ca" class="form-input" type="number" min="0" placeholder="0 (auto depuis les plats, modifiable)" oninput="updateCmTotal()"></div>
       <div style="background:var(--surface2);border-radius:10px;padding:12px;">
         <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Détail paiements</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -38509,6 +38758,7 @@ function ouvrirModalClotureManu() {
   if(!m) { m = document.createElement('div'); m.id='modal-cloture-manu'; m.className='modal-overlay'; m.onclick=e=>{if(e.target===m)m.style.display='none';}; document.body.appendChild(m); }
   m.innerHTML = html;
   m.style.display = 'flex';
+  _cmRenderPlats();
 }
 function updateCmTotal() {
   const ca=parseFloat(document.getElementById('cm-ca')?.value||0);
@@ -38524,6 +38774,7 @@ async function confirmerClotureManu() {
   const heureOuv=(document.getElementById('cm-heure-ouv')?.value||'08:00');
   const ca=parseFloat(document.getElementById('cm-ca')?.value||0);
   const nbTickets=parseInt(document.getElementById('cm-tickets')?.value||0);
+  const nbPlats=_cmPlatsListe.reduce((s,p)=>s+p.qty,0);
   const fonds=parseFloat(document.getElementById('cm-fonds')?.value||0);
   const especes=parseFloat(document.getElementById('cm-esp')?.value||0);
   const wave=parseFloat(document.getElementById('cm-wav')?.value||0);
@@ -38534,7 +38785,20 @@ async function confirmerClotureManu() {
   if(ca<=0){showNotif('⚠️ Le CA total doit être > 0');return;}
   const [yr,mo,dy]=date.split('-');
   const dateStr=dy+'/'+mo+'/'+yr.slice(2);
-  const cloture={id:'MANU-'+Date.now(),caisse,cashier:caissier,caissier,date:dateStr,heure,heureOuverture:heureOuv,fonds,ca,caTotal:ca,especes,wave,orange,carte,tickets:nbTickets,nbTickets,statut:'conforme',source:'manuelle',raison,saisieManuelle:true,dateSaisie:new Date().toISOString()};
+  const clotureId='MANU-'+Date.now();
+  const cloture={id:clotureId,caisse,cashier:caissier,caissier,date:dateStr,heure,heureOuverture:heureOuv,fonds,ca,caTotal:ca,especes,wave,orange,carte,nbTickets,orders:nbTickets,nbPlats,platsVendus:nbPlats,statut:'conforme',source:'manuelle',raison,saisieManuelle:true,dateSaisie:new Date().toISOString()};
+  // ✅ Si des plats du menu ont été sélectionnés, on construit un vrai ticket détaillé
+  // (nom, catégorie, qté, prix) pour que "Catégories vendues" et la comptabilité
+  // les prennent en compte, comme pour une clôture normale.
+  if(_cmPlatsListe.length > 0) {
+    cloture.tickets = [{
+      numero: clotureId,
+      date: date + 'T' + heure + ':00',
+      mode: (especes >= wave && especes >= orange && especes >= carte) ? 'cash' : (wave >= orange && wave >= carte) ? 'wave' : (orange >= carte) ? 'orange' : 'card',
+      total: ca,
+      items: _cmPlatsListe.map(p => ({ nom: p.nom, icon: p.icon, qty: p.qty, prix: p.prix, categorie: p.cat })),
+    }];
+  }
   HISTORIQUE_CLOTURES.unshift(cloture);
   try{_lsSet('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));}catch(e){}
   try{
