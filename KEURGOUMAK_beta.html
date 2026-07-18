@@ -11561,13 +11561,14 @@ async function _clearVentesCaisseSupabase(caisse) {
   }
 }
 
-async function _saveVenteSupabase(caisse, vente) {
+async function _saveVenteSupabase(caisse, vente, _retryCount) {
+  _retryCount = _retryCount || 0;
   try {
-    if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
+    if(typeof KGSync === 'undefined' || !KGSync.isConnected) throw new Error('KGSync non connecté');
     const sb  = KGSync.getClient();
     const rid = window._KG_RESTAURANT_ID;
-    if(!sb || !rid) return;
-    await sb.from('ventes_caisse').upsert({
+    if(!sb || !rid) throw new Error('client/restaurant_id manquant');
+    const { error } = await sb.from('ventes_caisse').upsert({
       restaurant_id: rid,
       caisse:        caisse,
       order_num:     vente.orderNum,
@@ -11582,8 +11583,30 @@ async function _saveVenteSupabase(caisse, vente) {
       session_date:  (vente.date || new Date().toISOString()).split('T')[0],
       serveur:       vente.serveur && vente.serveur.trim() ? vente.serveur.trim() : null
     }, { onConflict: 'restaurant_id,caisse,order_num' });
+    if(error) throw error;
+    // ✅ Succès — si une trace d'échec précédent existait pour ce ticket, la nettoyer
+    try {
+      const _fk = 'kg-ventes-save-failed';
+      const _failed = JSON.parse(_lsGet(_fk) || '[]').filter(f => f.vente?.orderNum !== vente.orderNum);
+      _lsSet(_fk, JSON.stringify(_failed));
+    } catch(_e0) {}
   } catch(e) {
-    console.warn('[ventes_caisse] Erreur save:', e);
+    console.warn('[ventes_caisse] Erreur save (tentative ' + (_retryCount+1) + '/4) pour ' + vente.orderNum + ':', e);
+    // ✅ FIX FIABILITÉ : ne plus abandonner en silence — réessayer automatiquement,
+    // puis garder une trace locale + alerter visiblement si ça échoue quand même,
+    // pour qu'un ticket physiquement imprimé ne disparaisse jamais sans avertissement.
+    if(_retryCount < 3) {
+      setTimeout(() => _saveVenteSupabase(caisse, vente, _retryCount + 1), 1500 * (_retryCount + 1));
+    } else {
+      console.error('[ventes_caisse] ÉCHEC DÉFINITIF après 4 tentatives — ticket ' + vente.orderNum + ' à risque de perte réseau !');
+      try {
+        const _fk = 'kg-ventes-save-failed';
+        const _failed = JSON.parse(_lsGet(_fk) || '[]');
+        _failed.push({ caisse, vente, ts: Date.now() });
+        _lsSet(_fk, JSON.stringify(_failed));
+      } catch(_e2) {}
+      if(typeof showNotif === 'function') showNotif('⚠️ Ticket ' + vente.orderNum + ' : échec de sauvegarde réseau — vérifiez votre connexion et resynchronisez.');
+    }
   }
 }
 
