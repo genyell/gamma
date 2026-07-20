@@ -6658,7 +6658,7 @@ function _syncSportVentes()       { return []; }
           <option value="cloturee">🔒 Clôturées</option>
         </select>
         <button class="btn btn-ghost" onclick="['dep-filtre-statut','dep-filtre-cat','dep-filtre-caisse','dep-filtre-debut','dep-filtre-fin'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});renderDepenses();" style="font-size:12px;" title="Réinitialiser les filtres">🔄 Reset filtres</button>
-        <button class="btn btn-primary" style="margin-left:auto;" onclick="(function(){ document.getElementById('dep-date').value=new Date().toISOString().split('T')[0]; const _glbInp=document.getElementById('dep-libelle-global'); if(_glbInp) _glbInp.value=''; document.getElementById('dep-source-info').style.display='none'; document.getElementById('dep-lignes-container').innerHTML=''; _depLigneCount=0; document.getElementById('dep-total-display').textContent='0 F CFA'; showModal('addDepense'); depAddLigne(); })()">+ Ajouter dépense</button>
+        <button class="btn btn-primary" style="margin-left:auto;" onclick="(function(){ document.getElementById('dep-date').value=new Date().toISOString().split('T')[0]; const _glbInp=document.getElementById('dep-libelle-global'); if(_glbInp) _glbInp.value=''; document.getElementById('dep-source-info').style.display='none'; document.getElementById('dep-lignes-container').innerHTML=''; _depLigneCount=0; document.getElementById('dep-total-display').textContent='0 F CFA'; window._depEditId=null; showModal('addDepense'); depAddLigne(); })()">+ Ajouter dépense</button>
         <button class="btn btn-ghost" onclick="exportDepensesCSV()" style="font-size:12px;">📥 Export CSV</button>
         <button class="btn btn-ghost" onclick="cloturerDepensesFondsPropres()" style="font-size:12px;border-color:var(--orange,#f39c12);color:var(--orange,#f39c12);" title="Clôturer les dépenses fonds propres du mois">🔒 Clôturer fonds propres</button>
       </div>
@@ -12883,12 +12883,17 @@ function printTicket(vente, caisse) {
   .meta-row {
     display: flex;
     justify-content: space-between;
+    align-items: flex-start;
     font-size: 11px;
     padding: 1px 0;
     color: #333;
+    gap: 6px;
   }
-  .meta-row .lbl { color: #777; }
-  .meta-row .val { font-weight: 700; color: #111; }
+  /* ✅ FIX IMPRESSION : empêcher le texte (nom du caissier, heure...) d'être coupé
+     par l'imprimante — le label reste sur une ligne, la valeur peut passer à la
+     ligne suivante si elle est trop longue au lieu de dépasser du papier. */
+  .meta-row .lbl { color: #777; flex-shrink: 0; white-space: nowrap; }
+  .meta-row .val { font-weight: 700; color: #111; text-align: right; word-break: break-word; overflow-wrap: break-word; min-width: 0; flex: 1; }
 
   /* ══ SECTION ARTICLES ══ */
   .articles-section { padding: 3px 8px; }
@@ -13116,8 +13121,14 @@ function printTicket(vente, caisse) {
       padding: 0 !important;
     }
     body {
-      width: 294px !important;
-      margin: 0 0 0 8px !important;
+      /* ✅ FIX IMPRESSION 80mm : de nombreuses imprimantes thermiques "80mm" n'ont
+         qu'environ 72mm de zone réellement imprimable (le reste est une marge
+         mécanique fixe de chaque côté, non imprimable). En utilisant toute la
+         largeur nominale de 80mm, le bord droit du contenu (heure, nom du
+         caissier...) était systématiquement coupé. On réduit la largeur utilisée
+         et on centre pour rester dans la zone garantie imprimable. */
+      width: 272px !important;
+      margin: 0 auto !important;
       padding: 0 !important;
       overflow: visible !important;
       height: auto !important;
@@ -17451,7 +17462,7 @@ function printRapportXCaisse(name) {
   </div>
   <div class="no-print">
     <button onclick="window.print()" style="background:#f5a623;color:#fff;">🖨️ Imprimer</button>
-    <button onclick="window.close()" style="background:#444;color:#fff;">✕ Fermer</button>
+    <button onclick="try{ if(window.opener){ window.close(); } else if(window.parent && window.parent !== window && window.parent.document.getElementById('kg-rapportx-overlay')){ window.parent.document.getElementById('kg-rapportx-overlay').remove(); } else { window.close(); } }catch(e){}" style="background:#444;color:#fff;">✕ Fermer</button>
   </div>
   </body></html>`;
 
@@ -17633,7 +17644,7 @@ function printRapportX() {
   </div>
   <div class="no-print">
     <button onclick="window.print()" style="background:#f5a623;color:#fff;">🖨️ Imprimer</button>
-    <button onclick="window.close()" style="background:#444;color:#fff;">✕ Fermer</button>
+    <button onclick="try{ if(window.opener){ window.close(); } else if(window.parent && window.parent !== window && window.parent.document.getElementById('kg-rapportx-overlay')){ window.parent.document.getElementById('kg-rapportx-overlay').remove(); } else { window.close(); } }catch(e){}" style="background:#444;color:#fff;">✕ Fermer</button>
   </div>
   </body></html>`;
 
@@ -21032,7 +21043,12 @@ async function cloturerCaisse() {
 
     const dateStr  = now.toLocaleDateString('fr-FR', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
     const heureStr = now.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
-    const heureOuv = (sessionCaisseActive && sessionCaisseActive.heureOuverture) || '08:00';
+    // ✅ FIX HEURE OUVERTURE : se baser sur l'heure du premier ticket réellement
+    // enregistré plutôt que sur sessionCaisseActive.heureOuverture, qui peut être
+    // fausse (session restaurée, décalage, etc.). On ne retombe sur la valeur
+    // mémorisée / 08:00 que s'il n'y a aucun ticket pour en déduire l'heure réelle.
+    const _ticketTimes = (ventes||[]).map(v => v.time).filter(Boolean).sort();
+    const heureOuv = _ticketTimes[0] || (sessionCaisseActive && sessionCaisseActive.heureOuverture) || '08:00';
     const fonds    = (sessionCaisseActive && sessionCaisseActive.fonds) || 0;
 
     // 3. Calculs sécurisés
@@ -37774,12 +37790,15 @@ let _attenteCurrentId = null;
 
 function _loadTicketsAttente() {
   try {
-    const raw = localStorage.getItem('kg_tickets_attente');
+    // ✅ FIX ISOLATION MULTI-RESTAURANT : utiliser _lsGet (namespacé par restaurant_id)
+    // au lieu de localStorage brut — sinon, sur un appareil partagé entre deux
+    // restaurants, leurs tickets en attente se mélangeaient / s'écrasaient.
+    const raw = _lsGet('kg_tickets_attente');
     if(raw) TICKETS_ATTENTE = JSON.parse(raw);
   } catch(e) { TICKETS_ATTENTE = []; }
 }
 function _saveTicketsAttente() {
-  try { localStorage.setItem('kg_tickets_attente', JSON.stringify(TICKETS_ATTENTE)); } catch(e) {}
+  try { _lsSet('kg_tickets_attente', JSON.stringify(TICKETS_ATTENTE)); } catch(e) {}
 }
 
 // ── Sauvegarder ticket en attente → Supabase ──
@@ -37827,11 +37846,13 @@ async function _pullTicketsAttenteSupabase() {
     const sb  = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
     const rid = window._KG_RESTAURANT_ID;
     if(!sb || !rid) return;
-    const today = new Date().toISOString().split('T')[0];
+    // ✅ FIX : ne plus filtrer par date du jour — un ticket mis en attente avant
+    // minuit et pas encore payé restait "en attente" mais disparaissait silencieusement
+    // du prochain rechargement une fois la date changée. Un ticket en attente le reste
+    // jusqu'à ce qu'il soit payé ou supprimé, peu importe le jour.
     const { data } = await sb.from('tickets_en_attente')
       .select('*')
       .eq('restaurant_id', rid)
-      .eq('ticket_date', today)   // seulement les tickets du jour
       .order('created_at', { ascending: false });
     if(data) {
       // ✅ FIX : ne pas réintroduire un ticket déjà validé localement
@@ -38247,9 +38268,10 @@ function imprimerTicketAttente(ticketId) {
 
   /* ══ MÉTA ══ */
   .meta-block { padding:2px 8px; border-bottom:1px dashed #000; }
-  .meta-row { display:flex; justify-content:space-between; font-size:10px; padding:1px 0; }
-  .meta-lbl { color:#555; }
-  .meta-val { font-weight:700; }
+  .meta-row { display:flex; justify-content:space-between; align-items:flex-start; font-size:10px; padding:1px 0; gap:6px; }
+  /* ✅ FIX IMPRESSION : idem — éviter que le texte soit coupé par l'imprimante */
+  .meta-lbl { color:#555; flex-shrink:0; white-space:nowrap; }
+  .meta-val { font-weight:700; text-align:right; word-break:break-word; overflow-wrap:break-word; min-width:0; flex:1; }
 
   /* ══ ARTICLES ══ */
   .articles-section { padding:2px 8px; }
@@ -38313,7 +38335,9 @@ function imprimerTicketAttente(ticketId) {
     .no-print { display:none !important; }
     @page { size:302px auto; margin:0 !important; }
     * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
-    body { width:294px !important; margin:0 0 0 8px !important; font-size:11px !important; }
+    /* ✅ FIX IMPRESSION 80mm : idem printTicket() — laisser une marge de sécurité
+       car la zone réellement imprimable de nombreuses imprimantes 80mm est ~72mm. */
+    body { width:272px !important; margin:0 auto !important; font-size:11px !important; }
     .cmd-band { background:#000 !important; color:#fff !important; }
     .page-cut { page-break-before:always !important; break-before:always !important; display:block !important; }
   }
@@ -38462,10 +38486,9 @@ ${(function(){
 
 // ── Rouvrir un ticket en attente pour modification ──
 function rouvrirTicketAttente(ticketId) {
-  // ✅ Seuls gérant, superviseur et administrateur peuvent modifier un ticket validé
-  const _isManager = currentUser && (currentUser.role === 'gerant' || currentUser.role === 'superviseur' || currentUser.role === 'administrateur');
-  if(!_isManager) {
-    showNotif('🔒 Seul le gérant, superviseur ou administrateur peut modifier un ticket.');
+  // ✅ FIX : réservé à l'administrateur uniquement (modifier/supprimer des plats d'un ticket en attente)
+  if(!currentUser || currentUser.role !== 'administrateur') {
+    showNotif('🔒 Seul l\'administrateur peut modifier les plats d\'un ticket en attente.');
     return;
   }
   if(!sessionCaisseActive) {
@@ -38557,7 +38580,7 @@ renderOrders = function(status) {
         <div class="badge" style="background:rgba(245,158,42,0.15);color:var(--accent);border:1px solid rgba(245,158,42,0.4);font-size:10px;white-space:nowrap;">⏳ En attente</div>
         <div style="display:flex;gap:5px;margin-left:6px;">
           <button onclick="imprimerTicketAttente('${t.id}')" title="Imprimer ticket d'attente" style="font-size:11px;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2);">🖨️</button>
-          ${(currentUser && (currentUser.role==='gerant'||currentUser.role==='superviseur'||currentUser.role==='administrateur')) ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / ajouter articles" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
+          ${(currentUser && currentUser.role==='administrateur') ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / supprimer des plats (admin uniquement)" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
           <button onclick="ouvrirPaiementAttente('${t.id}')" style="font-size:11px;padding:5px 10px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:6px;cursor:pointer;color:#fff;font-weight:700;">💳 Encaisser</button>
           ${(currentUser && (currentUser.role==='gerant'||currentUser.role==='superviseur'||currentUser.role==='administrateur')) ? `<button onclick="supprimerTicketAttente('${t.id}')" title="Supprimer" style="font-size:11px;padding:5px 8px;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);border-radius:6px;cursor:pointer;color:var(--red);">🗑</button>` : ''}
         </div>
@@ -38595,7 +38618,7 @@ renderOrders = function(status) {
           <div class="badge" style="background:rgba(245,158,42,0.15);color:var(--accent);border:1px solid rgba(245,158,42,0.4);font-size:10px;white-space:nowrap;">⏳ En attente</div>
           <div style="display:flex;gap:5px;margin-left:6px;">
             <button onclick="imprimerTicketAttente('${t.id}')" title="Imprimer" style="font-size:11px;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2);">🖨️</button>
-            ${(currentUser && (currentUser.role==='gerant'||currentUser.role==='superviseur'||currentUser.role==='administrateur')) ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / ajouter articles" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
+            ${(currentUser && currentUser.role==='administrateur') ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / supprimer des plats (admin uniquement)" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
             <button onclick="ouvrirPaiementAttente('${t.id}')" style="font-size:11px;padding:5px 10px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:6px;cursor:pointer;color:#fff;font-weight:700;">💳 Encaisser</button>
             ${(currentUser && (currentUser.role==='gerant'||currentUser.role==='superviseur'||currentUser.role==='administrateur')) ? `<button onclick="supprimerTicketAttente('${t.id}')" title="Supprimer" style="font-size:11px;padding:5px 8px;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);border-radius:6px;cursor:pointer;color:var(--red);">🗑</button>` : ''}
           </div>
