@@ -19772,16 +19772,24 @@ function refreshDashboard() {
 
       // Sommer les clôtures du jour
       let total = 0;
+      // ✅ FIX : comparaison par valeurs numériques (année/mois/jour) au lieu d'une
+      // égalité de texte stricte — une clôture avec un format de date légèrement
+      // différent (ex: jour sans zéro, année sur 2 ou 4 chiffres) était auparavant
+      // invisible dans CE graphique, alors que la donnée existait bien réellement.
+      const targetY = parseInt(dateISO.slice(0,4)), targetM = parseInt(dateISO.slice(5,7)), targetD = parseInt(dateISO.slice(8,10));
       (_dashHistoClotures || []).forEach(h => {
         if (!h.date) return;
-        // Supporter les deux formats de date : DD/MM/YY et YYYY-MM-DD
-        const hDate = h.date.includes('-') ? h.date.slice(0, 10) : (() => {
+        let hy, hm, hd;
+        if (h.date.includes('-')) {
+          const p = h.date.slice(0,10).split('-');
+          if (p.length !== 3) return;
+          hy = parseInt(p[0]); hm = parseInt(p[1]); hd = parseInt(p[2]);
+        } else if (h.date.includes('/')) {
           const p = h.date.split('/');
-          if (p.length !== 3) return '';
-          const year = p[2].length === 2 ? '20' + p[2] : p[2];
-          return `${year}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
-        })();
-        if (hDate === dateISO) {
+          if (p.length !== 3) return;
+          hy = parseInt(p[2].length === 2 ? '20' + p[2] : p[2]); hm = parseInt(p[1]); hd = parseInt(p[0]);
+        } else { return; }
+        if (hy === targetY && hm === targetM && hd === targetD) {
           total += (h.ca || h.caTotal || 0);
         }
       });
@@ -21352,6 +21360,10 @@ async function cloturerCaisse() {
       try {
         const _withTimeout = (p, ms) => Promise.race([p, new Promise((_,r) => setTimeout(() => r(new Error('timeout')), ms))]);
         await _withTimeout(_clearVentesCaisseSupabase(caisse), 6000);
+        // ✅ FIX GARANTIE ANTI-PERTE : sauver CETTE clôture dans sa propre case
+        // indépendante, en plus du bloc partagé — ne peut jamais être écrasée
+        // par une autre clôture, quel que soit le scénario de concurrence.
+        await _withTimeout(KGSync.push.clotureUnique(cloture), 8000);
         await _withTimeout(KGSync.push.clotures(), 8000);
         await _withTimeout(KGSync.push.ventes(), 8000);
         await _withTimeout(KGSync.push.caisses(), 8000);
@@ -21363,14 +21375,14 @@ async function cloturerCaisse() {
         try { _lsSet('kg-cloture-pending', JSON.stringify({ caisse, ts: Date.now() })); } catch(e) {}
         // Retry 1 : 3s
         setTimeout(async () => {
-          try { await KGSync.push.clotures(); await KGSync.push.ventes(); _lsRemove('kg-cloture-pending'); console.log('✅ Clôture retry 1 ok'); }
+          try { await KGSync.push.clotureUnique(cloture); await KGSync.push.clotures(); await KGSync.push.ventes(); _lsRemove('kg-cloture-pending'); console.log('✅ Clôture retry 1 ok'); }
           catch(e3) {
             // Retry 2 : 15s
             setTimeout(async () => {
-              try { await KGSync.push.clotures(); _lsRemove('kg-cloture-pending'); console.log('✅ Clôture retry 2 ok'); }
+              try { await KGSync.push.clotureUnique(cloture); await KGSync.push.clotures(); _lsRemove('kg-cloture-pending'); console.log('✅ Clôture retry 2 ok'); }
               catch(e4) {
                 // Retry 3 : 60s
-                setTimeout(async () => { try { await KGSync.push.clotures(); _lsRemove('kg-cloture-pending'); } catch(e5) {} }, 60000);
+                setTimeout(async () => { try { await KGSync.push.clotureUnique(cloture); await KGSync.push.clotures(); _lsRemove('kg-cloture-pending'); } catch(e5) {} }, 60000);
               }
             }, 15000);
           }
@@ -23069,11 +23081,46 @@ const KGSync = (() => {
   }
   async function pushClients()        { _debouncedUpsert('clients_data', () => ({ items: CLIENTS }), 8000); }
   async function pushCommandesFourn() { _debouncedUpsert('commandes_fourn_data', () => ({ items: COMMANDES_FOURNISSEURS, fournisseurs: FOURNISSEURS }), 3000); }
+  // ✅ FIX GARANTIE ANTI-PERTE : chaque clôture a MAINTENANT sa propre clé
+  // individuelle sur le serveur (cloture_<id>), en plus du bloc partagé.
+  // Écrire la clôture A dans sa propre case ne peut structurellement plus
+  // jamais effacer la clôture B — elles n'occupent plus le même espace.
+  // C'est la vraie garantie demandée : même en cas de bug ailleurs dans la
+  // fusion du bloc partagé, cette copie individuelle reste intacte et sert
+  // de filet de sécurité récupérable au prochain rechargement.
+  async function _pushClotureUnique(cloture) {
+    if(!cloture || !cloture.id) return;
+    try {
+      if(!client || !syncEnabled || !window._KG_RESTAURANT_ID) return;
+      await upsert('cloture_' + String(cloture.id).replace(/[^a-zA-Z0-9_-]/g,'_'), cloture);
+    } catch(e) { console.warn('[_pushClotureUnique] échec:', e); }
+  }
+  async function _pullClotureUniques() {
+    const recovered = [];
+    try {
+      if(!client || !syncEnabled || !window._KG_RESTAURANT_ID) return recovered;
+      const prefix = _rkey('cloture_');
+      const { data: rows } = await client.from(TABLE).select('value').like('key', prefix + '%');
+      (rows||[]).forEach(r => { try { const h = dec(r.value); if(h && h.id) recovered.push(h); } catch(e){} });
+    } catch(e) { console.warn('[_pullClotureUniques] échec:', e); }
+    return recovered;
+  }
+  // ✅ FIX PERTE CROISÉE (suite) : chaîner les appels sur CE même appareil pour
+  // qu'un deuxième pushClotures() (ex: 2 caisses clôturées presque en même temps)
+  // attende que le premier ait fini d'écrire avant de relire à son tour — sinon les
+  // deux lisaient l'ancien état en même temps et l'un écrasait l'autre au final.
+  let _pushCloturesChain = Promise.resolve();
   async function pushClotures() {
+    _pushCloturesChain = _pushCloturesChain
+      .then(() => _doPushCloturesNow())
+      .catch(e => console.warn('[pushClotures] échec dans la chaîne:', e));
+    return _pushCloturesChain;
+  }
+  async function _doPushCloturesNow() {
     _invalidateCache('clotures_data');
     // ✅ FIX : figer un instantané maintenant — si HISTORIQUE_CLOTURES est
-    // vidée en mémoire avant que le push différé (2s) ne parte (ex: logout),
-    // on ne doit jamais écraser Supabase avec une liste vide accidentelle.
+    // vidée en mémoire avant la fin du push (ex: logout), on ne doit jamais
+    // écraser Supabase avec une liste vide accidentelle.
     let _snapshot = Array.isArray(HISTORIQUE_CLOTURES) ? HISTORIQUE_CLOTURES.slice() : [];
     // ✅ FIX PERTE CROISÉE ENTRE APPAREILS : avant d'écraser Supabase, on relit
     // la version distante et on fusionne (union local+distant) au lieu de pousser
@@ -23100,8 +23147,11 @@ const KGSync = (() => {
         }
       }
     } catch(e) { console.warn('[pushClotures] fusion distante échouée, push local seul:', e); }
-    const _finalSnapshot = _snapshot;
-    _debouncedUpsert('clotures_data', () => ({ items: _finalSnapshot }), 2000);
+    // ✅ FIX : écriture IMMÉDIATE (plus de délai artificiel de 2s) — un délai
+    // n'apportait ici aucun bénéfice (les clôtures sont rares, pas besoin de les
+    // regrouper) et élargissait inutilement la fenêtre de risque entre appareils.
+    try { await upsert('clotures_data', { items: _snapshot }); }
+    catch(e) { console.warn('[pushClotures] échec upsert final:', e); }
   }
   // ✅ FIX iOS : cache mémoire en complément localStorage (Safari navigation privée bloque localStorage)
   const _memCache = {};
@@ -23775,6 +23825,29 @@ const KGSync = (() => {
               }
             });
             HISTORIQUE_CLOTURES = _dedupHistoriqueClotures(Array.from(mergedMap.values()));
+            // ✅ FIX GARANTIE ANTI-PERTE : récupérer aussi les clôtures sauvegardées
+            // individuellement (cloture_<id>) — filet de sécurité qui rattrape toute
+            // clôture qui aurait pu manquer dans le bloc partagé pour une raison ou
+            // une autre. Fusionnées de la même façon (union, jamais d'écrasement).
+            if(typeof _pullClotureUniques === 'function') {
+              _pullClotureUniques().then(uniques => {
+                if(!uniques || !uniques.length) return;
+                const _map2 = new Map();
+                HISTORIQUE_CLOTURES.forEach(h => _map2.set(_clotureKey(h), h));
+                let _recovered = 0;
+                uniques.forEach(h => {
+                  const k = _clotureKey(h);
+                  if(!_map2.has(k)) { _map2.set(k, _fixCA(h)); _recovered++; }
+                });
+                if(_recovered > 0) {
+                  HISTORIQUE_CLOTURES = _dedupHistoriqueClotures(Array.from(_map2.values()));
+                  console.log('[pullAll] ✅ ' + _recovered + ' clôture(s) récupérée(s) depuis les clés individuelles');
+                  try { _lsSet('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES)); } catch(e) {}
+                  if(typeof renderHistoriqueClotures === 'function') renderHistoriqueClotures();
+                  if(typeof renderDashboard === 'function') renderDashboard();
+                }
+              }).catch(e => console.warn('[pullAll] récupération clôtures individuelles échouée:', e));
+            }
             // ✅ FIX TRI : convertir date DD/MM/YY en timestamp pour tri correct
             const _ts = (h) => {
               const d = (h.date||'').split('/');
@@ -24548,6 +24621,7 @@ const KGSync = (() => {
       caisse:         () => pushCaisses(),
       modulesCaisses: pushModulesCaisses, // ✅ FIX v31 MULTI-NAV
       clotures:       pushClotures,
+      clotureUnique:  _pushClotureUnique, // ✅ FIX GARANTIE ANTI-PERTE : écriture individuelle par clôture
       cloture:        async (c) => {
         // Sauvegarder dans HISTORIQUE_CLOTURES puis push
         if(c && !HISTORIQUE_CLOTURES.find(h => h.date===c.date && h.heure===c.heure && h.caisse===c.caisse)) {
@@ -38848,7 +38922,7 @@ async function confirmerClotureManu() {
   HISTORIQUE_CLOTURES.unshift(cloture);
   try{_lsSet('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));}catch(e){}
   try{
-    if(typeof KGSync!=='undefined'&&KGSync.isConnected){await KGSync.push.clotures();showNotif(`✅ Clôture ${caisse} (${dateStr}) ajoutée et synchronisée !`);}
+    if(typeof KGSync!=='undefined'&&KGSync.isConnected){await KGSync.push.clotureUnique(cloture);await KGSync.push.clotures();showNotif(`✅ Clôture ${caisse} (${dateStr}) ajoutée et synchronisée !`);}
     else{showNotif('✅ Clôture ajoutée localement (sync au prochain démarrage)');}
   }catch(e){showNotif('✅ Clôture ajoutée — sync Supabase en attente');}
   document.getElementById('modal-cloture-manu').style.display='none';
