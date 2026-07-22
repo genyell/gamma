@@ -10091,6 +10091,20 @@ let currentPayMethod = 'cash';
 let currentMenuCat = 'all';
 
 function showView(id, el, pushState) {
+  // ✅ FIX SÉCURITÉ : contrôle d'accès réel — bloque l'affichage d'une vue
+  // si le rôle connecté n'a pas la permission, même par URL/console/redirection.
+  // (avant ce fix, seul le bouton du menu était caché, la vue restait accessible)
+  if(currentUser && typeof ALL_PERMS !== 'undefined' && ALL_PERMS.some(p => p.id === id)) {
+    const _perms = getUserPerms(currentUser) || [];
+    if(!_perms.includes(id)) {
+      const _fallback = _perms.includes('caisse') ? 'caisse' : (_perms[0] || null);
+      if(_fallback && _fallback !== id) {
+        if(typeof showNotif === 'function') showNotif('⛔ Accès refusé — vous n\'avez pas la permission d\'accéder à cette section');
+        showView(_fallback, null, pushState);
+      }
+      return;
+    }
+  }
   window._currentView = id; // ✅ FIX v39 : tracker la vue active pour _refreshAllViews
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -18757,6 +18771,23 @@ function applySession() {
   document.getElementById('topbar-name').textContent = `${u.prenom} ${u.nom}`;
   document.getElementById('topbar-role').textContent = getRoleLabel(u.role);
   applyPermissions();
+  // ✅ FIX : rediriger vers la 1ère vue autorisée si l'utilisateur n'a pas
+  // la permission "dashboard" — sinon la vue Tableau de bord (active par
+  // défaut dans le HTML statique) reste affichée malgré le blocage admin.
+  const _perms = getUserPerms(u) || [];
+  if(!_perms.includes('dashboard')) {
+    showView(getDefaultView(), null, false);
+  }
+}
+
+function getDefaultView() {
+  // ✅ FIX : retourne la 1ère vue autorisée pour le rôle connecté au lieu
+  // de toujours renvoyer 'dashboard' (ce qui contournait les permissions au login)
+  if(!currentUser) return 'dashboard';
+  const perms = getUserPerms(currentUser) || [];
+  if(perms.includes('dashboard')) return 'dashboard';
+  if(perms.includes('caisse')) return 'caisse';
+  return perms[0] || 'dashboard';
 }
 
 function applyPermissions() {
@@ -22604,7 +22635,7 @@ TICKETS_ARCHIVES = [];
 
     const hash = window.location.hash.replace('#','');
     const validViews = ['dashboard','caisse','commandes','qrcommandes','menu','stock','clients','fournisseurs','stats','settings','caisses','rapportx','shift','fermeture','reconciliation','historique','utilisateurs','rh','compta','caisse3commandes'];
-    const targetView = validViews.includes(hash) ? hash : 'dashboard';
+    const targetView = validViews.includes(hash) ? hash : getDefaultView();
     showView(targetView, null, false);
 
     if(sessionCaisseActive) {
@@ -27604,7 +27635,7 @@ setTimeout(() => {
           if(_splashFast) { _splashFast.style.opacity = '0'; setTimeout(() => { _splashFast.style.display = 'none'; }, 200); }
           restoreSession();
           applySession();
-          showView('dashboard', null, false);
+          showView(getDefaultView(), null, false);
         }
       } catch(e) {}
     }
@@ -27693,7 +27724,7 @@ setTimeout(() => {
     // ✅ FIX F5 : cacher le splash proprement
     const _splash = document.getElementById('kg-splash-screen');
     if(_splash) { _splash.style.opacity = '0'; setTimeout(() => { _splash.style.display = 'none'; }, 300); }
-    showView('dashboard', null, false);
+    showView(getDefaultView(), null, false);
     try {
       // ✅ FIX EGRESS : pas de reset throttle au F5 — 1 seul pullAll respecté
       await KGSync.pullAll();
