@@ -21556,6 +21556,15 @@ async function cloturerCaisse() {
 
 // ===== HISTORIQUE — données réelles uniquement =====
 let HISTORIQUE_CLOTURES = [];
+// ✅ FIX SUPPRESSION DÉFINITIVE : liste noire des clôtures supprimées manuellement.
+// Le système anti-perte fusionne toujours en gardant tout ce qu'il trouve — sans
+// cette liste, il ne peut pas distinguer "pas encore reçu" de "supprimé exprès",
+// et remettait donc en place les clôtures qu'on venait de supprimer.
+let CLOTURES_SUPPRIMEES = new Set();
+try {
+  const _cs = JSON.parse(_lsGet('kg-clotures-supprimees') || '[]');
+  if(Array.isArray(_cs)) CLOTURES_SUPPRIMEES = new Set(_cs);
+} catch(e) {}
 
 // ✅ FIX ANTI-DOUBLON : clé unique partagée par TOUS les points de fusion.
 // Priorité à l'id Supabase (fiable) sauf pour les saisies manuelles (id MANU-*,
@@ -23094,6 +23103,30 @@ const KGSync = (() => {
       await upsert('cloture_' + String(cloture.id).replace(/[^a-zA-Z0-9_-]/g,'_'), cloture);
     } catch(e) { console.warn('[_pushClotureUnique] échec:', e); }
   }
+  async function _pushTombstonesClotures() {
+    try {
+      if(!client || !syncEnabled || !window._KG_RESTAURANT_ID) return;
+      await upsert('clotures_tombstones', { ids: [...(typeof CLOTURES_SUPPRIMEES !== 'undefined' ? CLOTURES_SUPPRIMEES : [])] });
+    } catch(e) { console.warn('[_pushTombstonesClotures] échec:', e); }
+  }
+  async function _pullTombstonesClotures() {
+    try {
+      if(!client || !syncEnabled || !window._KG_RESTAURANT_ID) return;
+      const { data: rows } = await client.from(TABLE).select('value').eq('key', _rkey('clotures_tombstones')).limit(1);
+      const d = rows && rows[0] ? dec(rows[0].value) : null;
+      if(d && Array.isArray(d.ids) && typeof CLOTURES_SUPPRIMEES !== 'undefined') {
+        d.ids.forEach(id => CLOTURES_SUPPRIMEES.add(id));
+        try { _lsSet('kg-clotures-supprimees', JSON.stringify([...CLOTURES_SUPPRIMEES])); } catch(e) {}
+      }
+    } catch(e) { console.warn('[_pullTombstonesClotures] échec:', e); }
+  }
+  async function _deleteClotureUnique(id) {
+    if(!id) return;
+    try {
+      if(!client || !syncEnabled || !window._KG_RESTAURANT_ID) return;
+      await client.from(TABLE).delete().eq('key', _rkey('cloture_' + String(id).replace(/[^a-zA-Z0-9_-]/g,'_')));
+    } catch(e) { console.warn('[_deleteClotureUnique] échec:', e); }
+  }
   async function _pullClotureUniques() {
     const recovered = [];
     try {
@@ -23128,6 +23161,10 @@ const KGSync = (() => {
     // efface DÉFINITIVEMENT cette clôture — perte visible même après resync/F5.
     try {
       if(client && syncEnabled && window._KG_RESTAURANT_ID) {
+        // ✅ FIX SUPPRESSION DÉFINITIVE : rafraîchir la liste noire distante avant
+        // de fusionner, pour ne jamais réintégrer une clôture supprimée par un
+        // autre appareil entre-temps.
+        await _pullTombstonesClotures();
         const { data: rows } = await client.from(TABLE).select('value').eq('key', _rkey('clotures_data')).limit(1);
         const remoteData = rows && rows[0] ? dec(rows[0].value) : null;
         const remoteItems = (remoteData && Array.isArray(remoteData.items)) ? remoteData.items : [];
@@ -23141,6 +23178,8 @@ const KGSync = (() => {
               mergedMap.set(k, h);
             }
           });
+          // ✅ Retirer tout ce qui a été explicitement supprimé
+          CLOTURES_SUPPRIMEES.forEach(k => mergedMap.delete(k));
           _snapshot = _dedupHistoriqueClotures(Array.from(mergedMap.values()));
           HISTORIQUE_CLOTURES = _snapshot; // appliquer aussi la fusion en local
         }
@@ -23823,19 +23862,24 @@ const KGSync = (() => {
                 mergedMap.set(k, winRemote ? remoteFixed : existing);
               }
             });
+            // ✅ FIX SUPPRESSION DÉFINITIVE : retirer tout ce qui a été supprimé exprès
+            CLOTURES_SUPPRIMEES.forEach(k => mergedMap.delete(k));
             HISTORIQUE_CLOTURES = _dedupHistoriqueClotures(Array.from(mergedMap.values()));
             // ✅ FIX GARANTIE ANTI-PERTE : récupérer aussi les clôtures sauvegardées
             // individuellement (cloture_<id>) — filet de sécurité qui rattrape toute
             // clôture qui aurait pu manquer dans le bloc partagé pour une raison ou
             // une autre. Fusionnées de la même façon (union, jamais d'écrasement).
             if(typeof _pullClotureUniques === 'function') {
-              _pullClotureUniques().then(uniques => {
+              _pullTombstonesClotures().then(() => _pullClotureUniques()).then(uniques => {
                 if(!uniques || !uniques.length) return;
                 const _map2 = new Map();
                 HISTORIQUE_CLOTURES.forEach(h => _map2.set(_clotureKey(h), h));
                 let _recovered = 0;
                 uniques.forEach(h => {
                   const k = _clotureKey(h);
+                  // ✅ FIX SUPPRESSION DÉFINITIVE : ne jamais "récupérer" une clôture
+                  // qui a été supprimée exprès, même si sa case individuelle existe encore.
+                  if(CLOTURES_SUPPRIMEES.has(k)) return;
                   if(!_map2.has(k)) { _map2.set(k, _fixCA(h)); _recovered++; }
                 });
                 if(_recovered > 0) {
@@ -24621,6 +24665,8 @@ const KGSync = (() => {
       modulesCaisses: pushModulesCaisses, // ✅ FIX v31 MULTI-NAV
       clotures:       pushClotures,
       clotureUnique:  _pushClotureUnique, // ✅ FIX GARANTIE ANTI-PERTE : écriture individuelle par clôture
+      deleteClotureUnique: _deleteClotureUnique, // ✅ FIX : supprimer aussi la case individuelle
+      tombstonesClotures: _pushTombstonesClotures, // ✅ FIX SUPPRESSION DÉFINITIVE
       cloture:        async (c) => {
         // Sauvegarder dans HISTORIQUE_CLOTURES puis push
         if(c && !HISTORIQUE_CLOTURES.find(h => h.date===c.date && h.heure===c.heure && h.caisse===c.caisse)) {
@@ -31886,7 +31932,19 @@ async function supprimerCloture(key) {
   const heure = parts[1];
   const idx = HISTORIQUE_CLOTURES.findIndex(h => h.date === date && h.heure === heure && h.caisse === caisse);
   if(idx === -1) { showNotif('❌ Clôture introuvable'); return; }
+  const _deletedCloture = HISTORIQUE_CLOTURES[idx]; // ✅ garder une référence avant suppression
   HISTORIQUE_CLOTURES.splice(idx, 1);
+
+  // ✅ FIX SUPPRESSION DÉFINITIVE : marquer cette clôture comme supprimée pour
+  // toujours, pour que le système anti-perte ne la remette jamais en place.
+  try {
+    const _k = (typeof _clotureKey === 'function') ? _clotureKey(_deletedCloture) : ('id:' + _deletedCloture.id);
+    CLOTURES_SUPPRIMEES.add(_k);
+    _lsSet('kg-clotures-supprimees', JSON.stringify([...CLOTURES_SUPPRIMEES]));
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.push?.tombstonesClotures === 'function') {
+      await KGSync.push.tombstonesClotures();
+    }
+  } catch(e) { console.warn('[supprimerCloture] tombstone:', e); }
 
   // ✅ Sauvegarder localStorage avec le bon format de clé
   try {
@@ -31901,6 +31959,11 @@ async function supprimerCloture(key) {
   // ✅ Sauvegarder dans Supabase via KGSync.push.clotures() — la vraie fonction
   try {
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      // ✅ FIX : supprimer aussi sa case individuelle, sinon la récupération
+      // automatique (filet anti-perte) la remet toute seule au prochain chargement.
+      if(_deletedCloture && _deletedCloture.id && typeof KGSync.push.deleteClotureUnique === 'function') {
+        await KGSync.push.deleteClotureUnique(_deletedCloture.id);
+      }
       await KGSync.push.clotures();
       console.log('[cloture] ✅ Supprimée et synchronisée Supabase');
     }
