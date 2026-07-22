@@ -157,7 +157,7 @@
       // ✅ FIX BUG THÈME : lire aussi la clé préfixée par restaurant_id
       // setTheme() sauvegarde avec préfixe rid_XXX:kg-theme (car rid est connu après login)
       // mais au chargement initial, rid n'est pas encore chargé → chercher dans toutes les clés
-      var _t = localStorage.getItem('kg-theme') || 'dark';
+      var _t = localStorage.getItem('kg-theme') || 'light';
       // Chercher une clé préfixée rid_ plus récente
       try {
         for(var i = 0; i < localStorage.length; i++) {
@@ -18653,7 +18653,7 @@ async function doLogin() {
     if(typeof checkOnlineStatus === 'function') checkOnlineStatus();
     // ✅ REALTIME : activer la synchronisation multi-appareils après connexion
     KGSync.startRealtime();
-    // ✅ Démarrer la déconnexion automatique après 30 min d'inactivité
+    // ✅ Démarrer la déconnexion automatique après 1h d'inactivité
     if(typeof window._kgStartAutoLogout === 'function') {
       window._kgStopAutoLogout();
       window._kgStartAutoLogout();
@@ -18784,7 +18784,7 @@ function openUserMenuOrUtilisateurs() {
 //  DÉCONNEXION AUTOMATIQUE APRÈS 15 MIN D'INACTIVITÉ
 // ═══════════════════════════════════════════════════════════════
 (function() {
-  const INACTIVITY_MS  = 30 * 60 * 1000; // 30 minutes
+  const INACTIVITY_MS  = 60 * 60 * 1000; // 1h
   const WARNING_BEFORE = 60 * 1000;       // Avertissement 60s avant
   let _mainTimer    = null;
   let _countdownInt = null;
@@ -18868,7 +18868,7 @@ function openUserMenuOrUtilisateurs() {
 
   async function _doAutoLogout() {
     _hideWarning();
-    if(typeof showNotif === 'function') showNotif('🔒 Déconnexion automatique — 30 min d\'inactivité');
+    if(typeof showNotif === 'function') showNotif('🔒 Déconnexion automatique — 1h d\'inactivité');
     if(typeof doLogout === 'function') await doLogout();
   }
 
@@ -18931,11 +18931,11 @@ function openUserMenuOrUtilisateurs() {
       const elapsed = Date.now() - _lastActiveTs;
       console.log('[AutoLogout] Tab redevenu visible — inactivité:', Math.round(elapsed/1000)+'s');
       // ✅ FIX DÉCONNEXION INTEMPESTIVE : sur mobile, verrouiller l'écran met l'onglet
-      // en arrière-plan → visibilitychange se déclenche. On tolère jusqu'à 30min
-      // avant de déconnecter (au lieu de 15min) pour éviter la déco à chaque pause courte
-      const EXTENDED_MS = 30 * 60 * 1000; // 30 minutes
+      // en arrière-plan → visibilitychange se déclenche. On tolère jusqu'à 1h
+      // avant de déconnecter, aligné sur le délai d'inactivité principal.
+      const EXTENDED_MS = 60 * 60 * 1000; // 1h
       if(elapsed >= EXTENDED_MS && currentUser) {
-        console.warn('[AutoLogout] ⏰ Délai dépassé (15min) pendant inactivité — déconnexion');
+        console.warn('[AutoLogout] ⏰ Délai dépassé (1h) pendant inactivité — déconnexion');
         _doAutoLogout();
       } else if(elapsed >= (EXTENDED_MS - WARNING_BEFORE) && currentUser) {
         _showWarning();
@@ -22160,9 +22160,9 @@ function setTheme(theme) {
 }
 
 function initTheme() {
-  let saved = 'dark';
+  let saved = 'light';
   try {
-    saved = localStorage.getItem('kg-theme') || 'dark';
+    saved = localStorage.getItem('kg-theme') || 'light';
     for(let i = 0; i < localStorage.length; i++) {
       const _k = localStorage.key(i);
       if(_k && _k.startsWith('rid_') && _k.endsWith(':kg-theme')) {
@@ -22170,8 +22170,7 @@ function initTheme() {
         if(['light','dark','blue','auto'].includes(_tv)) { saved = _tv; break; }
       }
     }
-  } catch(e) { saved = 'dark'; }
-  if(window.location.protocol === 'content:') saved = 'dark';
+  } catch(e) { saved = 'light'; }
   setTheme(saved);
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     try { if(localStorage.getItem('kg-theme') === 'auto') setTheme('auto'); } catch(e){}
