@@ -6394,12 +6394,12 @@ function _syncSportVentes()       { return []; }
         <button class="cat-btn" id="hist-btn-c2"  onclick="filterHistorique('Caisse 2', this)">Caisse 2</button>
         <button class="cat-btn" id="hist-btn-c3"  onclick="filterHistorique('Caisse 3', this)">Caisse 3</button>
         <button class="cat-btn" id="hist-btn-c4"  onclick="filterHistorique('Caisse 4', this)">Caisse 4</button>
-          <button class="cat-btn" id="hist-btn-c5" onclick="filterHistorique('Caisse C5', this)">Caisse 5</button>
-          <button class="cat-btn" id="hist-btn-c6" onclick="filterHistorique('Caisse C6', this)">Caisse 6</button>
-          <button class="cat-btn" id="hist-btn-c7" onclick="filterHistorique('Caisse C7', this)">Caisse 7</button>
-          <button class="cat-btn" id="hist-btn-c8" onclick="filterHistorique('Caisse C8', this)">Caisse 8</button>
-          <button class="cat-btn" id="hist-btn-c9" onclick="filterHistorique('Caisse C9', this)">Caisse 9</button>
-          <button class="cat-btn" id="hist-btn-c10" onclick="filterHistorique('Caisse C10', this)">Caisse 10</button>
+          <button class="cat-btn" id="hist-btn-c5" onclick="filterHistorique('Caisse 5', this)">Caisse 5</button>
+          <button class="cat-btn" id="hist-btn-c6" onclick="filterHistorique('Caisse 6', this)">Caisse 6</button>
+          <button class="cat-btn" id="hist-btn-c7" onclick="filterHistorique('Caisse 7', this)">Caisse 7</button>
+          <button class="cat-btn" id="hist-btn-c8" onclick="filterHistorique('Caisse 8', this)">Caisse 8</button>
+          <button class="cat-btn" id="hist-btn-c9" onclick="filterHistorique('Caisse 9', this)">Caisse 9</button>
+          <button class="cat-btn" id="hist-btn-c10" onclick="filterHistorique('Caisse 10', this)">Caisse 10</button>
 
       </div>
       <!-- Filtres de période -->
@@ -6644,12 +6644,12 @@ function _syncSportVentes()       { return []; }
           <option value="Caisse 2">🖥️ Caisse 2</option>
           <option value="Caisse 3">🖥️ Caisse 3</option>
           <option value="Caisse 4">🖥️ Caisse 4</option>
-          <option value="Caisse C5">🖥️ Caisse 5</option>
-          <option value="Caisse C6">🖥️ Caisse 6</option>
-          <option value="Caisse C7">🖥️ Caisse 7</option>
-          <option value="Caisse C8">🖥️ Caisse 8</option>
-          <option value="Caisse C9">🖥️ Caisse 9</option>
-          <option value="Caisse C10">🖥️ Caisse 10</option>
+          <option value="Caisse 5">🖥️ Caisse 5</option>
+          <option value="Caisse 6">🖥️ Caisse 6</option>
+          <option value="Caisse 7">🖥️ Caisse 7</option>
+          <option value="Caisse 8">🖥️ Caisse 8</option>
+          <option value="Caisse 9">🖥️ Caisse 9</option>
+          <option value="Caisse 10">🖥️ Caisse 10</option>
 
         </select>
         <select id="dep-filtre-statut" class="form-input" style="width:160px;padding:6px 10px;font-size:13px;" onchange="renderDepenses()">
@@ -8748,12 +8748,12 @@ Revenez nous voir bient&#244;t.</textarea>
           <option value="Caisse 2">🖥️ Caisse 2</option>
           <option value="Caisse 3">🖥️ Caisse 3</option>
           <option value="Caisse 4">🖥️ Caisse 4</option>
-          <option value="Caisse C5">🖥️ Caisse 5</option>
-          <option value="Caisse C6">🖥️ Caisse 6</option>
-          <option value="Caisse C7">🖥️ Caisse 7</option>
-          <option value="Caisse C8">🖥️ Caisse 8</option>
-          <option value="Caisse C9">🖥️ Caisse 9</option>
-          <option value="Caisse C10">🖥️ Caisse 10</option>
+          <option value="Caisse 5">🖥️ Caisse 5</option>
+          <option value="Caisse 6">🖥️ Caisse 6</option>
+          <option value="Caisse 7">🖥️ Caisse 7</option>
+          <option value="Caisse 8">🖥️ Caisse 8</option>
+          <option value="Caisse 9">🖥️ Caisse 9</option>
+          <option value="Caisse 10">🖥️ Caisse 10</option>
         </select>
       </div>
     </div>
@@ -8786,7 +8786,6 @@ Revenez nous voir bient&#244;t.</textarea>
     <!-- Lignes de dépense -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
       <label class="form-label" style="margin:0;">Lignes de dépense *</label>
-      <button onclick="depAddLigne()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;">+ Ajouter ligne</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 70px 110px 38px;gap:6px;padding:0 0 4px 0;">
       <span style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Libellé</span>
@@ -8797,6 +8796,9 @@ Revenez nous voir bient&#244;t.</textarea>
     <div id="dep-lignes-container">
       <!-- Lignes générées par depAddLigne() -->
     </div>
+    <!-- ✅ FIX : bouton déplacé sous la liste — plus pratique pour ajouter plusieurs lignes
+         d'affilée sans avoir à remonter en haut du formulaire à chaque fois. -->
+    <button onclick="depAddLigne()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-top:6px;">+ Ajouter ligne</button>
 
     <!-- Total -->
     <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:10px;padding:10px 14px;background:var(--surface2);border-radius:10px;">
@@ -9181,34 +9183,34 @@ Revenez nous voir bient&#244;t.</textarea>
           <div class="oc-caisse-loc">Terrasse / Bar</div>
           <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
         </div>
-        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse C5','Caisse 5')">
+        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse 5','Piscine')">
           <div class="oc-caisse-name">🖥️ Caisse 5</div>
-          <div class="oc-caisse-loc">Caisse 5</div>
+          <div class="oc-caisse-loc">Piscine</div>
           <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
         </div>
-        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse C6','Caisse 6')">
+        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse 6','Location')">
           <div class="oc-caisse-name">🖥️ Caisse 6</div>
-          <div class="oc-caisse-loc">Caisse 6</div>
+          <div class="oc-caisse-loc">Location</div>
           <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
         </div>
-        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse C7','Caisse 7')">
+        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse 7','Manège')">
           <div class="oc-caisse-name">🖥️ Caisse 7</div>
-          <div class="oc-caisse-loc">Caisse 7</div>
+          <div class="oc-caisse-loc">Manège</div>
           <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
         </div>
-        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse C8','Caisse 8')">
+        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse 8','Salle de sport')">
           <div class="oc-caisse-name">🖥️ Caisse 8</div>
-          <div class="oc-caisse-loc">Caisse 8</div>
+          <div class="oc-caisse-loc">Salle de sport</div>
           <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
         </div>
-        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse C9','Caisse 9')">
+        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse 9','Caisse additionnelle')">
           <div class="oc-caisse-name">🖥️ Caisse 9</div>
-          <div class="oc-caisse-loc">Caisse 9</div>
+          <div class="oc-caisse-loc">Caisse additionnelle</div>
           <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
         </div>
-        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse C10','Caisse 10')">
+        <div class="oc-caisse-btn" onclick="selectOC(this,'Caisse 10','Caisse additionnelle')">
           <div class="oc-caisse-name">🖥️ Caisse 10</div>
-          <div class="oc-caisse-loc">Caisse 10</div>
+          <div class="oc-caisse-loc">Caisse additionnelle</div>
           <div style="font-size:10px;color:var(--green);margin-top:4px;">● Disponible</div>
         </div>
       </div>
@@ -10545,7 +10547,7 @@ function populateFactSelects() {
   // Clients
   const cs = document.getElementById('fact-client-select');
   cs.innerHTML = '<option value="">— Sélectionner un client —</option><option value="__new__">+ Saisie libre</option>';
-  (CLIENTS||[]).forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.nom + (c.tel?' — '+c.tel:''); cs.appendChild(o); });
+  (CLIENTS||[]).forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = `${c.prenom||''} ${c.nom||''}`.trim() + (c.tel?' — '+c.tel:''); cs.appendChild(o); });
   // Fournisseurs
   const fs = document.getElementById('fact-fourn-select');
   fs.innerHTML = '<option value="">— Sélectionner un fournisseur —</option><option value="__new__">+ Saisie libre</option>';
@@ -10636,7 +10638,8 @@ async function saveFacture(andPrint) {
     const sel = document.getElementById('fact-client-select').value;
     if(sel && sel !== '__new__') {
       const c = CLIENTS.find(x => String(x.id)===sel);
-      tiers = c ? c.nom : '';
+      // ✅ FIX : la facture n'affichait que le nom, sans le prénom du client
+      tiers = c ? `${c.prenom||''} ${c.nom||''}`.trim() : '';
       tiersEmail = c?.email||''; tiersTel = c?.tel||''; tiersAdresse = c?.adresse||'';
     } else {
       tiers = document.getElementById('fact-client-nom').value || 'Client';
@@ -11900,6 +11903,18 @@ function openModalOuverture() {
   document.getElementById('oc-btn-prev').style.display = 'none';
   document.getElementById('oc-btn-next').style.display = 'inline-block';
   document.getElementById('oc-btn-confirm').style.display = 'none';
+
+  // ✅ FIX : ces boutons sont du HTML statique — ils n'étaient jamais mis à jour après
+  // une modification faite dans "Gestion des Caisses" (nom, emplacement). On resynchronise
+  // ici leur affichage avec les données réelles de CAISSES avant toute autre logique.
+  document.querySelectorAll('.oc-caisse-btn').forEach(function(b, idx) {
+    var c = CAISSES[idx];
+    if(!c) return;
+    var nameEl = b.querySelector('.oc-caisse-name');
+    var locEl  = b.querySelector('.oc-caisse-loc');
+    if(nameEl) nameEl.textContent = '🖥️ ' + c.name;
+    if(locEl)  locEl.textContent  = c.loc;
+  });
 
   var isCaissier = currentUser && currentUser.role === 'caissier' && currentUser.caisse !== 'Toutes';
   if(isCaissier) {
@@ -15162,6 +15177,10 @@ function deleteCommandeFourn(cIdx) {
     KGSync.getClient()?.from('commandes_fournisseurs').delete().eq('id', c.sbId).catch(()=>{});
   }
   COMMANDES_FOURNISSEURS.splice(cIdx, 1);
+  // ✅ FIX : sans ce push, le cache kg_sync 'commandes_fourn_data' gardait l'ancienne
+  // liste complète (avec la commande supprimée), et la restaurait au prochain
+  // pullAll/reconnexion — même bug que la suppression d'un article de menu.
+  if(KGSync.isConnected) KGSync.push.commandesFourn().catch(()=>{});
   renderFournisseurs();
   showNotif('🗑️ Commande supprimée');
 }
@@ -16399,6 +16418,15 @@ async function deleteMenuItem(menuIdx) {
       console.error('deleteMenuItem:', e);
     }
   }
+
+  // ✅ FIX : pousser le MENU mis à jour vers kg_sync (clé menu_data).
+  // Sans ça, le cache "menu_data" gardait l'ancienne liste (avec l'article
+  // supprimé) et le prochain pullAll (retour au premier plan, autre appareil,
+  // reconnexion...) le remettait en place → l'article "revenait" juste après
+  // suppression.
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    KGSync.push.menu().catch(e => console.error('push.menu (deleteMenuItem):', e));
+  }
 }
 
 // ===== DONNÉES CLIENTS =====
@@ -17193,12 +17221,30 @@ function renderRapportX() {
     ? VENTES_PAR_CAISSE
     : { [_rxUserCaisse]: VENTES_PAR_CAISSE[_rxUserCaisse] || [] };
 
+  // ✅ FIX : certaines caisses ont été renommées (ex: "Caisse 5" → "Caisse C5") mais des
+  // ventes existent parfois encore sous l'ancienne clé (ancien nom conservé dans c.loc).
+  // Sans fusion, la même caisse apparaissait deux fois dans le Rapport X (une carte par clé).
+  const _canonVentesParCaisse = {};
+  Object.keys(_rxVentesParCaisse).forEach(k => {
+    const cObj = CAISSES.find(x => x.name === k || x.loc === k);
+    const canonKey = cObj ? cObj.name : k; // toujours regrouper sous le nom d'affichage actuel
+    if(!_canonVentesParCaisse[canonKey]) _canonVentesParCaisse[canonKey] = [];
+    (_rxVentesParCaisse[k] || []).forEach(v => {
+      const already = _canonVentesParCaisse[canonKey].some(ex =>
+        (v.id && ex.id === v.id) ||
+        (v.qrOrderId && ex.qrOrderId === v.qrOrderId) ||
+        (!v.id && !v.qrOrderId && ex.orderNum === v.orderNum && ex.total === v.total && ex.time === v.time)
+      );
+      if(!already) _canonVentesParCaisse[canonKey].push(v);
+    });
+  });
+
   // Données uniquement depuis les vraies ventes de session (filtrées par caisse pour un caissier)
-  const allVentes = Object.values(_rxVentesParCaisse).flat();
+  const allVentes = Object.values(_canonVentesParCaisse).flat();
   const totalCA = allVentes.reduce((a,v) => a + v.total, 0);
 
   // --- Bloc par caisse ---
-  const caisseNames = Object.keys(_rxVentesParCaisse).filter(k => (_rxVentesParCaisse[k]||[]).length > 0);
+  const caisseNames = Object.keys(_canonVentesParCaisse).filter(k => (_canonVentesParCaisse[k]||[]).length > 0);
   const colors = ['var(--teal)','var(--accent)','var(--purple)','var(--green)','var(--accent2)'];
   const rapEl = document.getElementById('rapportx-caisses');
   if(rapEl) {
@@ -17226,7 +17272,7 @@ function renderRapportX() {
       </div>`;
     } else {
       rapEl.innerHTML = caisseNames.map((name, idx) => {
-        const ventes = _rxVentesParCaisse[name] || [];
+        const ventes = _canonVentesParCaisse[name] || [];
         const ca = ventes.reduce((a,v)=>a+v.total,0);
         // ✅ FIX : inclure les paiements mixtes (payMethods.cash / .wave / .orange)
         const _pm2e = v => v.payMethods||{};
@@ -18051,55 +18097,52 @@ function fillLogin(login, pwd) {
 // ================================================================
 
 // Stockage des ventes par caisse : { caisseId: [{ orderNum, items, total, payMethod, time, cashier }] }
-let VENTES_PAR_CAISSE = { 'Caisse 1': [], 'Caisse 2': [], 'Caisse 3': [], 'Caisse 4': [], 'Caisse 5': [], 'Caisse 6': [], 'Caisse 7': [], 'Caisse 8': [], 'Caisse 9': [], 'Caisse 10': [], 'Caisse C5': [], 'Caisse C6': [], 'Caisse C7': [], 'Caisse C8': [], 'Caisse C9': [], 'Caisse C10': [] };
-// ✅ MIGRATION : récupérer les ventes Caisse 5-10 POS existantes
+let VENTES_PAR_CAISSE = { 'Caisse 1': [], 'Caisse 2': [], 'Caisse 3': [], 'Caisse 4': [], 'Caisse 5': [], 'Caisse 6': [], 'Caisse 7': [], 'Caisse 8': [], 'Caisse 9': [], 'Caisse 10': [] };
+// ✅ FIX RACINE : Caisse 5-10 utilisaient un nom d'affichage ("Caisse C5") différent de la
+// clé réelle des ventes ("Caisse 5"), contrairement à Caisse 1-4 où le nom EST la clé.
+// Ça causait la réapparition des ventes après clôture, les doublons dans le Rapport X, etc.
+// CAISSES utilise maintenant "Caisse 5".."Caisse 10" comme unique identifiant (comme Caisse 1).
+// Cette fonction fait UNE SEULE FOIS le chemin inverse : rapatrier toute donnée encore
+// éclatée sous l'ancien nom "Caisse C5" vers la clé canonique "Caisse 5", puis ne se relance plus.
 function _migrateCaisseNames() {
+  if(_lsGet('kg-migration-caisseC-terminee') === '1') return; // déjà fait, ne rien refaire
   const mapping = {
-    'Caisse 5':'Caisse C5','Caisse 6':'Caisse C6','Caisse 7':'Caisse C7',
-    'Caisse 8':'Caisse C8','Caisse 9':'Caisse C9','Caisse 10':'Caisse C10'
+    'Caisse C5':'Caisse 5','Caisse C6':'Caisse 6','Caisse C7':'Caisse 7',
+    'Caisse C8':'Caisse 8','Caisse C9':'Caisse 9','Caisse C10':'Caisse 10'
   };
   Object.entries(mapping).forEach(function([oldName, newName]) {
     const v = VENTES_PAR_CAISSE[oldName] || [];
-    // Séparer ventes modules (piscine/manège/location/sport) des ventes POS normales
-    const posVentes = v.filter(function(x) {
-      if(!x.items && !x.lignes) return true; // vente POS normale
-      const items = x.items || x.lignes || [];
-      const isModule = items.some(function(i) {
-        const n = (i.name||i.label||'').toLowerCase();
-        return n.includes('piscine')||n.includes('manège')||n.includes('location')||n.includes('sport')||n.includes('manege');
+    if(v.length > 0) {
+      if(!VENTES_PAR_CAISSE[newName]) VENTES_PAR_CAISSE[newName] = [];
+      v.forEach(function(x) {
+        const already = VENTES_PAR_CAISSE[newName].some(function(ex) {
+          return (x.id && ex.id === x.id) || (x.sbId && ex.sbId === x.sbId) ||
+                 (x.qrOrderId && ex.qrOrderId === x.qrOrderId) ||
+                 (!x.id && !x.sbId && !x.qrOrderId && ex.orderNum === x.orderNum && ex.total === x.total && ex.time === x.time);
+        });
+        if(!already) VENTES_PAR_CAISSE[newName].push(x);
       });
-      return !isModule;
-    });
-    if(posVentes.length > 0) {
-      VENTES_PAR_CAISSE[newName] = (VENTES_PAR_CAISSE[newName]||[]).concat(posVentes);
-      // Garder seulement les ventes modules dans l'ancien nom
-      VENTES_PAR_CAISSE[oldName] = v.filter(function(x) { return posVentes.indexOf(x) === -1; });
-      console.log('[migration] ' + posVentes.length + ' ventes récupérées : ' + oldName + ' → ' + newName);
+      delete VENTES_PAR_CAISSE[oldName];
+      console.log('[migration inverse] ' + v.length + ' ventes rapatriées : ' + oldName + ' → ' + newName);
     }
   });
-  // Migration Supabase : renommer dans ventes_caisse
+  // Migration Supabase : renommer définitivement dans ventes_caisse
   try {
     var _sb = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
     var _rid = window._KG_RESTAURANT_ID;
     if(_sb && _rid) {
       Object.entries(mapping).forEach(function([oldName, newName]) {
-        _sb.from('ventes_caisse').select('id,caisse,lignes').eq('caisse', oldName).eq('restaurant_id', _rid)
+        _sb.from('ventes_caisse').select('id').eq('caisse', oldName).eq('restaurant_id', _rid)
           .then(function(res) {
-            if(!res.data) return;
+            if(!res.data || !res.data.length) return;
             res.data.forEach(function(row) {
-              var lignes = row.lignes || [];
-              var isModule = lignes.some(function(i) {
-                var n = (i.name||i.label||'').toLowerCase();
-                return n.includes('piscine')||n.includes('manège')||n.includes('location')||n.includes('sport');
-              });
-              if(!isModule) {
-                _sb.from('ventes_caisse').update({caisse: newName}).eq('id', row.id).catch(function(){});
-              }
+              _sb.from('ventes_caisse').update({caisse: newName}).eq('id', row.id).catch(function(){});
             });
           }).catch(function(){});
       });
     }
-  } catch(e) { console.warn('[migration]', e); }
+  } catch(e) { console.warn('[migration inverse]', e); }
+  try { _lsSet('kg-migration-caisseC-terminee', '1'); } catch(e) {}
 }
 
 let sessionCaisseActive = null; // la caisse ouverte pour cette session
@@ -19961,12 +20004,12 @@ const CAISSES = [
   { id:4, name:'Caisse 4', loc:'Terrasse / Bar', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#e84520' },
   // ✅ FIX : Caisse 5-10 utilisent des IDs 11-16 pour ne pas entrer en conflit avec les modules
   // Piscine (id:5), Location (id:6), Manège (id:7), Sport (id:8) déjà existants
-  { id:11, name:'Caisse C5', loc:'Caisse 5', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#06b6d4' },
-  { id:12, name:'Caisse C6', loc:'Caisse 6', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#8b5cf6' },
-  { id:13, name:'Caisse C7', loc:'Caisse 7', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#ec4899' },
-  { id:14, name:'Caisse C8', loc:'Caisse 8', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#10b981' },
-  { id:15, name:'Caisse C9', loc:'Caisse 9', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#f97316' },
-  { id:16, name:'Caisse C10', loc:'Caisse 10', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#6366f1' },
+  { id:11, name:'Caisse 5', loc:'Piscine', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#06b6d4' },
+  { id:12, name:'Caisse 6', loc:'Location', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#8b5cf6' },
+  { id:13, name:'Caisse 7', loc:'Manège', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#ec4899' },
+  { id:14, name:'Caisse 8', loc:'Salle de sport', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#10b981' },
+  { id:15, name:'Caisse 9', loc:'Caisse additionnelle', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#f97316' },
+  { id:16, name:'Caisse 10', loc:'Caisse additionnelle', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#6366f1' },
 
 ];
 const statusLabel = { open:'🟢 Ouverte', paused:'🟡 En pause', closed:'⚫ Fermée' };
@@ -20489,7 +20532,9 @@ async function saveEditCaisse() {
       const config = CAISSES.map(c => ({ id: c.id, name: c.name, loc: c.loc, color: c.color }));
       await sb.from('kg_sync').upsert({
         key: rid + ':caisses_config',
-        value: config,
+        value: JSON.stringify(config), // ✅ FIX : encoder en JSON comme tous les autres push kg_sync,
+        // sinon le pullAll générique (qui fait JSON.parse(row.value) pour chaque ligne) échouait
+        // silencieusement à décoder cette clé et ignorait la mise à jour pour les autres appareils.
         restaurant_id: rid,
         updated_at: new Date().toISOString()
       }, { onConflict: 'key' });
@@ -20580,7 +20625,12 @@ function calcTotal() {
 
   // Écart par rapport aux espèces réelles de session
   const caisseKey = _currentFCaisse || sessionCaisseActive?.caisse || (currentUser?.caisse !== 'Toutes' ? currentUser?.caisse : 'Caisse 1');
-  const ventes = VENTES_PAR_CAISSE[caisseKey] || [];
+  // ✅ FIX : même repli que _refreshRecapFermeture — une caisse renommée (ex: "Caisse C5")
+  // n'a pas de ventes sous son propre nom, elles sont sous l'ancien nom (loc, ex: "Caisse 5").
+  const _caisseObjCT = CAISSES.find(x => x.name === caisseKey);
+  const _ventesKeyCT = (VENTES_PAR_CAISSE[caisseKey] && VENTES_PAR_CAISSE[caisseKey].length) ? caisseKey
+                     : (_caisseObjCT && VENTES_PAR_CAISSE[_caisseObjCT.loc] ? _caisseObjCT.loc : caisseKey);
+  const ventes = VENTES_PAR_CAISSE[_ventesKeyCT] || [];
   const especesReelles = ventes.filter(v => (v.payMethod === 'cash' || v.payMethod === 'especes')).reduce((a, v) => a + v.total, 0);
   const ecart = totalComptage - especesReelles;
   const ecartEl = document.getElementById('recap-ecart');
@@ -20596,7 +20646,13 @@ function calcTotal() {
 function _refreshRecapFermeture(c) {
   _currentFCaisse = c.name;
   document.getElementById('recap-caisse-name').textContent = `${c.name} — ${c.loc} · Ouverture ${c.since}`;
-  let ventes = VENTES_PAR_CAISSE[c.name] || [];
+  // ✅ FIX : Caisse 5-10 ont été renommées ("Caisse C5"...) mais les ventes
+  // restent stockées sous l'ancien nom ("Caisse 5", conservé dans c.loc).
+  // Sans repli sur c.loc, la fermeture cherchait VENTES_PAR_CAISSE['Caisse C5']
+  // (toujours vide) et affichait 0 F alors que le Rapport X montrait bien les ventes.
+  const _ventesKey = (VENTES_PAR_CAISSE[c.name] && VENTES_PAR_CAISSE[c.name].length) ? c.name
+                    : (VENTES_PAR_CAISSE[c.loc] ? c.loc : c.name);
+  let ventes = VENTES_PAR_CAISSE[_ventesKey] || [];
 
   // ✅ FIX v32 : si ventes vides pour Piscine/Manège, charger depuis ENTREES
   if(ventes.length === 0) {
@@ -20882,7 +20938,9 @@ function initFermetureSelect() {
   // Si _currentFCaisse pointe sur une caisse déjà clôturée ET sans ventes, la réinitialiser
   if(_currentFCaisse) {
     const _cObj = CAISSES.find(x => x.name === _currentFCaisse);
-    const _hasV = (VENTES_PAR_CAISSE[_currentFCaisse]||[]).length > 0;
+    // ✅ FIX : repli sur loc pour les caisses renommées (Caisse C5.. → ventes sous "Caisse 5"..)
+    const _hasV = ((VENTES_PAR_CAISSE[_currentFCaisse]||[]).length > 0)
+               || (_cObj && (VENTES_PAR_CAISSE[_cObj.loc]||[]).length > 0);
     // ✅ FIX: Ne pas effacer _currentFCaisse si elle a des ventes, peu importe son statut
     if(!_cObj || (!_hasV && _cObj.status === 'closed')) _currentFCaisse = null;
   }
@@ -20890,7 +20948,7 @@ function initFermetureSelect() {
   // Priorité : caisse avec ventes > session active > _currentFCaisse valide > caisse user > 1ère ouverte avec ventes > 1ère ouverte
   const _sessName  = (sessionCaisseActive && sessionCaisseActive.caisse) || null;
   const _userC     = (currentUser && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
-  const _openWithV = (CAISSES.find(c => (VENTES_PAR_CAISSE[c.name]||[]).length > 0) || {}).name || null;
+  const _openWithV = (CAISSES.find(c => (VENTES_PAR_CAISSE[c.name]||[]).length > 0 || (VENTES_PAR_CAISSE[c.loc]||[]).length > 0) || {}).name || null;
   const _open      = (CAISSES.find(c => c.status === 'open') || {}).name || null;
   // ✅ FIX: _caisseAvecVentes en priorité absolue pour éviter d'afficher une caisse vide
   const defaultName = _caisseAvecVentes || _sessName || _currentFCaisse || _userC || _openWithV || _open || null;
@@ -20982,6 +21040,28 @@ async function cloturerCaisse() {
       const _fallback         = _caisseAvecVentes || _caisseOuverte || CAISSES[0];
       caisse = _fallback ? _fallback.name : 'Caisse 1';
       console.warn('[cloturerCaisse] sessionCaisseActive absent — caisse détectée par fallback :', caisse);
+    }
+
+    // ✅ FIX : les ventes de Caisse 5-10 se retrouvent parfois sous l'ancien nom
+    // (conservé dans c.loc) plutôt que sous le nom actuel affiché (c.name).
+    // Sans cette fusion, la clôture ne vidait que la clé "Caisse C5" (souvent vide)
+    // et laissait intactes les vraies ventes sous "Caisse 5" → elles réapparaissaient
+    // après la clôture ("même clôturé, ça reste").
+    {
+      const _cObjCl = CAISSES.find(x => x.name === caisse);
+      if(_cObjCl && _cObjCl.loc && _cObjCl.loc !== caisse && (VENTES_PAR_CAISSE[_cObjCl.loc]||[]).length > 0) {
+        if(!VENTES_PAR_CAISSE[caisse]) VENTES_PAR_CAISSE[caisse] = [];
+        VENTES_PAR_CAISSE[_cObjCl.loc].forEach(v => {
+          const already = VENTES_PAR_CAISSE[caisse].some(ex =>
+            (v.id && ex.id === v.id) ||
+            (v.sbId && ex.sbId === v.sbId) ||
+            (v.qrOrderId && ex.qrOrderId === v.qrOrderId) ||
+            (!v.id && !v.sbId && !v.qrOrderId && ex.orderNum === v.orderNum && ex.total === v.total && ex.time === v.time)
+          );
+          if(!already) VENTES_PAR_CAISSE[caisse].push(v);
+        });
+        VENTES_PAR_CAISSE[_cObjCl.loc] = []; // vidée : fusionnée dans la clé actuelle
+      }
     }
 
     // 2. Données de base
@@ -23074,7 +23154,21 @@ const KGSync = (() => {
       try {
         const { data: _remRow } = await client.from(TABLE).select('value').eq('key', _rkey('ventes_' + caisse.replace(/\s+/g,'_'))).limit(1);
         const _remData = _remRow && _remRow[0] ? dec(_remRow[0].value) : null;
-        const _remVentes = (_remData && Array.isArray(_remData.ventes)) ? _remData.ventes : [];
+        let _remVentes = (_remData && Array.isArray(_remData.ventes)) ? _remData.ventes : [];
+        // ✅ FIX ANTI-RETOUR : ne jamais réintégrer un ticket supprimé par l'admin,
+        // même s'il est encore présent dans l'ancienne copie distante kg_sync.
+        // Sans ce filtre, cette fusion "garder le plus riche" ressuscitait le ticket
+        // supprimé (présent à distance, absent en local) et le repoussait au cloud,
+        // d'où le retour du ticket après déconnexion/reconnexion.
+        try {
+          const _rid4 = window._KG_RESTAURANT_ID;
+          const _delRaw2 = JSON.parse(localStorage.getItem('kg_deleted_orders_' + _rid4) || '{}');
+          const _deletedSetPush = new Set(_delRaw2[caisse] || []);
+          if(window._KG_DELETED_ORDERS && window._KG_DELETED_ORDERS[caisse]) {
+            window._KG_DELETED_ORDERS[caisse].forEach(n => _deletedSetPush.add(n));
+          }
+          if(_deletedSetPush.size > 0) _remVentes = _remVentes.filter(v => !_deletedSetPush.has(v.orderNum));
+        } catch(e) {}
         if(_remVentes.length) {
           const _vMap = new Map();
           _remVentes.forEach(v => _vMap.set(String(v.orderNum||v.id), v));
@@ -23798,6 +23892,23 @@ const KGSync = (() => {
               console.log('[pullAll] ✅ Module restauré depuis Supabase :', info.caisse, _merged.length, 'transactions');
             }
           });
+        } else if(key === 'caisses_config' && Array.isArray(data)) {
+          // ✅ FIX PROPAGATION MULTI-APPAREIL : cette clé n'était lue qu'une seule fois,
+          // à la connexion (loadCaissesFromSupabase). Un appareil déjà connecté ne recevait
+          // donc jamais un renommage/changement de couleur fait depuis un autre appareil,
+          // tant qu'il ne se reconnectait pas. On l'applique aussi ici, à chaque pullAll.
+          data.forEach(s => {
+            const c = CAISSES.find(x => x.id === s.id);
+            if(c) {
+              if(s.name)  c.name  = s.name;
+              if(s.loc)   c.loc   = s.loc;
+              if(s.color) c.color = s.color;
+            }
+          });
+          try { saveCaisses(); } catch(e) {}
+          if(typeof renderCaisses === 'function' && window._currentView === 'caisses') {
+            try { renderCaisses(); } catch(e) {}
+          }
         } else if(key === 'caisses_data' && data.items) {
           data.items.forEach(r => {
             const l = CAISSES.find(c => c.name === r.name);
@@ -23838,11 +23949,17 @@ const KGSync = (() => {
                 (l.name === 'Caisse 8' && typeof SPORT_CAISSE !== 'undefined' && SPORT_CAISSE.active)
               );
               // ✅ FIX DÉFINITIF : pour les modules actifs, on met à jour tout SAUF le status
+              // ✅ FIX ÉDITION CAISSE : name/loc/color appartiennent à caisses_config
+              // (mise à jour immédiate par saveEditCaisse). caisses_data est poussée avec
+              // 5s de debounce et pouvait donc contenir une version périmée du nom/emplacement/
+              // couleur — en l'appliquant ici, on annulait la modification qu'on venait de faire.
+              // caisses_data ne doit plus toucher que les champs "vivants" de session.
               if(_modActif) {
-                const { status: _ignored, ...rSansStatus } = r;
+                const { status: _ignored, name: _n1, loc: _l1, color: _c1, ...rSansStatus } = r;
                 Object.assign(l, rSansStatus);
               } else {
-                Object.assign(l, r);
+                const { name: _n2, loc: _l2, color: _c2, ...rSansIdentite } = r;
+                Object.assign(l, rSansIdentite);
               }
             }
           });
@@ -24510,7 +24627,11 @@ const KGSync = (() => {
       console.log('✅ KGSync v35 pullAll terminé');
       // ✅ FIX v8 RESTAURATION VENTES : recharger C1/C2/C3 depuis ventes_caisse SAUF si clôturée aujourd'hui
       setTimeout(async () => {
-        const _caisses = ['Caisse 1', 'Caisse 2', 'Caisse 3', 'Caisse 4'];
+        // ✅ FIX : la boucle ne couvrait que Caisse 1-4, alors que le pullAll
+        // ignore le kg_sync (et compte sur ce rechargement) pour Caisse 1-10.
+        // Caisse 5 à 10 n'étaient donc jamais rechargées → leurs ventes
+        // disparaissaient après chaque pullAll (ex: reconnexion).
+        const _caisses = ['Caisse 1', 'Caisse 2', 'Caisse 3', 'Caisse 4', 'Caisse 5', 'Caisse 6', 'Caisse 7', 'Caisse 8', 'Caisse 9', 'Caisse 10'];
         // Lire les caisses clôturées aujourd'hui pour ne pas les restaurer
         let _cloZRestore = [];
         try {
@@ -28124,6 +28245,7 @@ function depAddLigne() {
   `;
   container.appendChild(div);
   depUpdateTotal();
+  div.scrollIntoView({ behavior: 'smooth', block: 'center' });
   document.getElementById('dep-lib-' + idx)?.focus();
 }
 
@@ -28315,6 +28437,12 @@ async function saveDepense() {
 }
 
 async function modifierDepense(id) {
+  // ✅ FIX : réservé à l'administrateur (le bouton est déjà masqué pour les autres rôles,
+  // ce garde protège aussi contre un appel direct de la fonction)
+  if(!currentUser || currentUser.role !== 'administrateur') {
+    showNotif('⛔ Seul un administrateur peut modifier une dépense');
+    return;
+  }
   const dep = DEPENSES.find(d => d.id === id);
   if(!dep) { showNotif('⚠️ Dépense introuvable'); return; }
 
@@ -28564,7 +28692,7 @@ function renderDepenses() {
         <div style="font-size:15px;font-weight:800;color:var(--red);white-space:nowrap;">${d.montant.toLocaleString()} F</div>
         <div style="display:flex;gap:5px;">
           <button onclick="imprimerDepense('${d.id}')" style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:5px 9px;" title="Imprimer / PDF">🖨️</button>
-          <button onclick="modifierDepense('${d.id}')" style="background:rgba(37,99,235,0.1);border:1px solid rgba(37,99,235,0.3);border-radius:8px;color:#3b82f6;cursor:pointer;font-size:13px;padding:5px 9px;" title="Modifier cette dépense">✏️</button>
+          ${(currentUser && currentUser.role === 'administrateur') ? `<button onclick="modifierDepense('${d.id}')" style="background:rgba(37,99,235,0.1);border:1px solid rgba(37,99,235,0.3);border-radius:8px;color:#3b82f6;cursor:pointer;font-size:13px;padding:5px 9px;" title="Modifier cette dépense">✏️</button>` : ''}
           <button onclick="deleteDepense('${d.id}')" style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);border-radius:8px;color:var(--red);cursor:pointer;font-size:13px;padding:5px 9px;" title="Supprimer">🗑️</button>
         </div>
       </div>
@@ -30334,7 +30462,8 @@ async function executeReset() {
     <div id="detail-cloture-categories" style="margin-bottom:16px;"></div>
     <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);font-weight:700;margin-bottom:10px;" id="detail-tickets-titre">Tickets de la clôture</div>
     <div id="detail-cloture-tickets"></div>
-    <div style="margin-top:16px;text-align:right;">
+    <div style="margin-top:16px;text-align:right;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-primary" onclick="imprimerCloture()">🖨️ Imprimer / PDF</button>
       <button class="btn btn-ghost" onclick="closeModal('detailCloture')">Fermer</button>
     </div>
   </div>
@@ -32004,9 +32133,89 @@ async function supprimerCloture(key) {
   showNotif('✅ Clôture supprimée !');
 }
 
+// ✅ Impression / PDF de la clôture actuellement affichée dans le modal
+function imprimerCloture() {
+  const h = window._currentClotureDetail;
+  if(!h) { showNotif('⚠️ Aucune clôture ouverte'); return; }
+
+  const ca  = h.ca || h.caTotal || 0;
+  const nb  = h.orders || h.nbTickets || 0;
+  const ecart = (typeof h.ecart === 'number') ? h.ecart : 0;
+
+  const RI = (typeof RESTAURANT_INFO !== 'undefined') ? RESTAURANT_INFO : {};
+  const restNom    = RI.nom    || (typeof RESTAURANT_PROFIL !== 'undefined' && RESTAURANT_PROFIL.nom) || window._KG_REST_NOM || 'Mon Restaurant';
+  const restAdresse= RI.adresse|| '';
+  const restTel    = RI.tel    || '';
+  const restDevise = RI.devise || 'F CFA';
+  const logoData   = RI.logo_url || RI.loginLogo
+    || (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.showLogo && TICKET_CONFIG.logo)
+    || null;
+  const logoHTML = logoData
+    ? `<img src="${logoData}" style="height:54px;object-fit:contain;margin-bottom:8px;" alt="Logo">`
+    : `<div style="width:52px;height:52px;background:linear-gradient(135deg,#f59e0a,#e84520);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 8px;">🧾</div>`;
+
+  // On réutilise directement le contenu déjà rendu dans le modal (catégories + tickets),
+  // pour ne pas dupliquer toute la logique de calcul — on ne fait que le remettre en forme pour l'impression.
+  const catHTML     = document.getElementById('detail-cloture-categories')?.innerHTML || '';
+  const ticketsHTML = document.getElementById('detail-cloture-tickets')?.innerHTML || '';
+
+  const now = new Date();
+  const dateGen  = now.toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'});
+  const heureGen = now.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+
+  const win = window.open('', '_blank', 'width=620,height=820');
+  win.document.write(`<!DOCTYPE html><html lang="fr"><head>
+  <meta charset="UTF-8">
+  <title>Clôture ${h.caisse} — ${h.date}</title>
+  <style>
+    * { box-sizing:border-box; }
+    body { font-family:'Segoe UI',Arial,sans-serif; margin:0; padding:24px; color:#222; }
+    .header { text-align:center; margin-bottom:18px; }
+    .rest-nom { font-size:18px; font-weight:800; color:#e8622a; }
+    .rest-info { font-size:11px; color:#666; }
+    h1 { font-size:20px; margin:14px 0 4px; }
+    .infobox { background:#f7f7f9; border-radius:10px; padding:14px 16px; margin-bottom:16px; font-size:13px; }
+    .infobox strong { font-size:15px; }
+    .ca-total { color:#e8622a; font-size:20px; font-weight:800; }
+    .cat-block { background:#f7f7f9; border-radius:10px; padding:12px 16px; margin-bottom:12px; }
+    .cat-title { color:#e8622a; font-weight:700; margin-bottom:6px; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    td, th { padding:6px 4px; font-size:12px; border-bottom:1px solid #eee; }
+    .footer { margin-top:24px; text-align:center; font-size:10px; color:#999; }
+    @media print { .no-print { display:none; } }
+  </style>
+  </head><body>
+    <div class="header">
+      ${logoHTML}
+      <div class="rest-nom">${restNom}</div>
+      <div class="rest-info">${restAdresse}${restTel ? ' · ' + restTel : ''}</div>
+    </div>
+    <h1>🧾 Rapport de clôture — ${h.caisse}</h1>
+    <div class="infobox">
+      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;">
+        <div><span style="color:#888;font-size:11px;">DATE</span><br><strong>${h.date} ${h.heure||''}</strong></div>
+        <div><span style="color:#888;font-size:11px;">CAISSIER</span><br><strong>${h.cashier||'—'}</strong></div>
+        <div style="margin-left:auto;text-align:right;"><span style="color:#888;font-size:11px;">CA TOTAL</span><br><span class="ca-total">${ca.toLocaleString()} ${restDevise}</span></div>
+      </div>
+      <div style="margin-top:8px;font-size:12px;color:#666;">
+        ${nb} ticket(s) · ${h.fonds||0} ${restDevise} fonds départ
+        ${ecart !== 0 ? ` · Écart : <strong style="color:${ecart<0?'#dc2626':'#16a34a'};">${ecart>0?'+':''}${ecart.toLocaleString()} ${restDevise}</strong>` : ''}
+      </div>
+    </div>
+    <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#888;font-weight:700;margin-bottom:8px;">Catégories vendues</div>
+    ${catHTML}
+    <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#888;font-weight:700;margin:16px 0 8px;">Tickets de la clôture</div>
+    ${ticketsHTML}
+    <div class="footer">Document généré le ${dateGen} à ${heureGen} — ${restNom}</div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 800);
+}
+
 function voirDetailCloture(idx) {
   const h = HISTORIQUE_CLOTURES[idx];
   if(!h) return;
+  window._currentClotureDetail = h; // ✅ utilisé par imprimerCloture()
   const ca = h.ca || h.caTotal || 0;
   const nb = h.orders || h.nbTickets || 0;
 
