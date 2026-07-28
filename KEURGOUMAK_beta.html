@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<!-- ✅ Génération PDF native (texte + tableaux dessinés directement, pas de capture d'écran)
+     — build UMD officiel de jsPDF, qui expose de façon garantie window.jspdf.jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script>
 // ✅ ISOLATION MULTI-RESTAURANT : helpers localStorage préfixés
 // Définis très tôt pour être disponibles dès le chargement
@@ -16,9 +20,27 @@
       if(rid) {
         var v = localStorage.getItem(key + ':' + rid);
         if(v !== null) return v;
+        // ✅ FIX FUITE MULTI-RESTAURANT : l'ancien fallback lisait la clé brute
+        // (non préfixée) SANS jamais la supprimer — donc si un restaurant A avait
+        // laissé cette clé brute, TOUS les restaurants suivants sur le même
+        // appareil la recevaient aussi, indéfiniment (fuite de données entre
+        // comptes). On la "consomme" maintenant : le premier restaurant qui la
+        // lit la migre sous sa propre clé PUIS la supprime — plus aucun autre
+        // restaurant ne pourra la relire ensuite.
+        var _raw = localStorage.getItem(key);
+        if(_raw !== null) {
+          try {
+            localStorage.setItem(key + ':' + rid, _raw);
+            localStorage.removeItem(key);
+          } catch(e2) {}
+          return _raw;
+        }
+        return null;
       }
-      // Fallback sur la clé brute (migration)
-      return localStorage.getItem(key);
+      // Pas encore d'ID restaurant connu (tout début du chargement) : on ne lit
+      // PAS la clé brute pour éviter tout risque de contamination croisée —
+      // la vraie donnée sera relue proprement dès que l'ID sera disponible.
+      return null;
     } catch(e) { return null; }
   };
   window._lsSet = function(key, val) {
@@ -1032,7 +1054,12 @@ if(typeof jsQR === 'undefined') {
   .btn-ghost { background: rgba(255,255,255,0.04); color: var(--text2); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(4px); }
   .btn-ghost:hover { color: var(--text); border-color: rgba(245,158,42,0.4); background: rgba(245,158,42,0.06); }
 
-  .content { padding: 14px 18px; flex: 1; overflow-y: auto; }
+  /* ✅ FIX : le bouton flottant de synchronisation (🔄, fixe en bas à gauche) recouvrait
+     le bas des listes (Rapport X, Menu, Commandes...). La marge n'était active qu'en
+     dessous de 768px, mais ce seuil ne se déclenche pas de façon fiable dans certains
+     contextes d'affichage (aperçu de fichier local) — elle est donc TOUJOURS active
+     désormais, peu importe la largeur d'écran détectée. */
+  .content { padding: 14px 18px 120px 18px; flex: 1; overflow-y: auto; }
 
   /* VIEWS */
   .view { display: none; }
@@ -1100,15 +1127,29 @@ if(typeof jsQR === 'undefined') {
     border-radius: var(--radius-sm);
     padding: 14px 18px;
     display: flex; align-items: center; gap: 16px;
+    flex-wrap: wrap; /* ✅ FIX : toujours actif, pas seulement en dessous de 768px —
+       certains contextes (aperçu de fichier local content://) n'appliquent pas
+       toujours la largeur mobile attendue, donc on ne dépend plus d'un media query. */
     transition: all 0.2s; cursor: pointer;
   }
   .order-item:hover { border-color: rgba(245,158,42,0.35); transform: translateX(4px); background: rgba(245,158,42,0.05); box-shadow: -3px 0 0 #f59e2a, 0 4px 20px rgba(0,0,0,0.3); }
   .order-num { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent); width: 60px; }
-  .order-info { flex: 1; }
+  .order-info { flex: 1; min-width: 160px; }
   .order-name { font-size: 14px; font-weight: 600; }
   .order-items-list { font-size: 12px; color: var(--text2); margin-top: 2px; }
   .order-time { font-size: 12px; color: var(--text2); white-space: nowrap; }
   .order-price { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: var(--accent); width: 90px; text-align: right; }
+  /* ✅ FIX : les boutons d'action débordaient hors de l'écran sur mobile (ils
+     essayaient de tenir sur la même ligne que le badge). Regroupés dans ce bloc,
+     ils passent automatiquement à la ligne dès que la largeur manque — sans
+     dépendre d'un media query qui pouvait ne pas se déclencher. */
+  .order-actions {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-left: auto; justify-content: flex-end;
+  }
+  @media (max-width: 640px) {
+    .order-actions { flex-basis: 100%; justify-content: flex-start; margin-left: 0; margin-top: 4px; }
+  }
   .badge {
     padding: 4px 10px; border-radius: 20px;
     font-size: 11px; font-weight: 700; white-space: nowrap; letter-spacing: 0.3px;
@@ -1130,7 +1171,10 @@ if(typeof jsQR === 'undefined') {
     background: linear-gradient(135deg, var(--accent), var(--accent2));
     color: white; border-color: transparent;
   }
-  .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+  .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 90px; }
+  /* ✅ FIX : sécurité supplémentaire (toujours active, pas seulement sous 768px —
+     voir note sur .content) — même si le padding du conteneur ne suffit pas,
+     on garantit un espace libre après le dernier article. */
   .menu-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -2598,12 +2642,15 @@ if(typeof jsQR === 'undefined') {
   .fourn-stat-val { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--accent); font-weight: 700; }
   .fourn-stat-lbl { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
   .commande-fourn-row {
-    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr auto;
-    align-items: center; gap: 12px; padding: 12px 16px;
+    display: grid; grid-template-columns: 1fr;
+    align-items: start; gap: 8px; padding: 14px 16px;
     background: var(--surface2); border: 1px solid var(--border);
     border-radius: var(--radius-sm); margin-bottom: 8px;
     transition: border-color 0.2s;
   }
+  /* ✅ FIX : une seule colonne, toujours — les listes d'articles sont souvent très
+     longues (plusieurs lignes de texte), donc un empilement vertical simple est plus
+     clair qu'un agencement à 2 colonnes qui pouvait sembler "coincé"/confus. */
   .commande-fourn-row:hover { border-color: var(--teal); }
 
   /* ===== CLIENTS CRUD améliioré ===== */
@@ -4158,21 +4205,9 @@ if(typeof jsQR === 'undefined') {
     .card { padding: 16px; border-radius: 14px; }
     .card-title { font-size: 12px; margin-bottom: 14px; }
 
-    /* ✅ FIX : "Commandes" — la ligne (num, infos, heure, prix, badge,
-       boutons) débordait à droite sur mobile car display:flex sans
-       wrap, avec des largeurs fixes. On empile proprement. */
-    .order-item {
-      flex-wrap: wrap;
-      gap: 8px 12px;
-      padding: 12px 14px;
-    }
-    .order-num { width: auto; order: 1; }
-    .order-info { flex: 1 1 100%; order: 2; }
-    .order-time { order: 3; }
-    .order-price { width: auto; order: 4; }
-    .order-item .badge { order: 5; }
-    .order-item .ticket-btn,
-    .order-item button { order: 6; }
+    /* ✅ order-item / order-actions : gérés désormais par des règles de base
+       toujours actives (voir plus haut), plus fiables que ce media query dans
+       certains contextes d'affichage (aperçu de fichier local, etc.). */
 
     /* ✅ FIX : "Fournisseurs → Commandes" — la grille à 6 colonnes fixes
        forçait un débordement horizontal, coupant le badge "Livré" et
@@ -5593,7 +5628,7 @@ function _syncSportVentes()       { return []; }
       </div>
 
       <!-- STATS RAPIDES -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px;">
         <div class="card" style="padding:14px;text-align:center;">
           <div style="font-size:22px;font-weight:700;color:var(--accent)" id="c3-stat-total">0</div>
           <div style="font-size:11px;color:var(--text2)">Total commandes</div>
@@ -6241,7 +6276,7 @@ function _syncSportVentes()       { return []; }
       <div class="caisses-grid" id="caisses-grid"></div>
       <div class="card" style="margin-top:8px;">
         <div class="card-title">Récapitulatif temps réel — Toutes caisses <span id="recap-time">Aujourd'hui 13:52</span></div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;" id="caisses-recap"></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;" id="caisses-recap"></div>
       </div>
     </div>
 
@@ -6430,7 +6465,7 @@ function _syncSportVentes()       { return []; }
       </div>
       <div class="card" style="margin-bottom:20px;">
         <div class="card-title" id="hist-synthese-titre">Synthèse des clôtures</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;" id="hist-synthese-grid">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;" id="hist-synthese-grid">
           <div style="text-align:center;padding:16px;background:var(--surface2);border-radius:8px;">
             <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Total clôtures</div>
             <div style="font-family:'Space Mono';font-size:22px;color:var(--accent)" id="hist-nb-clot">0</div>
@@ -6452,7 +6487,10 @@ function _syncSportVentes()       { return []; }
 
       <!-- VENTES PAR CATEGORIE — FILTRE PAR CATEGORIE + PLAGE DE DATES -->
       <div id="hist-cat-section" class="card" style="margin-bottom:20px;">
-        <div class="card-title" style="margin-bottom:14px;">📊 Ventes par catégorie</div>
+        <div class="card-title" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <span>📊 Ventes par catégorie</span>
+          <button onclick="imprimerVentesCategorie(this)" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">📥 Télécharger PDF</button>
+        </div>
 
         <!-- FILTRES -->
         <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
@@ -6545,7 +6583,7 @@ function _syncSportVentes()       { return []; }
       </div>
 
       <!-- KPI STRIP -->
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px;" id="fact-kpi-strip">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:20px;" id="fact-kpi-strip">
         <div class="stat-card" style="--card-color:linear-gradient(90deg,#f5a623,#e8440a)">
           <div class="stat-icon">🧾</div>
           <div class="stat-label">Total facturé</div>
@@ -6676,7 +6714,7 @@ function _syncSportVentes()       { return []; }
             <div style="font-family:'Space Mono';font-size:22px;color:var(--accent);" id="dep-count">0</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">
           <div style="padding:12px;background:var(--surface2);border-radius:8px;border-left:3px solid var(--red);">
             <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">🖥️ Sorties Caisses</div>
             <div style="font-family:'Space Mono';font-size:16px;color:var(--red);" id="dep-total-caisse">0 F</div>
@@ -7229,7 +7267,7 @@ Revenez nous voir bient&#244;t.</textarea>
         <button class="btn btn-ghost" onclick="showNotif('📄 Rapport mensuel exporté en PDF')">📄 Exporter PDF</button>
         <button class="btn btn-primary" onclick="showNotif('✅ Réconciliation validée et transmise à la comptabilité')">✅ Valider & Clôturer le mois</button>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:24px;">
         <div class="stat-card" style="--card-color:linear-gradient(90deg,var(--accent),var(--accent2))">
           <div class="stat-label">CA Total clôturé</div>
           <div class="stat-value" style="font-size:18px;" id="recon-ca-total">0 F</div>
@@ -10990,6 +11028,28 @@ function printFacture(id) {
     @page { size:A4; margin:10mm; }
     .no-print { display:none !important; }
     body { padding:0; font-size:9pt; }
+
+    /* ✅ FIX QUALITÉ IMPRESSION NOIR & BLANC :
+       Le dégradé orange (#f5a623→#e8440a) avec texte blanc devenait un gris clair
+       lavé et illisible sur une imprimante N&B. Les textes gris clairs (labels,
+       adresses, dates) devenaient trop pâles pour être lus. On force ici un
+       contraste maximal : fonds noirs francs (au lieu du dégradé) et textes
+       secondaires en noir gras plutôt qu'en gris clair. */
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    .logo-sub, .logo-meta, .tiers-label, .tiers-meta, .fact-dates, .footer-left,
+    .totaux-row, .totaux-row b { color:#000 !important; }
+    .logo-name, .fact-type, .fact-num, .tiers-name { color:#000 !important; }
+    thead th { background:#000 !important; background-image:none !important; color:#fff !important; }
+    .totaux-row:last-child { background:#000 !important; background-image:none !important; color:#fff !important; }
+    .totaux-row:last-child b { color:#fff !important; }
+    .ninea-badge { background:#000 !important; color:#fff !important; }
+    .tiers-card, .totaux, .pay-info, .notes-block, .qr-placeholder {
+      background:#fff !important; border:1.3px solid #000 !important; color:#000 !important;
+    }
+    .notes-block { color:#000 !important; }
+    .header { border-bottom-color:#000 !important; }
+    .footer { border-top-color:#000 !important; }
+    td, .fact-info, .statut-badge { color:#000 !important; }
   }
 </style>
 </head>
@@ -13493,13 +13553,18 @@ function printTicket(vente, caisse) {
     const prixOrig  = item.priceOriginal || item.price;
     const sousTotal = (item.price * item.qty).toLocaleString();
     const prixUnit  = item.price.toLocaleString();
-    const promoTag  = item.discount > 0 ? `<span class="article-promo">-${item.discount}%</span>` : '';
+    // ✅ FIX : si le champ "discount" venait à manquer (perdu lors d'une synchro/
+    // rechargement) mais que priceOriginal est bien présent et supérieur au prix
+    // actuel, on recalcule le pourcentage de promo au lieu de ne rien afficher.
+    const discountPct = (item.discount > 0) ? item.discount
+      : (prixOrig > item.price ? Math.round((1 - item.price / prixOrig) * 100) : 0);
+    const promoTag  = discountPct > 0 ? `<span class="article-promo">-${discountPct}%</span>` : '';
     return `
 <div class="article-item">
   <div class="article-qty-badge">${item.qty}</div>
   <div class="article-details">
     <div class="article-name">${((_ic=>((_ic.startsWith('http')||_ic.startsWith('data:')||_ic.includes('ibb.co'))?'<img src="'+(_ic.startsWith('http')||_ic.startsWith('data:')?_ic:'https://'+_ic)+'" style="width:18px;height:18px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:3px;" alt="">':(_ic&&!_ic.startsWith('http')&&!_ic.includes('ibb.co')?_ic+' ':''))))(item.image_url||item.icon||'')} ${item.name}${promoTag}</div>
-    ${(item.qty>1||item.discount>0)?`<div class="article-unit-price">${prixUnit} F / unité${item.discount>0?` · base : ${prixOrig.toLocaleString()} F`:''}</div>`:''}
+    ${(item.qty>1||discountPct>0)?`<div class="article-unit-price">${prixUnit} F / unité${discountPct>0?` · base : ${prixOrig.toLocaleString()} F`:''}</div>`:''}
   </div>
   <div class="article-total">${sousTotal} F</div>
 </div>`;
@@ -14045,9 +14110,11 @@ function renderOrders(status) {
       <div class="order-time">${o.time}</div>
       <div class="order-price">${o.price.toLocaleString()} F</div>
       <div class="badge badge-done">🎉 Livré</div>
-      <button class="ticket-btn" style="font-size:11px;padding:5px 10px;margin-left:6px;" onclick="reprintTicket('${o.id}')">🖨️ Ticket</button>
-      ${(currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant')) ? `<button style="background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.4);border-radius:8px;font-size:11px;padding:5px 10px;margin-left:4px;cursor:pointer;" onclick="modifierPaiementTicket('${o.id}')" title="Modifier le mode de paiement">✏️ Paiement</button>` : ''}
-      ${(currentUser && currentUser.role === 'administrateur') ? '<button onclick="supprimerVenteAdmin(\'' + o.id + '\')" style="background:rgba(220,53,69,0.15);color:#dc3545;border:1px solid rgba(220,53,69,0.4);border-radius:8px;font-size:11px;padding:5px 10px;margin-left:4px;cursor:pointer;" title="Supprimer ce ticket (erreur)">🗑️</button>' : ''}
+      <div class="order-actions">
+        <button class="ticket-btn" style="font-size:11px;padding:5px 10px;" onclick="reprintTicket('${o.id}')">🖨️ Ticket</button>
+        ${(currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant')) ? `<button style="background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.4);border-radius:8px;font-size:11px;padding:5px 10px;cursor:pointer;" onclick="modifierPaiementTicket('${o.id}')" title="Modifier le mode de paiement">✏️ Paiement</button>` : ''}
+        ${(currentUser && currentUser.role === 'administrateur') ? '<button onclick="supprimerVenteAdmin(\'' + o.id + '\')" style="background:rgba(220,53,69,0.15);color:#dc3545;border:1px solid rgba(220,53,69,0.4);border-radius:8px;font-size:11px;padding:5px 10px;cursor:pointer;" title="Supprimer ce ticket (erreur)">🗑️</button>' : ''}
+      </div>
     </div>
   `).join('');
 }
@@ -14469,7 +14536,18 @@ function renderFournisseurs() {
       }
       return new Date(d).getTime() || 0;
     };
-    cmdList.innerHTML = COMMANDES_FOURNISSEURS.slice().sort((a,b) => _parseDateCmd(b.dateCmd) - _parseDateCmd(a.dateCmd)).map((c) => {
+    // ✅ FIX : deux commandes créées le même jour ont la même dateCmd (pas d'heure),
+    // donc elles restaient dans l'ordre d'ajout au lieu que la plus récente soit en haut.
+    // On départage avec l'horodatage précis embarqué dans l'id ('local_<timestamp>').
+    const _cmdTs = (c) => {
+      const m = String(c.id||'').match(/(\d{10,})$/);
+      return m ? parseInt(m[1]) : 0;
+    };
+    cmdList.innerHTML = COMMANDES_FOURNISSEURS.slice().sort((a,b) => {
+      const dDiff = _parseDateCmd(b.dateCmd) - _parseDateCmd(a.dateCmd);
+      if(dDiff !== 0) return dDiff;
+      return _cmdTs(b) - _cmdTs(a);
+    }).map((c) => {
       const cIdx_real = COMMANDES_FOURNISSEURS.indexOf(c);
       return `
       <div class="commande-fourn-row">
@@ -14493,6 +14571,12 @@ function renderFournisseurs() {
         </div>
       </div>
     `}).join('') || '<div style="text-align:center;padding:30px;color:var(--text2);">Aucune commande en cours</div>';
+    // ✅ FIX : espace garanti après le dernier élément (élément DOM réel, pas juste
+    // une marge CSS) — pour être sûr qu'il reste toujours de la place à faire
+    // défiler jusqu'au bout, peu importe la cause exacte d'un éventuel blocage.
+    if(COMMANDES_FOURNISSEURS.length > 0) {
+      cmdList.innerHTML += '<div style="height:140px;"></div>';
+    }
   }
 
   // Historique
@@ -14567,7 +14651,17 @@ function printFactureFourn(idx) {
   .paiement-bloc .amount { font-size:15px;font-weight:800;color:#166534; }
   .notes-bloc { background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:24px;font-size:12px;color:#92400e; }
   .footer { text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:16px;margin-top:24px; }
-  @media print { body{padding:15px;} .no-print{display:none;} }
+  @media print {
+    body{padding:15px;} .no-print{display:none;}
+    /* ✅ FIX QUALITÉ IMPRESSION NOIR & BLANC : textes gris clairs (#666,#999,#555)
+       et le total en orange devenaient trop pâles pour être lus sur une
+       imprimante N&B. On force un contraste maximal. */
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    .logo-bloc p, .doc-infos .date, .partie-bloc .info, .partie-bloc h3, .footer { color:#000 !important; }
+    .tot-row.grand { color:#000 !important; }
+    .paiement-bloc, .partie-bloc, .notes-bloc { border:1.3px solid #000 !important; background:#fff !important; }
+    .paiement-bloc .label, .paiement-bloc .amount, .notes-bloc { color:#000 !important; }
+  }
 </style>
 </head><body>
 
@@ -15181,6 +15275,16 @@ function deleteCommandeFourn(cIdx) {
   // liste complète (avec la commande supprimée), et la restaurait au prochain
   // pullAll/reconnexion — même bug que la suppression d'un article de menu.
   if(KGSync.isConnected) KGSync.push.commandesFourn().catch(()=>{});
+  // ✅ FIX : mettre aussi à jour IMMÉDIATEMENT la copie locale (kg_val_...), sinon
+  // rouvrir l'onglet Fournisseurs juste après un rechargement de page (avant que
+  // pullAll ait eu le temps de rafraîchir ce cache) ramenait la commande supprimée.
+  try {
+    const _ridDel = window._KG_RESTAURANT_ID;
+    if(_ridDel) {
+      localStorage.setItem('kg_val_' + _ridDel + ':commandes_fourn_data',
+        JSON.stringify({ items: COMMANDES_FOURNISSEURS, fournisseurs: FOURNISSEURS }));
+    }
+  } catch(e) {}
   renderFournisseurs();
   showNotif('🗑️ Commande supprimée');
 }
@@ -17454,6 +17558,51 @@ function printRapportXCaisse(name) {
     return `<tr><td>#${String(numTicket).replace('#','')}</td><td>${heure}</td><td>${plats}</td><td style="font-size:11px">${payLabel}</td><td style="text-align:right"><span style="display:inline-block;background:#e8f4fd;border:2px solid #1a5276;border-radius:5px;padding:2px 8px;font-weight:900;font-size:12pt;color:#1a5276;white-space:nowrap">${(v.total||0).toLocaleString()} F</span></td></tr>`;
   }).join('');
 
+  // ✅ Config pour le PDF natif (texte/tableaux, pas de capture d'écran) — réutilise les
+  // mêmes données déjà calculées ci-dessus, pour être garanti cohérent avec l'aperçu HTML.
+  window._rapportXPdfConfig = {
+    nomResto: nomResto,
+    logo: _logoUrlC,
+    adresse: RESTAURANT_INFO?.adresse || 'Louga, Sénégal',
+    titre: 'RAPPORT X — ' + name,
+    sousTitre: 'Consultation en cours · ' + dateStr + ' à ' + heureStr + (c?.loc ? ' · ' + c.loc : ''),
+    cashier: cashier,
+    kpis: [
+      { label:'CA TTC', value: _fmtFCFA(ca)+' F' },
+      { label:'Tickets', value: String(ventes.length) },
+      { label:'Solde Net', value: _fmtFCFA(net)+' F' }
+    ],
+    resume: [
+      { label:'CA HT', value: _fmtFCFA(ht)+' F' },
+      { label:'TVA 18% (incluse)', value: _fmtFCFA(tva)+' F' },
+      { label:'CA TTC', value: _fmtFCFA(ca)+' F' },
+      ...(dep>0 ? [{label:'Dépenses', value:'−'+_fmtFCFA(dep)+' F'}, {label:'SOLDE NET', value: _fmtFCFA(net)+' F'}] : [])
+    ],
+    paiements: { esp, wav, ora, car },
+    top: Object.values(prodMap).sort((a,b)=>b.qty-a.qty).map((p,i)=>({ rang:i+1, nom:p.name, qty:p.qty, ca:p.ca, img:p.image_url||null })),
+    tickets: ventes.map(v => {
+      const heure = v.time || (v.date ? new Date(v.date).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—');
+      const plats = (v.items||[]).map(i=>(i.qty>1?i.qty+'× ':'')+i.name).join(', ') || v.label || '—';
+      let payLabel;
+      if(v.payMethod==='mixed' && v.payMethods) {
+        const parts = [];
+        if(v.payMethods.cash  > 0) parts.push('Esp:'+_fmtFCFA(v.payMethods.cash));
+        if(v.payMethods.wave  > 0) parts.push('Wave:'+_fmtFCFA(v.payMethods.wave));
+        if(v.payMethods.orange> 0) parts.push('OM:'+_fmtFCFA(v.payMethods.orange));
+        if(v.payMethods.card  > 0) parts.push('Carte:'+_fmtFCFA(v.payMethods.card));
+        payLabel = 'Mixte: ' + (parts.join(' + ') || 'Mixte');
+      } else {
+        // ✅ FIX : v.payLabel contient un emoji (ex: "💵 Espèces") non supporté par
+        // la police du PDF, qui l'affichait comme du charabia ("Ø=Üµ Espèces").
+        const _payLabelsPdf = { especes:'Espèces', wave:'Wave', orange:'Orange Money', carte:'Carte', mixed:'Mixte' };
+        payLabel = _payLabelsPdf[v.payMethod] || v.payMethod || '—';
+      }
+      const numTicket = v.orderNum || v.num || v.ticketRef || v.ticket_ref || v.id || '—';
+      return { num:'#'+String(numTicket).replace('#',''), heure, plats, paiement:payLabel, montant: v.total||0 };
+    }),
+    footer: 'Rapport X — ' + name + ' — Consultation sans fermeture — ' + nomResto + ' — Généré le ' + dateStr + ' à ' + heureStr
+  };
+
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
   <title>Rapport X — ${name} — ${nomResto}</title>
   <style>
@@ -17537,6 +17686,10 @@ function printRapportXCaisse(name) {
         <div style="display:flex;gap:8px;">
           <button onclick="document.getElementById('rapportx-single-frame').contentWindow.print()"
             style="padding:8px 22px;background:#f5a623;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:800;cursor:pointer;">🖨️ Imprimer</button>
+          <!-- ✅ Bouton "Télécharger PDF" réactivé — indispensable sur iPhone où l'aperçu
+               d'impression natif n'offre pas d'export PDF direct. -->
+          <button onclick="_genererPdfNatif(window._rapportXPdfConfig,'Rapport-X-${name.replace(/\s+/g,'-')}-'+new Date().toTimeString().slice(0,5).replace(':','h'),this)"
+            style="padding:8px 22px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:800;cursor:pointer;">📥 Télécharger PDF</button>
           <button onclick="document.getElementById('kg-rapportx-overlay').remove()"
             style="padding:8px 16px;background:#444;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">✕</button>
         </div>
@@ -17549,6 +17702,247 @@ function printRapportXCaisse(name) {
 }
 
 // ===== IMPRESSION RAPPORT X — TOUTES CAISSES (ou sa caisse si Caissier) =====
+// ✅ Génère un PDF NATIF (texte + tableaux dessinés directement) — beaucoup plus fiable
+// qu'une capture HTML/CSS (qui pouvait produire des pages blanches selon le navigateur).
+// config = { nomResto, adresse, titre, sousTitre, cashier, kpis:[{label,value}],
+//   resume:[{label,value,color?}], paiements:{esp,wav,ora,car}, top:[{rang,nom,qty,ca}],
+//   tickets:[{num,heure,plats,paiement,montant}], footer }
+// ✅ FIX AFFICHAGE PDF : toLocaleString() insère un espace insécable fin (U+202F) comme
+// séparateur de milliers, caractère absent de la police helvetica intégrée à jsPDF —
+// il s'affichait donc comme "/". On formate ici avec un espace normal, sans risque.
+function _fmtFCFA(n) {
+  const v = Math.round(Number(n) || 0);
+  const neg = v < 0;
+  return (neg ? '−' : '') + Math.abs(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+// Charge une image (logo, même hébergée à distance) et la convertit en dataURL utilisable par jsPDF
+function _loadImageAsDataURL(url, timeoutMs) {
+  return new Promise((resolve) => {
+    if(!url) { resolve(null); return; }
+    if(url.startsWith('data:')) { resolve(url); return; }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    const timer = setTimeout(() => resolve(null), timeoutMs || 6000);
+    img.onload = () => {
+      clearTimeout(timer);
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch(e) { resolve(null); } // logo bloqué par CORS -> on continue sans logo
+    };
+    img.onerror = () => { clearTimeout(timer); resolve(null); };
+    img.src = url;
+  });
+}
+
+async function _genererPdfNatif(config, filename, btn) {
+  if(btn) { btn.disabled = true; } // retour visuel immédiat dès le clic
+  if(typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
+    showNotif('⚠️ Librairie PDF non chargée — vérifiez votre connexion internet puis réessayez');
+    if(btn) { btn.disabled = false; }
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const _testDoc = new jsPDF({ unit: 'mm', format: 'a4' });
+  if(typeof _testDoc.autoTable !== 'function') {
+    showNotif('⚠️ Module tableaux PDF non chargé — vérifiez votre connexion internet puis réessayez');
+    if(btn) { btn.disabled = false; }
+    return;
+  }
+  const label = btn ? btn.textContent : null;
+  if(btn) { btn.textContent = '⏳ Génération...'; }
+  try {
+    const logoDataUrl = config.logo ? await _loadImageAsDataURL(config.logo) : null;
+    // ✅ Précharger les photos des produits (Top Produits), comme pour le logo,
+    // pour pouvoir les dessiner dans le tableau (rapprocher du rendu "Imprimer").
+    let topImages = [];
+    if(config.top && config.top.length) {
+      topImages = await Promise.all(config.top.map(t => t.img ? _loadImageAsDataURL(t.img, 4000) : Promise.resolve(null)));
+    }
+    const doc = _testDoc;
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = 14;
+
+    // Logo (si dispo)
+    if(logoDataUrl) {
+      try {
+        const imgProps = doc.getImageProperties(logoDataUrl);
+        const logoH = 18, logoW = (imgProps.width / imgProps.height) * logoH;
+        doc.addImage(logoDataUrl, imgProps.fileType || 'PNG', pageW/2 - logoW/2, y, logoW, logoH);
+        y += logoH + 4;
+      } catch(e) { /* logo illisible -> on continue sans */ }
+    }
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
+    doc.text(config.nomResto || 'Restaurant', pageW/2, y, { align:'center' }); y += 4;
+    doc.setDrawColor(245,166,35); doc.setLineWidth(0.6); doc.line(pageW/2-30, y, pageW/2+30, y); y += 4;
+    if(config.adresse) { doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(120); doc.text(config.adresse, pageW/2, y, { align:'center' }); y += 6; doc.setTextColor(0); }
+
+    // Bandeau titre (façon badge orange, comme l'aperçu imprimé)
+    doc.setFillColor(255,247,230); doc.setDrawColor(245,166,35); doc.setLineWidth(0.3);
+    const titreLines = [config.titre || 'Rapport', config.sousTitre || ''].filter(Boolean);
+    doc.roundedRect(10, y, pageW-20, titreLines.length>1?14:9, 2, 2, 'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(150,90,0);
+    doc.text(config.titre || 'Rapport', pageW/2, y+6, { align:'center' });
+    if(config.sousTitre) { doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(120,80,20); doc.text(config.sousTitre, pageW/2, y+11, { align:'center' }); }
+    doc.setTextColor(0);
+    y += (titreLines.length>1?14:9) + 6;
+    if(config.cashier) { doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90); doc.text('Caissier : ' + config.cashier, pageW/2, y, { align:'center' }); doc.setTextColor(0); y += 7; }
+
+    // KPI
+    if(config.kpis && config.kpis.length) {
+      const kw = (pageW - 20) / config.kpis.length;
+      config.kpis.forEach((k, i) => {
+        const x = 10 + i*kw;
+        doc.setFillColor(250,250,252); doc.setDrawColor(225); doc.roundedRect(x+2, y, kw-4, 17, 2, 2, 'FD');
+        doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(196,122,0);
+        doc.text(String(k.value), x+kw/2, y+9, { align:'center' });
+        doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(120);
+        doc.text(k.label.toUpperCase(), x+kw/2, y+14, { align:'center' });
+        doc.setTextColor(0);
+      });
+      y += 23;
+    }
+
+    // Détail par caisse (Rapport X multi-caisses)
+    if(config.parCaisse && config.parCaisse.length) {
+      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text('DÉTAIL PAR CAISSE', 10, y); y += 2;
+      doc.autoTable({
+        startY: y, margin:{left:10,right:10}, theme:'striped',
+        head: [['Caisse','Tickets','CA','Espèces','Wave','Orange','Carte','Dép.','Net']],
+        body: config.parCaisse.map(r => [r.nom, String(r.tickets), _fmtFCFA(r.ca)+' F', _fmtFCFA(r.esp)+' F', _fmtFCFA(r.wav)+' F', _fmtFCFA(r.ora)+' F', _fmtFCFA(r.car)+' F', r.dep>0?'−'+_fmtFCFA(r.dep)+' F':'—', _fmtFCFA(r.net)+' F']),
+        styles: { fontSize: 7.5, cellPadding: 1.8 },
+        headStyles: { fillColor: [26,26,46] },
+        columnStyles: { 1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'},6:{halign:'right'},7:{halign:'right'},8:{halign:'right',fontStyle:'bold'} }
+      });
+      y = doc.lastAutoTable.finalY + 6;
+    }
+
+    // Résumé financier
+    if(config.resume && config.resume.length) {
+      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text('RÉSUMÉ FINANCIER', 10, y); y += 2;
+      doc.autoTable({
+        startY: y, margin:{left:10,right:10}, theme:'plain',
+        body: config.resume.map(r => [r.label, r.value]),
+        columnStyles: { 1: { halign:'right', fontStyle:'bold' } },
+        styles: { fontSize: 10, cellPadding: 1.5 }
+      });
+      y = doc.lastAutoTable.finalY + 6;
+    }
+
+    // Paiements
+    if(config.paiements) {
+      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text('PAIEMENTS', 10, y); y += 2;
+      const p = config.paiements;
+      doc.autoTable({
+        startY: y, margin:{left:10,right:10}, theme:'grid',
+        head: [['Espèces','Wave','Orange Money','Carte']],
+        body: [[ _fmtFCFA(p.esp||0)+' F', _fmtFCFA(p.wav||0)+' F', _fmtFCFA(p.ora||0)+' F', _fmtFCFA(p.car||0)+' F' ]],
+        styles: { fontSize: 10, halign:'center', cellPadding: 3 },
+        headStyles: { fillColor: [26,26,46] }
+      });
+      y = doc.lastAutoTable.finalY + 6;
+    }
+
+    // Sections génériques (ex: ventes par catégorie — une table par catégorie)
+    if(config.sections && config.sections.length) {
+      config.sections.forEach(sec => {
+        if(y > 260) { doc.addPage(); y = 16; }
+        doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text(sec.title, 10, y); y += 2;
+        doc.autoTable({
+          startY: y, margin:{left:10,right:10}, theme:'striped',
+          head: [sec.head || ['Article','Qté','CA']],
+          body: sec.rows,
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fillColor: [26,26,46] },
+          columnStyles: { 1:{halign:'right'}, 2:{halign:'right'} },
+          didParseCell: (data) => {
+            if(data.section==='body' && data.column.index===2) {
+              data.cell.styles.fillColor = [255,243,205];
+              data.cell.styles.textColor = [122,79,0];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        });
+        y = doc.lastAutoTable.finalY + 8;
+      });
+    }
+
+    // Top produits
+    if(config.top && config.top.length) {
+      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text('TOP PRODUITS', 10, y); y += 2;
+      doc.autoTable({
+        startY: y, margin:{left:10,right:10}, theme:'striped',
+        head: [['Rang','Produit','Qté','CA']],
+        body: config.top.map(t => ['#'+t.rang, t.nom, String(t.qty), _fmtFCFA(t.ca)+' F']),
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [26,26,46] },
+        columnStyles: { 1: { cellPadding: { left: 9 } }, 2:{halign:'right'}, 3:{halign:'right'} },
+        didParseCell: (data) => {
+          if(data.section==='body' && data.column.index===3) {
+            data.cell.styles.fillColor = [255,243,205];
+            data.cell.styles.textColor = [122,79,0];
+            data.cell.styles.fontStyle = 'bold';
+          }
+        },
+        didDrawCell: (data) => {
+          if(data.section==='body' && data.column.index===1) {
+            const img = topImages[data.row.index];
+            if(img) {
+              try {
+                const sz = Math.min(data.cell.height - 2, 6);
+                doc.addImage(img, 'PNG', data.cell.x + 1.5, data.cell.y + (data.cell.height-sz)/2, sz, sz);
+              } catch(e) { /* image illisible -> texte seul, sans bloquer le PDF */ }
+            }
+          }
+        }
+      });
+      y = doc.lastAutoTable.finalY + 6;
+    }
+
+    // Tickets
+    if(config.tickets && config.tickets.length) {
+      if(y > 250) { doc.addPage(); y = 16; }
+      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text('TICKETS (' + config.tickets.length + ')', 10, y); y += 2;
+      doc.autoTable({
+        startY: y, margin:{left:10,right:10}, theme:'striped',
+        head: [['N°','Heure','Détail','Paiement','Montant']],
+        body: config.tickets.map(t => [t.num, t.heure, t.plats, t.paiement, _fmtFCFA(t.montant)+' F']),
+        styles: { fontSize: 8, cellPadding: 1.8, overflow:'linebreak' },
+        headStyles: { fillColor: [26,26,46] },
+        columnStyles: { 0:{cellWidth:14}, 1:{cellWidth:16}, 3:{cellWidth:34}, 4:{cellWidth:22,halign:'right'} },
+        didParseCell: (data) => {
+          if(data.section==='body' && data.column.index===4) {
+            data.cell.styles.fillColor = [232,244,253];
+            data.cell.styles.textColor = [26,82,118];
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      });
+      y = doc.lastAutoTable.finalY + 4;
+    }
+
+    if(config.footer) {
+      const pages = doc.internal.getNumberOfPages();
+      for(let i=1;i<=pages;i++) {
+        doc.setPage(i);
+        doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(140);
+        doc.text(config.footer, pageW/2, doc.internal.pageSize.getHeight()-8, { align:'center' });
+      }
+    }
+
+    doc.save(filename.endsWith('.pdf') ? filename : filename + '.pdf');
+  } catch(err) {
+    console.error('_genererPdfNatif:', err);
+    showNotif('⚠️ Échec de la génération du PDF : ' + (err?.message || 'erreur inconnue'));
+  } finally {
+    if(btn) { btn.textContent = label; btn.disabled = false; }
+  }
+}
+
 function printRapportX() {
   // ✅ ISOLATION CAISSIER : un caissier n'imprime que SA caisse. Admin/Gérant/Superviseur voient tout.
   const _pxIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
@@ -17641,6 +18035,42 @@ function printRapportX() {
   const tva       = Math.round(totalCA * 18 / 118);
   const ht        = totalCA - tva;
 
+  // ✅ Config pour le PDF natif (texte/tableaux, pas de capture d'écran)
+  const _pmNormPdf = v => v.payMethod === 'especes' ? 'cash' : v.payMethod === 'carte' ? 'card' : v.payMethod;
+  const _totEsp = allVentes.reduce((a,v)=>{ const pm=_pmNormPdf(v); if(pm==='cash') return a+v.total; if(pm==='mixed') return a+(v.mixEspeces||v.payMethods?.cash||0); return a; },0);
+  const _totWav = allVentes.reduce((a,v)=>{ const pm=_pmNormPdf(v); if(pm==='wave') return a+v.total; if(pm==='mixed') return a+(v.mixWave||v.payMethods?.wave||0); return a; },0);
+  const _totOra = allVentes.reduce((a,v)=>{ const pm=_pmNormPdf(v); if(pm==='orange') return a+v.total; if(pm==='mixed') return a+(v.mixOrange||v.payMethods?.orange||0); return a; },0);
+  const _totCar = allVentes.reduce((a,v)=>{ const pm=_pmNormPdf(v); if(pm==='card') return a+v.total; if(pm==='mixed') return a+(v.mixCarte||v.payMethods?.card||0); return a; },0);
+  window._rapportXPdfConfig = {
+    nomResto, logo: logoUrl, adresse: RESTAURANT_INFO?.adresse || 'Louga, Sénégal',
+    titre: 'RAPPORT X — Toutes caisses',
+    sousTitre: 'Consultation sans fermeture · ' + dateStr + ' à ' + heureStr,
+    kpis: [
+      { label:'CA TTC', value: _fmtFCFA(totalCA)+' F' },
+      { label:'Tickets', value: String(allVentes.length) },
+      { label:'Solde Net', value: _fmtFCFA(totalNet)+' F' }
+    ],
+    parCaisse: Object.keys(_pxVentesParCaisse).filter(k => (_pxVentesParCaisse[k]||[]).length > 0).map(name => {
+      const vs = _pxVentesParCaisse[name] || [];
+      const ca = vs.reduce((a,v)=>a+v.total,0);
+      const esp = vs.reduce((a,v)=>{ const pm=_pmNormPdf(v); if(pm==='cash') return a+v.total; if(pm==='mixed') return a+(v.mixEspeces||v.payMethods?.cash||0); return a; },0);
+      const wav = vs.reduce((a,v)=>{ const pm=_pmNormPdf(v); if(pm==='wave') return a+v.total; if(pm==='mixed') return a+(v.mixWave||v.payMethods?.wave||0); return a; },0);
+      const ora = vs.reduce((a,v)=>{ const pm=_pmNormPdf(v); if(pm==='orange') return a+v.total; if(pm==='mixed') return a+(v.mixOrange||v.payMethods?.orange||0); return a; },0);
+      const car = vs.reduce((a,v)=>{ const pm=_pmNormPdf(v); if(pm==='card') return a+v.total; if(pm==='mixed') return a+(v.mixCarte||v.payMethods?.card||0); return a; },0);
+      const dep = (DEPENSES||[]).filter(d=>d.caisse===name&&!d.cloturee).reduce((a,d)=>a+(d.montant||0),0);
+      return { nom:name, tickets:vs.length, ca, esp, wav, ora, car, dep, net: ca-dep };
+    }),
+    resume: [
+      { label:'CA HT', value: _fmtFCFA(ht)+' F' },
+      { label:'TVA 18% (incluse)', value: _fmtFCFA(tva)+' F' },
+      { label:'CA TTC', value: _fmtFCFA(totalCA)+' F' },
+      ...(totalDep>0 ? [{label:'Dépenses', value:'−'+_fmtFCFA(totalDep)+' F'}, {label:'SOLDE NET', value: _fmtFCFA(totalNet)+' F'}] : [])
+    ],
+    paiements: { esp:_totEsp, wav:_totWav, ora:_totOra, car:_totCar },
+    top: Object.values(prodMap).sort((a,b)=>b.qty-a.qty).map((p,i)=>({ rang:i+1, nom:p.name, qty:p.qty, ca:p.ca, img:p.image_url||null })),
+    footer: 'Rapport X — Toutes caisses — Consultation sans fermeture — ' + nomResto + ' — Généré le ' + dateStr + ' à ' + heureStr
+  };
+
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
   <title>Rapport X — ${nomResto} — ${dateStr}</title>
   <style>
@@ -17720,6 +18150,10 @@ function printRapportX() {
         <div style="display:flex;gap:8px;">
           <button onclick="document.getElementById('rapportx-print-frame').contentWindow.print()"
             style="padding:8px 22px;background:#f5a623;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:800;cursor:pointer;">🖨️ Imprimer</button>
+          <!-- ✅ Bouton "Télécharger PDF" réactivé — indispensable sur iPhone où l'aperçu
+               d'impression natif n'offre pas d'export PDF direct. -->
+          <button onclick="_genererPdfNatif(window._rapportXPdfConfig,'Rapport-X-${dateStr.replace(/\//g,'-')}-'+new Date().toTimeString().slice(0,5).replace(':','h'),this)"
+            style="padding:8px 22px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:800;cursor:pointer;">📥 Télécharger PDF</button>
           <button onclick="document.getElementById('kg-rapportx-overlay').remove()"
             style="padding:8px 16px;background:#444;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">✕</button>
         </div>
@@ -21258,8 +21692,11 @@ async function cloturerCaisse() {
     };
     HISTORIQUE_CLOTURES.unshift(cloture);
     // ✅ FIX SYNC : sauvegarder immédiatement en localStorage (tous appareils verront après pullAll)
+    // ✅ FIX FUITE MULTI-RESTAURANT : on n'écrit plus JAMAIS la clé générique
+    // "kg-historique-clotures" (partagée par tous les restaurants du navigateur) —
+    // c'était la source de la contamination entre restaurants différents connectés
+    // sur le même appareil. Uniquement la clé propre à ce restaurant désormais.
     try {
-      localStorage.setItem("kg-historique-clotures", JSON.stringify(HISTORIQUE_CLOTURES));
       const _ridClo = window._KG_RESTAURANT_ID;
       if(_ridClo) localStorage.setItem("kg-historique-clotures-" + _ridClo, JSON.stringify(HISTORIQUE_CLOTURES));
     } catch(e) {}
@@ -21713,12 +22150,19 @@ function _dedupHistoriqueClotures(list) {
 // Sans ça, les autres appareils voient l'historique vide jusqu'au prochain pullAll
 try {
   const _rid0 = window._KG_RESTAURANT_ID;
-  // Essayer d'abord la clé prefixée restaurant (plus précise)
-  const _clKey = _rid0 ? ('kg-historique-clotures-' + _rid0) : 'kg-historique-clotures';
-  const _stored = localStorage.getItem(_clKey) || _lsGet('kg-historique-clotures');
-  if(_stored) {
-    const _parsed = JSON.parse(_stored);
-    if(Array.isArray(_parsed) && _parsed.length > 0) HISTORIQUE_CLOTURES = _dedupHistoriqueClotures(_parsed);
+  // ✅ FIX FUITE MULTI-RESTAURANT : on ne lit QUE la clé propre à CE restaurant.
+  // Avant, en l'absence de clé propre (ou si l'ID restaurant n'était pas encore
+  // chargé à ce stade), le code se rabattait sur une clé générique partagée par
+  // TOUS les restaurants du même navigateur — donc un restaurant récupérait
+  // l'historique de clôtures d'un AUTRE restaurant connecté avant lui sur le
+  // même appareil. Sans clé propre disponible, on laisse vide : la vraie donnée
+  // arrivera de toute façon un instant après via la synchro normale.
+  if(_rid0) {
+    const _stored = localStorage.getItem('kg-historique-clotures-' + _rid0);
+    if(_stored) {
+      const _parsed = JSON.parse(_stored);
+      if(Array.isArray(_parsed) && _parsed.length > 0) HISTORIQUE_CLOTURES = _dedupHistoriqueClotures(_parsed);
+    }
   }
 } catch(e) {}
 // ✅ Tickets archivés — chargés directement depuis Supabase (ventes cloturee=true)
@@ -21878,6 +22322,46 @@ function resetCatVentesFilters() {
   renderCatVentes();
 }
 
+// ✅ Impression / PDF de la recherche "Ventes par catégorie" actuellement affichée
+function imprimerVentesCategorie(btn) {
+  const d = window._catVentesPdfData;
+  if(!d || !d.catKeys || !d.catKeys.length) {
+    showNotif('⚠️ Choisissez une catégorie avec des ventes avant de télécharger');
+    return;
+  }
+  const nomResto = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO?.nom) || 'KEURGOUMAK';
+  const logoUrl  = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.logo) ? TICKET_CONFIG.logo
+                 : (RESTAURANT_INFO?.logo_url || RESTAURANT_INFO?.loginLogo || null);
+  const config = {
+    nomResto, logo: logoUrl,
+    adresse: RESTAURANT_INFO?.adresse || '',
+    titre: 'VENTES PAR CATÉGORIE',
+    sousTitre: d.label + (d.catLabel || ''),
+    kpis: [
+      { label:'Articles vendus', value: String(d.totalQty) },
+      { label:'CA total', value: _fmtFCFA(d.totalCA)+' F' },
+      { label:'Catégories', value: String(d.catKeys.length) }
+    ],
+    sections: d.catKeys.map(cat => {
+      const c = d.catMap[cat];
+      const rows = Object.entries(c.items)
+        .sort((a,b) => b[1].qty - a[1].qty)
+        .map(([nom, v]) => [nom, String(v.qty), _fmtFCFA(v.qty * v.prix)+' F']);
+      return { title: cat + ' — ' + c.qty + ' article(s) · ' + _fmtFCFA(c.total) + ' F', rows };
+    }),
+    footer: 'Ventes par catégorie — ' + nomResto + ' — Généré le ' + new Date().toLocaleDateString('fr-FR') + ' à ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
+  };
+  // ✅ FIX : un nom de fichier fixe faisait proposer "remplacer le fichier précédent"
+  // à chaque téléchargement — on inclut la catégorie + un horodatage précis pour que
+  // chaque export garde son propre fichier, sans écraser les précédents.
+  const now = new Date();
+  const horodatage = now.toISOString().slice(0,16).replace('T','_').replace(':','h') + 'm';
+  const catSlug = (d.catKeys.length === 1 ? d.catKeys[0] : 'toutes-categories')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // retirer les accents
+    .replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase();
+  _genererPdfNatif(config, 'Ventes-' + catSlug + '-' + horodatage, btn);
+}
+
 function renderCatVentes() {
   const grid     = document.getElementById('hist-cat-grid');
   const periodeEl= document.getElementById('hist-cat-periode');
@@ -22035,6 +22519,9 @@ function renderCatVentes() {
     grid.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:13px;padding:28px;grid-column:1/-1;">📭 Aucune vente dans cette catégorie pour la période choisie.</div>';
     return;
   }
+
+  // ✅ Stocker les données pour l'impression PDF (imprimerVentesCategorie)
+  window._catVentesPdfData = { label, catLabel, catKeys, catMap, totalQty, totalCA };
 
   grid.innerHTML = catKeys.map(cat => {
     const c   = catMap[cat];
@@ -22826,23 +23313,29 @@ window.addEventListener('beforeunload', () => { if(currentUser) saveSession(); }
   refreshBtn.style.cssText = [
     'display:none',
     'position:fixed',
-    'bottom:20px',
-    'left:14px',
+    'bottom:16px',
+    'left:12px',
     'z-index:8900',
-    'width:44px',
-    'height:44px',
+    'width:34px',
+    'height:34px',
     'border-radius:50%',
     'background:var(--accent,#f5a623)',
     'color:#fff',
     'border:none',
-    'font-size:18px',
+    'font-size:14px',
     'cursor:pointer',
     'box-shadow:0 4px 16px rgba(0,0,0,0.3)',
     'align-items:center',
     'justify-content:center',
-    'transition:transform 0.2s',
-    'opacity:0.85',
+    'transition:transform 0.2s, opacity 0.2s',
+    'opacity:0.45', // ✅ FIX : plus discret au repos (recouvrait le bas des listes en
+                    // permanence pendant le défilement) — pleine opacité au survol/tap.
   ].join(';');
+  // ✅ Rendre pleinement visible dès qu'on interagit avec, pour ne pas gêner la lecture
+  // le reste du temps tout en restant facilement utilisable.
+  refreshBtn.addEventListener('touchstart', () => { refreshBtn.style.opacity = '1'; }, { passive: true });
+  refreshBtn.addEventListener('mouseenter', () => { refreshBtn.style.opacity = '1'; });
+  refreshBtn.addEventListener('mouseleave', () => { refreshBtn.style.opacity = '0.45'; });
 
   refreshBtn.addEventListener('click', function() {
     if(!currentUser) return;
@@ -30858,7 +31351,7 @@ function renderBanqueRapprochement() {
         <div><strong>${compte.nom}</strong> <span style="color:var(--text2);font-size:12px;">· ${compte.banque}</span></div>
         <div style="font-size:12px;color:var(--text2);">Période : ${mois}</div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px;">
         <div style="background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.3);border-radius:10px;padding:14px;text-align:center;">
           <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Total Entrées</div>
           <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--green);">+${totalEntrees.toLocaleString()} F</div>
