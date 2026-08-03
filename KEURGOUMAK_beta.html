@@ -5443,6 +5443,7 @@ function _syncSportVentes()       { return []; }
         <button class="theme-btn"        id="tbtn-blue"  onclick="setTheme('blue')"  title="Thème bleu & blanc">🔵</button>
         <button class="theme-btn"        id="tbtn-auto"  onclick="setTheme('auto')"  title="Automatique (système)">⚙️</button>
       </div>
+      <button class="btn btn-ghost" id="kg-lang-btn" onclick="kgToggleLanguage()" title="Basculer Français / Wolof" style="white-space:nowrap;">🌍 FR</button>
       <!-- INDICATEUR SYNC SUPABASE (caché) -->
       <div id="kg-sync-badge" style="display:none;">
         <div id="kg-sync-dot"></div>
@@ -5807,6 +5808,14 @@ function _syncSportVentes()       { return []; }
         <div class="menu-cats" id="menu-cats" style="margin-bottom:0;flex:1;"></div>
         
         <button class="btn btn-primary" style="font-size:12px;padding:8px 16px;white-space:nowrap;" onclick="openAddMenuItem()">+ Ajouter produit</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;padding:10px 12px;flex-wrap:wrap;">
+        <span style="font-size:18px;">🤖</span>
+        <input type="text" id="kg-quickadd-input" class="form-input" style="flex:1;min-width:220px;"
+          placeholder="Ex: Thiéboudienne 3500 Plats sénégalais"
+          onkeydown="if(event.key==='Enter'){kgQuickAddArticle();}">
+        <button type="button" id="kg-voice-btn" class="btn btn-ghost" style="white-space:nowrap;" onclick="kgToggleVoiceInput()" title="Dicter à la voix">🎤 Dicter</button>
+        <button class="btn btn-ghost" style="white-space:nowrap;" onclick="kgQuickAddArticle()">⚡ Créer</button>
       </div>
       <div class="menu-grid" id="menu-grid"></div>
       </div><!-- end menu-panel-produits -->
@@ -9355,6 +9364,10 @@ Revenez nous voir bient&#244;t.</textarea>
       <input class="form-input" id="ticket-client" placeholder="Nom du client ou numéro de table...">
     </div>
     <div class="form-group">
+      <label class="form-label">📞 Téléphone client (optionnel)</label>
+      <input class="form-input" id="ticket-telephone" type="tel" placeholder="Ex: 77 123 45 67">
+    </div>
+    <div class="form-group">
       <label class="form-label">👤 Serveur (optionnel)</label>
       <select class="form-input" id="ticket-serveur" style="cursor:pointer;">
         <option value="">— Sans serveur —</option>
@@ -11178,7 +11191,7 @@ ${f.notes ? `<div class="notes-block">📝 <strong>Notes / Conditions :</strong>
       <div style="position:sticky;top:0;background:#1a1a2e;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;z-index:1;">
         <span style="color:#f5a623;font-weight:700;font-size:14px;">🧾 ${typeLabel} — ${f.num} · ${f.tiers}</span>
         <div style="display:flex;gap:8px;">
-          <button onclick="document.getElementById('kg-facture-frame').contentWindow.print()" style="padding:7px 18px;background:linear-gradient(135deg,#f5a623,#e8440a);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">🖨️ Imprimer</button>
+          <button onclick="kgSafePrintIframe('kg-facture-frame')" style="padding:7px 18px;background:linear-gradient(135deg,#f5a623,#e8440a);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">🖨️ Imprimer</button>
           <button onclick="document.getElementById('kg-facture-overlay').remove()" style="padding:7px 16px;background:#444;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">✕ Fermer</button>
         </div>
       </div>
@@ -13707,7 +13720,7 @@ ${(function(){
 
 <!-- ══ BOUTONS ÉCRAN ══ -->
 <div class="no-print">
-  <button onclick="window.print()" style="background:#f5a623;color:#fff;">🖨️ Imprimer (2 tickets)</button>
+  <button onclick="window.print(); try{ if(window.opener){ setTimeout(function(){ window.close(); }, 400); } else if(window.parent && window.parent !== window && window.parent.document.getElementById('kg-ticket-overlay')){ setTimeout(function(){ window.parent.document.getElementById('kg-ticket-overlay').remove(); }, 400); } }catch(e){}" style="background:#f5a623;color:#fff;">🖨️ Imprimer (2 tickets)</button>
   <button onclick="try{ if(window.opener){ window.close(); } else if(window.parent && window.parent !== window && window.parent.document.getElementById('kg-ticket-overlay')){ window.parent.document.getElementById('kg-ticket-overlay').remove(); } else { window.close(); } }catch(e){}" style="background:#444;color:#fff;">✕ Fermer</button>
 </div>
 
@@ -13746,7 +13759,10 @@ ${(function(){
     printWin.focus();
     setTimeout(function() {
       try { printWin.print(); } catch(e) {}
-      setTimeout(function() { try { printWin.close(); } catch(e) {} }, 1500);
+      setTimeout(function() {
+        try { printWin.close(); } catch(e) {}
+        try { document.getElementById('kg-ticket-overlay')?.remove(); } catch(e) {}
+      }, 1500);
     }, 600);
   };
 
@@ -16222,6 +16238,257 @@ function populateItemCatSelect(selectedId) {
   }
 }
 
+
+// ============================================================
+// 🌍 MOTEUR DE TRADUCTION DYNAMIQUE FRANÇAIS ↔ WOLOF
+// Bascule en direct sans recharger (Wolof), retour au français
+// via un rechargement propre (source de vérité = le HTML original).
+// ============================================================
+const KG_DICT = {"Ajouter": "Yokk", "Ajouter article": "Yokk yëf", "Ajouter un article": "Yokk benn yëf", "Ajouter dépense": "Yokk dépãas", "Ajouter ligne": "Yokk siin", "Ajouter une ligne": "Yokk benn siin", "Ajouter matériel": "Yokk matériel", "Ajouter plat": "Yokk añ", "Ajouter produit": "Yokk jumtukaay", "Ajouter un compte": "Yokk benn kont", "Ajouter un ingrédient": "Yokk benn ngir-jëf", "Ajouter un équipement": "Yokk benn jumtukaay", "Modifier": "Soppi", "modifier": "soppi", "Supprimer": "Far", "Supprimer le logo": "Far logo bi", "Supprimer ce ticket ?": "Far tikke bii ?", "Vider": "Far lépp", "Enregistrer": "Denc", "Enregistrer tout": "Denc lépp", "Enregistrer les paramètres": "Denc paramaat yi", "Sauvegarder": "Denc", "Sauvegarder la personnalisation": "Denc soppikuwaay bi", "Annuler": "Bàyyi", "Confirmer": "Wóor", "Confirmer le paiement": "Wóor fey bi", "Confirmer le transfert": "Wóor jëllu bi", "Valider & Imprimer": "Wóor te Bind", "Imprimer": "Bind", "Imprimer tout": "Bind lépp", "Imprimer rapport": "Bind rapoor bi", "Imprimer (2 tickets)": "Bind (2 tikke)", "Imprimer (A4)": "Bind (A4)", "Imprimer / Enregistrer PDF": "Bind / Denc PDF", "Imprimer / Enregistrer en PDF": "Bind / Denc ci PDF", "Imprimer / PDF": "Bind / PDF", "Imprimer / Partager": "Bind / Séddoo", "Réimprimer": "Bind ba mujj", "Rechercher": "Seet", "Rechercher un produit": "Seet benn jumtukaay", "Actualiser": "Yeesalaat", "Réessayer": "Jéema bàyyi-fi", "Reconnecter": "Jëloo ba mujj", "Réinitialiser": "Delloo ci njëkk", "Reset filtres": "Delloo filtar yi", "Envoyer": "Yónnee", "Envoyer par email": "Yónnee ci email", "Envoyer en cuisine": "Yónnee ci wurus", "Envoyer l'addition": "Yónnee addisyoŋ bi", "Envoyer à la caisse": "Yónnee ci kes bi", "Envoyer la commande": "Yónnee kumaand bi", "Encaisser": "Jël xaalis", "Encaisser & Imprimer": "Jël xaalis te Bind", "Encaisser l'addition": "Jël xaalis addisyoŋ bi", "Payer": "Fey", "Choisissez": "Tann", "Choisir la caisse :": "Tann kes bi :", "Choisir une photo": "Tann benn nataal", "Choisir un livreur": "Tann benn yónnikat", "Scanner QR": "Sàkkanal QR", "Copier": "Cofi", "Copier lien": "Cofi lien bi", "Créer": "Sos", "Créer une commande": "Sos benn kumaand", "Créer & Ouvrir": "Sos te Ubbi", "Créer le QR Code": "Sos QR Code bi", "Fermer": "Tëj", "Fermer session": "Tëj sesioŋ bi", "Ouvrir": "Ubbi", "Ouvrir Caisse 3": "Ubbi Kes 3", "Ouvrir caisse": "Ubbi kes bi", "Ouvrir la caisse": "Ubbi kes bi", "Ouvrir le shift": "Ubbi shift bi", "Clôturer": "Tëj (Z)", "Clôturer la caisse": "Tëj kes bi (Z)", "Clôturer fonds propres": "Tëj alal yu bopp", "Générer": "Sos", "Réapprovisionner": "Yokkaat estog", "Réceptionner": "Nangu", "Passer commande": "Def kumaand", "Passer une commande fournisseur": "Def kumaand ci jaaykat bi", "Commander": "Def kumaand", "Télécharger": "Yebbi", "Télécharger PDF": "Yebbi PDF", "Exporter PDF": "Génne PDF", "Exporter CSV": "Génne CSV", "Export CSV": "Génne CSV", "Transférer": "Yebbi", "Ignorer": "Bàyyi", "Continuer →": "Gëstu →", "Appliquer": "Sükkandiku", "Changer le statut": "Soppi estati bi", "Changer de caissier": "Soppi kajsiye bi", "Changer le mot de passe": "Soppi baatu-jaam bi", "Client": "Kiliyaan", "Clients enregistrés": "Kiliyaan yu bind", "Clients uniques": "Kiliyaan yu bёss", "Nouveau client": "Kiliyaan bu bees", "Article": "Yëf", "Articles": "Yëf yi", "Articles comptés": "Yëf yu waññ", "Articles en alerte": "Yëf yu alerte", "Articles reçus": "Yëf yu nangu", "Articles sélectionnés": "Yëf yu tann", "Articles uniques": "Yëf yu bёss", "Articles vendus": "Yëf yu jaay", "Articles à préparer": "Yëf yu waroon defar", "Aucun article": "Amul yëf", "Aucun article ajouté": "Amul yëf bu yokk", "Aucun article correspondant": "Amul yëf bu dëppoo", "Aucun article dans le menu.": "Amul yëf ci menu bi.", "Produit": "Jumtukaay", "Produits": "Jumtukaay yi", "Nom du produit": "Tur jumtukaay bi", "Stock": "Estog", "Stock actuel": "Estog leegi", "Stock général": "Estog bu mag", "Stock maximum": "Estog gu épp", "Alertes Stock": "Alerte Estog", "Entrée de stock": "Dugg estog", "Entrée stock": "Dugg estog", "Entrées stock": "Dugg estog yi", "Historique des entrées de stock": "Jaar-jaar dugg estog", "Catégorie stock": "Kategori estog", "Catégories du Stock": "Kategori Estog yi", "Vente": "Jaay", "Ventes / Recettes": "Jaay yi / Xaalis dugg", "Aucune vente": "Amul jaay", "Aucune vente enregistrée": "Amul jaay bu bind", "Aucune vente enregistrée.": "Amul jaay bu bind.", "Aucune vente enregistrée sur cette session": "Amul jaay bu bind ci sesioŋ bii", "Dernières ventes": "Jaay yu mujj", "Ticket moyen": "Tikke digg", "Ticket Moyen": "Tikke Digg", "Ticket moyen global": "Tikke digg bu mat", "Top ventes du moment": "Jaay yu gën a bare tey", "Top produits": "Jumtukaay yu gën a jaay", "Top produits vendus": "Jumtukaay yu gën a jaay", "Top Produits": "Jumtukaay yu Gën a Jaay", "Répartition ventes": "Séddaliku jaay yi", "Résumé des ventes": "Nataal jaay yi", "Commencez à vendre": "Tàmbali jaay", "Commencez à vendre pour voir les statistiques": "Tàmbali jaay ngir gis stat yi", "Effectuez des ventes pour voir les statistiques ici": "Def jaay ngir gis stat yi fii", "Caisse": "Kes", "Caisses": "Kes yi", "Gestion des Caisses": "Yëngu-yëngu Kes yi", "Caisse assignée": "Kes bu jagleel", "Caisse additionnelle": "Kes bu ëpp", "Caisse non ouverte": "Kes bi ubbiwul", "Caisses ouvertes": "Kes yu ubbi", "Aucune caisse": "Amul kes", "Aucune caisse liée": "Amul kes bu ñeel", "Nouvelle caisse": "Kes bu bees", "Total caisse": "Limu kes bi", "Sorties Caisses": "Génne ci Kes yi", "Commande": "Kumaand", "Commandes": "Kumaand yi", "Nouvelle commande": "Kumaand bu bees", "Aucune commande en cours": "Amul kumaand bu ngi doon", "Aucune commande pour le moment": "Amul kumaand ci léegi", "Commandes en cours": "Kumaand yu ngi doon", "Commandes validées": "Kumaand yu wóor", "Commandes par serveur": "Kumaand ci saveur bu nekk", "Détail de la commande": "Digg-digg kumaand bi", "Description de la commande": "Wax kumaand bi", "Total commandes": "Limu kumaand yi", "Employé": "Liggéeykat", "Employés actifs": "Liggéeykat yu ngi liggéey", "Nouvel Employé": "Liggéeykat bu bees", "Aucun employé": "Amul liggéeykat", "Aucun employé trouvé": "Amul liggéeykat bu gis", "Charges de personnel": "Fey ci liggéeykat yi", "Salaire": "Peey", "Salaires": "Peey yi", "Salaire brut": "Peey bu mag (brut)", "Salaire net": "Peey bu wér (net)", "Fiches de Paie": "Fiise Peey", "Avance": "Jox-njëkk", "Avances": "Jox-njëkk yi", "Avances sur salaires": "Jox-njëkk ci peey", "Avance sur salaire": "Jox-njëkk ci peey", "Avances sur Salaire & Prêts": "Jox-njëkk ci Peey & Lëkk", "Employés": "Liggéeykat yi", "Cuisinier": "Wurusukat", "Serveur": "Saveur", "Nouveau serveur": "Saveur bu bees", "Aucun serveur actif.": "Amul saveur bu ngi liggéey.", "Aucun serveur enregistré": "Amul saveur bu bind", "Statistiques Serveurs": "Statistik Saveur yi", "Livreur": "Yónnikat", "Livreurs": "Yónnikat yi", "Mes Livreurs": "Sama Yónnikat yi", "Aucun livreur actif — saisie manuelle :": "Amul yónnikat bu ngi liggéey — bind ci loxo :", "Aucun livreur enregistré": "Amul yónnikat bu bind", "Livraison": "Yónnee", "Livrée / Remise": "Yónnee / Jébbal", "Fournisseur": "Jaaykat", "Fournisseurs": "Jaaykat yi", "Nouveau fournisseur": "Jaaykat bu bees", "Achats Fournisseurs": "Jënd ci Jaaykat yi", "Achats fournisseurs": "Jënd ci jaaykat yi", "Achat auprès d'un fournisseur": "Jënd ci benn jaaykat", "Réception commande fournisseur": "Nangu kumaand jaaykat bi", "Commandes fournisseurs": "Kumaand ci jaaykat yi", "Aucun achat livré": "Amul jënd bu yónnee", "Aucune livraison reçue": "Amul yónnee bu nangu", "Historique livraisons": "Jaar-jaar yónnee yi", "Historique des livraisons reçues": "Jaar-jaar yónnee yu nangu", "Utilisateur": "Jëfandikukat", "Utilisateurs": "Jëfandikukat yi", "Nouvel utilisateur": "Jëfandikukat bu bees", "Liste utilisateurs": "Lëkkalekaay Jëfandikukat yi", "Aucun utilisateur": "Amul jëfandikukat", "Nouveau membre": "Sos bu bees", "Membres": "Sos yi", "Aucun membre inscrit": "Amul sos bu bind", "Total membres": "Limu sos yi", "Nouvelle annonce": "Xibaar bu bees", "Annonces & Publicités": "Xibaar yu Publisite", "Mes annonces": "Sama xibaar yi", "Créez votre première annonce avec le bouton ci-dessus.": "Sosal sa xibaar bu njëkk ci bouton bu kaw.", "Total annonces": "Limu xibaar yi", "Réservation": "Rezervasion", "Réservations": "Rezervasion yi", "Nouvelle réservation": "Rezervasion bu bees", "Liste des réservations": "Lëkkalekaay Rezervasion yi", "Aucune réservation trouvée": "Amul rezervasion bu gis", "Aucune réservation à afficher": "Amul rezervasion bu wone", "Ajoutez votre première réservation.": "Yokkal sa rezervasion bu njëkk.", "Réservations aujourd'hui": "Rezervasion yi tey", "Total réservations": "Limu rezervasion yi", "Chambre": "Néeg", "Chambres": "Néeg yi", "Ajouter une chambre": "Yokk benn néeg", "Aucune chambre.": "Amul néeg.", "Chambres total": "Limu néeg yi", "Table": "Taabal", "Table / Type": "Taabal / Xeet", "Nouvelle table / lien": "Taabal bu bees / lien", "Aucun QR code créé. Cliquez sur \"+ Ajouter une table\" ci-dessus.": "Amul QR code bu sos. Cofi \"+ Yokk taabal\" ci kaw.", "Facture": "Faktir", "Factures": "Faktir yi", "Nouvelle Facture": "Faktir bu bees", "Nouvelle facture": "Faktir bu bees", "Factures Clients": "Faktir Kiliyaan yi", "Facture Client": "Faktir Kiliyaan", "Aucune facture enregistrée": "Amul faktir bu bind", "Aucune facture trouvée": "Amul faktir bu gis", "Total facturé": "Limu faktir", "N° Facture": "Nimero Faktir", "N° de Facture": "Nimero Faktir", "Banque": "Banke", "Compte": "Kont", "Comptes actifs": "Kont yu ngi dox", "Nouveau compte": "Kont bu bees", "Compte courant": "Kont bu dox", "Compte épargne": "Kont bu denc", "Aucun compte bancaire": "Amul kont banke", "Ajoutez votre premier compte pour commencer le suivi": "Yokkal sa kont bu njëkk ngir tàmbali topatoo", "Virement inter-comptes": "Yebbi ci diggante kont yi", "Virements": "Yebbi yi", "Nouveau mouvement": "Yëngu-yëngu bu bees", "Ajoutez votre premier mouvement bancaire": "Yokkal sa yëngu-yëngu banke bu njëkk", "Mouvements": "Yëngu-yëngu yi", "Aucun mouvement ce mois": "Amul yëngu-yëngu weer wii", "Aucun mouvement enregistré": "Amul yëngu-yëngu bu bind", "Matériel": "Jumtukaay yu tabax", "Aucun matériel": "Amul jumtukaay", "Aucun matériel enregistré": "Amul jumtukaay bu bind", "Nouveau matériel": "Jumtukaay bu bees", "Parc matériel": "Njëriñ Jumtukaay yi", "Dépense": "Dépãas", "Dépenses": "Dépãas yi", "Aucune dépense": "Amul dépãas", "Aucune dépense enregistrée": "Amul dépãas bu bind", "Aucune dépense pour ces critères": "Amul dépãas ngir critères yii", "Ajouter des dépenses": "Yokk dépãas yi", "Dépenses opérationnelles": "Dépãas yu liggéey", "Dépenses sortantes": "Dépãas yu génn", "Total dépenses": "Limu dépãas yi", "Total dépensé": "Limu dépãas", "Nbre dépenses": "Limu dépãas", "Synthèse des dépenses": "Nataal dépãas yi", "Catégorie": "Kategori", "Nouvelle catégorie": "Kategori bu bees", "Aucune catégorie": "Amul kategori", "Aucune catégorie. Cliquez sur \"+ Nouvelle catégorie\".": "Amul kategori. Cofi \"+ Kategori bu bees\".", "Gestion des Catégories": "Yëngu-yëngu Kategori yi", "Catégories vendues": "Kategori yu jaay", "Recette": "Rëset", "Nouvelle recette": "Rëset bu bees", "Fiches recettes": "Fiise Rëset", "Nom de la recette *": "Tur rëset bi *", "Ingrédient": "Ngir-jëf", "Ingrédients & Épices": "Ngir-jëf & Sepiis", "Aucun ingrédient défini": "Amul ngir-jëf bu tekki", "Historique": "Jaar-jaar", "Journal": "Jarnal", "Journal des connexions": "Jarnal jëlukaay yi", "Journal de connexions": "Jarnal jëlukaay", "Rapport": "Rapoor", "Rapports & Clôtures": "Rapoor & Tëj (Z)", "Rapport Mensuel": "Rapoor Weer", "Rapport quotidien": "Rapoor bёs bu nekk", "Rapport X": "Rapoor X", "Statistiques": "Statistik", "Récapitulatif": "Nataal", "Résumé global": "Nataal bu mat", "Tableau de bord": "Tablo yëngu-yëngu", "Actif": "Ngi dox", "Actifs": "Ngi dox", "Actives": "Yu ngi dox", "Inactif": "Taxawul", "En cours": "Ngi doon", "En attente": "Ngi xaar", "En traitement": "Ngi liggéey ci", "Terminé": "Jeex na", "Terminée": "Jeex na", "Terminées": "Jeex nañu", "Terminés": "Jeex nañu", "Payé": "Fey na", "Payée": "Fey na", "Payées": "Fey nañu", "Annulée": "Bàyyi", "Annulées": "Bàyyi nañu", "Urgent": "Gaaw", "Urgente": "Gaaw", "Normal": "Normaal", "Normale": "Normaal", "Disponibles": "Am na", "Occupées": "Nekk nañu ci liggéey", "Manquant": "Ñàkk na", "Manquants": "Ñàkk nañu", "Expiré": "Jeex na araf", "Expirés ce mois": "Jeex nañu weer wii", "Hors ligne": "Bakkanul", "En maintenance": "Ngi ñaaw", "En nettoyage": "Ngi setal", "Ouverture": "Ubbite", "Fin de shift": "Njeexit shift bi", "Aujourd'hui": "Tey", "Ce mois": "Weer wii", "Cette année": "At mii", "Cette semaine": "Ayubés bii", "Ce trimestre": "Weer ñatt yii", "Semaine": "Ayubés", "Mois": "Weer", "Année": "At", "Jour": "Bёs", "Heure": "Waxtu", "Date": "Bёs", "Aucune donnée": "Amul dëgëdëg", "Chargement...": "Ngi yebbi...", "Chargement…": "Ngi yebbi…", "Cliquez sur": "Cofi", "Total": "Limu", "Montant": "Xaalis bi", "Prix": "Njëg", "Prix unitaire": "Njëg wenn wenn", "Solde": "Rëst", "Note": "Bind", "Notes": "Bind yi", "Description": "Wax-wax", "Nom": "Tur", "Nom & Prénom": "Tur & Wesaar", "Adresse": "Adrees", "Téléphone": "Telefon", "Email": "Email", "Mot de passe": "Baatu-jaam", "Nouveau mot de passe": "Baatu-jaam bu bees", "Confirmer MDP": "Wóor Baatu-jaam", "Identifiant": "Turu-dugg", "Janvier": "Samwiye", "Février": "Fewriye", "Mars": "Mars", "Avril": "Awril", "Mai": "Me", "Juin": "Suwe", "Juillet": "Sulet", "Août": "Ut", "Septembre": "Septàmbar", "Octobre": "Oktoobar", "Novembre": "Nowàmbar", "Décembre": "Desàmbar", "Dicter": "Wax", "Créer par texte": "Sos ci wax", "Basculer Français / Wolof": "Wecciku Français / Wolof"};
+
+let KG_LANG = localStorage.getItem('kg_lang') || 'fr';
+let _kgObserver = null;
+
+const KG_EMOJI_PREFIX = /^([^\sA-Za-zÀ-ÿ0-9]{1,3}\s+)(.*)$/s;
+
+function _kgLookup(raw) {
+  const stripped = raw.trim();
+  if (!stripped) return null;
+  if (KG_DICT[stripped]) return { prefix: '', rest: stripped, translated: KG_DICT[stripped] };
+  const em = KG_EMOJI_PREFIX.exec(stripped);
+  if (em && KG_DICT[em[2]]) return { prefix: em[1], rest: em[2], translated: KG_DICT[em[2]] };
+  return null;
+}
+
+function kgTranslateTextNode(node) {
+  const val = node.nodeValue;
+  if (!val || !val.trim()) return;
+  const hit = _kgLookup(val);
+  if (!hit) return;
+  const leading = val.slice(0, val.length - val.trimStart().length);
+  const trailing = val.slice(val.trimEnd().length);
+  node.nodeValue = leading + hit.prefix + hit.translated + trailing;
+}
+
+function kgTranslateSubtree(root) {
+  if (!root) return;
+  const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'TEXTAREA']);
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(n) {
+      const p = n.parentElement;
+      if (p && SKIP_TAGS.has(p.tagName)) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const nodes = [];
+  let n;
+  while ((n = walker.nextNode())) nodes.push(n);
+  nodes.forEach(kgTranslateTextNode);
+
+  // Attributs affichés à l'utilisateur (placeholder, title, value des boutons)
+  const els = (root.querySelectorAll ? root.querySelectorAll('[placeholder],[title]') : []);
+  els.forEach(el => {
+    ['placeholder', 'title'].forEach(attr => {
+      const v = el.getAttribute(attr);
+      if (!v) return;
+      const hit = _kgLookup(v);
+      if (hit) el.setAttribute(attr, hit.prefix + hit.translated);
+    });
+  });
+}
+
+function kgUpdateLangBtn() {
+  const btn = document.getElementById('kg-lang-btn');
+  if (btn) btn.textContent = KG_LANG === 'wolof' ? '🌍 Wolof' : '🌍 FR';
+}
+
+function kgToggleLanguage() {
+  if (KG_LANG === 'fr') {
+    // FR -> Wolof : traduction en direct, pas de rechargement
+    localStorage.setItem('kg_lang', 'wolof');
+    KG_LANG = 'wolof';
+    kgUpdateLangBtn();
+    kgTranslateSubtree(document.body);
+    if (!_kgObserver) {
+      _kgObserver = new MutationObserver(mutations => {
+        if (KG_LANG !== 'wolof') return;
+        mutations.forEach(m => {
+          m.addedNodes.forEach(node => {
+            if (node.nodeType === 3) kgTranslateTextNode(node);
+            else if (node.nodeType === 1) kgTranslateSubtree(node);
+          });
+        });
+      });
+      _kgObserver.observe(document.body, { childList: true, subtree: true });
+    }
+    if (typeof showNotif === 'function') showNotif('🌍 Wolof activé');
+  } else {
+    // Wolof -> FR : on repart du HTML source (fiable à 100%)
+    localStorage.setItem('kg_lang', 'fr');
+    location.reload();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  kgUpdateLangBtn();
+  if (KG_LANG === 'wolof') {
+    kgTranslateSubtree(document.body);
+    _kgObserver = new MutationObserver(mutations => {
+      if (KG_LANG !== 'wolof') return;
+      mutations.forEach(m => {
+        m.addedNodes.forEach(node => {
+          if (node.nodeType === 3) kgTranslateTextNode(node);
+          else if (node.nodeType === 1) kgTranslateSubtree(node);
+        });
+      });
+    });
+    _kgObserver.observe(document.body, { childList: true, subtree: true });
+  }
+});
+
+// ============================================================
+// 🤖 Création rapide d'article par texte libre ou dictée vocale
+// (aucune clé API — reconnaissance de nom / prix / catégorie)
+// ============================================================
+function _kgNormalize(s) {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function _kgStripCommandWords(text) {
+  let t = ' ' + text.toLowerCase() + ' ';
+  const fillers = [
+    'crée un nouvel article', 'crée un article', 'créer un article', 'créé un article',
+    'crée un produit', 'créer un produit', 'crée un nouveau produit',
+    'ajoute un article', 'ajouter un article', 'ajoute un produit', 'ajouter un produit',
+    'nouveau produit', 'nouvel article', 'au menu', 'dans le menu',
+    'crée', 'créer', 'ajoute', 'ajouter', 'article', 'produit',
+  ];
+  fillers.forEach(f => {
+    t = t.replace(new RegExp('\\b' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), ' ');
+  });
+  return t.replace(/\s+/g, ' ').trim() || text;
+}
+
+function kgParseArticleText(raw) {
+  let t = raw;
+  let catId = null;
+  const cats = (typeof CATEGORIES !== 'undefined') ? CATEGORIES : [];
+  const tNorm = _kgNormalize(t);
+  let bestCat = null, bestLen = 0;
+  cats.forEach(c => {
+    const labelClean = (c.label || '').replace(/^[^\p{L}]+/u, '');
+    const labelNorm = _kgNormalize(labelClean);
+    const idNorm = _kgNormalize(c.id);
+    [labelNorm, idNorm].forEach(cand => {
+      if (cand && cand.length > 2 && tNorm.includes(cand) && cand.length > bestLen) {
+        bestCat = c; bestLen = cand.length;
+      }
+    });
+  });
+  if (bestCat) {
+    catId = bestCat.id;
+    const labelClean = (bestCat.label || '').replace(/^[^\p{L}]+/u, '').trim();
+    const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (labelClean) t = t.replace(new RegExp(esc(labelClean), 'ig'), '');
+    t = t.replace(new RegExp('\\b' + esc(bestCat.id) + '\\b', 'ig'), '');
+  }
+  let price = null;
+  const priceMatch = t.match(/(\d[\d\s]{1,7})\s*(fcfa|cfa|f)?\b/i);
+  if (priceMatch) {
+    price = parseInt(priceMatch[1].replace(/\s/g, ''), 10);
+    t = t.replace(priceMatch[0], '');
+  }
+  const name = t.replace(/\s{2,}/g, ' ').trim().replace(/^[-,.:;]+|[-,.:;]+$/g, '').trim();
+  return { name, price, catId };
+}
+
+function kgSpeak(text) {
+  if (!('speechSynthesis' in window) || !text) return;
+  try {
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'fr-FR';
+    utter.rate = 1;
+    window.speechSynthesis.speak(utter);
+  } catch (e) {}
+}
+
+function _kgCatLabel(catId) {
+  const cats = (typeof CATEGORIES !== 'undefined') ? CATEGORIES : [];
+  const c = cats.find(x => x.id === catId) || cats[0];
+  return c ? (c.label || '').replace(/^[^\p{L}]+/u, '').trim() : '';
+}
+
+function kgQuickAddArticle() {
+  const inputEl = document.getElementById('kg-quickadd-input');
+  const raw = (inputEl && inputEl.value || '').trim();
+  if (!raw) { if (typeof showNotif === 'function') showNotif('⚠️ Tape une phrase (ex: Thiéboudienne 3500 Plats)'); kgSpeak('Dis-moi un nom et un prix.'); return; }
+
+  const { name, price, catId } = kgParseArticleText(_kgStripCommandWords(raw));
+
+  if (!name) { if (typeof showNotif === 'function') showNotif('⚠️ Nom manquant — ajoute un nom d\'article'); kgSpeak('Je n\'ai pas compris le nom de l\'article.'); return; }
+  if (!price || isNaN(price) || price <= 0) { if (typeof showNotif === 'function') showNotif('⚠️ Prix manquant — ajoute un prix (ex: 3500)'); kgSpeak('Je n\'ai pas compris le prix. Redis avec un chiffre, par exemple 3500.'); return; }
+
+  openAddMenuItem();
+  document.getElementById('item-nom').value = name;
+  document.getElementById('item-price').value = price;
+  const finalCatId = catId || (typeof CATEGORIES !== 'undefined' && CATEGORIES.length ? CATEGORIES[0].id : '');
+  populateItemCatSelect(finalCatId);
+
+  saveMenuItem();
+
+  const catLabel = _kgCatLabel(finalCatId);
+  kgSpeak(`Article créé : ${name}, ${price} francs C F A${catLabel ? ', catégorie ' + catLabel : ''}.`);
+
+  if (inputEl) inputEl.value = '';
+}
+
+let _kgRecognition = null;
+let _kgListening = false;
+
+function kgToggleVoiceInput() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = document.getElementById('kg-voice-btn');
+  if (!SR) {
+    if (typeof showNotif === 'function') showNotif('⚠️ Ce navigateur ne supporte pas la dictée vocale (essaie Chrome)');
+    return;
+  }
+  if (_kgListening && _kgRecognition) {
+    _kgRecognition.stop();
+    return;
+  }
+  _kgRecognition = new SR();
+  _kgRecognition.lang = 'fr-FR';
+  _kgRecognition.interimResults = false;
+  _kgRecognition.maxAlternatives = 1;
+
+  _kgRecognition.onstart = () => {
+    _kgListening = true;
+    if (btn) { btn.textContent = '🔴 Écoute...'; btn.classList.add('btn-primary'); }
+  };
+  _kgRecognition.onerror = (e) => {
+    if (typeof showNotif === 'function') showNotif('⚠️ Erreur micro : ' + (e.error || 'inconnue'));
+  };
+  _kgRecognition.onend = () => {
+    _kgListening = false;
+    if (btn) { btn.textContent = '🎤 Dicter'; btn.classList.remove('btn-primary'); }
+  };
+  _kgRecognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    const inputEl = document.getElementById('kg-quickadd-input');
+    const cleaned = _kgStripCommandWords(transcript);
+    if (inputEl) inputEl.value = cleaned;
+    if (typeof showNotif === 'function') showNotif('🎤 « ' + transcript + ' »');
+    kgQuickAddArticle();
+  };
+  _kgRecognition.start();
+}
+
 function openAddMenuItem() {
   document.getElementById('addItemTitle').textContent = '➕ Nouveau produit';
   document.getElementById('item-edit-id').value = '';
@@ -17487,6 +17754,37 @@ function renderRapportX() {
 }
 
 // ===== IMPRESSION RAPPORT X — UNE SEULE CAISSE =====
+
+// ============================================================
+// 🖨️ IMPRESSION ROBUSTE DEPUIS UNE IFRAME
+// Corrige un bug connu : appeler contentWindow.print() sans avoir
+// d'abord fait .focus() sur l'iframe fait parfois échouer silencieusement
+// l'impression (aucune boîte de dialogue, aucune erreur visible).
+// On attend aussi que le contenu de l'iframe soit chargé avant d'imprimer.
+// ============================================================
+function kgSafePrintIframe(iframeId, _attempt) {
+  const iframe = document.getElementById(iframeId);
+  if (!iframe) return;
+  const attempt = _attempt || 0;
+  let doc = null;
+  try { doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document); } catch(e) {}
+  const ready = doc && doc.readyState === 'complete' && doc.body && doc.body.innerHTML.trim().length > 0;
+
+  if (!ready && attempt < 10) {
+    setTimeout(() => kgSafePrintIframe(iframeId, attempt + 1), 200);
+    return;
+  }
+
+  try {
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+  } catch (e) {
+    if (typeof showNotif === 'function') {
+      showNotif('⚠️ Impression indisponible — utilise "Télécharger PDF" à la place');
+    }
+  }
+}
+
 function printRapportXCaisse(name) {
   // ✅ ISOLATION CAISSIER : un caissier ne peut imprimer que SA caisse assignée.
   const _pcIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
@@ -17684,7 +17982,7 @@ function printRapportXCaisse(name) {
       <div style="background:#111;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
         <span style="color:#f5a623;font-weight:800;font-size:14px;">📊 Rapport X — ${name}</span>
         <div style="display:flex;gap:8px;">
-          <button onclick="document.getElementById('rapportx-single-frame').contentWindow.print()"
+          <button onclick="kgSafePrintIframe('rapportx-single-frame')"
             style="padding:8px 22px;background:#f5a623;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:800;cursor:pointer;">🖨️ Imprimer</button>
           <!-- ✅ Bouton "Télécharger PDF" réactivé — indispensable sur iPhone où l'aperçu
                d'impression natif n'offre pas d'export PDF direct. -->
@@ -18148,7 +18446,7 @@ function printRapportX() {
       <div style="background:#111;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
         <span style="color:#f5a623;font-weight:800;font-size:14px;">📊 Rapport X — ${dateStr}</span>
         <div style="display:flex;gap:8px;">
-          <button onclick="document.getElementById('rapportx-print-frame').contentWindow.print()"
+          <button onclick="kgSafePrintIframe('rapportx-print-frame')"
             style="padding:8px 22px;background:#f5a623;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:800;cursor:pointer;">🖨️ Imprimer</button>
           <!-- ✅ Bouton "Télécharger PDF" réactivé — indispensable sur iPhone où l'aperçu
                d'impression natif n'offre pas d'export PDF direct. -->
@@ -27291,7 +27589,7 @@ function printComptaSection(section) {
       <div style="background:#111;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
         <span style="color:#f5a623;font-weight:800;font-size:13px;">📄 ${titre}</span>
         <div style="display:flex;gap:8px;">
-          <button onclick="document.getElementById('compta-print-iframe').contentWindow.print()"
+          <button onclick="kgSafePrintIframe('compta-print-iframe')"
             style="padding:8px 22px;background:#f5a623;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:800;cursor:pointer;">🖨️ Imprimer</button>
           <button onclick="document.getElementById('${overlayId}').remove()"
             style="padding:8px 14px;background:#444;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;">✕</button>
@@ -29748,7 +30046,7 @@ function printArchivedTicket(idx) {
     + '<div style="position:sticky;top:0;background:#1a1a2e;padding:10px 16px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">'
     + '<span style="color:#f5a623;font-weight:700;font-size:13px;">🧾 Duplicata — ' + (ticket.numero||ticket.id||'Ticket') + '</span>'
     + '<div style="display:flex;gap:8px;">'
-    + '<button onclick="document.getElementById(\'kg-archive-frame\').contentWindow.print()" style="padding:6px 14px;background:#f5a623;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">🖨️ Imprimer</button>'
+    + '<button onclick="kgSafePrintIframe(\'kg-archive-frame\')" style="padding:6px 14px;background:#f5a623;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">🖨️ Imprimer</button>'
     + '<button onclick="document.getElementById(\'kg-ticket-overlay\').remove()" style="padding:6px 14px;background:#555;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">✕ Fermer</button>'
     + '</div></div>'
     + '<iframe id="kg-archive-frame" style="width:320px;height:580px;border:none;display:block;background:#fff;"></iframe>'
@@ -38814,6 +39112,7 @@ function _confirmerEtCreerTicket(nomServeur) {
 
   const now = new Date();
   const clientName = document.getElementById('ticket-client')?.value || 'Client';
+  const clientTelephone = document.getElementById('ticket-telephone')?.value?.trim() || '';
   const ticketId = 'ATT-' + Date.now().toString().slice(-6);
 
   _loadTicketsAttente();
@@ -38827,6 +39126,7 @@ function _confirmerEtCreerTicket(nomServeur) {
     caisse, cashier,
     serveur,
     client: clientName,
+    telephone: clientTelephone,
     items: itemsSaved,
     total: totalTTC, sub: ht, tva: tvaIncluse,
     remisePct, remiseMontant,
@@ -38846,6 +39146,7 @@ function _confirmerEtCreerTicket(nomServeur) {
   if(document.getElementById('remise-cmd-input')) document.getElementById('remise-cmd-input').value = '';
   renderCart();
   if(document.getElementById('ticket-client')) document.getElementById('ticket-client').value = '';
+  if(document.getElementById('ticket-telephone')) document.getElementById('ticket-telephone').value = '';
 
   showNotif(`⏳ Ticket ${ticketId} mis en attente · 🖨️ Ticket imprimé`);
 
@@ -39243,6 +39544,7 @@ function imprimerTicketAttente(ticketId) {
 <!-- MÉTA INFO -->
 <div class="meta-block">
   <div class="meta-row"><span class="meta-lbl">Client</span><span class="meta-val">${ticket.client||'—'}</span></div>
+  ${ticket.telephone ? `<div class="meta-row"><span class="meta-lbl">📞 Téléphone</span><span class="meta-val">${ticket.telephone}</span></div>` : ''}
   <div class="meta-row"><span class="meta-lbl">Date</span><span class="meta-val">${ticket.date||'—'} ${ticket.time||''}</span></div>
   ${ticket.serveur ? `<div class="meta-row" style="background:#f5f5f5;border-radius:4px;padding:4px 6px;margin:2px 0;"><span class="meta-lbl" style="font-weight:800;font-size:12px;">👤 SERVEUR</span><span class="meta-val" style="font-weight:900;font-size:14px;text-transform:uppercase;letter-spacing:1px;">${ticket.serveur}</span></div>` : ''}
   ${showCashier ? `<div class="meta-row"><span class="meta-lbl">Caissier</span><span class="meta-val">${ticket.cashier||'—'}</span></div>` : ''}
@@ -39441,7 +39743,7 @@ renderOrders = function(status) {
       <div class="order-item" style="border-left:3px solid var(--accent);background:rgba(245,158,42,0.04);">
         <div class="order-num" style="color:var(--accent);">${t.id}</div>
         <div class="order-info">
-          <div class="order-name">${t.client} <span style="font-size:10px;color:var(--teal);margin-left:6px;">[${t.caisse}]</span></div>
+          <div class="order-name">${t.client}${t.telephone ? ` <span style="font-size:11px;color:var(--text2);font-weight:500;">📞 ${t.telephone}</span>` : ''} <span style="font-size:10px;color:var(--teal);margin-left:6px;">[${t.caisse}]</span></div>
           <div class="order-items-list">${(t.items||[]).map(i => `${i.icon||''} ${i.name||i.nom||''} x${i.qty||1}`).join(', ')}</div>
         </div>
         <div class="order-time">${t.time}</div>
@@ -39479,7 +39781,7 @@ renderOrders = function(status) {
         <div class="order-item" style="border-left:3px solid var(--accent);background:rgba(245,158,42,0.04);">
           <div class="order-num" style="color:var(--accent);">${t.id}</div>
           <div class="order-info">
-            <div class="order-name">${t.client} <span style="font-size:10px;color:var(--teal);margin-left:6px;">[${t.caisse}]</span></div>
+            <div class="order-name">${t.client}${t.telephone ? ` <span style="font-size:11px;color:var(--text2);font-weight:500;">📞 ${t.telephone}</span>` : ''} <span style="font-size:10px;color:var(--teal);margin-left:6px;">[${t.caisse}]</span></div>
             <div class="order-items-list">${(t.items||[]).map(i => `${i.icon||''} ${i.name||i.nom||''} x${i.qty||1}`).join(', ')}</div>
           </div>
           <div class="order-time">${t.time}</div>
