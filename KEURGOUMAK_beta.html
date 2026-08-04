@@ -6176,7 +6176,7 @@ function _syncSportVentes()       { return []; }
         <button class="cat-btn" id="ftab-commandes" onclick="switchFournTab('commandes',this)">📋 Commandes fournisseurs</button>
         <button class="cat-btn" id="ftab-historique" onclick="switchFournTab('historique',this)">📜 Historique livraisons</button>
         <button class="btn btn-primary" style="margin-left:auto;" onclick="showModal('addFournisseur')">+ Nouveau fournisseur</button>
-        <button class="btn btn-ghost" onclick="showModal('commandeFournisseur')">📦 Passer commande</button>
+        <button class="btn btn-ghost" onclick="openCommandeFourn()">📦 Passer commande</button>
       </div>
       <!-- Liste fournisseurs -->
       <div id="ftab-content-liste">
@@ -9596,6 +9596,10 @@ Revenez nous voir bient&#244;t.</textarea>
       <div class="form-group"><label class="form-label">Fournisseur</label>
         <select class="form-input" id="cf-fournisseur" onchange="updateCFArticles()"></select>
       </div>
+      <div class="form-group"><label class="form-label">📅 Date de la commande / facture</label>
+        <input class="form-input" type="date" id="cf-date-cmd"></div>
+    </div>
+    <div class="form-row">
       <div class="form-group"><label class="form-label">Date de livraison souhaitée</label>
         <input class="form-input" type="date" id="cf-date"></div>
     </div>
@@ -9703,6 +9707,11 @@ Revenez nous voir bient&#244;t.</textarea>
         <span style="color:var(--text2);">Reste à payer :</span>
         <span id="recep-solde-final" style="font-family:'Space Mono';color:var(--red);">0 FCFA</span>
       </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px;">
+      <label class="form-label">📅 Date de la facture / réception</label>
+      <input class="form-input" type="date" id="recep-date-reception">
+      <div style="font-size:11px;color:var(--text2);margin-top:4px;">Par défaut : aujourd'hui. À modifier si vous enregistrez la facture en retard.</div>
     </div>
     <div class="form-group" style="margin-bottom:14px;">
       <label class="form-label">🏭 Dépôt de destination <span style="color:var(--text2);font-weight:400;">(optionnel)</span></label>
@@ -12116,6 +12125,7 @@ async function confirmerOuverture() {
 
     // Journaliser
     JOURNAL.unshift({ user:cashier, role:currentUser?.role||'caissier', action:`Ouverture ${caisse}`, module:caisse, date:now.toLocaleDateString('fr-FR').slice(0,8), heure:sessionCaisseActive.heureOuverture, ip:'—' });
+    if(typeof _saveJournal === 'function') _saveJournal();
 
     closeModal('ouvertureCaisse');
     showNotif(`✅ ${caisse} ouverte — Fonds : ${fonds.toLocaleString()} FCFA`);
@@ -14416,8 +14426,7 @@ async function supprimerVenteAdmin(orderNum) {
     heure: now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
     ip: '—'
   });
-
-  // ── Supabase : supprimer la vente de ventes_caisse ──
+  if(typeof _saveJournal === 'function') _saveJournal();
   try {
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
       const _sb  = KGSync.getClient();
@@ -14681,10 +14690,18 @@ function printFactureFourn(idx) {
 </style>
 </head><body>
 
-<div class="no-print" style="margin-bottom:20px;display:flex;gap:10px;">
-  <button onclick="window.print()" style="background:#c97f00;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ Imprimer</button>
+<div class="no-print" id="kg-bc-actions" style="margin-bottom:20px;display:flex;gap:10px;">
+  <button onclick="document.getElementById('kg-bc-actions').style.display='none'; window.print(); setTimeout(function(){ var el=document.getElementById('kg-bc-actions'); if(el) el.style.display='flex'; }, 800);" style="background:#c97f00;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ Imprimer</button>
   <button onclick="window.close()" style="background:#f0f0f0;color:#333;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">✕ Fermer</button>
 </div>
+<script>
+  // ✅ FIX : filet de sécurité — certains navigateurs/mobiles n'appliquent pas
+  // correctement @media print lors de l'export PDF, ce qui laissait les boutons
+  // "Imprimer / Fermer" visibles dans le PDF final. On les masque explicitement
+  // avant toute impression, quelle que soit la façon dont elle est déclenchée.
+  window.addEventListener('beforeprint', function(){ var el = document.getElementById('kg-bc-actions'); if(el) el.style.display = 'none'; });
+  window.addEventListener('afterprint', function(){ var el = document.getElementById('kg-bc-actions'); if(el) el.style.display = 'flex'; });
+<\/script>
 
 <div class="header">
   <div class="logo-bloc">
@@ -14833,6 +14850,9 @@ function openCommandeFourn(fIdx) {
   }
   const dateEl = document.getElementById('cf-date');
   if(dateEl) { const d = new Date(); d.setDate(d.getDate()+2); dateEl.value = d.toISOString().split('T')[0]; }
+  // ✅ Date de la commande/facture : aujourd'hui par défaut, modifiable (utile en cas de saisie tardive)
+  const dateCmdEl = document.getElementById('cf-date-cmd');
+  if(dateCmdEl) dateCmdEl.value = new Date().toISOString().split('T')[0];
   cfArticleLines = [];
   addCFArticleLine();
   // ✅ Reset avance, solde et notes à chaque ouverture
@@ -15063,6 +15083,10 @@ function saveCommandeFournisseur() {
   const total = articles.reduce((a,l) => a + l.qty * l.prix, 0);
   const avance = parseFloat(document.getElementById('cf-avance')?.value) || 0;
   const now = new Date();
+  // ✅ Date de la commande/facture choisie par l'utilisateur (par défaut aujourd'hui,
+  // modifiable en cas de saisie tardive de la facture)
+  const dateCmdVal = document.getElementById('cf-date-cmd')?.value || '';
+  const dateCmdObj = dateCmdVal ? new Date(dateCmdVal + 'T12:00:00') : now;
   const newCmd = {
     id: 'local_' + Date.now(),
     fournisseurId: fourn.sbId || fourn.id,
@@ -15072,7 +15096,7 @@ function saveCommandeFournisseur() {
     avance,
     soldePaye: avance,
     soldeRestant: Math.max(0, total - avance),
-    dateCmd: now.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),
+    dateCmd: dateCmdObj.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),
     dateLivraison: dateLivr || null,
     ref: 'CF-' + now.getFullYear() + '-' + String(Date.now()).slice(-5), // ✅ FIX v38 : anti-doublon (timestamp)
     statut: 'en_cours',
@@ -15130,6 +15154,9 @@ function ouvrirReception(cIdx) {
   const paiEl = document.getElementById('recep-paiement');
   if(paiEl) paiEl.value = soldeRestant > 0 ? soldeRestant : '';
   updateReceptionSolde();
+  // ✅ Date de facture/réception : par défaut aujourd'hui, modifiable
+  const dateRecepEl = document.getElementById('recep-date-reception');
+  if(dateRecepEl) dateRecepEl.value = new Date().toISOString().slice(0,10);
   // Peupler le select dépôt de destination
   const selRecepDepot = document.getElementById('recep-depot');
   if(selRecepDepot) {
@@ -15170,6 +15197,12 @@ function confirmerReception() {
   const recepDepotId = document.getElementById('recep-depot')?.value || '';
   const recepDepot = recepDepotId ? (typeof DEPOTS !== 'undefined' ? DEPOTS.find(d => d.id === recepDepotId) : null) : null;
 
+  // ✅ Date choisie pour la facture/réception (par défaut aujourd'hui, modifiable
+  // pour couvrir le cas où on enregistre la facture en retard)
+  const recepDateVal = document.getElementById('recep-date-reception')?.value || '';
+  const recepDateObj = recepDateVal ? new Date(recepDateVal + 'T12:00:00') : new Date();
+  const recepDateFR  = recepDateObj.toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'2-digit'});
+
   let stockMajCount = 0;
   (c.articles||[]).forEach((a, ai) => {
     const qtyInput = document.getElementById('recep-qty-' + ai);
@@ -15184,7 +15217,7 @@ function confirmerReception() {
       // ── Mettre à jour le dépôt choisi ──
       if(recepDepot) {
         let depotArt = recepDepot.articles ? recepDepot.articles.find(da => da.stockId === stockItem.id || da.stockId === stockItem.sbId || da.nom === stockItem.name) : null;
-        const todayFR = new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+        const todayFR = recepDateFR;
         if(depotArt) {
           depotArt.qty = Math.round((Number(depotArt.qty||0) + qtyRecue) * 1000) / 1000;
           depotArt.entrees = depotArt.entrees || [];
@@ -15205,7 +15238,7 @@ function confirmerReception() {
   c.soldePaye = (c.soldePaye || c.avance || 0) + paiement;
   c.soldeRestant = Math.max(0, (c.total||0) - c.soldePaye);
   c.statut = c.soldeRestant === 0 ? 'livree' : 'livree_partielle';
-  c.dateReception = new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'2-digit'});
+  c.dateReception = recepDateFR;
 
   if(KGSync.isConnected) {
     KGSync.push.commandesFourn().catch(()=>{});
@@ -19966,6 +19999,10 @@ async function saveRolePerms(role) {
 
 function renderJournalAcces() {
   const roleColors = { administrateur:'#dc3545', gerant:'var(--accent)', superviseur:'var(--purple)', caissier:'var(--teal)', cuisinier:'var(--accent2)', livreur:'var(--green)' };
+  if(!JOURNAL || JOURNAL.length === 0) {
+    document.getElementById('journal-table').innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:24px;">Aucune connexion enregistrée pour le moment</td></tr>`;
+    return;
+  }
   document.getElementById('journal-table').innerHTML = JOURNAL.map(j => `
     <tr>
       <td><strong>${j.user}</strong></td>
@@ -22113,8 +22150,7 @@ async function cloturerCaisse() {
       heure:  heureStr,
       ip:     '—'
     });
-
-    // 8. Sauvegarder et notifier
+    if(typeof _saveJournal === 'function') _saveJournal();
     // ✅ FIX v35 : sauvegarder le timestamp de clôture en localStorage
     // pullAll() utilisera ce timestamp pour rejeter les ventes antérieures,
     // sans dépendre de cloturee=true dans Supabase
@@ -28540,6 +28576,9 @@ setTimeout(() => {
         if(_u && _u.id && _u.prenom) {
           currentUser = _u;
           window._KG_RESTAURANT_ID = _u.restaurant_id;
+          // ✅ FIX JOURNAL : charger l'historique même en restauration rapide depuis le cache,
+          // sinon le Journal de connexions reste vide à chaque F5/réouverture de l'app.
+          _loadJournal();
           // Afficher l'app immédiatement avec les données en cache
           document.getElementById('login-screen').style.display = 'none';
           document.getElementById('app-shell').style.display = 'block';
@@ -28584,6 +28623,8 @@ setTimeout(() => {
     window._KG_RESTAURANT_ID = profile.restaurant_id;
     // ✅ FIX F5 : sauvegarder le profil pour restauration rapide au rechargement
     try { _lsSet('kg-current-user', JSON.stringify(currentUser)); } catch(e) {}
+    // ✅ FIX JOURNAL : charger l'historique du journal de connexions
+    _loadJournal();
 
     const { data: allUsers } = await sb.from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('restaurant_id', profile.restaurant_id);
     if(allUsers) USERS = allUsers.map(u => ({ ...u, caisse: u.caisse_assignee || 'Toutes', login: u.email || u.id, tel: u.tel || '—', lastLogin: '—' }));
@@ -29322,10 +29363,44 @@ async function deleteDepense(id) {
 }
 
 // ✅ FIX v41 — Clôturer les dépenses fonds propres du mois en cours
-async function cloturerDepensesFondsPropres() {
+// ✅ FIX v44 — Au lieu de deviner le mois via les filtres de dates (peu visibles
+//   sur mobile), on affiche un sélecteur de mois explicite : l'utilisateur choisit
+//   directement le mois à clôturer, même s'il a du retard sur l'enregistrement.
+function cloturerDepensesFondsPropres() {
+  document.getElementById('kg-cloture-fp-overlay')?.remove();
   const now = new Date();
-  const moisCourant = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
-  const moisLabel   = now.toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
+  const defaultMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+
+  const overlay = document.createElement('div');
+  overlay.id = 'kg-cloture-fp-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:20px;max-width:340px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,0.4);">
+      <div style="font-weight:800;font-size:15px;color:#222;margin-bottom:4px;">🔒 Clôturer fonds propres</div>
+      <div style="font-size:12px;color:#777;margin-bottom:14px;">Choisissez le mois à clôturer (utile si vous avez du retard sur la saisie)</div>
+      <input type="month" id="kg-cloture-fp-mois" value="${defaultMonth}"
+        style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:16px;box-sizing:border-box;">
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button onclick="document.getElementById('kg-cloture-fp-overlay').remove()"
+          style="padding:8px 16px;background:#eee;color:#333;border:none;border-radius:6px;font-size:13px;cursor:pointer;">Annuler</button>
+        <button onclick="_executerClotureFondsPropres()"
+          style="padding:8px 16px;background:#f39c12;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer;">Continuer</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+async function _executerClotureFondsPropres() {
+  const moisInput = document.getElementById('kg-cloture-fp-mois');
+  const moisVal = moisInput ? moisInput.value : '';
+  document.getElementById('kg-cloture-fp-overlay')?.remove();
+  if(!moisVal) { showNotif('⚠️ Choisissez un mois'); return; }
+
+  const [yy, mm] = moisVal.split('-');
+  const refDate     = new Date(Number(yy), Number(mm) - 1, 1);
+  const moisCourant = moisVal; // format YYYY-MM, aligné avec le format des dates stockées
+  const moisLabel   = refDate.toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
 
   const depsFP = (DEPENSES||[]).filter(d =>
     !d.cloturee &&
@@ -29341,7 +29416,7 @@ async function cloturerDepensesFondsPropres() {
   const total = depsFP.reduce((a,d) => a + (d.montant||0), 0);
   if(!confirm(`🔒 Clôturer ${depsFP.length} dépense(s) fonds propres — ${moisLabel}\nTotal : ${total.toLocaleString()} F\n\nCes dépenses seront marquées comme clôturées et ne seront plus modifiables.`)) return;
 
-  const nowISO = now.toISOString();
+  const nowISO = new Date().toISOString();
   depsFP.forEach(d => {
     d.cloturee    = true;
     d.dateCloture = nowISO;
