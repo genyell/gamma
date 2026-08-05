@@ -20123,9 +20123,32 @@ function openEditUser(id) {
   if(!isGerant && !isSuperviseur && !isSelf) { showNotif('🔒 Vous ne pouvez pas modifier ce compte'); return; }
   if(isSuperviseur && u.role === 'gerant' && !isSelf) { showNotif('🔒 Impossible de modifier le compte gérant'); return; }
   if(isSuperviseur && u.role === 'administrateur' && !isSelf) { showNotif('🔒 Impossible de modifier un compte administrateur'); return; }
-  // Vérifier si l'utilisateur courant est gérant pour montrer section MDP
-  const isAdmin = currentUser && (currentUser.role === 'gerant' || currentUser.role === 'superviseur' || currentUser.role === 'administrateur');
-  document.getElementById('eu-pwd-section').style.display = isAdmin ? 'block' : 'none';
+  // ✅ Seul le rôle "administrateur" a le droit de changer le mot de passe des AUTRES comptes.
+  // Ça passe par la fonction Supabase admin_reset_user_password() (voir script SQL fourni),
+  // qui vérifie elle-même côté serveur que l'appelant est bien administrateur avant d'agir.
+  const isAdmin = currentUser && currentUser.role === 'administrateur';
+  const pwdSection = document.getElementById('eu-pwd-section');
+  if(isSelf || isAdmin) {
+    pwdSection.style.display = 'block';
+    pwdSection.innerHTML = `
+      <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">🔐 ${isSelf ? 'Changer le mot de passe' : "Changer le mot de passe de cet utilisateur (Administrateur)"}</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nouveau mot de passe</label>
+          <div style="position:relative;">
+            <input class="form-input" type="password" id="eu-pwd" placeholder="Laisser vide = inchangé" style="padding-right:40px;">
+            <button onclick="toggleEuPwd()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer;font-size:14px;">👁</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirmer</label>
+          <input class="form-input" type="password" id="eu-pwd2" placeholder="Répéter...">
+        </div>
+      </div>
+      <div id="eu-pwd-strength" style="font-size:11px;margin-top:-8px;margin-bottom:8px;"></div>`;
+  } else {
+    pwdSection.style.display = 'none';
+  }
   document.getElementById('eu-id').value = u.id;
   document.getElementById('eu-prenom').value = u.prenom;
   document.getElementById('eu-nom').value = u.nom;
@@ -20134,14 +20157,20 @@ function openEditUser(id) {
   document.getElementById('eu-role').value = u.role;
   document.getElementById('eu-status').value = u.status;
   document.getElementById('eu-caisse').value = u.caisse;
-  document.getElementById('eu-pwd').value = '';
-  document.getElementById('eu-pwd2').value = '';
-  document.getElementById('eu-pwd-strength').innerHTML = '';
+  const _euPwd = document.getElementById('eu-pwd');
+  const _euPwd2 = document.getElementById('eu-pwd2');
+  const _euPwdStrength = document.getElementById('eu-pwd-strength');
+  if(_euPwd) _euPwd.value = '';
+  if(_euPwd2) _euPwd2.value = '';
+  if(_euPwdStrength) _euPwdStrength.innerHTML = '';
   document.getElementById('eu-error').style.display = 'none';
   // Live strength indicator
-  document.getElementById('eu-pwd').oninput = function() {
-    document.getElementById('eu-pwd-strength').innerHTML = pwdStrength(this.value);
-  };
+  if(_euPwd) {
+    _euPwd.oninput = function() {
+      const s = document.getElementById('eu-pwd-strength');
+      if(s) s.innerHTML = pwdStrength(this.value);
+    };
+  }
   showModal('editUser');
 }
 
@@ -20151,8 +20180,8 @@ async function saveEditUser() {
   if(!u) return;
   const errEl = document.getElementById('eu-error');
   errEl.style.display = 'none';
-  const newPwd  = document.getElementById('eu-pwd').value;
-  const newPwd2 = document.getElementById('eu-pwd2').value;
+  const newPwd  = document.getElementById('eu-pwd')?.value || '';
+  const newPwd2 = document.getElementById('eu-pwd2')?.value || '';
 
   if(newPwd) {
     if(newPwd.length < 6) { errEl.textContent='❌ Mot de passe trop court (6 caractères minimum)'; errEl.style.display='block'; return; }
@@ -20175,13 +20204,23 @@ async function saveEditUser() {
       }).eq('id', id);
 
       // ✅ Changement de mot de passe
-      // Avec anon key, seul l'utilisateur connecté peut changer son propre mot de passe.
-      // Pour changer le MDP d'un autre utilisateur, il faut la Supabase Admin API (service_role key).
+      // - Son propre compte : via l'API Auth normale (sb.auth.updateUser).
+      // - Compte d'un autre utilisateur : uniquement si administrateur, via la fonction
+      //   Supabase sécurisée admin_reset_user_password() (SECURITY DEFINER), qui revérifie
+      //   elle-même côté serveur que l'appelant est bien administrateur.
       if(newPwd) {
         if(id === currentUser?.id) {
           await sb.auth.updateUser({ password: newPwd });
+        } else if(currentUser?.role === 'administrateur') {
+          const { data: rpcOk, error: rpcErr } = await sb.rpc('admin_reset_user_password', {
+            target_user_id: id,
+            new_password: newPwd
+          });
+          if(rpcErr) {
+            throw new Error("Échec du changement de mot de passe. Vérifiez que la fonction Supabase 'admin_reset_user_password' est bien installée (voir script SQL fourni). Détail : " + rpcErr.message);
+          }
         } else {
-          throw new Error('Impossible de changer le mot de passe d\'un autre utilisateur sans la clé Admin Supabase (service_role). Contactez votre administrateur Supabase.');
+          throw new Error('Seul un administrateur peut changer le mot de passe d\'un autre utilisateur.');
         }
       }
     }
