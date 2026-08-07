@@ -40318,11 +40318,21 @@ ${(function(){
 
 </body></html>`;
 
-  const win = window.open('', '_blank', 'width=420,height=750,scrollbars=yes');
-  if(!win) { showNotif('⚠️ Autoriser les popups pour imprimer'); return; }
+  const win = window.open('', 'kg_ticket_print', 'width=420,height=750,scrollbars=yes');
+  if(!win) { showNotif('⚠️ Autoriser les popups pour imprimer (bloqués par le navigateur)'); return; }
   win.document.write(html);
   win.document.close();
-  setTimeout(() => win.print(), 600);
+  win.focus();
+  // ✅ FIX : fermer automatiquement la fenêtre d'impression après usage.
+  // Sans ça, les fenêtres popup s'accumulaient (une par ticket mis en attente)
+  // et le navigateur finissait par bloquer silencieusement les popups suivants
+  // après plusieurs tickets — l'impression semblait alors ne plus rien faire.
+  win.onafterprint = () => { try { win.close(); } catch(e) {} };
+  setTimeout(() => {
+    try { win.print(); } catch(e) { console.warn('print() error:', e); }
+    // Filet de sécurité si onafterprint n'est pas déclenché par le navigateur
+    setTimeout(() => { try { if(!win.closed) win.close(); } catch(e) {} }, 4000);
+  }, 600);
 }
 
 // ── Rouvrir un ticket en attente pour modification ──
