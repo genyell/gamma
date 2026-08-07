@@ -5545,12 +5545,15 @@ function _syncSportVentes()       { return []; }
       </div>
       <div class="pos-layout">
         <div class="pos-left">
-          <div style="position:relative;margin-bottom:10px;">
-            <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;">🔍</span>
-            <input id="pos-search" type="text" placeholder="Rechercher un article…"
-              oninput="filterPOSSearch(this.value)"
-              style="width:100%;box-sizing:border-box;padding:10px 12px 10px 38px;background:var(--surface2);border:1.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:14px;outline:none;transition:border-color 0.2s;"
-              onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+          <div style="position:relative;margin-bottom:10px;display:flex;gap:8px;">
+            <div style="position:relative;flex:1;">
+              <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;">🔍</span>
+              <input id="pos-search" type="text" placeholder="Rechercher un article…"
+                oninput="filterPOSSearch(this.value)"
+                style="width:100%;box-sizing:border-box;padding:10px 12px 10px 38px;background:var(--surface2);border:1.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:14px;outline:none;transition:border-color 0.2s;"
+                onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+            </div>
+            <button class="btn btn-primary" style="white-space:nowrap;padding:0 16px;font-size:13px;" onclick="posScanOpen()" title="Scanner un QR code produit pour vendre rapidement">📷 Scan QR</button>
           </div>
           <div class="menu-cats pos-cats" id="pos-cats"></div>
           <div class="pos-items-grid" id="pos-items-grid"></div>
@@ -5790,6 +5793,52 @@ function _syncSportVentes()       { return []; }
         <div class="modal-footer">
           <button class="btn btn-ghost" onclick="document.getElementById('modal-valider-attente').style.display='none'">Annuler</button>
           <button class="btn btn-primary" onclick="validerTicketAttente()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));">💳 Encaisser & Imprimer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MODAL SCAN QR — VENTE RAPIDE ═══ -->
+    <div class="modal-overlay" id="modal-pos-scan" style="display:none;" onclick="if(event.target===this)posScanClose()">
+      <div class="modal" style="max-width:420px;">
+        <div class="modal-header">
+          <div class="modal-title">📷 Scan QR — Vente rapide</div>
+          <button class="modal-close" onclick="posScanClose()">✕</button>
+        </div>
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:10px;align-items:center;">
+          <div style="width:100%;max-width:320px;aspect-ratio:1/1;background:#000;border-radius:12px;overflow:hidden;position:relative;">
+            <video id="pos-scan-video" style="width:100%;height:100%;object-fit:cover;" autoplay muted playsinline></video>
+            <canvas id="pos-scan-canvas" style="display:none;"></canvas>
+            <div style="position:absolute;inset:0;border:3px solid rgba(255,255,255,0.25);border-radius:12px;pointer-events:none;"></div>
+          </div>
+          <div id="pos-scan-status" style="font-size:13px;color:var(--text2);text-align:center;">Pointez la caméra vers le QR code d'un produit</div>
+          <div id="pos-scan-last" style="display:none;width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;align-items:center;gap:10px;justify-content:space-between;">
+            <span style="font-size:13px;">✅ <b id="pos-scan-last-name"></b> ajouté</span>
+            <span id="pos-scan-last-price" style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:700;font-size:13px;"></span>
+          </div>
+          <div style="font-size:11px;color:var(--text2);text-align:center;">Astuce : le scan reste actif — enchaînez les articles pour vendre plus vite. Imprimez les QR codes produits depuis Menu &amp; Carte.</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="posScanClose()">Fermer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MODAL QR PRODUIT (affichage / impression) ═══ -->
+    <div class="modal-overlay" id="modal-product-qr" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+      <div class="modal" style="max-width:340px;">
+        <div class="modal-header">
+          <div class="modal-title">🔳 QR Code produit</div>
+          <button class="modal-close" onclick="document.getElementById('modal-product-qr').style.display='none'">✕</button>
+        </div>
+        <div class="modal-body" style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+          <div id="product-qr-name" style="font-weight:700;font-size:15px;text-align:center;"></div>
+          <div id="product-qr-price" style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:13px;"></div>
+          <canvas id="product-qr-canvas" style="width:220px;height:220px;background:#fff;border-radius:10px;padding:8px;"></canvas>
+          <div style="font-size:11px;color:var(--text2);text-align:center;">Collez cette étiquette sur le produit ou imprimez-la. Scannez-la en caisse via « 📷 Scan QR » pour l'ajouter au panier instantanément.</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="document.getElementById('modal-product-qr').style.display='none'">Fermer</button>
+          <button class="btn btn-primary" onclick="downloadProductQR()">💾 Télécharger</button>
         </div>
       </div>
     </div>
@@ -9127,7 +9176,7 @@ Revenez nous voir bient&#244;t.</textarea>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Catégorie</label>
-        <select class="form-input" id="item-cat">
+        <select class="form-input" id="item-cat" onchange="populateItemSubcatSelect(this.value, '')">
           <!-- Options peuplées dynamiquement par populateItemCatSelect() -->
         </select>
       </div>
@@ -9135,6 +9184,12 @@ Revenez nous voir bient&#244;t.</textarea>
         <label class="form-label">Prix TTC (FCFA)</label>
         <input class="form-input" type="number" id="item-price" placeholder="3500" min="0" style="font-family:'JetBrains Mono',monospace;font-size:16px;">
       </div>
+    </div>
+    <div class="form-group" id="item-subcat-group" style="display:none;">
+      <label class="form-label">Sous-catégorie</label>
+      <select class="form-input" id="item-subcat">
+        <!-- Options peuplées dynamiquement par populateItemSubcatSelect() -->
+      </select>
     </div>
     <div class="form-group">
       <label class="form-label">Description</label>
@@ -10143,6 +10198,15 @@ let CATEGORIES = [
   { id:'burger',     label:'🍔 Burgers & Sandwichs', color:'#DC143C' },
   { id:'glace',      label:'🍦 Glaces & Desserts', color:'#00c9b1' },
   { id:'boisson',    label:'🥤 Boissons', color:'#7c5cbf' },
+  // ✅ Catégorie restreinte : visible uniquement par Caisse 9 et Caisse 10.
+  // Les autres caisses ne la voient pas. Caisse 9/10 voient aussi les catégories
+  // ci-dessus car elles ne sont pas restreintes (caisses:[] = communes).
+  { id:'alimentation', label:'🛒 Alimentation générale', color:'#f97316', caisses:['Caisse 9','Caisse 10'], subcategories:[
+      { id:'boissons_alim',   label:'🥤 Boissons' },
+      { id:'epicerie',        label:'🥫 Épicerie' },
+      { id:'hygiene',         label:'🧼 Hygiène & Entretien' },
+      { id:'fruits_legumes',  label:'🥦 Fruits & Légumes' },
+    ] },
 ];
 
 // STOCK_CATEGORIES — catégories indépendantes pour le module Stock
@@ -10164,6 +10228,7 @@ const ORDERS = []; // Réservé pour compatibilité
 let cart = [];
 let currentPayMethod = 'cash';
 let currentMenuCat = 'all';
+let currentMenuSubcat = 'all'; // ✅ sous-catégorie active dans Menu & Carte
 
 function showView(id, el, pushState) {
   // ✅ FIX SÉCURITÉ : contrôle d'accès réel — bloque l'affichage d'une vue
@@ -11405,7 +11470,14 @@ function renderPOS() {
   const savedQuery = searchEl ? searchEl.value : '';
   const hadFocus   = searchEl && document.activeElement === searchEl;
 
-  catsEl.innerHTML = CATS.map(c =>
+  // ✅ Filtrer les catégories visibles selon la caisse active (restrictions par caisse)
+  const _posActiveCaisse = getActiveCaisseName();
+  const _posVisibleCats = CATS.filter(c => c.id === 'all' || isCatVisibleForCaisse(
+    (typeof CATEGORIES !== 'undefined' ? CATEGORIES.find(cc => cc.id === c.id) : null) || c,
+    _posActiveCaisse
+  ));
+  if(_posCurCat !== 'all' && !_posVisibleCats.find(c => c.id === _posCurCat)) { _posCurCat = 'all'; }
+  catsEl.innerHTML = _posVisibleCats.map(c =>
     `<button class="cat-btn ${c.id===_posCurCat?'active':''}" data-cat="${c.id}" onclick="filterPOS('${c.id}',event)">${c.label}</button>`
   ).join('');
 
@@ -11447,7 +11519,16 @@ function filterPOSSearch(query) {
 }
 
 function _renderPOSGrid(cat, query) {
-  let items = cat === 'all' ? MENU : MENU.filter(m => (m.cat || m.category) === cat);
+  // ✅ Filtrer les articles selon les catégories visibles pour la caisse active
+  const _gridActiveCaisse = getActiveCaisseName();
+  const _gridVisibleCatIds = new Set(
+    (typeof CATEGORIES !== 'undefined' ? CATEGORIES : [])
+      .filter(c => isCatVisibleForCaisse(c, _gridActiveCaisse))
+      .map(c => c.id)
+  );
+  let items = cat === 'all'
+    ? MENU.filter(m => { const mc = m.cat || m.category; return !mc || _gridVisibleCatIds.has(mc); })
+    : MENU.filter(m => (m.cat || m.category) === cat);
   if(query && query.trim()) {
     const q = query.trim().toLowerCase();
     items = items.filter(m => (m.name || '').toLowerCase().includes(q));
@@ -11490,6 +11571,133 @@ function addToCart(menuIdx) {
   else { cart.push({ id: item.id, sbId: item.sbId, name: item.name, image_url: item.image_url || item._displayIcon || ((item.icon && (item.icon.startsWith('http')||item.icon.startsWith('data:')||item.icon.startsWith('//')||item.icon.includes('ibb.co'))) ? item.icon : null), icon: _safeIconText(item.icon), price: item.price, cat: item.cat, qty: 1, recette: item.recette || [] }); }
   renderCart();
   showNotif(`➕ ${_safeIconText(item.icon)} ${item.name} ajouté`);
+}
+
+// ══════════════════════════════════════════════════════════════
+// ✅ VENTE RAPIDE PAR QR CODE
+// Chaque produit peut avoir un QR code (encodant "KG-PROD:<id>")
+// affiché/imprimé depuis Menu & Carte. En caisse, "📷 Scan QR"
+// ouvre la caméra : dès qu'un code produit est reconnu, l'article
+// est ajouté directement au panier — sans toucher l'écran — pour
+// enchaîner les ventes très vite (marché, épicerie, etc.).
+// ══════════════════════════════════════════════════════════════
+let _posScanStream = null;
+let _posScanInterval = null;
+let _posScanLastCode = null;
+let _posScanLastAt = 0;
+
+function _findMenuIndexByScanCode(raw) {
+  if(!raw) return -1;
+  let code = String(raw).trim();
+  // Formats acceptés : "KG-PROD:<id>", une URL contenant ?kgp=<id>, ou l'id brut
+  const m = code.match(/KG-PROD:([A-Za-z0-9_\-]+)/i);
+  if(m) code = m[1];
+  else {
+    try {
+      const u = new URL(code);
+      const p = u.searchParams.get('kgp');
+      if(p) code = p;
+    } catch(e) { /* pas une URL, on garde code tel quel */ }
+  }
+  let idx = MENU.findIndex(m => String(m.id) === code);
+  if(idx === -1) idx = MENU.findIndex(m => String(m.sbId) === code);
+  return idx;
+}
+
+async function posScanOpen() {
+  if(!sessionCaisseActive) { showNotif('🔒 Ouvrez une caisse avant de vendre !'); _highlightOpenBtn(); return; }
+  document.getElementById('modal-pos-scan').style.display = 'flex';
+  document.getElementById('pos-scan-status').textContent = 'Pointez la caméra vers le QR code d\'un produit';
+  const lastEl = document.getElementById('pos-scan-last');
+  if(lastEl) lastEl.style.display = 'none';
+  _posScanLastCode = null;
+  _posScanLastAt = 0;
+  const video = document.getElementById('pos-scan-video');
+  const canvas = document.getElementById('pos-scan-canvas');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    _posScanStream = stream;
+    video.srcObject = stream;
+    await video.play();
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    _posScanInterval = setInterval(() => {
+      if(!video.videoWidth) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      if(typeof jsQR === 'undefined' || !jsQR) return;
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      if(code && code.data) _posHandleScanResult(code.data);
+    }, 350);
+  } catch(e) {
+    console.error('posScanOpen camera error:', e);
+    document.getElementById('pos-scan-status').textContent = '❌ Caméra indisponible — vérifiez les autorisations';
+  }
+}
+
+function posScanClose() {
+  if(_posScanInterval) { clearInterval(_posScanInterval); _posScanInterval = null; }
+  if(_posScanStream) { _posScanStream.getTracks().forEach(t => t.stop()); _posScanStream = null; }
+  document.getElementById('modal-pos-scan').style.display = 'none';
+}
+
+function _posHandleScanResult(raw) {
+  const now = Date.now();
+  // ✅ anti-doublon : ignorer le même code répété pendant 1.5s (le scan tourne en continu)
+  if(raw === _posScanLastCode && (now - _posScanLastAt) < 1500) return;
+  _posScanLastCode = raw;
+  _posScanLastAt = now;
+
+  const idx = _findMenuIndexByScanCode(raw);
+  const statusEl = document.getElementById('pos-scan-status');
+  if(idx === -1) {
+    if(statusEl) statusEl.textContent = '⚠️ QR code non reconnu comme produit';
+    return;
+  }
+  const item = MENU[idx];
+  addToCart(idx);
+  if(statusEl) statusEl.textContent = 'Pointez la caméra vers le prochain produit…';
+  const lastEl = document.getElementById('pos-scan-last');
+  if(lastEl) {
+    lastEl.style.display = 'flex';
+    document.getElementById('pos-scan-last-name').textContent = `${_safeIconText(item.icon)} ${item.name}`;
+    document.getElementById('pos-scan-last-price').textContent = (item.price || 0).toLocaleString('fr-FR') + ' FCFA';
+  }
+  if(navigator.vibrate) { try { navigator.vibrate(60); } catch(e) {} }
+}
+
+// ── Génération / affichage du QR code d'un produit (Menu & Carte) ──
+let _productQRCurrentItem = null;
+
+function _ensureQRCodeLibReady(cb, tries) {
+  tries = tries || 0;
+  if(window.QRCode) { cb(); return; }
+  if(tries > 40) { console.warn('QRCode.js non chargé'); return; }
+  setTimeout(() => _ensureQRCodeLibReady(cb, tries + 1), 150);
+}
+
+function openProductQR(menuIdx) {
+  const item = MENU[menuIdx];
+  if(!item) return;
+  _productQRCurrentItem = item;
+  document.getElementById('modal-product-qr').style.display = 'flex';
+  document.getElementById('product-qr-name').textContent = `${_safeIconText(item.icon)} ${item.name}`;
+  document.getElementById('product-qr-price').textContent = (item.price || 0).toLocaleString('fr-FR') + ' FCFA';
+  const canvas = document.getElementById('product-qr-canvas');
+  const payload = 'KG-PROD:' + (item.id != null ? item.id : item.sbId);
+  _ensureQRCodeLibReady(() => {
+    QRCode.toCanvas(canvas, payload, { width: 220, margin: 1, color: { dark: '#111', light: '#fff' } }).catch(e => console.error('openProductQR toCanvas:', e));
+  });
+}
+
+function downloadProductQR() {
+  const canvas = document.getElementById('product-qr-canvas');
+  if(!canvas || !_productQRCurrentItem) return;
+  const a = document.createElement('a');
+  a.download = 'qr-' + (_productQRCurrentItem.name || 'produit').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
 }
 
 function changeQty(cartIdx, delta) {
@@ -14022,17 +14230,75 @@ function openSessionModal() {
 }
 
 
-function renderMenu(cat) {
+// ✅ Retourne le nom de la caisse active pour la session en cours
+// (utilisé pour filtrer les catégories restreintes à certaines caisses)
+function getActiveCaisseName() {
+  return (typeof sessionCaisseActive !== 'undefined' && sessionCaisseActive && sessionCaisseActive.caisse)
+    || (typeof currentUser !== 'undefined' && currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes' ? currentUser.caisse : null);
+}
+
+// ✅ Une catégorie est visible pour une caisse si :
+//   - elle n'a AUCUNE restriction (c.caisses vide/absent) → visible par toutes les caisses (catégorie "commune")
+//   - OU la caisse active fait partie de c.caisses (liste blanche)
+function isCatVisibleForCaisse(c, caisseName) {
+  if(!c || !Array.isArray(c.caisses) || c.caisses.length === 0) return true; // catégorie commune, non restreinte
+  if(!caisseName) return false; // catégorie restreinte + pas de caisse active connue → cachée par prudence
+  return c.caisses.includes(caisseName);
+}
+
+function renderMenu(cat, subcat) {
   // ✅ v12 FIX : mémoriser la catégorie active pour les re-renders
+  const _catChanged = (cat !== undefined && cat !== currentMenuCat);
   if(cat !== undefined) currentMenuCat = cat;
   else cat = currentMenuCat || 'all';
+  // ✅ Sous-catégorie active : réinitialisée à "Toutes" dès qu'on change de catégorie principale,
+  // sinon on adopte la valeur transmise (ou on garde la dernière connue lors d'un simple re-render).
+  if(_catChanged) currentMenuSubcat = 'all';
+  else if(subcat !== undefined) currentMenuSubcat = subcat;
+  const activeSubcat = currentMenuSubcat || 'all';
 
   const catsEl = document.getElementById('menu-cats');
-  const allCats = [{ id:'all', label:'🍽️ Tout' }, ...CATEGORIES];
+  // ✅ Filtrer les catégories visibles selon la caisse active (restrictions par caisse)
+  const _activeCaisse = getActiveCaisseName();
+  const visibleCategories = CATEGORIES.filter(c => isCatVisibleForCaisse(c, _activeCaisse));
+  // Si la catégorie actuellement sélectionnée n'est plus visible pour cette caisse, revenir à "Tout"
+  if(cat !== 'all' && !visibleCategories.find(c => c.id === cat)) { cat = 'all'; currentMenuCat = 'all'; }
+  const allCats = [{ id:'all', label:'🍽️ Tout' }, ...visibleCategories];
   catsEl.innerHTML = allCats.map(c =>
     `<button class="cat-btn ${c.id===cat?'active':''}" onclick="renderMenu('${c.id}')">${c.label}</button>`
   ).join('');
-  const items = cat === 'all' ? MENU : MENU.filter(m => (m.cat || m.category) === cat);
+
+  // ✅ Sous-catégories : affichées uniquement quand une catégorie précise (≠ Tout) est sélectionnée et qu'elle en possède
+  const currentCatObj = visibleCategories.find(c => c.id === cat);
+  const subcats = (currentCatObj && Array.isArray(currentCatObj.subcategories)) ? currentCatObj.subcategories : [];
+  let subcatsEl = document.getElementById('menu-subcats');
+  if(!subcatsEl && catsEl && catsEl.parentNode) {
+    subcatsEl = document.createElement('div');
+    subcatsEl.id = 'menu-subcats';
+    subcatsEl.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;';
+    catsEl.parentNode.insertBefore(subcatsEl, catsEl.nextSibling);
+  }
+  if(subcatsEl) {
+    if(cat !== 'all' && subcats.length) {
+      subcatsEl.style.display = 'flex';
+      const allSub = [{ id:'all', label:'📂 Toutes' }, ...subcats];
+      subcatsEl.innerHTML = allSub.map(sc =>
+        `<button class="cat-btn ${sc.id===activeSubcat?'active':''}" style="font-size:12px;padding:5px 12px;" onclick="renderMenu('${cat}','${sc.id}')">${sc.label}</button>`
+      ).join('');
+    } else {
+      subcatsEl.style.display = 'none';
+      subcatsEl.innerHTML = '';
+    }
+  }
+
+  const visibleCatIds = new Set(visibleCategories.map(c => c.id));
+  let items = cat === 'all'
+    ? MENU.filter(m => { const mc = m.cat || m.category; return !mc || visibleCatIds.has(mc); })
+    : MENU.filter(m => (m.cat || m.category) === cat);
+  // ✅ Filtrer par sous-catégorie si une sous-catégorie précise est active
+  if(cat !== 'all' && subcats.length && activeSubcat !== 'all') {
+    items = items.filter(m => (m.subcat || '') === activeSubcat);
+  }
   const isManager = currentUser && (currentUser.role === 'gerant' || currentUser.role === 'superviseur' || currentUser.role === 'administrateur');
   document.getElementById('menu-grid').innerHTML = items.map(item => {
     const menuIdx = MENU.indexOf(item); // index sûr, pas d'UUID dans onclick
@@ -14096,6 +14362,9 @@ function renderMenu(cat) {
                 style="width:28px;height:28px;border-radius:50%;background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.35);color:var(--red);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;"
                 onmouseover="this.style.background='rgba(231,76,60,0.28)'" onmouseout="this.style.background='rgba(231,76,60,0.12)'">🗑️</button>
             ` : ''}
+            <button onclick="event.stopPropagation();openProductQR(${menuIdx})" title="QR code produit — vente rapide"
+              style="width:28px;height:28px;border-radius:50%;background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.35);color:var(--teal);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;"
+              onmouseover="this.style.background='rgba(0,201,177,0.28)'" onmouseout="this.style.background='rgba(0,201,177,0.12)'">🔳</button>
             <button class="menu-add" onclick="addToCart(${menuIdx})">+</button>
           </div>
         </div>
@@ -16309,7 +16578,7 @@ function saveEntreeStock() {
 
 // ===== GESTION MENU — MODIFIER / AJOUTER ARTICLES =====
 
-function populateItemCatSelect(selectedId) {
+function populateItemCatSelect(selectedId, selectedSubId) {
   const sel = document.getElementById('item-cat');
   if (!sel) return;
   const cats = (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []).filter(c => c.id !== 'all');
@@ -16326,6 +16595,33 @@ function populateItemCatSelect(selectedId) {
       sel.appendChild(opt);
     });
   }
+  populateItemSubcatSelect(selectedId, selectedSubId);
+}
+
+// ✅ Sous-catégories : peuple le <select id="item-subcat"> selon la catégorie choisie.
+// Le champ (et son groupe) est masqué automatiquement si la catégorie n'a pas de sous-catégories.
+function populateItemSubcatSelect(catId, selectedSubId) {
+  const group = document.getElementById('item-subcat-group');
+  const sel = document.getElementById('item-subcat');
+  if (!group || !sel) return;
+  const cat = (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []).find(c => c.id === catId);
+  const subcats = (cat && Array.isArray(cat.subcategories)) ? cat.subcategories : [];
+  sel.innerHTML = '';
+  if (!subcats.length) {
+    group.style.display = 'none';
+    sel.value = '';
+    return;
+  }
+  group.style.display = 'block';
+  const optNone = document.createElement('option');
+  optNone.value = ''; optNone.textContent = '— Aucune sous-catégorie —';
+  sel.appendChild(optNone);
+  subcats.forEach(sc => {
+    const opt = document.createElement('option');
+    opt.value = sc.id; opt.textContent = sc.label;
+    if (sc.id === selectedSubId) opt.selected = true;
+    sel.appendChild(opt);
+  });
 }
 
 
@@ -16528,7 +16824,7 @@ function kgQuickAddArticle() {
   document.getElementById('item-nom').value = name;
   document.getElementById('item-price').value = price;
   const finalCatId = catId || (typeof CATEGORIES !== 'undefined' && CATEGORIES.length ? CATEGORIES[0].id : '');
-  populateItemCatSelect(finalCatId);
+  populateItemCatSelect(finalCatId, '');
 
   saveMenuItem();
 
@@ -16590,7 +16886,7 @@ function openAddMenuItem() {
   document.getElementById('item-img-emoji-display').style.display = 'block';
   document.getElementById('item-img-emoji-display').textContent = '🍽️';
   const _imgFileEl = document.getElementById('item-img-file'); if(_imgFileEl) _imgFileEl.value = '';
-  populateItemCatSelect('');
+  populateItemCatSelect('', '');
   document.getElementById('item-price').value = '';
   document.getElementById('item-desc').value = '';
   document.getElementById('item-tag').value = '';
@@ -16664,7 +16960,7 @@ function openEditMenuItem(menuIdx) {
   const urlField = document.getElementById('item-icon-url-display');
   if(urlField) urlField.value = _imgUrl || '';
   const _imgFileEl = document.getElementById('item-img-file'); if(_imgFileEl) _imgFileEl.value = '';
-  populateItemCatSelect(item.cat);
+  populateItemCatSelect(item.cat, item.subcat || '');
   document.getElementById('item-price').value = item.price;
   document.getElementById('item-desc').value = item.desc || '';
   document.getElementById('item-tag').value = item.tag || '';
@@ -16706,6 +17002,7 @@ function saveMenuItem() {
 icon:  (()=>{ const _v = document.getElementById('item-icon').value || '🍽️'; return (_v.startsWith('http')||_v.startsWith('data:')||_v.includes('ibb.co')) ? '🍽️' : _v; })(),
     image_url: (()=>{ const _v = document.getElementById('item-icon').value || ''; return (_v.startsWith('http')||_v.startsWith('data:')||_v.includes('ibb.co')) ? _v : null; })(),
     cat:   document.getElementById('item-cat').value,
+    subcat: (document.getElementById('item-subcat') ? document.getElementById('item-subcat').value : '') || null,
     price: price,
     desc:  document.getElementById('item-desc').value.trim(),
     tag:   document.getElementById('item-tag').value || null,
@@ -30308,13 +30605,156 @@ function renderCatManager() {
     list.innerHTML = '<div style="color:var(--text2);font-size:13px;text-align:center;padding:20px;">Aucune catégorie</div>';
     return;
   }
-  list.innerHTML = cats.map(c => `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
-      <span style="flex:1;font-size:14px;">${c.label}</span>
-      <button onclick="renameCat('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:4px 10px;cursor:pointer;font-size:12px;">✏️ Renommer</button>
-      <button onclick="deleteCat('${c.id}')" style="background:none;border:1px solid var(--red);border-radius:6px;color:var(--red);padding:4px 10px;cursor:pointer;font-size:12px;">🗑️ Supprimer</button>
+  list.innerHTML = cats.map(c => {
+    const restricted = Array.isArray(c.caisses) && c.caisses.length > 0;
+    const restrictLabel = restricted ? `🔒 ${c.caisses.join(', ')}` : '🌐 Toutes les caisses';
+    const subcats = Array.isArray(c.subcategories) ? c.subcategories : [];
+    const subcatsHtml = subcats.length ? subcats.map(sc => `
+        <div style="display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 6px 3px 10px;font-size:11px;">
+          <span>${sc.label}</span>
+          <button onclick="renameSubCat('${c.id}','${sc.id}')" title="Renommer" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:11px;padding:2px;">✏️</button>
+          <button onclick="deleteSubCat('${c.id}','${sc.id}')" title="Supprimer" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px;padding:2px;">🗑️</button>
+        </div>
+      `).join('') : `<span style="font-size:11px;color:var(--text2);">Aucune sous-catégorie</span>`;
+    return `
+    <div style="display:flex;flex-direction:column;gap:8px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="flex:1;font-size:14px;">${c.label}</span>
+        <button onclick="renameCat('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:4px 10px;cursor:pointer;font-size:12px;">✏️ Renommer</button>
+        <button onclick="deleteCat('${c.id}')" style="background:none;border:1px solid var(--red);border-radius:6px;color:var(--red);padding:4px 10px;cursor:pointer;font-size:12px;">🗑️ Supprimer</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:${restricted?'var(--accent)':'var(--text2)'};">${restrictLabel}</span>
+        <button onclick="openCatCaisseRestriction('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:3px 9px;cursor:pointer;font-size:11px;">🔒 Gérer les caisses autorisées</button>
+      </div>
+      <div style="border-top:1px dashed var(--border);padding-top:8px;display:flex;flex-direction:column;gap:6px;">
+        <span style="font-size:11px;color:var(--text2);font-weight:600;">📂 Sous-catégories</span>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">${subcatsHtml}</div>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="new-subcat-input-${c.id}" placeholder="Ex: 🥤 Boissons" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);" onkeydown="if(event.key==='Enter'){addSubCategory('${c.id}');}">
+          <button onclick="addSubCategory('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:4px 10px;cursor:pointer;font-size:12px;white-space:nowrap;">+ Ajouter</button>
+        </div>
+      </div>
     </div>
+  `;
+  }).join('');
+}
+
+// ── Gestion des sous-catégories ─────────────────────────────────────────
+function addSubCategory(catId) {
+  const cat = (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []).find(c => c.id === catId);
+  if (!cat) return;
+  const input = document.getElementById('new-subcat-input-' + catId);
+  if (!input) return;
+  const rawLabel = input.value.trim();
+  if (!rawLabel) return;
+  const emojiMatch = rawLabel.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})\s*/u);
+  const emoji = emojiMatch ? emojiMatch[0].trim() : '📌';
+  const textPart = emojiMatch ? rawLabel.slice(emojiMatch[0].length).trim() : rawLabel;
+  const label = emoji + ' ' + (textPart || rawLabel);
+  const id = rawLabel.toLowerCase().replace(/\p{Emoji_Presentation}/gu,'').replace(/\p{Extended_Pictographic}/gu,'').trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g,'') || 'subcat_' + Date.now();
+  if (!Array.isArray(cat.subcategories)) cat.subcategories = [];
+  if (cat.subcategories.find(sc => sc.id === id)) { showNotif('⚠️ Cette sous-catégorie existe déjà.'); return; }
+  cat.subcategories.push({ id, label });
+  input.value = '';
+  if(typeof saveSession === 'function') saveSession();
+  window._categoriesLocalTs = Date.now(); // 🔒 bloquer l'écrasement par le pull pendant 15s
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    KGSync.push.categories().catch(e => console.error('push.categories (addSubCategory):', e));
+  }
+  renderCatManager();
+  renderMenu(currentMenuCat || 'all');
+  showNotif('✅ Sous-catégorie « ' + label + ' » ajoutée à « ' + cat.label + ' »');
+}
+
+function renameSubCat(catId, subId) {
+  const cat = (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []).find(c => c.id === catId);
+  const sub = cat && Array.isArray(cat.subcategories) ? cat.subcategories.find(sc => sc.id === subId) : null;
+  if (!sub) return;
+  const newName = prompt('Nouveau nom de la sous-catégorie :', sub.label);
+  if (!newName || !newName.trim()) return;
+  sub.label = newName.trim();
+  if(typeof saveSession === 'function') saveSession();
+  window._categoriesLocalTs = Date.now();
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    KGSync.push.categories().catch(e => console.error('push.categories (renameSubCat):', e));
+  }
+  renderCatManager();
+  renderMenu(currentMenuCat || 'all');
+  showToast('Sous-catégorie renommée ✓');
+}
+
+function deleteSubCat(catId, subId) {
+  if (!confirm('Supprimer cette sous-catégorie ? Les produits associés resteront dans la catégorie principale, sans sous-catégorie.')) return;
+  const cat = (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []).find(c => c.id === catId);
+  if (!cat || !Array.isArray(cat.subcategories)) return;
+  const idx = cat.subcategories.findIndex(sc => sc.id === subId);
+  if (idx > -1) cat.subcategories.splice(idx, 1);
+  // Retirer la sous-catégorie des articles du menu qui l'utilisaient
+  if (typeof MENU !== 'undefined') {
+    MENU.forEach(item => { if (item.cat === catId && item.subcat === subId) item.subcat = null; });
+  }
+  window._categoriesLocalTs = Date.now();
+  if(typeof saveSession === 'function') saveSession();
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    KGSync.push.categories().catch(e => console.error('push.categories (deleteSubCat):', e));
+    KGSync.push.menu().catch(e => console.error('push.menu (deleteSubCat):', e));
+  }
+  renderCatManager();
+  renderMenu(currentMenuCat || 'all');
+  showToast('Sous-catégorie supprimée');
+}
+
+// ✅ Ouvre un petit sélecteur de caisses pour restreindre la visibilité d'une catégorie.
+// Aucune caisse cochée = catégorie commune, visible par toutes les caisses.
+function openCatCaisseRestriction(catId) {
+  const cat = (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []).find(c => c.id === catId);
+  if(!cat) return;
+  const current = Array.isArray(cat.caisses) ? cat.caisses : [];
+  const checkboxesHtml = CAISSES.map(c => `
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" value="${c.name}" ${current.includes(c.name) ? 'checked' : ''} style="width:16px;height:16px;">
+      ${c.name}${c.loc ? ' — ' + c.loc : ''}
+    </label>
   `).join('');
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-catCaisseRestriction';
+  overlay.style.display = 'flex';
+  overlay.innerHTML = `
+    <div class="modal" style="width:380px;">
+      <div class="modal-title">🔒 Caisses autorisées — ${cat.label}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">
+        Ne cochez aucune caisse pour que cette catégorie reste visible par toutes les caisses.
+        Si vous cochez une ou plusieurs caisses, seules celles-ci verront cette catégorie.
+      </div>
+      <div id="cat-caisse-checkboxes" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;">
+        ${checkboxesHtml}
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="document.getElementById('modal-catCaisseRestriction').remove()">Annuler</button>
+        <button class="btn btn-primary" onclick="saveCatCaisseRestriction('${catId}')">Enregistrer</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function saveCatCaisseRestriction(catId) {
+  const cat = (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []).find(c => c.id === catId);
+  if(!cat) return;
+  const checked = Array.from(document.querySelectorAll('#cat-caisse-checkboxes input[type="checkbox"]:checked')).map(i => i.value);
+  cat.caisses = checked; // [] = catégorie commune, non restreinte
+  if(typeof saveSession === 'function') saveSession();
+  window._categoriesLocalTs = Date.now(); // 🔒 bloquer l'écrasement par le pull pendant 15s
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    KGSync.push.categories().catch(e => console.error('push.categories (catCaisseRestriction):', e));
+  }
+  const overlay = document.getElementById('modal-catCaisseRestriction');
+  if(overlay) overlay.remove();
+  renderCatManager();
+  renderMenu(currentMenuCat || 'all');
+  showNotif(checked.length ? '✅ Catégorie restreinte à : ' + checked.join(', ') : '✅ Catégorie rendue visible à toutes les caisses');
 }
 
 function addMenuCategory() {
