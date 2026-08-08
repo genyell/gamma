@@ -9236,7 +9236,10 @@ Revenez nous voir bient&#244;t.</textarea>
     <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div style="font-weight:700;font-size:13px;">&#127859; Pr&#233;paration &mdash; Ingr&#233;dients li&#233;s au stock</div>
-        <button type="button" class="btn btn-ghost" style="padding:4px 12px;font-size:11px;" onclick="addRecetteLine()">+ Ingr&#233;dient</button>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button type="button" class="btn btn-ghost" style="padding:4px 12px;font-size:11px;" onclick="addRecetteLine()">+ Ingr&#233;dient</button>
+          <button type="button" class="btn btn-ghost" style="padding:4px 12px;font-size:11px;" onclick="_openStockArticleFromMenuItem()">+ Nouvel article de stock</button>
+        </div>
       </div>
       <div id="recette-lines" style="display:flex;flex-direction:column;gap:8px;min-height:32px;"></div>
       <div style="font-size:11px;color:var(--text2);margin-top:8px;">&#128230; Le stock est automatiquement d&#233;duit &#224; chaque vente de ce produit.</div>
@@ -16439,9 +16442,19 @@ function saveStockArticle() {
     window._kgStockModifiedAt = Date.now();
     showNotif(`✅ Article "${nom}" mis à jour`);
   } else {
-    STOCK_DATA.push({ id: 'local_' + Date.now(), ...data });
+    const newStockItem = { id: 'local_' + Date.now(), ...data };
+    STOCK_DATA.push(newStockItem);
     window._kgStockModifiedAt = Date.now();
     showNotif(`✅ Article "${nom}" ajouté`);
+    // ✅ Si on vient de "+ Nouvel article de stock" depuis la création d'un
+    // produit de menu, on relie tout de suite ce nouvel article à la recette.
+    if (_stockArticleReturnToMenuItem) {
+      _stockArticleReturnToMenuItem = false;
+      if (typeof _recetteLines !== 'undefined') {
+        _recetteLines.push({ stockId: newStockItem.id, qty: 0 });
+        if (typeof _drawRecetteLines === 'function') _drawRecetteLines();
+      }
+    }
   }
   closeModal('addStock');
   renderStock();
@@ -17110,7 +17123,26 @@ icon:  (()=>{ const _v = document.getElementById('item-icon').value || '🍽️'
             // ✅ FIX v43 : mettre à jour kg_sync après insert pour que pullAll voie le nouvel article
             if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.menu().catch(()=>{});
             if(typeof loadQRMenuItems === 'function') loadQRMenuItems().then(() => { if(typeof renderQRRupturesPanel === 'function') renderQRRupturesPanel(); });
+            // ✅ QR à la création : affiche automatiquement le QR code du produit
+            // juste créé (avec son id définitif Supabase) pour pouvoir l'imprimer
+            // et le scanner immédiatement en caisse — facilite la vente après coup.
+            if(typeof openProductQR === 'function') {
+              const _newIdx = MENU.indexOf(newItem);
+              if(_newIdx >= 0) openProductQR(_newIdx);
+            }
           }).catch(e => { console.error('insert menu_item:', e); alert('❌ Erreur réseau : ' + e.message); });
+      } else {
+        // Hors ligne / pas de client Supabase : le QR reste valable tant que
+        // l'id local n'est pas remplacé par un id Supabase lors d'une future sync
+        if(typeof openProductQR === 'function') {
+          const _newIdx = MENU.indexOf(newItem);
+          if(_newIdx >= 0) openProductQR(_newIdx);
+        }
+      }
+    } else {
+      if(typeof openProductQR === 'function') {
+        const _newIdx = MENU.indexOf(newItem);
+        if(_newIdx >= 0) openProductQR(_newIdx);
       }
     }
   }
@@ -26212,6 +26244,16 @@ function addRecetteLine() {
   _drawRecetteLines();
 }
 
+// ✅ Permet de créer un nouvel article de stock SANS quitter la création
+// du produit de menu — pratique quand l'ingrédient n'existe pas encore.
+// Une fois l'article de stock enregistré, il est automatiquement ajouté
+// comme nouvelle ligne d'ingrédient de la recette en cours.
+let _stockArticleReturnToMenuItem = false;
+function _openStockArticleFromMenuItem() {
+  _stockArticleReturnToMenuItem = true;
+  openAddStockArticle();
+}
+
 function _removeRecetteLine(i) {
   _recetteLines.splice(i, 1);
   _drawRecetteLines();
@@ -28942,14 +28984,22 @@ window.addEventListener('online',  () => {
         const _sb = KGSync.getClient();
         if(_sb && _rid && items && items.length) {
           console.log('[stock] Retour en ligne — push des déductions hors-ligne vers Supabase');
-          const _updates = items.filter(s => s.sbId).map(s =>
-            _sb.from('stock_items')
-              .update({ qty: s.qty, updated_at: new Date().toISOString() })
-              .eq('id', s.sbId)
-              .eq('restaurant_id', _rid)
-              .catch(e => console.warn('[stock] push hors-ligne:', s.name, e))
-          );
-          await Promise.all(_updates);
+          // ✅ FIX TIMEOUT : on n'envoie plus tout d'un coup (Promise.all sur
+          // potentiellement des dizaines d'items) — on envoie par petits paquets
+          // séquentiels pour éviter de saturer Postgres et déclencher un
+          // statement_timeout côté Supabase.
+          const _itemsToPush = items.filter(s => s.sbId);
+          const _BATCH_SIZE = 5;
+          for(let i = 0; i < _itemsToPush.length; i += _BATCH_SIZE) {
+            const _batch = _itemsToPush.slice(i, i + _BATCH_SIZE).map(s =>
+              _sb.from('stock_items')
+                .update({ qty: s.qty, updated_at: new Date().toISOString() })
+                .eq('id', s.sbId)
+                .eq('restaurant_id', _rid)
+                .catch(e => console.warn('[stock] push hors-ligne:', s.name, e))
+            );
+            await Promise.all(_batch);
+          }
           localStorage.removeItem('kg_stock_pending_' + _rid);
           console.log('[stock] ✅ Déductions hors-ligne synchronisées');
         }
@@ -30791,6 +30841,17 @@ function addMenuCategory() {
   renderCatManager();
   renderMenu('all');
   showNotif('\u2705 Cat\u00e9gorie \u00ab ' + label + ' \u00bb ajout\u00e9e');
+
+  // ✅ Propose de créer directement un article dans cette nouvelle catégorie,
+  // pour ne pas avoir à ré-ouvrir le menu et re-sélectionner la catégorie à la main.
+  if (confirm('✅ Catégorie « ' + label + ' » créée !\n\nVoulez-vous créer un article dans cette catégorie maintenant ?')) {
+    openAddMenuItem();
+    const catSel = document.getElementById('item-cat');
+    if (catSel) {
+      catSel.value = id;
+      populateItemSubcatSelect(id, '');
+    }
+  }
 }
 
 function renameCat(id) {
@@ -40318,11 +40379,21 @@ ${(function(){
 
 </body></html>`;
 
-  const win = window.open('', '_blank', 'width=420,height=750,scrollbars=yes');
-  if(!win) { showNotif('⚠️ Autoriser les popups pour imprimer'); return; }
+  const win = window.open('', 'kg_ticket_print', 'width=420,height=750,scrollbars=yes');
+  if(!win) { showNotif('⚠️ Autoriser les popups pour imprimer (bloqués par le navigateur)'); return; }
   win.document.write(html);
   win.document.close();
-  setTimeout(() => win.print(), 600);
+  win.focus();
+  // ✅ FIX : fermer automatiquement la fenêtre d'impression après usage.
+  // Sans ça, les fenêtres popup s'accumulaient (une par ticket mis en attente)
+  // et le navigateur finissait par bloquer silencieusement les popups suivants
+  // après plusieurs tickets — l'impression semblait alors ne plus rien faire.
+  win.onafterprint = () => { try { win.close(); } catch(e) {} };
+  setTimeout(() => {
+    try { win.print(); } catch(e) { console.warn('print() error:', e); }
+    // Filet de sécurité si onafterprint n'est pas déclenché par le navigateur
+    setTimeout(() => { try { if(!win.closed) win.close(); } catch(e) {} }, 4000);
+  }, 600);
 }
 
 // ── Rouvrir un ticket en attente pour modification ──
