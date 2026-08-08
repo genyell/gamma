@@ -24209,6 +24209,33 @@ const KGSync = (() => {
   function enc(obj) { return JSON.stringify(obj); }
   function dec(str) { try { return JSON.parse(str); } catch(e) { return null; } }
 
+  // ── FIX POOL EXHAUSTION ──────────────────────────────────────────
+  // L'app envoie beaucoup de petites requêtes vers kg_sync depuis plein
+  // d'endroits différents (menu, stock, caisses, RH, factures...). Quand
+  // plusieurs partent en même temps (ex: pullAll + une sauvegarde + le
+  // polling QR), ça peut dépasser le nombre de connexions que Supabase
+  // autorise en simultané → erreurs "PGRST003: Timed out acquiring
+  // connection from connection pool" et 504 côté serveur.
+  // On limite donc le nombre de requêtes réellement envoyées en même
+  // temps (les autres attendent en file), quel que soit l'endroit du
+  // code qui les déclenche.
+  const _kgFetchQueue = [];
+  let _kgActiveFetches = 0;
+  const _KG_MAX_CONCURRENT_FETCH = 6;
+  function _kgLimitedFetch(...args) {
+    return new Promise((resolve, reject) => {
+      const run = () => {
+        _kgActiveFetches++;
+        fetch(...args).then(resolve, reject).finally(() => {
+          _kgActiveFetches--;
+          if(_kgFetchQueue.length) _kgFetchQueue.shift()();
+        });
+      };
+      if(_kgActiveFetches < _KG_MAX_CONCURRENT_FETCH) run();
+      else _kgFetchQueue.push(run);
+    });
+  }
+
   // ── Intercepteur global DataCloneError (Android WebView) ───────
   (function() {
     var _origOnError = window.onerror;
@@ -24247,6 +24274,9 @@ const KGSync = (() => {
           autoRefreshToken: true,
           detectSessionInUrl: false,
           storage: window.localStorage
+        },
+        global: {
+          fetch: _kgLimitedFetch
         }
       });
       // Test de connexion via SELECT (évite le DataCloneError du upsert sur Android)
