@@ -8931,9 +8931,7 @@ Revenez nous voir bient&#244;t.</textarea>
       <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="eu-nom"></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Identifiant</label><input class="form-input" id="eu-login">
-        <div style="font-size:11px;color:var(--text2);margin-top:4px;">Corrige l'email affiché dans l'app. Ne change pas l'email de connexion Supabase Auth (à faire séparément dans Supabase si besoin).</div>
-      </div>
+      <div class="form-group"><label class="form-label">Identifiant</label><input class="form-input" id="eu-login"></div>
       <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="eu-tel"></div>
     </div>
     <div class="form-row">
@@ -9608,20 +9606,9 @@ Revenez nous voir bient&#244;t.</textarea>
     <div id="cf-articles-list" style="margin-top:12px;"></div>
     <button class="btn btn-ghost" style="width:100%;margin-top:8px;" onclick="addCFArticleLine()">+ Ajouter un article</button>
     <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;">
-      <div style="display:flex;justify-content:space-between;font-size:14px;color:var(--text2);margin-bottom:6px;">
-        <span>Total articles</span>
-        <span style="font-family:'Space Mono';" id="cf-total">0 FCFA</span>
-      </div>
-      <div style="background:rgba(46,204,113,0.08);border:1px solid rgba(46,204,113,0.25);border-radius:10px;padding:12px;margin-bottom:12px;">
-        <div style="font-weight:700;font-size:13px;color:var(--green);margin-bottom:8px;">🏷️ Remise fournisseur <span style="font-weight:400;color:var(--text2);">(si le fournisseur déduit un montant sur la facture)</span></div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label class="form-label">Montant de la remise (FCFA)</label>
-          <input class="form-input" type="number" id="cf-remise" placeholder="0" min="0" oninput="updateCFSolde()">
-        </div>
-      </div>
       <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;margin-bottom:12px;">
-        <span>Total net à payer</span>
-        <span style="font-family:'Space Mono';color:var(--accent);" id="cf-total-net">0 FCFA</span>
+        <span>Total estimé</span>
+        <span style="font-family:'Space Mono';color:var(--accent);" id="cf-total">0 FCFA</span>
       </div>
       <div style="background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.25);border-radius:10px;padding:12px;margin-bottom:12px;">
         <div style="font-weight:700;font-size:13px;color:var(--accent);margin-bottom:8px;">💰 Avance / Acompte fournisseur</div>
@@ -10565,9 +10552,6 @@ function openAddFacture(type) {
   // ✅ v36 : Réinitialiser acompte
   const acompteEl = document.getElementById('fact-acompte');
   if(acompteEl) acompteEl.value = '';
-  // ✅ Réinitialiser remise
-  const remiseEl = document.getElementById('fact-remise');
-  if(remiseEl) remiseEl.value = '';
   const soldeEl = document.getElementById('fact-solde-restant');
   if(soldeEl) { soldeEl.value = '— FCFA'; soldeEl.style.color = 'var(--red)'; }
   document.getElementById('fact-client-libre').style.display = 'none';
@@ -10662,18 +10646,13 @@ function calcFactTotaux() {
     const pu  = parseFloat(inputs[2].value)||0;
     ht += qty * pu;
   });
-  const sousTotal = ht; // sous-total TTC saisi (avant remise)
-  // ✅ Remise fournisseur/client sur la facture
-  const remise = Math.min(sousTotal, Math.max(0, parseFloat(document.getElementById('fact-remise')?.value) || 0));
-  const ttc = sousTotal - remise; // total net après remise
   const tvaRate = parseFloat(document.getElementById('fact-tva-rate')?.value||18)/100;
-  // ✅ FIX: le prix saisi est TTC — TVA extraite (incluse), pas ajoutée. Calculée sur le NET après remise.
+  // ✅ FIX: le prix saisi est TTC — TVA extraite (incluse), pas ajoutée
+  const ttc = ht; // ht contient en réalité le TTC saisi
   const tva = Math.round(ttc * tvaRate / (1 + tvaRate));
   const htReel = ttc - tva;
   document.getElementById('fact-calc-ht').textContent  = htReel.toLocaleString()  + ' FCFA';
   document.getElementById('fact-calc-tva').textContent = tva.toLocaleString() + ' FCFA';
-  const soustotalEl = document.getElementById('fact-calc-soustotal');
-  if(soustotalEl) soustotalEl.textContent = sousTotal.toLocaleString() + ' FCFA';
   document.getElementById('fact-calc-ttc').textContent = ttc.toLocaleString() + ' FCFA';
   // ✅ v36 : Mettre à jour le solde restant si un acompte est déjà saisi
   if(document.getElementById('fact-acompte')) calcFactAcompte();
@@ -10752,11 +10731,8 @@ async function saveFacture(andPrint) {
   });
   if(lignes.length === 0) { showNotif('⚠️ Ajoutez au moins une ligne article'); return; }
 
-  const sousTotal = lignes.reduce((a,l)=>a+l.total,0); // prix saisis = TTC brut
-  // ✅ Remise sur la facture (client ou fournisseur)
-  const remise = Math.min(sousTotal, Math.max(0, parseFloat(document.getElementById('fact-remise')?.value) || 0));
-  const ttc = sousTotal - remise; // total net après remise
-  const tva = Math.round(ttc * tvaRate / (1 + tvaRate)); // TVA extraite, calculée sur le net
+  const ttc = lignes.reduce((a,l)=>a+l.total,0); // prix saisis = TTC
+  const tva = Math.round(ttc * tvaRate / (1 + tvaRate)); // TVA extraite
   const ht  = ttc - tva;
   // ✅ v36 : Acompte partiel
   const acompteVal = parseFloat(document.getElementById('fact-acompte')?.value) || 0;
@@ -10768,7 +10744,7 @@ async function saveFacture(andPrint) {
   else if(acomptePaye > 0 && acomptePaye < ttc) statutFinal = 'partiel';
 
   const editId = document.getElementById('fact-edit-id').value;
-  const factObj = { id: editId || ('F' + Date.now()), num, type, tiers, tiersEmail, tiersTel, tiersAdresse, date, echeance, statut: statutFinal, payMethod, notes, lignes, sousTotal, remise, ht, tva, ttc, tvaRate, acompte: acomptePaye, soldeRestant };
+  const factObj = { id: editId || ('F' + Date.now()), num, type, tiers, tiersEmail, tiersTel, tiersAdresse, date, echeance, statut: statutFinal, payMethod, notes, lignes, ht, tva, ttc, tvaRate, acompte: acomptePaye, soldeRestant };
 
   if(editId) {
     const idx = FACTURES.findIndex(f => f.id === editId);
@@ -10802,9 +10778,6 @@ function editFacture(id) {
     // ✅ v36 : Restaurer l'acompte
     const aEl = document.getElementById('fact-acompte');
     if(aEl) aEl.value = f.acompte > 0 ? f.acompte : '';
-    // ✅ Restaurer la remise
-    const rEl = document.getElementById('fact-remise');
-    if(rEl) rEl.value = f.remise > 0 ? f.remise : '';
     calcFactAcompte();
     if(f.type==='client') {
       document.getElementById('fact-echeance').value = f.echeance||'';
@@ -11182,11 +11155,9 @@ function printFacture(id) {
   </div>
   <!-- TOTAUX -->
   <div class="totaux">
-    ${(f.remise||0) > 0 ? `<div class="totaux-row"><span style="color:#6b7280;">Sous-total (avant remise)</span><span style="font-family:'Courier New',monospace;">${(f.sousTotal||f.ttc).toLocaleString()} FCFA</span></div>
-    <div class="totaux-row" style="color:#166534;font-weight:700;"><span>🏷️ Remise</span><span style="font-family:'Courier New',monospace;">−${f.remise.toLocaleString()} FCFA</span></div>` : ''}
     <div class="totaux-row"><span style="color:#6b7280;">Sous-total HT</span><span style="font-family:'Courier New',monospace;">${f.ht.toLocaleString()} FCFA</span></div>
     <div class="totaux-row"><span style="color:#6b7280;">TVA ${tvaLabel}</span><span style="font-family:'Courier New',monospace;">${f.tva.toLocaleString()} FCFA</span></div>
-    <div class="totaux-row"><span>TOTAL TTC${(f.remise||0) > 0 ? ' NET' : ''}</span><span style="font-family:'Courier New',monospace;">${f.ttc.toLocaleString()} FCFA</span></div>
+    <div class="totaux-row"><span>TOTAL TTC</span><span style="font-family:'Courier New',monospace;">${f.ttc.toLocaleString()} FCFA</span></div>
     ${f.acompte > 0 ? `<div class="totaux-row" style="background:#e0f2fe;color:#0369a1;font-size:13px;"><span>Acompte versé</span><span style="font-family:'Courier New',monospace;">−${f.acompte.toLocaleString()} FCFA</span></div>` : ''}
     ${f.acompte > 0 && f.statut !== 'payee' ? `<div class="totaux-row" style="background:#fee2e2;color:#b91c1c;"><span>SOLDE RESTANT</span><span style="font-family:'Courier New',monospace;">${(f.soldeRestant||0).toLocaleString()} FCFA</span></div>` : ''}
   </div>
@@ -12449,7 +12420,7 @@ async function validateOrder() {
   // ✅ FIX DÉFINITIF : charger les recettes depuis menu_items Supabase AVANT déduction (await)
   // Garantit que MENU a les recettes même si pullAll async n'est pas encore terminé
   await _ensureRecettesLoaded(itemsSaved);
-  await deduireStockVente(itemsSaved, caisse);
+  deduireStockVente(itemsSaved, caisse);
 
   // Synchroniser CAISSES en temps réel
   const caisseObj = CAISSES.find(c => c.name === caisse);
@@ -14572,27 +14543,6 @@ function renderFournisseurs() {
     `).join('');
   }
 
-  // ✅ FIX ORDRE : helpers de tri partagés entre "Commandes en cours" et "Historique livraisons"
-  // (remontés ici pour ne pas être limités au bloc cmdList — sinon ReferenceError dans histTable)
-  const _parseDateCmd = (d) => {
-    if(!d) return 0;
-    // Formats: DD/MM/YY, DD/MM/YYYY, YYYY-MM-DD
-    const p = d.split(/[-\/]/);
-    if(p.length === 3) {
-      if(p[0].length === 4) return new Date(p[0], p[1]-1, p[2]).getTime(); // YYYY-MM-DD
-      const yr = p[2].length === 2 ? '20'+p[2] : p[2];
-      return new Date(yr, p[1]-1, p[0]).getTime(); // DD/MM/YY or DD/MM/YYYY
-    }
-    return new Date(d).getTime() || 0;
-  };
-  // ✅ FIX : deux commandes créées le même jour ont la même dateCmd (pas d'heure),
-  // donc elles restaient dans l'ordre d'ajout au lieu que la plus récente soit en haut.
-  // On départage avec l'horodatage précis embarqué dans l'id ('local_<timestamp>').
-  const _cmdTs = (c) => {
-    const m = String(c.id||'').match(/(\d{10,})$/);
-    return m ? parseInt(m[1]) : 0;
-  };
-
   // Commandes en cours
   const cmdList = document.getElementById('commandes-fourn-list');
   if(cmdList) {
@@ -14600,6 +14550,24 @@ function renderFournisseurs() {
     if(nbCmds) nbCmds.textContent = COMMANDES_FOURNISSEURS.length + ' commande(s)';
     const statutColors = { en_cours:'var(--accent)', livree:'var(--green)', livree_partielle:'var(--teal)', annulee:'var(--red)' };
     const statutLabels = { en_cours:'⏳ En cours', livree:'✅ Livrée', livree_partielle:'📦 Reçue (solde restant)', annulee:'❌ Annulée' };
+    const _parseDateCmd = (d) => {
+      if(!d) return 0;
+      // Formats: DD/MM/YY, DD/MM/YYYY, YYYY-MM-DD
+      const p = d.split(/[-\/]/);
+      if(p.length === 3) {
+        if(p[0].length === 4) return new Date(p[0], p[1]-1, p[2]).getTime(); // YYYY-MM-DD
+        const yr = p[2].length === 2 ? '20'+p[2] : p[2];
+        return new Date(yr, p[1]-1, p[0]).getTime(); // DD/MM/YY or DD/MM/YYYY
+      }
+      return new Date(d).getTime() || 0;
+    };
+    // ✅ FIX : deux commandes créées le même jour ont la même dateCmd (pas d'heure),
+    // donc elles restaient dans l'ordre d'ajout au lieu que la plus récente soit en haut.
+    // On départage avec l'horodatage précis embarqué dans l'id ('local_<timestamp>').
+    const _cmdTs = (c) => {
+      const m = String(c.id||'').match(/(\d{10,})$/);
+      return m ? parseInt(m[1]) : 0;
+    };
     cmdList.innerHTML = COMMANDES_FOURNISSEURS.slice().sort((a,b) => {
       const dDiff = _parseDateCmd(b.dateCmd) - _parseDateCmd(a.dateCmd);
       if(dDiff !== 0) return dDiff;
@@ -14639,15 +14607,7 @@ function renderFournisseurs() {
   // Historique
   const histTable = document.getElementById('fourn-historique-table');
   if(histTable) {
-    // ✅ FIX ORDRE : même logique que la liste "Commandes en cours" — la dernière
-    // livraison enregistrée doit toujours apparaître en haut, y compris plusieurs
-    // le même jour (départage via l'horodatage embarqué dans l'id).
-    const _histSorted = COMMANDES_FOURNISSEURS.filter(c => c.statut === 'livree').slice().sort((a,b) => {
-      const dDiff = _parseDateCmd(b.dateCmd) - _parseDateCmd(a.dateCmd);
-      if(dDiff !== 0) return dDiff;
-      return _cmdTs(b) - _cmdTs(a);
-    });
-    histTable.innerHTML = _histSorted.map(c => `
+    histTable.innerHTML = COMMANDES_FOURNISSEURS.filter(c => c.statut === 'livree').map(c => `
       <tr>
         <td style="font-family:'Space Mono';font-size:11px;">${c.dateCmd}</td>
           <td><strong>${c.fournisseur}</strong></td>
@@ -14678,10 +14638,8 @@ function printFactureFourn(idx) {
       <td style="padding:8px 6px;text-align:right;font-weight:700;color:#c97f00;">${((a.prix||0)*(a.qty||1)).toLocaleString('fr-FR')} F</td>
     </tr>`).join('');
 
-  const remise = c.remise || 0;
-  const totalNet = c.totalNet != null ? c.totalNet : Math.max(0, (c.total||0) - remise);
-  const tvaAmount = Math.round(totalNet / 1.18 * 0.18);
-  const htAmount  = totalNet - tvaAmount;
+  const tvaAmount = Math.round(c.total / 1.18 * 0.18);
+  const htAmount  = c.total - tvaAmount;
 
   const html = `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8">
@@ -14786,11 +14744,9 @@ function printFactureFourn(idx) {
 
 <div class="totaux">
   <div class="totaux-bloc">
-    <div class="tot-row"><span>Sous-total articles</span><span>${(c.total||0).toLocaleString('fr-FR')} F</span></div>
-    ${remise > 0 ? `<div class="tot-row" style="color:#166534;font-weight:700;"><span>🏷️ Remise fournisseur</span><span>− ${remise.toLocaleString('fr-FR')} F</span></div>` : ''}
     <div class="tot-row"><span>Sous-total HT</span><span>${htAmount.toLocaleString('fr-FR')} F</span></div>
     <div class="tot-row"><span>TVA (18%)</span><span>${tvaAmount.toLocaleString('fr-FR')} F</span></div>
-    <div class="tot-row grand"><span>TOTAL NET À PAYER</span><span>${totalNet.toLocaleString('fr-FR')} F</span></div>
+    <div class="tot-row grand"><span>TOTAL TTC</span><span>${(c.total||0).toLocaleString('fr-FR')} F</span></div>
   </div>
 </div>
 
@@ -14899,11 +14855,9 @@ function openCommandeFourn(fIdx) {
   if(dateCmdEl) dateCmdEl.value = new Date().toISOString().split('T')[0];
   cfArticleLines = [];
   addCFArticleLine();
-  // ✅ Reset avance, remise, solde et notes à chaque ouverture
+  // ✅ Reset avance, solde et notes à chaque ouverture
   const avEl = document.getElementById('cf-avance');
   if(avEl) avEl.value = '';
-  const remiseEl = document.getElementById('cf-remise');
-  if(remiseEl) remiseEl.value = '';
   const soldeEl = document.getElementById('cf-solde');
   if(soldeEl) { soldeEl.value = '0 FCFA'; soldeEl.style.color = 'var(--red)'; }
   const notesEl = document.getElementById('cf-notes');
@@ -15103,18 +15057,13 @@ function updateCFTotal() {
   const total = cfArticleLines.reduce((a,l) => a + (l.qty * l.prix), 0);
   const el = document.getElementById('cf-total');
   if(el) el.textContent = total.toLocaleString() + ' FCFA';
-  updateCFSolde();
 }
 
-// ✅ Calcul avance/solde dans le modal commande (avec remise fournisseur)
+// ✅ Calcul avance/solde dans le modal commande
 function updateCFSolde() {
-  const total  = cfArticleLines.reduce((a,l) => a + (l.qty * l.prix), 0);
-  const remise = Math.min(total, Math.max(0, parseFloat(document.getElementById('cf-remise')?.value) || 0));
-  const totalNet = Math.max(0, total - remise);
-  const totalNetEl = document.getElementById('cf-total-net');
-  if(totalNetEl) totalNetEl.textContent = totalNet.toLocaleString() + ' FCFA';
+  const total = cfArticleLines.reduce((a,l) => a + (l.qty * l.prix), 0);
   const avance = parseFloat(document.getElementById('cf-avance')?.value) || 0;
-  const solde = Math.max(0, totalNet - avance);
+  const solde = Math.max(0, total - avance);
   const el = document.getElementById('cf-solde');
   if(el) {
     el.value = solde.toLocaleString() + ' FCFA';
@@ -15131,10 +15080,7 @@ function saveCommandeFournisseur() {
   const articles = cfArticleLines.filter(l => l.stockId || (l.article && l.article.trim()));
   if(!articles.length) { showNotif('⚠️ Ajoutez au moins un article'); return; }
   const dateLivr = document.getElementById('cf-date').value;
-  const total  = articles.reduce((a,l) => a + l.qty * l.prix, 0);
-  // ✅ Remise fournisseur (ex : le fournisseur déduit un montant sur la facture)
-  const remise = Math.min(total, Math.max(0, parseFloat(document.getElementById('cf-remise')?.value) || 0));
-  const totalNet = Math.max(0, total - remise);
+  const total = articles.reduce((a,l) => a + l.qty * l.prix, 0);
   const avance = parseFloat(document.getElementById('cf-avance')?.value) || 0;
   const now = new Date();
   // ✅ Date de la commande/facture choisie par l'utilisateur (par défaut aujourd'hui,
@@ -15146,12 +15092,10 @@ function saveCommandeFournisseur() {
     fournisseurId: fourn.sbId || fourn.id,
     fournisseur: fourn.nom,
     articles: articles.map(l => ({ stockId: l.stockId || null, nom: l.article, qty: l.qty, unit: l.unit, prix: l.prix })),
-    total,           // total brut des articles (avant remise)
-    remise,          // ✅ montant déduit par le fournisseur sur la facture
-    totalNet,        // total net réellement dû après remise
+    total,
     avance,
     soldePaye: avance,
-    soldeRestant: Math.max(0, totalNet - avance),
+    soldeRestant: Math.max(0, total - avance),
     dateCmd: dateCmdObj.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),
     dateLivraison: dateLivr || null,
     ref: 'CF-' + now.getFullYear() + '-' + String(Date.now()).slice(-5), // ✅ FIX v38 : anti-doublon (timestamp)
@@ -15160,13 +15104,12 @@ function saveCommandeFournisseur() {
   };
   COMMANDES_FOURNISSEURS.push(newCmd);
   fourn.nbCommandes = (fourn.nbCommandes||0) + 1;
-  fourn.totalAchat  = (fourn.totalAchat||0) + totalNet; // ✅ FIX: mettre à jour le total achats (net, après remise)
+  fourn.totalAchat  = (fourn.totalAchat||0) + total; // ✅ FIX: mettre à jour le total achats
   if(KGSync.isConnected) KGSync.push.commandesFourn().catch(()=>{});  // ✅ FIX v38
   closeModal('commandeFournisseur');
   renderFournisseurs();
-  const remiseMsg = remise > 0 ? ` · Remise: -${remise.toLocaleString()} FCFA` : '';
   const avanceMsg = avance > 0 ? ` · Avance: ${avance.toLocaleString()} FCFA` : '';
-  showNotif(`📦 Commande envoyée à ${fourn.nom} — ${totalNet.toLocaleString()} FCFA${remiseMsg}${avanceMsg}`);
+  showNotif(`📦 Commande envoyée à ${fourn.nom} — ${total.toLocaleString()} FCFA${avanceMsg}`);
 }
 
 // ✅ Ouvrir le modal de réception avec les articles de la commande
@@ -20130,13 +20073,10 @@ async function saveNewUser() {
 
     const colors = ['#f5a623','#00c9b1','#7c5cbf','#e8440a','#2ecc71','#FF6B6B','#4ecdc4','#f39c12'];
     // Insérer le profil
-    // ✅ FIX : l'email n'était jamais persisté dans public.users (seulement dans
-    // auth.users côté Supabase Auth), ce qui faisait que l'app affichait un login
-    // erroné/partagé entre utilisateurs après un rechargement. On l'enregistre ici.
     const { error: profileErr } = await sb.from('users').insert({
       id: authData.user.id,
       restaurant_id: window._KG_RESTAURANT_ID,
-      prenom, nom, role, email,
+      prenom, nom, role,
       caisse_assignee: caisse === 'Toutes' ? null : caisse,
       tel, status: 'actif',
       color: colors[USERS.length % colors.length],
@@ -20255,16 +20195,11 @@ async function saveEditUser() {
   const role   = document.getElementById('eu-role').value;
   const status = document.getElementById('eu-status').value;
   const caisse = document.getElementById('eu-caisse').value;
-  // ✅ FIX : le champ "Identifiant" n'était jamais sauvegardé (ni en local, ni dans
-  // Supabase), ce qui laissait la colonne public.users.email vide/incorrecte pour
-  // les comptes créés avant ce correctif — d'où des identifiants qui semblaient
-  // partagés entre plusieurs caissiers dans la liste utilisateurs.
-  const emailVal = document.getElementById('eu-login').value.trim() || u.login || u.email;
 
   try {
     if(sb) {
       await sb.from('users').update({
-        prenom, nom, tel, role, status, email: emailVal,
+        prenom, nom, tel, role, status,
         caisse_assignee: caisse === 'Toutes' ? null : caisse,
       }).eq('id', id);
 
@@ -20290,7 +20225,7 @@ async function saveEditUser() {
       }
     }
     // Mise à jour locale
-    Object.assign(u, { prenom, nom, tel, role, status, caisse: caisse||'Toutes', caisse_assignee: caisse||null, login: emailVal, email: emailVal });
+    Object.assign(u, { prenom, nom, tel, role, status, caisse: caisse||'Toutes', caisse_assignee: caisse||null });
     if(id === currentUser?.id) Object.assign(currentUser, { prenom, nom, tel, role, caisse });
 
     closeModal('editUser');
@@ -22095,13 +22030,6 @@ async function cloturerCaisse() {
 
     // 4. Enregistrer dans l'historique
     const cloture = {
-      // ✅ FIX PERTE DE CLÔTURES : identifiant unique garanti à la création.
-      // Avant ce correctif, une clôture n'avait pas d'id → le système de fusion
-      // anti-perte retombait sur la clé "date_heure_caisse", qui pouvait entrer
-      // en collision (double clic, re-soumission après coupure réseau, deux
-      // clôtures de la même caisse à la même minute...) et effacer silencieusement
-      // une clôture entière (tickets + CA) lors de la fusion avec un autre appareil.
-      id: 'CLOT-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
       date:    now.toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'2-digit'}),
       heure:   heureStr,
       caisse:  caisse,
@@ -22559,18 +22487,15 @@ try {
   if(Array.isArray(_cs)) CLOTURES_SUPPRIMEES = new Set(_cs);
 } catch(e) {}
 
-// ✅ FIX ANTI-DOUBLON — ET FIX PERTE DE CLÔTURES : clé unique partagée par TOUS
-// les points de fusion. Utilise TOUJOURS l'id (y compris pour les saisies
-// manuelles 'MANU-*') dès qu'il existe.
-// ⚠️ Avant, les id 'MANU-*' étaient volontairement exclus et on retombait sur
-// date+heure+caisse — mais l'heure par défaut ('23:59') faisait que PLUSIEURS
-// saisies manuelles distinctes pour la même caisse le même jour entraient en
-// collision et s'écrasaient silencieusement entre elles (clôtures perdues).
-// La prévention des doublons de ré-soumission se fait maintenant au niveau du
-// formulaire (bouton désactivé pendant l'enregistrement), pas ici.
+// ✅ FIX ANTI-DOUBLON : clé unique partagée par TOUS les points de fusion.
+// Priorité à l'id Supabase (fiable) sauf pour les saisies manuelles (id MANU-*,
+// qui change à chaque saisie et ne doit pas servir de clé), auquel cas on retombe
+// sur date+heure+caisse.
 function _clotureKey(h) {
   if(!h) return '';
-  return h.id ? ('id:' + h.id) : ((h.date||'') + '_' + (h.heure||'') + '_' + (h.caisse||''));
+  return (h.id && !String(h.id).startsWith('MANU-'))
+    ? ('id:' + h.id)
+    : ((h.date||'') + '_' + (h.heure||'') + '_' + (h.caisse||''));
 }
 
 // ✅ FIX ANTI-DOUBLON : passe de nettoyage — regroupe les entrées qui partagent
@@ -24250,17 +24175,7 @@ const KGSync = (() => {
           HISTORIQUE_CLOTURES = _snapshot; // appliquer aussi la fusion en local
         }
       }
-    } catch(e) {
-      // ✅ FIX PERTE MASSIVE DE CLÔTURES (bug critique) : si la fusion avec Supabase
-      // échoue (coupure réseau, timeout...), on n'écrivait quand même que la liste
-      // LOCALE — potentiellement incomplète (appareil neuf, cache vidé, etc.). Cet
-      // upsert REMPLACE tout le blob distant, donc ça pouvait effacer des SEMAINES
-      // de clôtures en une seule fois. Maintenant : si on ne peut pas fusionner en
-      // toute sécurité, on annule complètement l'envoi plutôt que de risquer un
-      // écrasement — un prochain push réussi rattrapera la synchronisation.
-      console.warn('[pushClotures] fusion distante échouée — envoi annulé par sécurité (aucune donnée distante ne sera écrasée):', e);
-      return;
-    }
+    } catch(e) { console.warn('[pushClotures] fusion distante échouée, push local seul:', e); }
     // ✅ FIX : écriture IMMÉDIATE (plus de délai artificiel de 2s) — un délai
     // n'apportait ici aucun bénéfice (les clôtures sont rares, pas besoin de les
     // regrouper) et élargissait inutilement la fenêtre de risque entre appareils.
@@ -25963,19 +25878,9 @@ async function _ensureRecettesLoaded(items) {
     });
   }
 }
-async function deduireStockVente(items, caisseName) {
+function deduireStockVente(items, caisseName) {
   if(!items || !items.length) return;
   let hasChanges = false;
-  // ✅ FIX CONCURRENCE : cumul des quantités déduites par article (clé = sbId ou id),
-  // envoyé ensuite en un seul appel atomique côté serveur (kg_decrement_stock) pour
-  // que deux caisses vendant le même ingrédient en même temps ne s'écrasent plus l'une l'autre.
-  const _deltaMap = new Map();
-  const _addDelta = function(stockItem, consommation) {
-    if(!stockItem || !consommation) return;
-    const key = stockItem.sbId || stockItem.id;
-    if(!key) return;
-    _deltaMap.set(key, (_deltaMap.get(key) || 0) + consommation);
-  };
   // ✅ DÉPÔT PAR CAISSE : résoudre le dépôt lié à la caisse vendeuse (priorité sur le depotId figé de la recette)
   const _caisseObjVente = caisseName ? CAISSES.find(c => c.name === caisseName) : null;
   const _depotCaisseVente = _caisseObjVente
@@ -26021,7 +25926,6 @@ async function deduireStockVente(items, caisseName) {
             const consommation = ligne.qty * (item.qty || 1);
             stockItem.qty = Math.max(0, Math.round((stockItem.qty - consommation) * 1000) / 1000);
             hasChanges = true;
-            _addDelta(stockItem, consommation);
             console.log('[stock-diag] ✅ Stock déduit (lastChance):', stockItem.name, '-', consommation, '→', stockItem.qty);
             // ✅ Déduire aussi le dépôt lié à la caisse vendeuse (ou depotId figé en fallback)
             const _depotCibleLC = _depotCaisseVente || (ligne.depotId ? DEPOTS.find(d => d.id === ligne.depotId) : null);
@@ -26086,7 +25990,6 @@ async function deduireStockVente(items, caisseName) {
       const consommation = ligne.qty * (item.qty || 1);
       stockItem.qty = Math.max(0, Math.round((stockItem.qty - consommation) * 1000) / 1000);
       hasChanges = true;
-      _addDelta(stockItem, consommation);
       // ── Déduire aussi du dépôt concerné : priorité au dépôt lié à la CAISSE vendeuse,
       // sinon fallback sur le depotId figé dans la recette (rétrocompat), sinon Stock général (rien à faire)
       const _depotCible = _depotCaisseVente || (ligne.depotId ? DEPOTS.find(d => d.id === ligne.depotId) : null);
@@ -26108,25 +26011,29 @@ async function deduireStockVente(items, caisseName) {
       try {
         const _sb  = KGSync.getClient();
         const _rid = window._KG_RESTAURANT_ID;
-        if(_sb && _rid && _deltaMap.size > 0) {
-          // ✅ FIX CONCURRENCE : déduction atomique côté serveur (verrou de ligne),
-          // au lieu d'écraser tout le stock avec l'instantané local (qui pouvait
-          // effacer la vente simultanée d'une autre caisse). Voir kg_decrement_stock.sql.
-          const _deltasPayload = [..._deltaMap.entries()].map(([match, qty]) => ({ match: String(match), qty }));
-          const { error: _rpcErr } = await _sb.rpc('kg_decrement_stock', {
-            p_key: _rid + ':stock_data',
-            p_deltas: _deltasPayload
+        if(_sb && _rid) {
+          // ✅ FIX CRITIQUE : pousser UNIQUEMENT les articles modifiés par cette vente
+          // (pousser tout le stock écrasait les déductions des autres appareils)
+          const _modifiedIds = new Set();
+          items.forEach(function(item2) {
+            const mi = MENU.find(function(m){ return m.id===item2.id||m.sbId===item2.id||m.id===item2.sbId||m.sbId===item2.sbId||m.name===item2.name; });
+            const rec = (mi && mi.recette && mi.recette.length) ? mi.recette : (item2.recette||[]);
+            rec.forEach(function(l){
+              let s = null;
+              if(l.sbStockId) s = STOCK_DATA.find(function(x){return String(x.sbId)===String(l.sbStockId);});
+              if(!s && l.stockId) s = STOCK_DATA.find(function(x){return String(x.sbId)===String(l.stockId)||String(x.id)===String(l.stockId);});
+              if(!s && l.stockNom) s = STOCK_DATA.find(function(x){return x.name&&x.name.trim().toLowerCase()===l.stockNom.trim().toLowerCase();});
+              if(s && s.sbId) _modifiedIds.add(s.sbId);
+            });
           });
-          if(_rpcErr) {
-            console.warn('[stock] kg_decrement_stock a échoué, fallback sur push complet:', _rpcErr.message);
-            KGSync.push.stock();
-          } else {
-            console.log('[stock] Déduction atomique OK pour', _deltasPayload.length, 'article(s)');
+          // ✅ FIX : stock_items n'existe pas dans Supabase — uniquement kg_sync via pushStock()
+          // Ne pas tenter _sb.from('stock_items') qui génère des erreurs silencieuses
+          if(_modifiedIds.size > 0) {
+            console.log('[stock] Articles modifiés:', [..._modifiedIds].join(', '));
           }
-        } else {
-          // Pas de KGSync/rid dispo, ou rien à déduire côté serveur : fallback habituel
-          KGSync.push.stock();
         }
+        // kg_sync en parallèle pour les autres appareils
+        KGSync.push.stock();
         // Vider les déductions en attente si elles avaient été sauvées hors-ligne
         try { const _rid2 = window._KG_RESTAURANT_ID; if(_rid2) localStorage.removeItem('kg_stock_pending_' + _rid2); } catch(e) {}
       } catch(e) { console.warn('[stock] push.stock erreur:', e); }
@@ -29007,9 +28914,7 @@ async function loadDepensesFromSupabase() {
     const rid = window._KG_RESTAURANT_ID;
     if(!sb || !rid) return;
     const { data, error } = await sb.from('depenses')
-      .select('*').eq('restaurant_id', rid)
-      .order('date_depense', {ascending:false})
-      .order('created_at', {ascending:false});
+      .select('*').eq('restaurant_id', rid).order('date_depense', {ascending:false});
     if(error || !data || data.length === 0) return; // Ne pas ecraser si vide
 
     // ✅ FIX BUG DISPARITION : Sauvegarder les dépenses locales non encore confirmées par Supabase
@@ -29052,9 +28957,6 @@ async function loadDepensesFromSupabase() {
         avec_tva:    d.avec_tva    === true,
         montant_ht:  parseFloat(d.montant_ht)  || 0,
         montant_tva: parseFloat(d.montant_tva) || 0,
-        // ✅ FIX ORDRE : conserver l'horodatage précis pour un tri fiable même
-        // entre plusieurs dépenses enregistrées le même jour.
-        createdAt: d.created_at || (local ? local.createdAt : '') || '',
       };
     });
 
@@ -29354,9 +29256,6 @@ async function saveDepense() {
         source: payload.source, cloturee: false,
         avec_tva: avecTVA, montant_ht: montantHT, montant_tva: montantTVA,
         lignes: lignes,
-        // ✅ FIX ORDRE : horodatage précis pour garantir que la dernière dépense
-        // enregistrée reste toujours en haut, même entre plusieurs du même jour.
-        createdAt: inserted.created_at || new Date().toISOString(),
       };
       DEPENSES.unshift(dep);
       showNotif('✅ Dépense ajoutée avec succès');
@@ -29606,14 +29505,6 @@ function renderDepenses() {
     if (statut === 'encours' && d.cloturee) return false;
     if (statut === 'cloturee' && !d.cloturee) return false;
     return true;
-  });
-
-  // ✅ FIX ORDRE : garantir que la dernière dépense enregistrée est toujours
-  // affichée en haut, peu importe l'ordre dans lequel le tableau DEPENSES a
-  // été construit (ajout local, rechargement depuis Supabase, fusion multi-appareil...).
-  filtered.sort((a, b) => {
-    if (a.date !== b.date) return (b.date || '').localeCompare(a.date || '');
-    return (b.createdAt || '').localeCompare(a.createdAt || '');
   });
 
   // Synthèse — dépenses EN COURS (non clôturées) pour le solde caisse live
@@ -31196,14 +31087,7 @@ async function executeReset() {
         <span style="color:var(--text2);">TVA incluse <select id="fact-tva-rate" onchange="calcFactTotaux()" style="background:transparent;border:none;color:var(--text2);font-size:12px;cursor:pointer;outline:none;"><option value="18">18%</option><option value="0">0%</option></select></span>
         <span id="fact-calc-tva" style="font-family:'JetBrains Mono',monospace;">0 FCFA</span>
       </div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:14px;border-bottom:1px solid var(--border);"><span style="color:var(--text2);">Sous-total TTC</span><span id="fact-calc-soustotal" style="font-family:'JetBrains Mono',monospace;">0 FCFA</span></div>
-      <div style="padding:8px 0;border-bottom:1px solid var(--border);">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <label class="form-label" style="margin:0;color:var(--green);">🏷️ Remise</label>
-          <input class="form-input" type="number" id="fact-remise" min="0" placeholder="0" oninput="calcFactTotaux()" style="width:120px;padding:6px 10px;font-size:13px;font-family:'JetBrains Mono',monospace;">
-        </div>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;"><span>Total net TTC</span><span id="fact-calc-ttc" style="font-family:'JetBrains Mono',monospace;color:var(--accent);">0 FCFA</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;"><span>Total TTC</span><span id="fact-calc-ttc" style="font-family:'JetBrains Mono',monospace;color:var(--accent);">0 FCFA</span></div>
     </div>
 
     <div class="form-row" style="margin-top:14px;">
@@ -34184,7 +34068,7 @@ async function _validerAdditionCaisse(billId) {
     }
 
     // Déduire le stock
-    if(typeof deduireStockVente === 'function' && items.length) { await _ensureRecettesLoaded(items); await deduireStockVente(items, caisse); }
+    if(typeof deduireStockVente === 'function' && items.length) { await _ensureRecettesLoaded(items); deduireStockVente(items, caisse); }
 
     // Imprimer ticket
     setTimeout(() => { if(typeof printTicket === 'function') printTicket(venteSaved, caisse); }, 400);
@@ -35564,7 +35448,7 @@ async function updateQRStatut(orderId, newStatut) {
       }
 
       // ③ Déduire le stock selon les recettes
-      if(typeof deduireStockVente === 'function') { await _ensureRecettesLoaded(items); await deduireStockVente(items, caisse); }
+      if(typeof deduireStockVente === 'function') { await _ensureRecettesLoaded(items); deduireStockVente(items, caisse); }
 
       // ④ Imprimer le ticket (avec délai pour laisser le DOM respirer)
       setTimeout(function() {
@@ -39557,7 +39441,7 @@ async function validerTicketAttente() {
   // "En attente" (contrairement à un encaissement direct). On aligne ce
   // chemin sur les autres points de vente pour que les articles liés
   // sortent bien du stock au moment de l'encaissement.
-  if(typeof deduireStockVente === 'function') { await _ensureRecettesLoaded(ticket.items); await deduireStockVente(ticket.items, caisse); }
+  if(typeof deduireStockVente === 'function') { await _ensureRecettesLoaded(ticket.items); deduireStockVente(ticket.items, caisse); }
 
   // MAJ caisse
   const caisseObj = (typeof CAISSES !== 'undefined' ? CAISSES : []).find(c => c.name === caisse);
@@ -40197,7 +40081,7 @@ function ouvrirModalClotureManu() {
         <input id="cm-raison" class="form-input" placeholder="Ex: Clôture manquante du 04/07/2026" type="text"></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:18px;">
-      <button id="cm-confirm-btn" onclick="confirmerClotureManu()" class="btn btn-primary" style="flex:1;">✅ Enregistrer</button>
+      <button onclick="confirmerClotureManu()" class="btn btn-primary" style="flex:1;">✅ Enregistrer</button>
       <button onclick="document.getElementById('modal-cloture-manu').style.display='none'" class="btn btn-ghost" style="flex:1;">Annuler</button>
     </div>
   </div>`;
@@ -40214,13 +40098,6 @@ function updateCmTotal() {
   if(el&&ca>0){const d=ca-total;el.textContent=d===0?'✅ Répartition complète':d>0?`Restant : ${d.toLocaleString()} F`:`⚠️ Dépassement : ${Math.abs(d).toLocaleString()} F`;el.style.color=d===0?'var(--green)':d<0?'var(--red)':'var(--text2)';}
 }
 async function confirmerClotureManu() {
-  // ✅ FIX : garde-fou anti double-soumission (double clic, réseau lent...) —
-  // maintenant que la clé de fusion utilise toujours l'id, un double envoi
-  // créerait deux clôtures distinctes au lieu d'une seule ; on bloque donc
-  // les clics multiples pendant l'enregistrement.
-  const _cmBtn = document.getElementById('cm-confirm-btn');
-  if(_cmBtn) { if(_cmBtn.dataset.busy === '1') return; _cmBtn.dataset.busy = '1'; _cmBtn.disabled = true; }
-  try {
   const caisse=(document.getElementById('cm-caisse')?.value||'');
   const caissier=(document.getElementById('cm-caissier')?.value||'').trim();
   const date=(document.getElementById('cm-date')?.value||'');
@@ -40261,9 +40138,6 @@ async function confirmerClotureManu() {
   }catch(e){showNotif('✅ Clôture ajoutée — sync Supabase en attente');}
   document.getElementById('modal-cloture-manu').style.display='none';
   if(typeof renderHistoriqueClotures==='function')renderHistoriqueClotures();
-  } finally {
-    if(_cmBtn) { _cmBtn.dataset.busy = '0'; _cmBtn.disabled = false; }
-  }
 }
 // ── Modal reconstruire ──
 function ouvrirModalReconstruire() {
