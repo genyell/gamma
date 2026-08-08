@@ -24123,7 +24123,9 @@ const KGSync = (() => {
     try {
       if(!client || !syncEnabled || !window._KG_RESTAURANT_ID) return recovered;
       const prefix = _rkey('cloture_');
-      const { data: rows } = await client.from(TABLE).select('value').like('key', prefix + '%');
+      // ✅ FIX PERF : eq(restaurant_id) en plus du like — Postgres utilise l'index
+      // restaurant_id pour ne scanner que les lignes de CE restaurant
+      const { data: rows } = await client.from(TABLE).select('value').eq('restaurant_id', window._KG_RESTAURANT_ID).like('key', prefix + '%');
       (rows||[]).forEach(r => { try { const h = dec(r.value); if(h && h.id) recovered.push(h); } catch(e){} });
     } catch(e) { console.warn('[_pullClotureUniques] échec:', e); }
     return recovered;
@@ -24388,10 +24390,12 @@ const KGSync = (() => {
       const _STATIC_KEYS = ['menu_data', 'restaurant_info', 'categories_data', 'stock_categories_data', 'users_data', 'annonces_data', 'stock_data', 'commandes_fourn_data', 'depenses_data', 'journal_connexions']; // ✅ FIX : stock, fournisseurs et dépenses mis en cache kg_val_
 
       // Étape 1 : fetch uniquement key + updated_at (très léger)
+      // ✅ FIX PERF : eq() sur restaurant_id (indexé) au lieu de like('key', prefix+'%')
+      // — évite un scan complet de la table à chaque pullAll (throttlé à 1x/8s)
       const { data: metaRows, error: metaErr } = await client.from(TABLE)
         .select('key, updated_at')
         .neq('key', '_ping')
-        .like('key', _prefix + '%');
+        .eq('restaurant_id', _rid);
       if(metaErr) { console.warn('KGSync pullAll meta error:', metaErr.message || JSON.stringify(metaErr)); return; }
       if(!metaRows || metaRows.length === 0) {
         console.log('KGSync: aucune donnée distante — ventes locales conservées');
@@ -30379,11 +30383,16 @@ function deleteCat(id) {
 CREATE TABLE IF NOT EXISTS public.kg_sync (
   key TEXT PRIMARY KEY,
   value TEXT,
+  restaurant_id TEXT,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE public.kg_sync ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "allow_all" ON public.kg_sync FOR ALL USING (true) WITH CHECK (true);
 ALTER PUBLICATION supabase_realtime ADD TABLE public.kg_sync;
+-- ✅ FIX PERF : index sur restaurant_id (évite les scans complets de table lors du sync)
+CREATE INDEX IF NOT EXISTS idx_kg_sync_restaurant_id ON public.kg_sync (restaurant_id);
+-- ✅ FIX PERF : index pour les LIKE 'prefixe%' restants (clotures, stats_serveurs, etc.)
+CREATE INDEX IF NOT EXISTS idx_kg_sync_key_pattern ON public.kg_sync (key text_pattern_ops);
 
 -- ============================================================
 -- TABLE ventes_caisse — contrainte UNIQUE par caisse
@@ -35038,8 +35047,10 @@ async function chargerHistoriqueStatsServeurs(nbJours = 30) {
     if(!sb || !rid) return [];
 
     // Chercher toutes les clés stats_serveurs du restaurant
+    // ✅ FIX PERF : eq(restaurant_id) en plus du like — narrows via index avant le like
     const { data, error } = await sb.from('kg_sync')
       .select('key, value')
+      .eq('restaurant_id', rid)
       .like('key', rid + ':stats_serveurs:%')
       .order('key', { ascending: false })
       .limit(nbJours);
