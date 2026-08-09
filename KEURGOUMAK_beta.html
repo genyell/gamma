@@ -11597,6 +11597,7 @@ function addToCart(menuIdx) {
 let _posScanStream = null;
 let _posScanInterval = null;
 let _posScanLastCode = null;
+let _zxingReader = null;
 let _posScanLastAt = 0;
 
 function _findMenuIndexByScanCode(raw) {
@@ -11631,8 +11632,8 @@ async function posScanOpen() {
   const video = document.getElementById('pos-scan-video');
   const canvas = document.getElementById('pos-scan-canvas');
   // ✅ FIX : détecteur natif de codes-barres (Code128/EAN/UPC) quand disponible
-  // (Chrome/Android). Se rajoute à jsQR pour rester compatible avec d'anciennes
-  // étiquettes QR si besoin.
+  // (Chrome/Android non-Brave). Sinon, repli sur ZXing (100% JS, marche
+  // partout y compris Brave/Firefox/Safari qui bloquent/n'ont pas l'API native).
   let _barcodeDetector = null;
   if('BarcodeDetector' in window) {
     try {
@@ -11644,6 +11645,24 @@ async function posScanOpen() {
     _posScanStream = stream;
     video.srcObject = stream;
     await video.play();
+
+    // Repli ZXing si l'API native n'est pas disponible dans ce navigateur
+    if(!_barcodeDetector) {
+      _ensureZXingLibReady(() => {
+        try {
+          const hints = new Map();
+          hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+            ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
+            ZXing.BarcodeFormat.UPC_A, ZXing.BarcodeFormat.UPC_E, ZXing.BarcodeFormat.QR_CODE
+          ]);
+          _zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+          _zxingReader.decodeFromVideoElementContinuously(video, (result) => {
+            if(result && result.getText) _posHandleScanResult(result.getText());
+          });
+        } catch(e) { console.error('ZXing init error:', e); }
+      });
+    }
+
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     _posScanInterval = setInterval(async () => {
       if(!video.videoWidth) return;
@@ -11655,6 +11674,8 @@ async function posScanOpen() {
           const results = await _barcodeDetector.detect(canvas);
           if(results && results[0] && results[0].rawValue) { _posHandleScanResult(results[0].rawValue); return; }
         } catch(e) { /* continue avec jsQR en secours */ }
+      } else {
+        return; // ZXing gère déjà sa propre boucle en continu, rien à faire ici
       }
       if(typeof jsQR === 'undefined' || !jsQR) return;
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -11667,8 +11688,16 @@ async function posScanOpen() {
   }
 }
 
+function _ensureZXingLibReady(cb, tries) {
+  tries = tries || 0;
+  if(window.ZXing) { cb(); return; }
+  if(tries > 40) { console.warn('ZXing non chargé — repli jsQR (QR uniquement)'); return; }
+  setTimeout(() => _ensureZXingLibReady(cb, tries + 1), 150);
+}
+
 function posScanClose() {
   if(_posScanInterval) { clearInterval(_posScanInterval); _posScanInterval = null; }
+  if(_zxingReader) { try { _zxingReader.reset(); } catch(e) {} _zxingReader = null; }
   if(_posScanStream) { _posScanStream.getTracks().forEach(t => t.stop()); _posScanStream = null; }
   document.getElementById('modal-pos-scan').style.display = 'none';
 }
@@ -34008,6 +34037,19 @@ function voirDetailCloture(idx) {
   if(window.JsBarcode) return;
   const s = document.createElement('script');
   s.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
+  document.head.appendChild(s);
+})();
+
+// ── Dépendance ZXing (lecture caméra des codes-barres) ──
+// ✅ FIX : l'API native BarcodeDetector n'est pas disponible sur tous les
+// navigateurs (Brave la bloque volontairement pour l'anti-fingerprinting,
+// certains Firefox/Safari ne l'implémentent pas du tout). jsQR seul ne lit
+// QUE des QR codes, pas les codes-barres Code128/EAN. ZXing est une
+// librairie 100% JS qui fonctionne partout, utilisée en repli.
+(function loadZXingLib() {
+  if(window.ZXing) return;
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js';
   document.head.appendChild(s);
 })();
 
