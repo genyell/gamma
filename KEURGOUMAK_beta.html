@@ -9204,6 +9204,7 @@ Revenez nous voir bient&#244;t.</textarea>
       <label class="form-label">🏷️ Code-barres (optionnel)</label>
       <div style="display:flex;gap:8px;">
         <input class="form-input" id="item-barcode" placeholder="Scannez, saisissez ou laissez vide" style="font-family:'JetBrains Mono',monospace;flex:1;">
+        <button type="button" class="btn btn-ghost" style="white-space:nowrap;padding:0 12px;" onclick="posScanOpen('item-barcode')" title="Scanner avec la caméra">📷</button>
         <button type="button" class="btn btn-ghost" style="white-space:nowrap;padding:0 12px;" onclick="document.getElementById('item-barcode').value=_generateProductBarcode()">🎲 Générer</button>
       </div>
       <div style="font-size:11px;color:var(--text2);margin-top:4px;">Laissez vide : un code sera créé automatiquement à l'enregistrement. Vous pouvez aussi scanner un code-barres existant avec votre douchette directement dans ce champ.</div>
@@ -11621,10 +11622,15 @@ function _findMenuIndexByScanCode(raw) {
   return idx;
 }
 
-async function posScanOpen() {
-  if(!sessionCaisseActive) { showNotif('🔒 Ouvrez une caisse avant de vendre !'); _highlightOpenBtn(); return; }
+let _posScanTargetInput = null; // si défini, le scan remplit ce champ au lieu d'ajouter au panier
+
+async function posScanOpen(targetInputId) {
+  _posScanTargetInput = targetInputId || null;
+  if(!_posScanTargetInput && !sessionCaisseActive) { showNotif('🔒 Ouvrez une caisse avant de vendre !'); _highlightOpenBtn(); return; }
   document.getElementById('modal-pos-scan').style.display = 'flex';
-  document.getElementById('pos-scan-status').textContent = 'Pointez la caméra vers le code-barres d\'un produit';
+  document.getElementById('pos-scan-status').textContent = _posScanTargetInput
+    ? 'Pointez la caméra vers le code-barres à copier'
+    : 'Pointez la caméra vers le code-barres d\'un produit';
   const lastEl = document.getElementById('pos-scan-last');
   if(lastEl) lastEl.style.display = 'none';
   _posScanLastCode = null;
@@ -11699,6 +11705,7 @@ function posScanClose() {
   if(_posScanInterval) { clearInterval(_posScanInterval); _posScanInterval = null; }
   if(_zxingReader) { try { _zxingReader.reset(); } catch(e) {} _zxingReader = null; }
   if(_posScanStream) { _posScanStream.getTracks().forEach(t => t.stop()); _posScanStream = null; }
+  _posScanTargetInput = null;
   document.getElementById('modal-pos-scan').style.display = 'none';
 }
 
@@ -11708,6 +11715,17 @@ function _posHandleScanResult(raw) {
   if(raw === _posScanLastCode && (now - _posScanLastAt) < 1500) return;
   _posScanLastCode = raw;
   _posScanLastAt = now;
+
+  // Mode "copier vers un champ" (ex: création de produit) : on ne cherche pas
+  // un produit existant, on remplit juste le champ avec le code lu, puis on ferme.
+  if(_posScanTargetInput) {
+    const input = document.getElementById(_posScanTargetInput);
+    if(input) input.value = raw;
+    if(typeof showNotif === 'function') showNotif(`✅ Code-barres capturé : ${raw}`);
+    if(navigator.vibrate) { try { navigator.vibrate(60); } catch(e) {} }
+    posScanClose();
+    return;
+  }
 
   const idx = _findMenuIndexByScanCode(raw);
   const statusEl = document.getElementById('pos-scan-status');
@@ -24233,6 +24251,18 @@ setInterval(() => {
 
 // Sauvegarder avant fermeture/actualisation
 window.addEventListener('beforeunload', () => { if(currentUser) saveSession(); });
+// ✅ FIX : envoyer immédiatement tout ce qui est en attente d'écriture (debounced)
+// avant fermeture/rechargement de la page, pour ne perdre aucune modification
+// récente (article de stock, produit, etc.) qui n'aurait pas encore eu le temps
+// d'atteindre Supabase.
+window.addEventListener('beforeunload', () => {
+  try { if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.flushAllPending === 'function') KGSync.flushAllPending(); } catch(e) {}
+});
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden) {
+    try { if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.flushAllPending === 'function') KGSync.flushAllPending(); } catch(e) {}
+  }
+});
 
 // ================================================================
 // ✅ FIX v41 — MOBILE : Pull-to-refresh & bouton flottant
@@ -26372,10 +26402,20 @@ function _drawRecetteLines() {
     const opts = STOCK_DATA.map(s =>
       '<option value="' + s.id + '"' + (String(s.id) === String(line.stockId) || String(s.sbId) === String(line.stockId) ? ' selected' : '') + '>' + s.icon + ' ' + s.name + ' (' + s.unit + ')</option>'
     ).join('');
+    // ✅ FIX : raccourci pour créer d'un clic un article de stock portant
+    // exactement le nom du produit en cours de création (ex: "Mafe" le plat
+    // → "Mafe" en stock), sans repasser par des fenêtres de saisie.
+    const nomProduitEl = document.getElementById('item-nom');
+    const nomProduit = nomProduitEl ? nomProduitEl.value.trim() : '';
+    const sameNameOpt = nomProduit
+      ? '<option value="__new_same_name__" style="color:var(--accent);font-weight:700;">➕ Créer "' + nomProduit + '" comme article de stock</option>'
+      : '';
     return '<div style="display:flex;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;">' +
-      '<select style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:12px;" ' +
-        'onchange="_recetteLines[' + i + '].stockId=this.value||null;_updateUnitLabel(\\"rec-unit-\\"+' + i + ',this.value)">' +
-        '<option value="">— Article de stock —</option>' + opts +
+      '<select data-line-idx="' + i + '" onchange="_onRecetteSelectChange(this)" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:12px;">' +
+        '<option value="">— Article de stock —</option>' +
+        sameNameOpt +
+        '<option value="__new__" style="color:var(--accent);font-weight:700;">➕ Créer un nouvel article de stock…</option>' +
+        opts +
       '</select>' +
       '<input type="number" min="0.01" step="0.01" value="' + (line.qty || '') + '" placeholder="Qt&eacute;" ' +
         'style="width:70px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:12px;" ' +
@@ -26394,6 +26434,23 @@ function _updateUnitLabel(spanId, stockId) {
   el.textContent = s ? s.unit : '';
 }
 
+// ✅ FIX FIABILITÉ : dispatcher unique pour le <select> d'une ligne d'ingrédient,
+// appelé au lieu d'un onchange inline avec guillemets imbriqués (fragile).
+// console.log ajoutés pour diagnostiquer facilement si un clic ne déclenche rien.
+function _onRecetteSelectChange(selectEl) {
+  const i = parseInt(selectEl.getAttribute('data-line-idx'), 10);
+  const val = selectEl.value;
+  console.log('[recette] select changé — ligne', i, '| valeur:', val);
+  if(val === '__new__') {
+    _quickCreateStockFromRecette(i, selectEl);
+  } else if(val === '__new_same_name__') {
+    _quickCreateStockSameName(i, selectEl);
+  } else {
+    _recetteLines[i].stockId = val || null;
+    _updateUnitLabel('rec-unit-' + i, val);
+  }
+}
+
 function _getStockUnit(stockId) {
   const s = STOCK_DATA.find(x => x.id === stockId);
   return s ? s.unit : '';
@@ -26402,6 +26459,85 @@ function _getStockUnit(stockId) {
 function addRecetteLine() {
   _recetteLines.push({ stockId: null, qty: 0 });
   _drawRecetteLines();
+}
+
+// ✅ FIX : créer un nouvel article de stock sans quitter le formulaire produit.
+// Utile quand on crée un plat/produit et que son article de stock correspondant
+// n'existe pas encore (ex: nouvelle boisson, nouvel ingrédient).
+// ✅ FIX : version "1 clic, aucune saisie" — crée directement un article de
+// stock qui porte EXACTEMENT le nom du produit en cours de création (ex:
+// "Mafe"), sans prompt. Unité par défaut "unité", 0 en stock, 1 déduite/vente.
+function _quickCreateStockSameName(lineIdx, selectEl) {
+  console.log('[stock-quick-create] appelé — lineIdx:', lineIdx, '| STOCK_DATA.length avant:', STOCK_DATA.length);
+  const nomProduitEl = document.getElementById('item-nom');
+  const nom = nomProduitEl ? nomProduitEl.value.trim() : '';
+  if(!nom) { selectEl.value = ''; showNotif('⚠️ Donnez d\'abord un nom au produit'); return; }
+
+  // Si un article de stock porte déjà ce nom, on le réutilise plutôt que d'en recréer un doublon
+  const existing = STOCK_DATA.find(s => s.name.trim().toLowerCase() === nom.toLowerCase());
+  let itemId;
+  if(existing) {
+    itemId = existing.id;
+    showNotif(`✅ Article de stock "${nom}" déjà existant — lié`);
+  } else {
+    const newItem = {
+      id: 'local_' + Date.now(),
+      icon: '📦', name: nom, unit: 'unité',
+      qty: 0, max: 100, seuil: 10,
+      stockCatId: '', cat: ''
+    };
+    STOCK_DATA.push(newItem);
+    window._kgStockModifiedAt = Date.now();
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      KGSync.push.stock().catch((e) => { console.error('push.stock error:', e); showNotif('⚠️ Erreur de synchronisation stock — réessayez'); });
+      if(typeof KGSync.flushAllPending === 'function') {
+        KGSync.flushAllPending().catch((e) => { console.error('flushAllPending error:', e); });
+      }
+    } else {
+      // ✅ pas de connexion Supabase active → prévenir clairement au lieu d'échouer en silence
+      showNotif('⚠️ Hors-ligne : "' + nom + '" créé localement seulement, se synchronisera à la reconnexion');
+    }
+    itemId = newItem.id;
+    showNotif(`✅ Article de stock "${nom}" créé et lié`);
+  }
+
+  _recetteLines[lineIdx].stockId = itemId;
+  if(!_recetteLines[lineIdx].qty) _recetteLines[lineIdx].qty = 1;
+  _drawRecetteLines();
+  console.log('[stock-quick-create] terminé — STOCK_DATA.length après:', STOCK_DATA.length, '| itemId lié:', itemId);
+}
+
+function _quickCreateStockFromRecette(lineIdx, selectEl) {
+  // Pré-remplit avec le nom du produit en cours de création, pratique pour
+  // les produits vendus à l'unité (ex: canette, bouteille) où stock = produit.
+  const nomProduitEl = document.getElementById('item-nom');
+  const suggestion = (nomProduitEl && nomProduitEl.value.trim()) || '';
+  const nom = prompt('Nom du nouvel article de stock :', suggestion);
+  if(!nom || !nom.trim()) { selectEl.value = ''; return; }
+  const unit = prompt('Unité (kg, g, L, ml, unité...) :', 'unité') || 'unité';
+  const qtyDepart = parseFloat(prompt('Quantité en stock actuellement (0 si aucune) :', '0')) || 0;
+
+  const newItem = {
+    id: 'local_' + Date.now(),
+    icon: '📦', name: nom.trim(), unit: unit.trim(),
+    qty: qtyDepart, max: Math.max(qtyDepart, 100), seuil: 10,
+    stockCatId: '', cat: ''
+  };
+  STOCK_DATA.push(newItem);
+  window._kgStockModifiedAt = Date.now();
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    KGSync.push.stock().catch((e) => { console.error('push.stock error:', e); showNotif('⚠️ Erreur de synchronisation stock — réessayez'); });
+    if(typeof KGSync.flushAllPending === 'function') {
+      KGSync.flushAllPending().catch((e) => { console.error('flushAllPending error:', e); });
+    }
+  } else {
+    showNotif('⚠️ Hors-ligne : "' + nom.trim() + '" créé localement seulement, se synchronisera à la reconnexion');
+  }
+
+  _recetteLines[lineIdx].stockId = newItem.id;
+  if(!_recetteLines[lineIdx].qty) _recetteLines[lineIdx].qty = 1; // 1 unité déduite par défaut, ajustable
+  _drawRecetteLines();
+  showNotif(`✅ Article de stock "${nom.trim()}" créé et lié`);
 }
 
 function _removeRecetteLine(i) {
