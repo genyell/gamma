@@ -5803,51 +5803,6 @@ function _syncSportVentes()       { return []; }
     </div>
 
     <!-- ═══ MODAL SCAN QR — VENTE RAPIDE ═══ -->
-    <div class="modal-overlay" id="modal-pos-scan" style="display:none;" onclick="if(event.target===this)posScanClose()">
-      <div class="modal" style="max-width:420px;">
-        <div class="modal-header">
-          <div class="modal-title">📷 Scanner — Vente rapide</div>
-          <button class="modal-close" onclick="posScanClose()">✕</button>
-        </div>
-        <div class="modal-body" style="display:flex;flex-direction:column;gap:10px;align-items:center;">
-          <div style="width:100%;max-width:320px;aspect-ratio:1/1;background:#000;border-radius:12px;overflow:hidden;position:relative;">
-            <video id="pos-scan-video" style="width:100%;height:100%;object-fit:cover;" autoplay muted playsinline></video>
-            <canvas id="pos-scan-canvas" style="display:none;"></canvas>
-            <div style="position:absolute;inset:0;border:3px solid rgba(255,255,255,0.25);border-radius:12px;pointer-events:none;"></div>
-          </div>
-          <div id="pos-scan-status" style="font-size:13px;color:var(--text2);text-align:center;">Pointez la caméra vers le code-barres d'un produit — ou scannez avec votre douchette, sans même ouvrir cette fenêtre.</div>
-          <div id="pos-scan-last" style="display:none;width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;align-items:center;gap:10px;justify-content:space-between;">
-            <span style="font-size:13px;">✅ <b id="pos-scan-last-name"></b> ajouté</span>
-            <span id="pos-scan-last-price" style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:700;font-size:13px;"></span>
-          </div>
-          <div style="font-size:11px;color:var(--text2);text-align:center;">Astuce : avec une douchette physique, pas besoin d'ouvrir cette fenêtre — scannez, ça ajoute au panier direct. Imprimez les codes-barres produits depuis Menu &amp; Carte.</div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-ghost" onclick="posScanClose()">Fermer</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══ MODAL QR PRODUIT (affichage / impression) ═══ -->
-    <div class="modal-overlay" id="modal-product-qr" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
-      <div class="modal" style="max-width:340px;">
-        <div class="modal-header">
-          <div class="modal-title">🏷️ Code-barres produit</div>
-          <button class="modal-close" onclick="document.getElementById('modal-product-qr').style.display='none'">✕</button>
-        </div>
-        <div class="modal-body" style="display:flex;flex-direction:column;align-items:center;gap:10px;">
-          <div id="product-qr-name" style="font-weight:700;font-size:15px;text-align:center;"></div>
-          <div id="product-qr-price" style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:13px;"></div>
-          <canvas id="product-qr-canvas" style="width:280px;height:120px;background:#fff;border-radius:10px;padding:8px;"></canvas>
-          <div style="font-size:11px;color:var(--text2);text-align:center;">Collez cette étiquette sur le produit ou imprimez-la. Scannez-la en caisse via « 📷 Scanner » pour l'ajouter au panier instantanément.</div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-ghost" onclick="document.getElementById('modal-product-qr').style.display='none'">Fermer</button>
-          <button class="btn btn-primary" onclick="downloadProductQR()">💾 Télécharger</button>
-        </div>
-      </div>
-    </div>
-
     <!-- MENU -->
     <div id="view-menu" class="view fade-in">
       <!-- Onglets Menu / Catégories -->
@@ -11459,7 +11414,28 @@ function _onSelectServeur(val) {
     </div>
   </div>
 </div>
+
+<!-- ✅ Étape 2 : nom / téléphone du client — s'affiche juste après le choix du serveur -->
+<div id="modal-client-attente" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:340px;max-width:93vw;">
+    <div style="font-size:16px;font-weight:800;margin-bottom:6px;text-align:center;">👤 Coordonnées du client</div>
+    <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:16px;">Pour pouvoir retrouver ou recontacter le client</div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label class="form-label">Nom du client (optionnel)</label>
+      <input class="form-input" id="modal-client-nom-input" placeholder="Ex: Fatou" autocomplete="off">
+    </div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label class="form-label">📞 Téléphone client (optionnel)</label>
+      <input class="form-input" id="modal-client-tel-input" type="tel" placeholder="Ex: 77 123 45 67" autocomplete="off">
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="_validerClientEtCreerTicket()">✅ Valider &amp; imprimer</button>
+    </div>
+  </div>
+</div>
 <script>
+// Stocke temporairement le serveur choisi entre l'étape 1 (serveur) et l'étape 2 (client)
+let _attenteServeurEnCours = '';
 
 // ---------- Init au chargement ----------
 document.addEventListener('DOMContentLoaded', function() {
@@ -15622,7 +15598,12 @@ function saveCommandeFournisseur() {
   COMMANDES_FOURNISSEURS.push(newCmd);
   fourn.nbCommandes = (fourn.nbCommandes||0) + 1;
   fourn.totalAchat  = (fourn.totalAchat||0) + totalNet; // ✅ FIX: mettre à jour le total achats (net, après remise)
-  if(KGSync.isConnected) KGSync.push.commandesFourn().catch(()=>{});  // ✅ FIX v38
+  if(KGSync.isConnected) {
+    KGSync.push.commandesFourn().catch(()=>{});
+    // ✅ FIX : envoi immédiat au lieu d'attendre 3s — sinon la commande se perd
+    // si l'appli est fermée/rechargée juste après validation.
+    if(typeof KGSync.flushAllPending === 'function') KGSync.flushAllPending().catch(()=>{});
+  }
   closeModal('commandeFournisseur');
   renderFournisseurs();
   const remiseMsg = remise > 0 ? ` · Remise: -${remise.toLocaleString()} FCFA` : '';
@@ -22497,6 +22478,7 @@ async function cloturerCaisse() {
                   tva:       v.total_tva    || 0,
                   payMethod: v.pay_method   || 'cash',
                   payLabel:  v.pay_method === 'wave' ? 'Wave' : v.pay_method === 'card' ? 'Carte bancaire' : v.pay_method === 'orange' ? 'Orange Money' : 'Espèces',
+                  date:      new Date(v.created_at).toISOString().split('T')[0], // ✅ FIX tri chrono multi-jours
                   time:      new Date(v.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}),
                   cashier:   v.cashier_nom  || cashier,
                   client:    v.client_nom   || 'Client',
@@ -22542,8 +22524,15 @@ async function cloturerCaisse() {
     // enregistré plutôt que sur sessionCaisseActive.heureOuverture, qui peut être
     // fausse (session restaurée, décalage, etc.). On ne retombe sur la valeur
     // mémorisée / 08:00 que s'il n'y a aucun ticket pour en déduire l'heure réelle.
-    const _ticketTimes = (ventes||[]).map(v => v.time).filter(Boolean).sort();
-    const heureOuv = _ticketTimes[0] || (sessionCaisseActive && sessionCaisseActive.heureOuverture) || '08:00';
+    // ✅ FIX CRITIQUE : trier par DATE+HEURE, pas par l'heure seule — sinon un
+    // ticket à "00:01" le lendemain matin se classe (à tort) avant "18:12" la
+    // veille au soir, pour une caisse ouverte sur plusieurs jours.
+    const _ticketSortKeys = (ventes||[])
+      .filter(v => v.time)
+      .map(v => (v.date || sessionCaisseActive?.dateOuverture || now.toISOString().split('T')[0]) + ' ' + v.time)
+      .sort();
+    const heureOuv = (_ticketSortKeys[0] ? _ticketSortKeys[0].split(' ')[1] : null)
+      || (sessionCaisseActive && sessionCaisseActive.heureOuverture) || '08:00';
     const fonds    = (sessionCaisseActive && sessionCaisseActive.fonds) || 0;
 
     // 3. Calculs sécurisés
@@ -26194,9 +26183,16 @@ const KGSync = (() => {
               } catch(se) {}
             }
             // ✅ FIX EGRESS : throttle 10s minimum entre 2 pulls déclenchés par broadcast
-            // EXCEPTION : le ping de clôture (_cloture_ping) doit TOUJOURS déclencher un pull
-            // Sans ça, la clôture n'apparaît pas sur les autres appareils si throttlé
+            // EXCEPTION : le ping de clôture (_cloture_ping) et de ticket en attente
+            // (_ticket_attente_ping) doivent TOUJOURS déclencher un pull immédiat —
+            // sans ça, un nouveau ticket en attente n'apparaît pas en direct sur les
+            // autres appareils (il fallait se déconnecter/reconnecter pour le voir).
             var _isCloturePing = key && key.indexOf('_cloture_ping') !== -1;
+            var _isTicketAttentePing = key && key.indexOf('_ticket_attente_ping') !== -1;
+            if(_isTicketAttentePing) {
+              if(typeof _pullTicketsAttenteSupabase === 'function') _pullTicketsAttenteSupabase().catch(function(){});
+              return; // pas besoin de déclencher aussi un _pullAll complet
+            }
             const _now = Date.now();
             const _sinceLast = _now - (window._lastPullAllTs || 0);
             if(_sinceLast < 10000 && !_isCloturePing) {
@@ -40012,6 +40008,16 @@ async function _pushTicketAttenteSupabase(ticket) {
       ticket_date:    ticket.date,
       created_at:     ticket.createdAt
     }, { onConflict: 'id' });
+    // ✅ FIX : signaler aux autres appareils qu'un ticket en attente vient de changer,
+    // pour qu'ils le voient tout de suite sans devoir se déconnecter/reconnecter.
+    try {
+      if(typeof KGSync !== 'undefined' && KGSync._rtChannel && window._KG_RESTAURANT_ID) {
+        KGSync._rtChannel.send({
+          type: 'broadcast', event: 'sync',
+          payload: { key: window._KG_RESTAURANT_ID + ':_ticket_attente_ping', ts: Date.now() }
+        });
+      }
+    } catch(e) {}
   } catch(e) { console.warn('[tickets_attente push]', e); }
 }
 
@@ -40025,6 +40031,16 @@ async function _deleteTicketAttenteSupabase(ticketId) {
       .delete()
       .eq('id', ticketId)
       .eq('restaurant_id', rid);
+    // ✅ FIX : même signal qu'à la création — pour que la suppression/l'encaissement
+    // d'un ticket disparaisse en direct de la liste sur les autres appareils.
+    try {
+      if(typeof KGSync !== 'undefined' && KGSync._rtChannel) {
+        KGSync._rtChannel.send({
+          type: 'broadcast', event: 'sync',
+          payload: { key: rid + ':_ticket_attente_ping', ts: Date.now() }
+        });
+      }
+    } catch(e) {}
   } catch(e) { console.warn('[tickets_attente delete]', e); }
 }
 
@@ -40113,13 +40129,40 @@ function _validerServeur() {
   _confirmerEtCreerTicket(val);
 }
 
+// Étape 1 : le serveur est choisi (ou ignoré) → on passe à l'étape client
 function _confirmerEtCreerTicket(nomServeur) {
   const modal = document.getElementById('modal-serveur-attente');
   if(modal) modal.style.display = 'none';
 
+  const cashier = sessionCaisseActive?.cashier || (currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Caissier');
+  _attenteServeurEnCours = (nomServeur || '').trim() || cashier;
+
+  // Pré-remplir avec ce qui était déjà éventuellement saisi dans le panier
+  const nomEl = document.getElementById('modal-client-nom-input');
+  const telEl = document.getElementById('modal-client-tel-input');
+  if(nomEl) nomEl.value = document.getElementById('ticket-client')?.value || '';
+  if(telEl) telEl.value = document.getElementById('ticket-telephone')?.value || '';
+  const errEl = document.getElementById('modal-client-attente-error');
+  if(errEl) errEl.style.display = 'none';
+
+  const modalClient = document.getElementById('modal-client-attente');
+  if(modalClient) { modalClient.style.display = 'flex'; setTimeout(() => telEl && telEl.focus(), 100); }
+}
+
+// Étape 2 : le nom/téléphone du client est validé (les deux optionnels) → on crée le ticket
+function _validerClientEtCreerTicket() {
+  const nomEl = document.getElementById('modal-client-nom-input');
+  const telEl = document.getElementById('modal-client-tel-input');
+  const errEl = document.getElementById('modal-client-attente-error');
+  const tel = telEl ? telEl.value.trim() : '';
+  if(errEl) errEl.style.display = 'none';
+
+  const modalClient = document.getElementById('modal-client-attente');
+  if(modalClient) modalClient.style.display = 'none';
+
   const caisse = sessionCaisseActive?.caisse || 'Caisse 1';
   const cashier = sessionCaisseActive?.cashier || (currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Caissier');
-  const serveur = (nomServeur || '').trim() || cashier;
+  const serveur = _attenteServeurEnCours || cashier;
 
   const totalAvantRemise = cart.reduce((a,c) => {
     const p = c.discount > 0 ? Math.round((c.priceOriginal||c.price)*(1-c.discount/100)) : c.price;
@@ -40132,8 +40175,8 @@ function _confirmerEtCreerTicket(nomServeur) {
   const ht = totalTTC - tvaIncluse;
 
   const now = new Date();
-  const clientName = document.getElementById('ticket-client')?.value || 'Client';
-  const clientTelephone = document.getElementById('ticket-telephone')?.value?.trim() || '';
+  const clientName = (nomEl?.value || '').trim() || 'Client';
+  const clientTelephone = tel;
   const ticketId = 'ATT-' + Date.now().toString().slice(-6);
 
   _loadTicketsAttente();
@@ -41459,6 +41502,53 @@ function exportHotelHistoriqueCSV() {
 //  FIN RECONSTRUIRE CLÔTURE
 // ═══════════════════════════════════════════════════════════════
 </script>
+
+<!-- ═══ FENÊTRES GLOBALES (accessibles depuis n'importe quelle page — ═══
+     ═══ ex: Menu & Carte, Caisse — d'où le placement hors des <div class="view">) ═══ -->
+<div class="modal-overlay" id="modal-pos-scan" style="display:none;" onclick="if(event.target===this)posScanClose()">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">📷 Scanner — Vente rapide</div>
+      <button class="modal-close" onclick="posScanClose()">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:10px;align-items:center;">
+      <div style="width:100%;max-width:320px;aspect-ratio:1/1;background:#000;border-radius:12px;overflow:hidden;position:relative;">
+        <video id="pos-scan-video" style="width:100%;height:100%;object-fit:cover;" autoplay muted playsinline></video>
+        <canvas id="pos-scan-canvas" style="display:none;"></canvas>
+        <div style="position:absolute;inset:0;border:3px solid rgba(255,255,255,0.25);border-radius:12px;pointer-events:none;"></div>
+      </div>
+      <div id="pos-scan-status" style="font-size:13px;color:var(--text2);text-align:center;">Pointez la caméra vers le code-barres d'un produit — ou scannez avec votre douchette, sans même ouvrir cette fenêtre.</div>
+      <div id="pos-scan-last" style="display:none;width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;align-items:center;gap:10px;justify-content:space-between;">
+        <span style="font-size:13px;">✅ <b id="pos-scan-last-name"></b> ajouté</span>
+        <span id="pos-scan-last-price" style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:700;font-size:13px;"></span>
+      </div>
+      <div style="font-size:11px;color:var(--text2);text-align:center;">Astuce : avec une douchette physique, pas besoin d'ouvrir cette fenêtre — scannez, ça ajoute au panier direct. Imprimez les codes-barres produits depuis Menu &amp; Carte.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="posScanClose()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL QR PRODUIT (affichage / impression) ═══ -->
+<div class="modal-overlay" id="modal-product-qr" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:340px;">
+    <div class="modal-header">
+      <div class="modal-title">🏷️ Code-barres produit</div>
+      <button class="modal-close" onclick="document.getElementById('modal-product-qr').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+      <div id="product-qr-name" style="font-weight:700;font-size:15px;text-align:center;"></div>
+      <div id="product-qr-price" style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:13px;"></div>
+      <canvas id="product-qr-canvas" style="width:280px;height:120px;background:#fff;border-radius:10px;padding:8px;"></canvas>
+      <div style="font-size:11px;color:var(--text2);text-align:center;">Collez cette étiquette sur le produit ou imprimez-la. Scannez-la en caisse via « 📷 Scanner » pour l'ajouter au panier instantanément.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-product-qr').style.display='none'">Fermer</button>
+      <button class="btn btn-primary" onclick="downloadProductQR()">💾 Télécharger</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
