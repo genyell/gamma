@@ -11575,6 +11575,8 @@ let _posScanStream = null;
 let _posScanInterval = null;
 let _posScanLastCode = null;
 let _zxingReader = null;
+let _posScanCameras = [];
+let _posScanCameraIdx = 0;
 let _posScanLastAt = 0;
 
 function _findMenuIndexByScanCode(raw) {
@@ -11613,20 +11615,50 @@ async function posScanOpen(targetInputId) {
   _posScanLastAt = 0;
   const video = document.getElementById('pos-scan-video');
   const canvas = document.getElementById('pos-scan-canvas');
-  // ✅ FIX : détecteur natif de codes-barres (Code128/EAN/UPC) quand disponible
-  // (Chrome/Android non-Brave). Sinon, repli sur ZXing (100% JS, marche
-  // partout y compris Brave/Firefox/Safari qui bloquent/n'ont pas l'API native).
-  let _barcodeDetector = null;
-  if('BarcodeDetector' in window) {
-    try {
-      _barcodeDetector = new BarcodeDetector({ formats: ['code_128','ean_13','ean_8','upc_a','upc_e','qr_code'] });
-    } catch(e) { _barcodeDetector = null; }
-  }
+  _posScanCameras = [];
+  _posScanCameraIdx = 0;
+  const switchBtn = document.getElementById('pos-scan-switch-cam');
+  if(switchBtn) switchBtn.style.display = 'none';
+
+  await _posScanStartCamera(video, canvas);
+
+  // ✅ FIX : la liste des caméras (et leurs noms) n'est fiable qu'APRÈS avoir
+  // obtenu la permission caméra — avant, enumerateDevices() est souvent vide
+  // ou incomplet, ce qui empêchait le bouton "changer de caméra" d'apparaître
+  // sur certains téléphones (ex: Samsung A72 à plusieurs capteurs arrière).
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    _posScanCameras = devices.filter(d => d.kind === 'videoinput');
+    const backIdx = _posScanCameras.findIndex(d => /back|arrière|rear/i.test(d.label) && !/ultra|wide|macro/i.test(d.label));
+    if(backIdx > 0) { const [d] = _posScanCameras.splice(backIdx, 1); _posScanCameras.unshift(d); }
+  } catch(e) { /* enumerateDevices non supporté / refusé, on continue sans le bouton */ }
+
+  if(switchBtn) switchBtn.style.display = (_posScanCameras.length > 1) ? 'flex' : 'none';
+}
+
+async function _posScanStartCamera(video, canvas) {
+  try {
+    const baseVideoConstraint = (_posScanCameras[_posScanCameraIdx] && _posScanCameras[_posScanCameraIdx].deviceId)
+      ? { deviceId: { exact: _posScanCameras[_posScanCameraIdx].deviceId } }
+      : { facingMode: 'environment' };
+    // ✅ FIX NETTETÉ : demander la mise au point automatique continue quand le
+    // téléphone le supporte — aide beaucoup pour scanner un code-barres de près.
+    const constraint = { video: { ...baseVideoConstraint, advanced: [{ focusMode: 'continuous' }] } };
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraint);
+    } catch(e) {
+      // Certains navigateurs rejettent 'advanced' non supporté → on retente sans
+      stream = await navigator.mediaDevices.getUserMedia({ video: baseVideoConstraint });
+    }
     _posScanStream = stream;
     video.srcObject = stream;
     await video.play();
+
+    let _barcodeDetector = null;
+    if('BarcodeDetector' in window) {
+      try { _barcodeDetector = new BarcodeDetector({ formats: ['code_128','ean_13','ean_8','upc_a','upc_e','qr_code'] }); } catch(e) {}
+    }
 
     // Repli ZXing si l'API native n'est pas disponible dans ce navigateur
     if(!_barcodeDetector) {
@@ -11670,6 +11702,20 @@ async function posScanOpen(targetInputId) {
   }
 }
 
+// ✅ Bascule vers la caméra suivante de la liste (utile quand la caméra
+// choisie automatiquement est floue ou est la mauvaise, ex: Samsung A72)
+function posScanSwitchCamera() {
+  if(_posScanCameras.length < 2) return;
+  if(_posScanInterval) { clearInterval(_posScanInterval); _posScanInterval = null; }
+  if(_zxingReader) { try { _zxingReader.reset(); } catch(e) {} _zxingReader = null; }
+  if(_posScanStream) { _posScanStream.getTracks().forEach(t => t.stop()); _posScanStream = null; }
+  _posScanCameraIdx = (_posScanCameraIdx + 1) % _posScanCameras.length;
+  const video = document.getElementById('pos-scan-video');
+  const canvas = document.getElementById('pos-scan-canvas');
+  _posScanStartCamera(video, canvas);
+  showNotif('📷 Caméra changée (' + (_posScanCameraIdx + 1) + '/' + _posScanCameras.length + ')');
+}
+
 function _ensureZXingLibReady(cb, tries) {
   tries = tries || 0;
   if(window.ZXing) { cb(); return; }
@@ -11682,6 +11728,8 @@ function posScanClose() {
   if(_zxingReader) { try { _zxingReader.reset(); } catch(e) {} _zxingReader = null; }
   if(_posScanStream) { _posScanStream.getTracks().forEach(t => t.stop()); _posScanStream = null; }
   _posScanTargetInput = null;
+  _posScanCameras = [];
+  _posScanCameraIdx = 0;
   document.getElementById('modal-pos-scan').style.display = 'none';
 }
 
@@ -13287,7 +13335,7 @@ function _initPhotosPreviews() {
 // ══════════════════════════════════════════════════════
 
 // ===== GÉNÉRATION DU TICKET DE CAISSE =====
-function printTicket(vente, caisse) {
+function printTicket(vente, caisse, isReprint) {
   const now      = new Date();
   // ✅ FIX : afficher la date/heure RÉELLE de la vente, pas l'heure de réouverture/réimpression du ticket
   let dateStr = '';
@@ -13948,6 +13996,14 @@ function printTicket(vente, caisse) {
   }
 </style>
 </head><body>
+${isReprint ? `
+<!-- ✅ FIX : bandeau bien visible pour distinguer une réimpression de l'original — -->
+<!-- évite qu'un ticket réimprimé soit pris pour une nouvelle commande en cuisine -->
+<div style="background:repeating-linear-gradient(45deg,#000,#000 10px,#f5a623 10px,#f5a623 20px);color:#fff;text-align:center;padding:6px 4px;font-weight:900;font-size:13px;letter-spacing:1px;">
+  <div style="background:#000;padding:3px 6px;display:inline-block;border-radius:4px;">⚠️ COPIE — RÉIMPRESSION ⚠️</div>
+</div>
+<div style="text-align:center;font-size:9px;color:#e74c3c;font-weight:700;padding:2px 4px 4px;background:#fff;">Ne pas re-préparer si déjà servi — vérifier en cuisine</div>
+` : ''}
 <!-- ══ EN-TÊTE ══ -->
 <div class="header">
   ${(TICKET_CONFIG.showLogo && TICKET_CONFIG.logo) ? `<div style="margin-bottom:8px;"><img src="${TICKET_CONFIG.logo}" style="max-width:100px;max-height:70px;object-fit:contain;border-radius:6px;"></div>` : ''}
@@ -14080,6 +14136,12 @@ ${(function(){
     <div class="cuisine-header-title">🍳 BON DE CUISINE</div>
     <div class="cuisine-header-num">#${String(vente.orderNum).padStart(3,'0')}</div>
   </div>
+  ${isReprint ? `
+  <!-- ✅ FIX : le ticket cuisine est physiquement coupé séparément du ticket
+  client — le bandeau du haut ne suffit pas, il faut le répéter ici aussi. -->
+  <div style="background:#000;color:#fff;text-align:center;padding:5px 4px;font-weight:900;font-size:13px;letter-spacing:1px;margin-bottom:4px;">⚠️ COPIE — NE PAS RE-PRÉPARER ⚠️</div>
+  <div style="text-align:center;font-size:9px;color:#e74c3c;font-weight:700;margin-bottom:4px;">Vérifier si déjà servi avant de préparer</div>
+  ` : ''}
   <div class="cuisine-meta">
     📅 ${dateStr} · ${heureStr}<br>
     🏪 ${caisse}${TICKET_CONFIG.showCashier && vente.cashier ? ' · 👤 ' + vente.cashier : ''}${vente.serveur && vente.serveur !== vente.cashier ? '<br>🍽️ Serveur : <strong>' + vente.serveur + '</strong>' : ''}${vente.client && vente.client !== 'Client' ? '<br>🙋 Client : ' + vente.client : ''}
@@ -14620,8 +14682,8 @@ function reprintTicket(orderNum) {
     if(found) { vente = found; caisseName = c; break; }
   }
   if(!vente) { showNotif('⚠️ Vente introuvable'); return; }
-  printTicket(vente, caisseName);
-  showNotif(`🖨️ Ticket ${orderNum} réimprimé`);
+  printTicket(vente, caisseName, true);
+  showNotif(`🖨️ Ticket ${orderNum} réimprimé (marqué COPIE)`);
 }
 
 // ===== MODIFIER MODE DE PAIEMENT TICKET =====
@@ -41516,6 +41578,8 @@ function exportHotelHistoriqueCSV() {
         <video id="pos-scan-video" style="width:100%;height:100%;object-fit:cover;" autoplay muted playsinline></video>
         <canvas id="pos-scan-canvas" style="display:none;"></canvas>
         <div style="position:absolute;inset:0;border:3px solid rgba(255,255,255,0.25);border-radius:12px;pointer-events:none;"></div>
+        <button type="button" id="pos-scan-switch-cam" onclick="posScanSwitchCamera()" title="Changer de caméra"
+          style="display:none;position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.35);border-radius:50%;width:40px;height:40px;align-items:center;justify-content:center;font-size:18px;cursor:pointer;color:#fff;">🔄</button>
       </div>
       <div id="pos-scan-status" style="font-size:13px;color:var(--text2);text-align:center;">Pointez la caméra vers le code-barres d'un produit — ou scannez avec votre douchette, sans même ouvrir cette fenêtre.</div>
       <div id="pos-scan-last" style="display:none;width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;align-items:center;gap:10px;justify-content:space-between;">
