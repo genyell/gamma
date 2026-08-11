@@ -5614,10 +5614,11 @@ function _syncSportVentes()       { return []; }
 
     <!-- COMMANDES -->
     <div id="view-commandes" class="view fade-in">
-      <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+      <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
         <button class="cat-btn active" onclick="filterOrders('all', this)" id="tab-all">Toutes (0)</button>
         <button class="cat-btn" onclick="filterOrders('waiting_payment', this)" id="tab-waiting-payment" style="border-color:var(--accent);color:var(--accent);">⏳ En attente paiement <span id="badge-waiting-payment" style="background:var(--accent);color:#000;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;margin-left:4px;display:none;">0</span></button>
         <button class="cat-btn" onclick="filterOrders('done', this)" id="tab-done">🎉 Encaissé (0)</button>
+        <button class="cat-btn" id="btn-refresh-commandes" onclick="_actualiserCommandesManuel(this)" style="margin-left:auto;">🔄 Actualiser</button>
       </div>
       <div class="card">
         <div class="orders-list" id="orders-list"></div>
@@ -9158,11 +9159,16 @@ Revenez nous voir bient&#244;t.</textarea>
     <div class="form-group">
       <label class="form-label">🏷️ Code-barres (optionnel)</label>
       <div style="display:flex;gap:8px;">
-        <input class="form-input" id="item-barcode" placeholder="Scannez, saisissez ou laissez vide" style="font-family:'JetBrains Mono',monospace;flex:1;">
+        <input class="form-input" id="item-barcode" placeholder="Scannez, saisissez ou laissez vide" style="font-family:'JetBrains Mono',monospace;flex:1;" oninput="_offSearchBtnToggle()">
         <button type="button" class="btn btn-ghost" style="white-space:nowrap;padding:0 12px;" onclick="posScanOpen('item-barcode')" title="Scanner avec la caméra">📷</button>
         <button type="button" class="btn btn-ghost" style="white-space:nowrap;padding:0 12px;" onclick="document.getElementById('item-barcode').value=_generateProductBarcode()">🎲 Générer</button>
       </div>
       <div style="font-size:11px;color:var(--text2);margin-top:4px;">Laissez vide : un code sera créé automatiquement à l'enregistrement. Vous pouvez aussi scanner un code-barres existant avec votre douchette directement dans ce champ.</div>
+      <!-- ✅ FIX : recherche automatique du produit sur Open Food Facts (base mondiale
+      libre et gratuite) à partir du code-barres — évite de tout retaper à la main
+      pour les produits d'épicerie/alimentation générale du commerce. -->
+      <button type="button" id="item-off-search-btn" onclick="_rechercherProduitOFF()" style="display:none;margin-top:8px;width:100%;background:var(--surface2);border:1px dashed var(--accent);border-radius:8px;padding:8px;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">🔍 Rechercher ce produit en ligne (Open Food Facts)</button>
+      <div id="item-off-result" style="display:none;margin-top:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;"></div>
     </div>
     <div class="form-group">
       <label class="form-label">Tag / Badge (optionnel)</label>
@@ -10258,7 +10264,13 @@ function showView(id, el, pushState) {
   if(id === 'dashboard') refreshDashboard();
   if(id === 'hotel') loadHotelData();
   if(id === 'menu') renderMenu('all');
-  if(id === 'commandes') renderOrders('all');
+  if(id === 'commandes') {
+    renderOrders('all');
+    // ✅ Vérification fraîche à l'ouverture de la page (pas de polling continu)
+    if(typeof _pullTicketsAttenteSupabase === 'function' && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      _pullTicketsAttenteSupabase().then(() => renderOrders('all')).catch(()=>{});
+    }
+  }
   if(id === 'qrcommandes') {
     // ✅ FIX : Vérifier que Caisse 3 est ouverte — plus d'auto-ouverture
     const _c3qr = CAISSES ? CAISSES.find(c => c.name === 'Caisse 3') : null;
@@ -11745,6 +11757,7 @@ function _posHandleScanResult(raw) {
   if(_posScanTargetInput) {
     const input = document.getElementById(_posScanTargetInput);
     if(input) input.value = raw;
+    if(_posScanTargetInput === 'item-barcode' && typeof _offSearchBtnToggle === 'function') _offSearchBtnToggle();
     if(typeof showNotif === 'function') showNotif(`✅ Code-barres capturé : ${raw}`);
     if(navigator.vibrate) { try { navigator.vibrate(60); } catch(e) {} }
     posScanClose();
@@ -17125,6 +17138,8 @@ function openAddMenuItem() {
   document.getElementById('item-price').value = '';
   document.getElementById('item-desc').value = '';
   document.getElementById('item-barcode').value = '';
+  if(document.getElementById('item-off-search-btn')) document.getElementById('item-off-search-btn').style.display = 'none';
+  if(document.getElementById('item-off-result')) document.getElementById('item-off-result').style.display = 'none';
   document.getElementById('item-tag').value = '';
   document.getElementById('item-promo-active').checked = false;
   document.getElementById('item-promo-pct').value = '';
@@ -20088,6 +20103,10 @@ async function doLogin() {
     // ✅ Charger les tickets en attente depuis Supabase après login (KGSync est prêt)
     if(typeof _pullTicketsAttenteSupabase === 'function') _pullTicketsAttenteSupabase().catch(()=>{});
 
+    // ✅ FIX : plus de vérification automatique en fond — le bouton "🔄 Actualiser"
+    // dans Commandes permet de vérifier à la demande, sans consommer en continu.
+    // La liste reste à jour au login, et se rafraîchit quand vous le demandez.
+
     // ✅ FIX v33 NETTOYAGE AUTO : Au login, marquer cloturee=true toutes les ventes
     // des caisses qui sont actuellement CLOSED dans Supabase.
     // Cela corrige les ventes orphelines laissées par une clôture interrompue.
@@ -20399,6 +20418,8 @@ function openUserMenuOrUtilisateurs() {
 
 async function doLogout() {
   if(!currentUser) return;
+  // ✅ FIX : arrêter la vérification périodique des tickets en attente
+  if(window._ticketsAttentePollInterval) { clearInterval(window._ticketsAttentePollInterval); window._ticketsAttentePollInterval = null; }
   // ✅ FIX DÉCONNEXION : forcer l'envoi immédiat des ventes (ex: mode de paiement
   // modifié juste avant) AVANT d'effacer les données locales. Sans ça, une modif
   // faite dans les 5 dernières secondes pouvait ne jamais partir vers le cloud —
@@ -26512,6 +26533,67 @@ function _onRecetteSelectChange(selectEl) {
 function _getStockUnit(stockId) {
   const s = STOCK_DATA.find(x => x.id === stockId);
   return s ? s.unit : '';
+}
+
+// ══════════════════════════════════════════════════════════════
+// ✅ RECHERCHE PRODUIT SUR OPEN FOOD FACTS (base mondiale libre/gratuite)
+// Permet de remplir automatiquement nom + photo à partir d'un code-barres
+// réel du commerce (épicerie, boissons, conserves...), sans tout retaper.
+// ══════════════════════════════════════════════════════════════
+function _offSearchBtnToggle() {
+  const val = (document.getElementById('item-barcode')?.value || '').trim();
+  const btn = document.getElementById('item-off-search-btn');
+  const resultEl = document.getElementById('item-off-result');
+  if(resultEl) resultEl.style.display = 'none';
+  // Un vrai code-barres commerce (EAN-8/EAN-13/UPC) fait entre 8 et 14 chiffres.
+  // Nos codes auto-générés commencent par "20" + 10 chiffres — on n'affiche pas
+  // le bouton pour ceux-là, ça ne donnerait jamais de résultat.
+  const isLikelyRealBarcode = /^\d{8,14}$/.test(val) && !val.startsWith('20');
+  if(btn) btn.style.display = isLikelyRealBarcode ? 'block' : 'none';
+}
+
+async function _rechercherProduitOFF() {
+  const code = (document.getElementById('item-barcode')?.value || '').trim();
+  const btn = document.getElementById('item-off-search-btn');
+  const resultEl = document.getElementById('item-off-result');
+  if(!code) return;
+  if(btn) { btn.disabled = true; btn.textContent = '🔄 Recherche en cours…'; }
+  try {
+    const resp = await fetch('https://world.openfoodfacts.org/api/v2/product/' + encodeURIComponent(code) + '.json', {
+      headers: { 'User-Agent': 'KeurGoumakk-App/1.0' }
+    });
+    const data = await resp.json();
+    if(data && data.status === 1 && data.product) {
+      const p = data.product;
+      const nom = p.product_name_fr || p.product_name || p.generic_name || '';
+      const image = p.image_front_url || p.image_url || '';
+      let html = '✅ Produit trouvé : <b>' + (nom || 'sans nom') + '</b>';
+      if(p.brands) html += ' <span style="color:var(--text2);">(' + p.brands + ')</span>';
+      html += '<div style="display:flex;gap:8px;margin-top:8px;">';
+      html += '<button type="button" class="btn btn-primary" style="flex:1;font-size:11px;padding:6px;" onclick="_appliquerProduitOFF(\'' + encodeURIComponent(nom) + '\',\'' + encodeURIComponent(image) + '\')">✅ Utiliser ces infos</button>';
+      html += '</div>';
+      if(resultEl) { resultEl.innerHTML = html; resultEl.style.display = 'block'; }
+    } else {
+      if(resultEl) { resultEl.innerHTML = '⚠️ Produit introuvable dans Open Food Facts pour ce code — remplissez manuellement.'; resultEl.style.display = 'block'; }
+    }
+  } catch(e) {
+    console.warn('[OFF lookup]', e);
+    if(resultEl) { resultEl.innerHTML = '⚠️ Erreur de connexion à Open Food Facts — réessayez.'; resultEl.style.display = 'block'; }
+  } finally {
+    if(btn) { btn.disabled = false; btn.textContent = '🔍 Rechercher ce produit en ligne (Open Food Facts)'; }
+  }
+}
+
+function _appliquerProduitOFF(nomEncoded, imageEncoded) {
+  const nom = decodeURIComponent(nomEncoded);
+  const image = decodeURIComponent(imageEncoded);
+  if(nom) document.getElementById('item-nom').value = nom;
+  if(image && typeof applyItemIconUrl === 'function') {
+    const urlInput = document.getElementById('item-icon-url-display');
+    if(urlInput) urlInput.value = image;
+    applyItemIconUrl(image);
+  }
+  showNotif('✅ Nom' + (image ? ' et photo' : '') + ' remplis depuis Open Food Facts — vérifiez le prix');
 }
 
 function addRecetteLine() {
@@ -40107,6 +40189,23 @@ async function _deleteTicketAttenteSupabase(ticketId) {
 }
 
 // ── Charger tickets en attente depuis Supabase au démarrage ──
+// ✅ Actualisation manuelle à la demande depuis "Commandes" — vérifie tout de
+// suite (tickets en attente + commandes) sans attendre le prochain cycle auto.
+async function _actualiserCommandesManuel(btn) {
+  const original = btn ? btn.textContent : '';
+  if(btn) { btn.disabled = true; btn.textContent = '🔄 Actualisation…'; }
+  try {
+    if(typeof _pullTicketsAttenteSupabase === 'function') await _pullTicketsAttenteSupabase();
+    if(typeof renderOrders === 'function') renderOrders('all');
+    showNotif('✅ Commandes à jour');
+  } catch(e) {
+    console.warn('[_actualiserCommandesManuel]', e);
+    showNotif('⚠️ Échec de l\'actualisation — réessayez');
+  } finally {
+    if(btn) { btn.disabled = false; btn.textContent = original || '🔄 Actualiser'; }
+  }
+}
+
 async function _pullTicketsAttenteSupabase() {
   try {
     const sb  = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
