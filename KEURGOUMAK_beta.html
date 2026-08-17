@@ -26298,7 +26298,7 @@ const KGSync = (() => {
             }
             const _now = Date.now();
             const _sinceLast = _now - (window._lastPullAllTs || 0);
-            if(_sinceLast < 10000 && !_isCloturePing) {
+            if(_sinceLast < 5000 && !_isCloturePing) {
               console.log('[egress] pull throttlé — dernier pull il y a', Math.round(_sinceLast/1000) + 's');
               return;
             }
