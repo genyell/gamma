@@ -98,7 +98,7 @@
 </style>
 
 <script>
-// ✅ FIX ISOLATION MULTI-RESTAURANT : wrapper localStorage par restaurant_id    
+// ✅ FIX ISOLATION MULTI-RESTAURANT : wrapper localStorage par restaurant_id
 // Toutes les clés kg- et kg_ sont préfixées par le restaurant actif
 // Evite la fusion des données entre 2 restaurants sur le même navigateur
 (function() {
@@ -5354,6 +5354,9 @@ function _syncSportVentes()       { return []; }
     <div class="nav-item" onclick="showView('clients', this)">
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Clients
     </div>
+    <div class="nav-item" onclick="showView('rdv', this)" id="nav-rdv">
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/></svg></span> Prendre RDV
+    </div>
     <div class="nav-item" onclick="showView('annonces', this)">
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span> Annonces & Pubs
     </div>
@@ -8383,6 +8386,88 @@ Revenez nous voir bient&#244;t.</textarea>
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════════
+     📅 PRENDRE RDV — AGENDA DE RENDEZ-VOUS (salon, institut, etc.)
+══════════════════════════════════════════════════════════════ -->
+<div id="view-rdv" class="view fade-in">
+
+  <!-- KPI HEADER -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+    <div class="stat-card" style="--card-color:linear-gradient(90deg,var(--green),#27ae60);">
+      <div class="stat-icon">📅</div>
+      <div class="stat-val" id="rdv-kpi-aujourd" style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--green);">0</div>
+      <div class="stat-label">RDV aujourd'hui</div>
+    </div>
+    <div class="stat-card" style="--card-color:linear-gradient(90deg,var(--accent),var(--accent2));">
+      <div class="stat-icon">💰</div>
+      <div class="stat-val" id="rdv-kpi-ca" style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--accent);">0 F</div>
+      <div class="stat-label">CA prévu aujourd'hui</div>
+    </div>
+    <div class="stat-card" style="--card-color:linear-gradient(90deg,var(--teal),#009e8e);">
+      <div class="stat-icon">📆</div>
+      <div class="stat-val" id="rdv-kpi-semaine" style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--teal);">0</div>
+      <div class="stat-label">RDV à venir (7 jours)</div>
+    </div>
+    <div class="stat-card" style="--card-color:linear-gradient(90deg,var(--purple),#6a4fc4);">
+      <div class="stat-icon">📊</div>
+      <div class="stat-val" id="rdv-kpi-total" style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--purple);">0 F</div>
+      <div class="stat-label">CA total (tous RDV)</div>
+    </div>
+  </div>
+
+  <!-- ACTIONS + DATE PICKER -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="cat-btn active" id="rdv-tab-agenda" onclick="switchRdvTab('agenda',this)">📅 Agenda du jour</button>
+      <button class="cat-btn" id="rdv-tab-liste" onclick="switchRdvTab('liste',this)">📋 Tous les RDV</button>
+      <button class="cat-btn" id="rdv-tab-stats" onclick="switchRdvTab('stats',this)">📊 Statistiques</button>
+      <button class="cat-btn" id="rdv-tab-services" onclick="switchRdvTab('services',this)">💇 Services & tarifs</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="date" class="form-input" id="rdv-date-picker" style="width:160px;" onchange="renderRdvAgenda()">
+      <button class="btn btn-ghost" onclick="rdvSetToday()">📅 Aujourd'hui</button>
+      <button class="btn btn-primary" onclick="openModalRdv()">+ Nouveau RDV</button>
+    </div>
+  </div>
+
+  <!-- PANEL AGENDA DU JOUR -->
+  <div id="rdv-panel-agenda">
+    <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Rendez-vous triés par heure pour la date sélectionnée.</div>
+    <div id="rdv-agenda-container"></div>
+  </div>
+
+  <!-- PANEL LISTE TOUS LES RDV -->
+  <div id="rdv-panel-liste" style="display:none;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+      <input class="form-input" id="rdv-search" placeholder="🔍 Chercher un nom, téléphone..." oninput="renderRdvListe()" style="width:260px;max-width:100%;">
+      <select class="form-input" id="rdv-filtre-statut" onchange="renderRdvListe()" style="width:170px;">
+        <option value="">Tous les statuts</option>
+        <option value="confirme">✅ Confirmé</option>
+        <option value="en_attente">⏳ En attente</option>
+        <option value="termine">🏁 Terminé</option>
+        <option value="annule">❌ Annulé</option>
+      </select>
+      <input type="date" class="form-input" id="rdv-filtre-date" onchange="renderRdvListe()" style="width:160px;">
+      <button class="btn btn-ghost" onclick="exportRdvCSV()">⬇️ Export CSV</button>
+    </div>
+    <div id="rdv-liste-content"></div>
+  </div>
+
+  <!-- PANEL STATS -->
+  <div id="rdv-panel-stats" style="display:none;">
+    <div id="rdv-stats-content"></div>
+  </div>
+
+  <!-- PANEL SERVICES & TARIFS -->
+  <div id="rdv-panel-services" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:13px;color:var(--text2);">Définissez vos prestations : durée par défaut et tarif. Elles seront proposées lors de la prise de RDV.</div>
+      <button class="btn btn-primary" onclick="openModalRdvService()">+ Nouveau service</button>
+    </div>
+    <div id="rdv-services-content"></div>
+  </div>
+</div>
+
 <!-- MODAL : Réservation chambre -->
 <div class="modal-overlay" id="modal-reservationChambre">
   <div class="modal" style="width:500px;max-width:95vw;">
@@ -8436,6 +8521,114 @@ Revenez nous voir bient&#244;t.</textarea>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('reservationChambre')">Annuler</button>
       <button class="btn btn-primary" onclick="saveReservationChambre()">✅ Confirmer la réservation</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL : Prendre / modifier un RDV -->
+<div class="modal-overlay" id="modal-rdv">
+  <div class="modal" style="width:520px;max-width:95vw;">
+    <div class="modal-title" id="rdv-modal-title">📅 Nouveau RDV</div>
+    <input type="hidden" id="rdv-edit-id">
+
+    <div class="form-group">
+      <label class="form-label">Cliente / client existant</label>
+      <select class="form-input" id="rdv-client-select" onchange="onRdvClientSelect()">
+        <option value="">— Nouveau client (saisir ci-dessous) —</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">Nom du client</label>
+        <input class="form-input" id="rdv-client-nom" placeholder="Nom complet...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Téléphone</label>
+        <input class="form-input" id="rdv-client-tel" placeholder="+221 ...">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Prestation</label>
+      <select class="form-input" id="rdv-service-select" onchange="onRdvServiceChange()">
+        <option value="">— Choisir une prestation —</option>
+      </select>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input class="form-input" type="date" id="rdv-date" onchange="rdvCheckConflit()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Heure</label>
+        <input class="form-input" type="time" id="rdv-heure" onchange="rdvCheckConflit()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Durée (min)</label>
+        <input class="form-input" type="number" id="rdv-duree" min="5" step="5" value="60" onchange="rdvCheckConflit()">
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">Prix (FCFA)</label>
+        <input class="form-input" type="number" id="rdv-prix" min="0" step="500" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Coiffeuse / coiffeur (optionnel)</label>
+        <input class="form-input" id="rdv-employe" placeholder="Ex: Aïda">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Statut</label>
+      <select class="form-input" id="rdv-statut">
+        <option value="confirme">✅ Confirmé</option>
+        <option value="en_attente">⏳ En attente</option>
+        <option value="termine">🏁 Terminé</option>
+        <option value="annule">❌ Annulé</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" id="rdv-notes" rows="2" placeholder="Ex: 2ème retouche, préfère les huiles bio..."></textarea>
+    </div>
+
+    <div id="rdv-conflit-alert" style="display:none;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);color:var(--red);border-radius:10px;padding:10px 12px;font-size:12px;font-weight:600;margin-bottom:14px;">
+      ⚠️ Un autre RDV existe déjà sur ce créneau.
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('rdv')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveRdv()">✅ Enregistrer le RDV</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL : Nouveau / modifier un service -->
+<div class="modal-overlay" id="modal-rdvService">
+  <div class="modal" style="width:420px;max-width:95vw;">
+    <div class="modal-title" id="rdv-service-modal-title">💇 Nouveau service</div>
+    <input type="hidden" id="rdv-service-edit-id">
+    <div class="form-group">
+      <label class="form-label">Nom de la prestation</label>
+      <input class="form-input" id="rdv-service-nom" placeholder="Ex: Pose de locs">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">Durée par défaut (min)</label>
+        <input class="form-input" type="number" id="rdv-service-duree" min="5" step="5" value="60">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prix (FCFA)</label>
+        <input class="form-input" type="number" id="rdv-service-prix" min="0" step="500" value="0">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('rdvService')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveRdvService()">💾 Enregistrer</button>
     </div>
   </div>
 </div>
@@ -10253,7 +10446,7 @@ function showView(id, el, pushState) {
     const navMatch = document.querySelector(`.nav-item[onclick*="showView('${id}'"]`);
     if(navMatch) navMatch.classList.add('active');
   }
-  const titles = { dashboard:'Tableau de bord', caisse:'Caisse POS', commandes:'Commandes', qrcommandes:'📱 Commandes en ligne — QR Code', menu:'Menu & Carte', stock:'Stocks', inventaire:'Inventaire', preparation:'🧑‍🍳 Préparation', clients:'Clients', fournisseurs:'Fournisseurs', stats:'Statistiques', settings:'Paramètres', caisses:'Gestion des Caisses', rapportx:'Rapport X — Consultation en cours', 'rapport-mensuel':'📅 Rapport Mensuel', shift:'Gestion des Shifts', fermeture:'Fermeture de Caisse (Z)', reconciliation:'Réconciliation Mensuelle', historique:'Historique des Clôtures', utilisateurs:'Utilisateurs', depenses:'Module Dépenses', rh:'RH & Gestion des Salaires', compta:'Comptabilité — Résultats & Bilan', factures:'Factures — Clients & Fournisseurs', banque:'Banque — Suivi des comptes', materiel:'Matériel & Amortissements', annonces:'📢 Annonces & Publicités', 'location-salle':'🏛️ Location de Salle', 'manege':'🎠 Manège Enfants', terrain:'⚽ Terrain de Football', 'salle-sport':'💪 Salle de Sport', piscine:'🏊 Piscine', caisse3commandes:'🖥️ Caisse 3 — Commandes Clients', salle:'🏠 Salle de Location', sport:'💪 Salle de Sport', hotel:'🏨 Hôtel — Gestion des Chambres' };
+  const titles = { dashboard:'Tableau de bord', caisse:'Caisse POS', commandes:'Commandes', qrcommandes:'📱 Commandes en ligne — QR Code', menu:'Menu & Carte', stock:'Stocks', inventaire:'Inventaire', preparation:'🧑‍🍳 Préparation', clients:'Clients', fournisseurs:'Fournisseurs', stats:'Statistiques', settings:'Paramètres', caisses:'Gestion des Caisses', rapportx:'Rapport X — Consultation en cours', 'rapport-mensuel':'📅 Rapport Mensuel', shift:'Gestion des Shifts', fermeture:'Fermeture de Caisse (Z)', reconciliation:'Réconciliation Mensuelle', historique:'Historique des Clôtures', utilisateurs:'Utilisateurs', depenses:'Module Dépenses', rh:'RH & Gestion des Salaires', compta:'Comptabilité — Résultats & Bilan', factures:'Factures — Clients & Fournisseurs', banque:'Banque — Suivi des comptes', materiel:'Matériel & Amortissements', annonces:'📢 Annonces & Publicités', 'location-salle':'🏛️ Location de Salle', 'manege':'🎠 Manège Enfants', terrain:'⚽ Terrain de Football', 'salle-sport':'💪 Salle de Sport', piscine:'🏊 Piscine', caisse3commandes:'🖥️ Caisse 3 — Commandes Clients', salle:'🏠 Salle de Location', sport:'💪 Salle de Sport', hotel:'🏨 Hôtel — Gestion des Chambres', rdv:'📅 Prendre RDV — Rendez-vous' };
   document.getElementById('page-title').textContent = titles[id] || id;
 
   // ===== HISTORY API : desactive en file:// pour eviter "Unsafe attempt" ===
@@ -10352,6 +10545,7 @@ function showView(id, el, pushState) {
   if(id === 'banque') initBanqueView();
   if(id === 'materiel') initMaterielView();
   if(id === 'terrain') initTerrainView();
+  if(id === 'rdv') initRdvView();
   if(id === 'salle') initSalleView();
   if(id === 'sport') { spLoad(); spRenderMembres(); spUpdateKPI(); }
 
@@ -17995,6 +18189,515 @@ function printClientHistory(cIdx) {
   showNotif(`🖨️ Fiche client ${c.prenom} ${c.nom} imprimée`);
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 📅 MODULE "PRENDRE RDV" — agenda de rendez-vous (salon, institut...)
+// Lié aux fiches CLIENTS existantes. Données isolées par compte via
+// les helpers _lsGet/_lsSet déjà utilisés dans le reste de l'app.
+// ═══════════════════════════════════════════════════════════════
+let RDV_LIST = [];
+let RDV_SERVICES = [];
+const RDV_SERVICES_DEFAUT = [
+  { id:'svc_1', nom:'Pose de locs',        duree:180, prix:15000 },
+  { id:'svc_2', nom:'Retouche / reprise',  duree:90,  prix:8000  },
+  { id:'svc_3', nom:'Entretien / shampooing', duree:45, prix:3000 },
+  { id:'svc_4', nom:'Twist / vanilles',    duree:120, prix:10000 },
+  { id:'svc_5', nom:'Coloration',          duree:90,  prix:7000  },
+];
+
+function rdvTodayStr() { return new Date().toISOString().slice(0,10); }
+
+function loadRdvData() {
+  try {
+    const savedList = JSON.parse(_lsGet('kg-rdv-list') || 'null');
+    RDV_LIST = Array.isArray(savedList) ? savedList : (RDV_LIST || []);
+  } catch(e) { RDV_LIST = RDV_LIST || []; }
+  try {
+    const savedSvc = JSON.parse(_lsGet('kg-rdv-services') || 'null');
+    RDV_SERVICES = Array.isArray(savedSvc) && savedSvc.length ? savedSvc : RDV_SERVICES_DEFAUT.slice();
+  } catch(e) { RDV_SERVICES = RDV_SERVICES_DEFAUT.slice(); }
+}
+function persistRdvList() {
+  try { _lsSet('kg-rdv-list', JSON.stringify(RDV_LIST)); } catch(e) {}
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.rdvData().catch(()=>{});
+}
+function persistRdvServices() {
+  try { _lsSet('kg-rdv-services', JSON.stringify(RDV_SERVICES)); } catch(e) {}
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.rdvData().catch(()=>{});
+}
+
+function initRdvView() {
+  // Charger une seule fois (ou si vide) depuis le stockage local
+  if(!RDV_LIST.length && !RDV_SERVICES.length) loadRdvData();
+  else if(!RDV_SERVICES.length) loadRdvData();
+
+  const dp = document.getElementById('rdv-date-picker');
+  if(dp && !dp.value) dp.value = rdvTodayStr();
+
+  switchRdvTab('agenda', document.getElementById('rdv-tab-agenda'));
+  updateRdvKPI();
+}
+
+function rdvSetToday() {
+  const dp = document.getElementById('rdv-date-picker');
+  if(dp) { dp.value = rdvTodayStr(); renderRdvAgenda(); }
+}
+
+// ─── KPI ───────────────────────────────────────────────────────
+function updateRdvKPI() {
+  const today = rdvTodayStr();
+  const actifs = (RDV_LIST||[]).filter(r => r.statut !== 'annule');
+  const auj = actifs.filter(r => r.date === today);
+  const caAuj = auj.reduce((s,r) => s + (r.prix||0), 0);
+
+  const in7 = new Date(); in7.setDate(in7.getDate()+7);
+  const in7Str = in7.toISOString().slice(0,10);
+  const semaine = actifs.filter(r => r.date >= today && r.date <= in7Str).length;
+
+  const caTotal = actifs.reduce((s,r) => s + (r.prix||0), 0);
+
+  const set = (id,val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  set('rdv-kpi-aujourd', auj.length);
+  set('rdv-kpi-ca', caAuj.toLocaleString('fr-FR') + ' F');
+  set('rdv-kpi-semaine', semaine);
+  set('rdv-kpi-total', caTotal.toLocaleString('fr-FR') + ' F');
+}
+
+// ─── ONGLETS ───────────────────────────────────────────────────
+function switchRdvTab(tab, btn) {
+  ['agenda','liste','stats','services'].forEach(t => {
+    const panel = document.getElementById('rdv-panel-' + t);
+    const tabBtn = document.getElementById('rdv-tab-' + t);
+    if(panel) panel.style.display = (t === tab) ? '' : 'none';
+    if(tabBtn) tabBtn.classList.toggle('active', t === tab);
+  });
+  if(tab === 'agenda')   renderRdvAgenda();
+  if(tab === 'liste')    renderRdvListe();
+  if(tab === 'stats')    renderRdvStats();
+  if(tab === 'services') renderRdvServicesConfig();
+  updateRdvKPI();
+}
+
+// ─── BADGE STATUT ──────────────────────────────────────────────
+function rdvStatutBadge(s) {
+  return ({
+    confirme:   '<span style="background:rgba(26,219,106,0.15);color:var(--green);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">✅ Confirmé</span>',
+    en_attente: '<span style="background:rgba(245,158,42,0.15);color:var(--accent);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">⏳ Attente</span>',
+    termine:    '<span style="background:rgba(124,92,191,0.15);color:var(--purple);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">🏁 Terminé</span>',
+    annule:     '<span style="background:rgba(240,68,68,0.12);color:var(--red);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">❌ Annulé</span>',
+  }[s] || s || '');
+}
+
+function rdvFmtHeureFin(heure, dureeMin) {
+  if(!heure) return '';
+  const [h,m] = heure.split(':').map(Number);
+  const total = h*60 + m + (dureeMin||0);
+  const fh = Math.floor((total % 1440) / 60).toString().padStart(2,'0');
+  const fm = (total % 60).toString().padStart(2,'0');
+  return `${fh}h${fm}`;
+}
+
+// ─── AGENDA DU JOUR ────────────────────────────────────────────
+function renderRdvAgenda() {
+  const dp = document.getElementById('rdv-date-picker');
+  const dateStr = dp ? dp.value : rdvTodayStr();
+  const container = document.getElementById('rdv-agenda-container');
+  if(!container) return;
+
+  const list = (RDV_LIST||[])
+    .filter(r => r.date === dateStr)
+    .sort((a,b) => (a.heure||'').localeCompare(b.heure||''));
+
+  if(!list.length) {
+    container.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--text2);">
+      <div style="font-size:48px;margin-bottom:14px;">📅</div>
+      <div style="font-weight:600;font-size:16px;margin-bottom:6px;">Aucun RDV ce jour-là</div>
+      <div style="font-size:13px;">Cliquez sur "+ Nouveau RDV" pour en ajouter un.</div>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;">` +
+    list.map(r => {
+      const fin = rdvFmtHeureFin(r.heure, r.duree);
+      const annule = r.statut === 'annule';
+      return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;${annule?'opacity:0.55;':''}">
+        <div style="width:60px;text-align:center;flex-shrink:0;">
+          <div style="font-weight:800;font-size:15px;color:var(--text);font-family:'JetBrains Mono',monospace;">${(r.heure||'—').replace(':','h')}</div>
+          <div style="font-size:10px;color:var(--text2);">→ ${fin}</div>
+        </div>
+        <div style="width:44px;height:44px;border-radius:10px;background:rgba(124,92,191,0.12);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">💇</div>
+        <div style="flex:1;min-width:160px;">
+          <div style="font-weight:700;font-size:14px;color:var(--text);">${r.clientNom||'—'}</div>
+          <div style="font-size:12px;color:var(--text2);">${r.tel||'—'} · ${r.service||'—'} (${r.duree||0} min)${r.employe?` · 👤 ${r.employe}`:''}</div>
+          ${r.notes ? `<div style="font-size:12px;color:var(--text3);margin-top:2px;">📝 ${r.notes}</div>` : ''}
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-weight:700;font-size:15px;color:var(--accent);font-family:'JetBrains Mono',monospace;">${(r.prix||0).toLocaleString('fr-FR')} F</div>
+          <div style="margin-top:4px;">${rdvStatutBadge(r.statut)}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button onclick='editRdv("${r.id}")' style="background:rgba(245,158,42,0.12);border:1px solid rgba(245,158,42,0.25);color:var(--accent);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Modifier">✏️</button>
+          <button onclick='deleteRdv("${r.id}")' style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);color:var(--red);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Supprimer">🗑️</button>
+        </div>
+      </div>`;
+    }).join('') + `</div>`;
+}
+
+// ─── LISTE COMPLÈTE ────────────────────────────────────────────
+function renderRdvListe() {
+  const search = (document.getElementById('rdv-search')?.value||'').toLowerCase();
+  const statut = document.getElementById('rdv-filtre-statut')?.value || '';
+  const dateF  = document.getElementById('rdv-filtre-date')?.value || '';
+  const content = document.getElementById('rdv-liste-content');
+  if(!content) return;
+
+  let list = (RDV_LIST||[]).slice().sort((a,b) => (b.date+ (b.heure||'')).localeCompare(a.date+(a.heure||'')));
+
+  if(search) list = list.filter(r => (r.clientNom||'').toLowerCase().includes(search) || (r.tel||'').includes(search));
+  if(statut) list = list.filter(r => r.statut === statut);
+  if(dateF)  list = list.filter(r => r.date === dateF);
+
+  if(!list.length) {
+    content.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--text2);">
+      <div style="font-size:48px;margin-bottom:14px;">📅</div>
+      <div style="font-weight:600;font-size:16px;margin-bottom:6px;">Aucun RDV trouvé</div>
+      <div style="font-size:13px;">Ajoutez votre premier rendez-vous.</div>
+    </div>`;
+    return;
+  }
+
+  content.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;">` +
+    list.map(r => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="width:44px;height:44px;border-radius:10px;background:rgba(124,92,191,0.12);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">💇</div>
+        <div style="flex:1;min-width:160px;">
+          <div style="font-weight:700;font-size:14px;color:var(--text);">${r.clientNom||'—'}</div>
+          <div style="font-size:12px;color:var(--text2);">${r.tel||'—'} · ${r.date} à ${(r.heure||'—').replace(':','h')} · ${r.service||'—'}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-weight:700;font-size:15px;color:var(--accent);font-family:'JetBrains Mono',monospace;">${(r.prix||0).toLocaleString('fr-FR')} F</div>
+          <div style="margin-top:4px;">${rdvStatutBadge(r.statut)}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button onclick='editRdv("${r.id}")' style="background:rgba(245,158,42,0.12);border:1px solid rgba(245,158,42,0.25);color:var(--accent);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Modifier">✏️</button>
+          <button onclick='deleteRdv("${r.id}")' style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);color:var(--red);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Supprimer">🗑️</button>
+        </div>
+      </div>`).join('') + `</div>`;
+}
+
+function exportRdvCSV() {
+  const rows = [['Date','Heure','Client','Téléphone','Prestation','Durée (min)','Prix','Statut','Coiffeuse/Coiffeur','Notes']];
+  (RDV_LIST||[]).slice().sort((a,b)=>(a.date+ (a.heure||'')).localeCompare(b.date+(b.heure||''))).forEach(r => {
+    rows.push([r.date, r.heure, r.clientNom, r.tel, r.service, r.duree, r.prix, r.statut, r.employe||'', (r.notes||'').replace(/\n/g,' ')]);
+  });
+  const csv = rows.map(row => row.map(v => `"${(v??'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(["\uFEFF"+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `rdv_export_${rdvTodayStr()}.csv`;
+  a.click();
+}
+
+// ─── STATISTIQUES ──────────────────────────────────────────────
+function renderRdvStats() {
+  const content = document.getElementById('rdv-stats-content');
+  if(!content) return;
+
+  const all = (RDV_LIST||[]).filter(r => r.statut !== 'annule');
+
+  const dayMap = {};
+  const today = new Date();
+  for(let i=6;i>=0;i--) {
+    const d = new Date(today); d.setDate(d.getDate()-i);
+    dayMap[d.toISOString().slice(0,10)] = {count:0, ca:0};
+  }
+  all.forEach(r => { if(dayMap[r.date]) { dayMap[r.date].count++; dayMap[r.date].ca += r.prix||0; } });
+
+  const svcCount = {};
+  all.forEach(r => { const k = r.service||'—'; svcCount[k] = (svcCount[k]||0)+1; });
+  const topSvc = Object.entries(svcCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  const totalCA = all.reduce((s,r)=>s+(r.prix||0),0);
+  const totalRdv = all.length;
+  const avgPrix = totalRdv ? Math.round(totalCA/totalRdv) : 0;
+  const annules = (RDV_LIST||[]).filter(r=>r.statut==='annule').length;
+
+  content.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:20px;">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:18px;">
+        <div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:14px;">📈 CA des 7 derniers jours</div>
+        ${Object.entries(dayMap).map(([d,v]) => {
+          const maxCA = Math.max(...Object.values(dayMap).map(x=>x.ca),1);
+          const pct = Math.round((v.ca/maxCA)*100);
+          const label = new Date(d+'T12:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+          return `<div style="margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+              <span style="color:var(--text2);">${label}</span>
+              <span style="color:var(--accent);font-weight:700;">${v.ca.toLocaleString('fr-FR')} F (${v.count} RDV)</span>
+            </div>
+            <div style="background:var(--surface3);border-radius:4px;height:8px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:var(--gradient-accent);border-radius:4px;transition:width 0.5s;"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:18px;">
+        <div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:14px;">💇 Prestations les + demandées</div>
+        ${topSvc.length ? topSvc.map(([s,c],i) => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:18px;">${['🥇','🥈','🥉','4️⃣','5️⃣'][i]}</span>
+              <span style="font-weight:600;color:var(--text);">${s}</span>
+            </div>
+            <span style="font-family:'JetBrains Mono',monospace;color:var(--teal);font-weight:700;">${c}× </span>
+          </div>`).join('') : '<div style="color:var(--text2);font-size:13px;">Aucune donnée</div>'}
+      </div>
+
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:18px;">
+        <div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:14px;">📊 Résumé global</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text2);">Total RDV</span><span style="font-weight:700;color:var(--text);">${totalRdv}</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text2);">CA total</span><span style="font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace;">${totalCA.toLocaleString('fr-FR')} F</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text2);">Prix moyen</span><span style="font-weight:700;color:var(--teal);font-family:'JetBrains Mono',monospace;">${avgPrix.toLocaleString('fr-FR')} F</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text2);">Annulés</span><span style="font-weight:700;color:var(--red);">${annules}</span></div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ─── SERVICES & TARIFS ─────────────────────────────────────────
+function renderRdvServicesConfig() {
+  const content = document.getElementById('rdv-services-content');
+  if(!content) return;
+  if(!RDV_SERVICES.length) {
+    content.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text2);">Aucun service défini.</div>`;
+    return;
+  }
+  content.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;">` +
+    RDV_SERVICES.map((s,i) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">
+        <div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:6px;">💇 ${s.nom}</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">⏱️ ${s.duree} min · 💰 ${(s.prix||0).toLocaleString('fr-FR')} F</div>
+        <div style="display:flex;gap:8px;">
+          <button class="caisse-btn" style="flex:1;font-size:12px;" onclick="editRdvService(${i})">✏️ Modifier</button>
+          <button class="caisse-btn danger" style="font-size:12px;" onclick="deleteRdvService(${i})">🗑</button>
+        </div>
+      </div>`).join('') + `</div>`;
+}
+
+function openModalRdvService() {
+  document.getElementById('rdv-service-modal-title').textContent = '💇 Nouveau service';
+  document.getElementById('rdv-service-edit-id').value = '';
+  document.getElementById('rdv-service-nom').value = '';
+  document.getElementById('rdv-service-duree').value = 60;
+  document.getElementById('rdv-service-prix').value = 0;
+  showModal('rdvService');
+}
+function editRdvService(i) {
+  const s = RDV_SERVICES[i];
+  if(!s) return;
+  document.getElementById('rdv-service-modal-title').textContent = '✏️ Modifier le service';
+  document.getElementById('rdv-service-edit-id').value = i;
+  document.getElementById('rdv-service-nom').value = s.nom;
+  document.getElementById('rdv-service-duree').value = s.duree;
+  document.getElementById('rdv-service-prix').value = s.prix;
+  showModal('rdvService');
+}
+function saveRdvService() {
+  const nom = document.getElementById('rdv-service-nom').value.trim();
+  const duree = parseInt(document.getElementById('rdv-service-duree').value) || 30;
+  const prix = parseInt(document.getElementById('rdv-service-prix').value) || 0;
+  if(!nom) { showNotif('⚠️ Le nom du service est requis'); return; }
+  const editIdxVal = document.getElementById('rdv-service-edit-id').value;
+  const editIdx = editIdxVal !== '' ? parseInt(editIdxVal) : -1;
+  if(editIdx >= 0 && RDV_SERVICES[editIdx]) {
+    Object.assign(RDV_SERVICES[editIdx], {nom, duree, prix});
+    showNotif(`✅ Service "${nom}" modifié`);
+  } else {
+    RDV_SERVICES.push({ id:'svc_'+Date.now(), nom, duree, prix });
+    showNotif(`✅ Service "${nom}" ajouté`);
+  }
+  persistRdvServices();
+  closeModal('rdvService');
+  renderRdvServicesConfig();
+}
+function deleteRdvService(i) {
+  const s = RDV_SERVICES[i];
+  if(!s) return;
+  RDV_SERVICES.splice(i,1);
+  persistRdvServices();
+  renderRdvServicesConfig();
+  showNotif(`🗑️ Service "${s.nom}" supprimé`);
+}
+
+// ─── MODAL RDV : ouverture / sélection client / service ────────
+function populateRdvClientSelect() {
+  const sel = document.getElementById('rdv-client-select');
+  if(!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— Nouveau client (saisir ci-dessous) —</option>' +
+    (CLIENTS||[]).map((c,i) => `<option value="${i}">${c.prenom} ${c.nom}${c.tel?' · '+c.tel:''}</option>`).join('');
+  sel.value = current || '';
+}
+function populateRdvServiceSelect() {
+  const sel = document.getElementById('rdv-service-select');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— Choisir une prestation —</option>' +
+    RDV_SERVICES.map((s,i) => `<option value="${i}">${s.nom} (${s.duree} min · ${(s.prix||0).toLocaleString('fr-FR')} F)</option>`).join('');
+}
+function onRdvClientSelect() {
+  const sel = document.getElementById('rdv-client-select');
+  const idx = sel.value;
+  if(idx === '') return;
+  const c = CLIENTS[parseInt(idx)];
+  if(!c) return;
+  document.getElementById('rdv-client-nom').value = `${c.prenom} ${c.nom}`;
+  document.getElementById('rdv-client-tel').value = c.tel || '';
+}
+function onRdvServiceChange() {
+  const sel = document.getElementById('rdv-service-select');
+  const idx = sel.value;
+  if(idx === '') return;
+  const s = RDV_SERVICES[parseInt(idx)];
+  if(!s) return;
+  document.getElementById('rdv-duree').value = s.duree;
+  document.getElementById('rdv-prix').value = s.prix;
+  rdvCheckConflit();
+}
+
+function openModalRdv(dateStr, heureStr) {
+  populateRdvClientSelect();
+  populateRdvServiceSelect();
+  document.getElementById('rdv-modal-title').textContent = '📅 Nouveau RDV';
+  document.getElementById('rdv-edit-id').value = '';
+  document.getElementById('rdv-client-select').value = '';
+  document.getElementById('rdv-client-nom').value = '';
+  document.getElementById('rdv-client-tel').value = '';
+  document.getElementById('rdv-service-select').value = '';
+  document.getElementById('rdv-date').value = dateStr || (document.getElementById('rdv-date-picker')?.value || rdvTodayStr());
+  document.getElementById('rdv-heure').value = heureStr || '';
+  document.getElementById('rdv-duree').value = 60;
+  document.getElementById('rdv-prix').value = '';
+  document.getElementById('rdv-employe').value = '';
+  document.getElementById('rdv-statut').value = 'confirme';
+  document.getElementById('rdv-notes').value = '';
+  document.getElementById('rdv-conflit-alert').style.display = 'none';
+  showModal('rdv');
+  setTimeout(() => document.getElementById('rdv-client-nom')?.focus(), 100);
+}
+
+function editRdv(id) {
+  const r = (RDV_LIST||[]).find(x => x.id === id);
+  if(!r) return;
+  populateRdvClientSelect();
+  populateRdvServiceSelect();
+  document.getElementById('rdv-modal-title').textContent = '✏️ Modifier le RDV';
+  document.getElementById('rdv-edit-id').value = id;
+  document.getElementById('rdv-client-select').value = (r.clientId !== undefined && r.clientId !== null) ? r.clientId : '';
+  document.getElementById('rdv-client-nom').value = r.clientNom || '';
+  document.getElementById('rdv-client-tel').value = r.tel || '';
+  document.getElementById('rdv-service-select').value = '';
+  const svcIdx = RDV_SERVICES.findIndex(s => s.nom === r.service);
+  if(svcIdx >= 0) document.getElementById('rdv-service-select').value = svcIdx;
+  document.getElementById('rdv-date').value = r.date || rdvTodayStr();
+  document.getElementById('rdv-heure').value = r.heure || '';
+  document.getElementById('rdv-duree').value = r.duree || 60;
+  document.getElementById('rdv-prix').value = r.prix || '';
+  document.getElementById('rdv-employe').value = r.employe || '';
+  document.getElementById('rdv-statut').value = r.statut || 'confirme';
+  document.getElementById('rdv-notes').value = r.notes || '';
+  document.getElementById('rdv-conflit-alert').style.display = 'none';
+  showModal('rdv');
+}
+
+function rdvCheckConflit() {
+  const date = document.getElementById('rdv-date')?.value;
+  const heure = document.getElementById('rdv-heure')?.value;
+  const duree = parseInt(document.getElementById('rdv-duree')?.value) || 0;
+  const editId = document.getElementById('rdv-edit-id')?.value || '';
+  const alertEl = document.getElementById('rdv-conflit-alert');
+  if(!alertEl) return false;
+  if(!date || !heure) { alertEl.style.display = 'none'; return false; }
+  const [h,m] = heure.split(':').map(Number);
+  const start = h*60+m, end = start+duree;
+  const conflit = (RDV_LIST||[]).some(r => {
+    if(r.id === editId || r.date !== date || r.statut === 'annule' || !r.heure) return false;
+    const [rh,rm] = r.heure.split(':').map(Number);
+    const rStart = rh*60+rm, rEnd = rStart + (r.duree||0);
+    return start < rEnd && end > rStart;
+  });
+  alertEl.style.display = conflit ? '' : 'none';
+  return conflit;
+}
+
+function saveRdv() {
+  const clientSel = document.getElementById('rdv-client-select').value;
+  const clientNom = document.getElementById('rdv-client-nom').value.trim();
+  const tel = document.getElementById('rdv-client-tel').value.trim();
+  const svcSel = document.getElementById('rdv-service-select').value;
+  const service = svcSel !== '' ? RDV_SERVICES[parseInt(svcSel)].nom : (document.getElementById('rdv-service-select').selectedOptions[0]?.text || '');
+  const date = document.getElementById('rdv-date').value;
+  const heure = document.getElementById('rdv-heure').value;
+  const duree = parseInt(document.getElementById('rdv-duree').value) || 30;
+  const prix = parseInt(document.getElementById('rdv-prix').value) || 0;
+  const employe = document.getElementById('rdv-employe').value.trim();
+  const statut = document.getElementById('rdv-statut').value;
+  const notes = document.getElementById('rdv-notes').value.trim();
+
+  if(!clientNom) { showNotif('⚠️ Le nom du client est requis'); return; }
+  if(!date || !heure) { showNotif('⚠️ Date et heure sont requises'); return; }
+
+  const editId = document.getElementById('rdv-edit-id').value;
+  const data = {
+    clientId: clientSel !== '' ? parseInt(clientSel) : null,
+    clientNom, tel, service, date, heure, duree, prix, employe, statut, notes,
+  };
+
+  if(editId) {
+    const r = RDV_LIST.find(x => x.id === editId);
+    if(r) Object.assign(r, data);
+    showNotif(`✅ RDV de ${clientNom} modifié`);
+  } else {
+    RDV_LIST.push({ id: 'rdv_' + Date.now(), ...data });
+    showNotif(`✅ RDV de ${clientNom} enregistré`);
+  }
+
+  persistRdvList();
+  if(data.clientId !== null) syncClientStatsFromRdv(data.clientId);
+  closeModal('rdv');
+  renderRdvAgenda();
+  updateRdvKPI();
+}
+
+function deleteRdv(id) {
+  const r = RDV_LIST.find(x => x.id === id);
+  if(!r) return;
+  const clientId = r.clientId;
+  RDV_LIST = RDV_LIST.filter(x => x.id !== id);
+  persistRdvList();
+  if(clientId !== null && clientId !== undefined) syncClientStatsFromRdv(clientId);
+  renderRdvAgenda();
+  renderRdvListe();
+  updateRdvKPI();
+  showNotif(`🗑️ RDV de ${r.clientNom} supprimé`);
+}
+
+// Met à jour la fiche client (nb passages, total dépensé, dernier achat)
+// à partir des RDV "terminé" liés — c'est le lien concret entre l'agenda
+// et le module Clients.
+function syncClientStatsFromRdv(clientIdx) {
+  const c = CLIENTS[clientIdx];
+  if(!c) return;
+  const termines = (RDV_LIST||[]).filter(r => r.clientId === clientIdx && r.statut === 'termine');
+  c.nbCmds = termines.length;
+  c.totalDepense = termines.reduce((s,r) => s + (r.prix||0), 0);
+  if(termines.length) {
+    const last = termines.slice().sort((a,b) => (a.date+ (a.heure||'')).localeCompare(b.date+(b.heure||''))).pop();
+    c.dernierAchat = last.date;
+  }
+  if(KGSync && KGSync.isConnected) KGSync.push.client(c).catch(()=>{});
+  if(document.getElementById('clients-grid')) renderClients();
+}
+
 function renderStats() {
   // Agréger toutes les ventes réelles de toutes les caisses
   const allVentes = Object.values(VENTES_PAR_CAISSE).flat();
@@ -19384,9 +20087,9 @@ function renderReconciliation() {
 
 // ===== AUTH & USERS SYSTEM =====
 const ROLES_CONFIG = {
-  administrateur: { label:'Administrateur', icon:'🛡️', color:'#dc3545', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','rapport-mensuel','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','gestion-roles','annonces','livreurs','serveurs','terrain','salle','sport'] },
-  gerant:      { label:'Gérant', icon:'👑', color:'var(--accent)', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','annonces','livreurs','serveurs','terrain','salle','sport'] },
-  superviseur: { label:'Superviseur', icon:'🔷', color:'var(--purple)', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','fournisseurs','caisses','rapportx','shift','fermeture','historique','stats','depenses','rh','compta','factures','banque','annonces','livreurs','serveurs','terrain','salle','sport'] },
+  administrateur: { label:'Administrateur', icon:'🛡️', color:'#dc3545', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','rapport-mensuel','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','gestion-roles','annonces','livreurs','serveurs','terrain','salle','sport','rdv'] },
+  gerant:      { label:'Gérant', icon:'👑', color:'var(--accent)', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','annonces','livreurs','serveurs','terrain','salle','sport','rdv'] },
+  superviseur: { label:'Superviseur', icon:'🔷', color:'var(--purple)', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','fournisseurs','caisses','rapportx','shift','fermeture','historique','stats','depenses','rh','compta','factures','banque','annonces','livreurs','serveurs','terrain','salle','sport','rdv'] },
   caissier:    { label:'Caissier', icon:'💳', color:'var(--teal)', perms: ['caisse','commandes','qrcommandes','rapportx'] },
   cuisinier:   { label:'Cuisinier', icon:'👨‍🍳', color:'var(--accent2)', perms: ['commandes','qrcommandes','menu','stock'] },
   livreur:     { label:'Livreur', icon:'🛵', color:'var(--green)', perms: ['commandes','qrcommandes'] },
@@ -19414,6 +20117,7 @@ const ALL_PERMS = [
   { id:'salle', label:'🏠 Salle de Location' },
   { id:'sport', label:'💪 Salle de Sport' },
   { id:'hotel', label:'🏨 Hôtel' },
+  { id:'rdv', label:'📅 Prendre RDV' },
 ];
 
 // USERS chargés depuis Supabase Auth après connexion
@@ -24974,6 +25678,14 @@ const KGSync = (() => {
       _debouncedUpsert('salle_reservations_data', { items, config: cfg }, 3000);
     } catch(e) { console.warn('KGSync pushSalleReservations error:', e); }
   }
+  // ✅ Prendre RDV (RDV_LIST + RDV_SERVICES)
+  async function pushRdvData() {
+    try {
+      const items    = (typeof RDV_LIST !== 'undefined') ? RDV_LIST : [];
+      const services = (typeof RDV_SERVICES !== 'undefined') ? RDV_SERVICES : [];
+      _debouncedUpsert('rdv_data', { items, services }, 3000);
+    } catch(e) { console.warn('KGSync pushRdvData error:', e); }
+  }
   // ✅ Salle de Sport nouveau module (SP_MEMBRES + SP_LOG_ACCES + config)
   async function pushSportMembres() {
     try {
@@ -25799,12 +26511,16 @@ const KGSync = (() => {
             loadDepensesFromSupabase().catch(e => console.warn('[sync depenses]', e));
           }
         } else if(key === 'categories_data' && data.items) {
-          if(Array.isArray(data.items) && data.items.length > 0) {
+          if(Array.isArray(data.items)) {
             // ✅ FIX : Ne pas écraser si une modification locale vient d'être faite (< 15s)
             const _localTs = window._categoriesLocalTs || 0;
             if(Date.now() - _localTs < 15000) {
               console.log('[Sync] categories_data ignoré — modification locale récente');
             } else {
+              // ✅ FIX : accepter aussi une liste vide venant du serveur — avant, une
+              // liste vide (ex: toutes les catégories supprimées) était ignorée et
+              // l'app retombait sur les catégories par défaut codées en dur, ce qui
+              // faisait "revenir" les catégories supprimées.
               CATEGORIES = data.items;
               CATS = [{ id:'all', label:'🍽️ Tout', color:'#f5a623' }, ...CATEGORIES];
             }
@@ -25974,6 +26690,35 @@ const KGSync = (() => {
             if(typeof renderSalleCalendrier === 'function') renderSalleCalendrier();
             console.log('[pullAll] ✅ Salle de Location synchronisée');
           } catch(e) { console.warn('[pullAll] salle_reservations_data error:', e); }
+
+        } else if(key === 'rdv_data') {
+          // ✅ Prendre RDV — fusionner rendez-vous + restaurer services/tarifs
+          try {
+            if(Array.isArray(data.items)) {
+              const localMap = {};
+              (typeof RDV_LIST !== 'undefined' ? RDV_LIST : []).forEach(r => { localMap[r.id] = r; });
+              data.items.forEach(r => {
+                if(!r || !r.id) return;
+                if(!localMap[r.id]) { localMap[r.id] = r; }
+                else {
+                  const ld = new Date(localMap[r.id].createdAt||0).getTime();
+                  const rd = new Date(r.createdAt||0).getTime();
+                  if(rd >= ld) localMap[r.id] = r;
+                }
+              });
+              RDV_LIST = Object.values(localMap);
+              try { _lsSet('kg-rdv-list', JSON.stringify(RDV_LIST)); } catch(e) {}
+            }
+            if(Array.isArray(data.services) && data.services.length) {
+              RDV_SERVICES = data.services;
+              try { _lsSet('kg-rdv-services', JSON.stringify(RDV_SERVICES)); } catch(e) {}
+            }
+            if(typeof updateRdvKPI === 'function') updateRdvKPI();
+            if(typeof renderRdvAgenda === 'function') renderRdvAgenda();
+            if(typeof renderRdvListe === 'function') renderRdvListe();
+            if(typeof renderRdvServicesConfig === 'function') renderRdvServicesConfig();
+            console.log('[pullAll] ✅ RDV synchronisés:', (RDV_LIST||[]).length);
+          } catch(e) { console.warn('[pullAll] rdv_data error:', e); }
 
         } else if(key === 'sport_membres_data') {
           // ✅ Salle de Sport (nouveau module SP_MEMBRES)
@@ -26415,6 +27160,7 @@ const KGSync = (() => {
       terrainReservations: pushTerrainReservations, // ✅ FIX v40 RESERVATIONS
       locReservations:     pushLocReservations,     // ✅ FIX v40 RESERVATIONS
       salleReservations:   pushSalleReservations,   // ✅ Salle de location
+      rdvData:             pushRdvData,             // ✅ Prendre RDV
       sportMembres:        pushSportMembres,        // ✅ Salle de sport (nouveau module)
       sportData:           pushSportData,           // ✅ FIX v40 SPORT
       piscineData:         pushPiscineData,         // ✅ FIX v40 PISCINE
@@ -31306,10 +32052,15 @@ function deleteCat(id) {
   if (idx > -1) CATEGORIES.splice(idx, 1);
   window._categoriesLocalTs = Date.now(); // 🔒 bloquer l'écrasement par le pull pendant 15s
   if(typeof saveSession === 'function') saveSession();
-  // ✅ synchroniser la suppression vers Supabase
+  // ✅ synchroniser la suppression vers Supabase — envoi immédiat (pas de debounce)
+  // pour éviter que la suppression soit perdue si l'utilisateur change de page/ferme l'app
+  // avant l'expiration du délai de 3s normalement utilisé pour grouper les envois.
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
     KGSync.push.categories().catch(e => console.error('push.categories (deleteCat):', e));
     KGSync.push.menu().catch(e => console.error('push.menu (deleteCat):', e));
+    if(typeof KGSync.flushAllPending === 'function') {
+      KGSync.flushAllPending().catch(e => console.error('flushAllPending (deleteCat):', e));
+    }
   }
   renderCatManager();
   renderMenu('all');
@@ -40406,7 +41157,13 @@ function _updateAttenteCounter() {
   _loadTicketsAttente();
   // ✅ ISOLATION CAISSIER : le badge ne compte que les tickets en attente de SA caisse.
   const _acIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
-  const _acUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
+  // ✅ FIX : on isole sur la caisse RÉELLEMENT OUVERTE dans cette session
+  // (sessionCaisseActive), pas sur la caisse assignée au compte utilisateur.
+  // Avant, un compte réglé sur "Toutes" (ou assigné à une autre caisse ce jour-là)
+  // faisait sauter le filtre et mélangeait les tickets de toutes les caisses.
+  const _acUserCaisse = (sessionCaisseActive && sessionCaisseActive.caisse)
+    ? sessionCaisseActive.caisse
+    : ((currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null);
   const nb = (_acIsManager || !_acUserCaisse) ? TICKETS_ATTENTE.length : TICKETS_ATTENTE.filter(t => t.caisse === _acUserCaisse).length;
   const badge = document.getElementById('badge-waiting-payment');
   if(badge) {
@@ -40964,7 +41721,11 @@ renderOrders = function(status) {
 
   // ✅ ISOLATION CAISSIER : un caissier ne voit que les tickets en attente de SA caisse.
   const _ovIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
-  const _ovUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
+  // ✅ FIX : même correctif — isolation sur la caisse réellement ouverte (session),
+  // pas sur la caisse assignée au compte, sinon les tickets se mélangent entre caisses.
+  const _ovUserCaisse = (sessionCaisseActive && sessionCaisseActive.caisse)
+    ? sessionCaisseActive.caisse
+    : ((currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null);
   const attenteList = (_ovIsManager || !_ovUserCaisse)
     ? TICKETS_ATTENTE
     : TICKETS_ATTENTE.filter(t => t.caisse === _ovUserCaisse);
