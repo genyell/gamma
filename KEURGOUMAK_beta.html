@@ -9552,6 +9552,29 @@ Revenez nous voir bient&#244;t.</textarea>
 <div class="modal-overlay" id="modal-confirmTicket">
   <div class="modal" style="width:480px;">
     <div class="modal-title">🧾 Confirmation du ticket</div>
+
+    <!-- ✅ Choix du document généré : Ticket de caisse ou Facture -->
+    <div style="margin-bottom:14px;">
+      <label class="form-label">Document à générer</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="doc-type-btn selected" id="doctype-ticket" onclick="selectPosDocType('ticket', this)" style="cursor:pointer;text-align:center;padding:10px 8px;border-radius:10px;border:1.5px solid var(--accent);background:rgba(245,158,42,0.12);color:var(--accent);font-weight:700;font-size:13px;transition:all .2s;">🧾 Ticket de caisse</div>
+        <div class="doc-type-btn" id="doctype-facture" onclick="selectPosDocType('facture', this)" style="cursor:pointer;text-align:center;padding:10px 8px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-weight:700;font-size:13px;transition:all .2s;">📄 Facture</div>
+      </div>
+    </div>
+
+    <!-- ✅ Champs supplémentaires visibles uniquement si "Facture" est choisi -->
+    <div id="pos-facture-extra" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">La facture sera générée à partir des informations client ci-dessous (nom, téléphone) + les champs suivants :</div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <label class="form-label">Email client (optionnel)</label>
+        <input class="form-input" type="email" id="pos-facture-email" placeholder="client@email.com">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Adresse client (optionnelle)</label>
+        <input class="form-input" id="pos-facture-adresse" placeholder="Adresse...">
+      </div>
+    </div>
+
     <div class="ticket-preview" id="ticket-preview">
       <!-- Généré dynamiquement -->
     </div>
@@ -9612,7 +9635,7 @@ Revenez nous voir bient&#244;t.</textarea>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('confirmTicket')">✕ Annuler</button>
-      <button class="btn btn-primary" onclick="validateOrder()" style="min-width:160px;">🧾 Valider & Imprimer</button>
+      <button class="btn btn-primary" id="pos-validate-btn" onclick="validateOrder()" style="min-width:160px;">🧾 Valider & Imprimer</button>
     </div>
   </div>
 </div>
@@ -12588,6 +12611,25 @@ let ocSelectedCaisse = 'Caisse 1';
 let cmdCart = [];
 let currentSessionTab = 'actives';
 let confirmPayMethod = 'cash';
+// ✅ Type de document généré par le POS : 'ticket' (par défaut) ou 'facture'
+let _posDocType = 'ticket';
+function selectPosDocType(type, el) {
+  _posDocType = type;
+  document.querySelectorAll('.doc-type-btn').forEach(b => {
+    b.classList.remove('selected');
+    b.style.border = '1.5px solid var(--border)';
+    b.style.background = 'var(--surface2)';
+    b.style.color = 'var(--text2)';
+  });
+  el.classList.add('selected');
+  el.style.border = '1.5px solid var(--accent)';
+  el.style.background = 'rgba(245,158,42,0.12)';
+  el.style.color = 'var(--accent)';
+  const extra = document.getElementById('pos-facture-extra');
+  if(extra) extra.style.display = (type === 'facture') ? 'block' : 'none';
+  const btn = document.getElementById('pos-validate-btn');
+  if(btn) btn.textContent = (type === 'facture') ? '📄 Valider & Générer la facture' : '🧾 Valider & Imprimer';
+}
 
 // ================================================================
 // MODAL 1 : OUVERTURE DE CAISSE
@@ -12945,6 +12987,11 @@ function openConfirmTicket() {
     } catch(e) { console.warn('[serveurs select]', e); }
   })();
   showModal('confirmTicket');
+  // ✅ Réinitialiser le choix de document (ticket par défaut) à chaque ouverture
+  const _dtTicketBtn = document.getElementById('doctype-ticket');
+  if(_dtTicketBtn) selectPosDocType('ticket', _dtTicketBtn);
+  const _factEmailEl = document.getElementById('pos-facture-email'); if(_factEmailEl) _factEmailEl.value = '';
+  const _factAdrEl   = document.getElementById('pos-facture-adresse'); if(_factAdrEl) _factAdrEl.value = '';
 }
 
 function selectConfirmPay(el, method) {
@@ -13109,8 +13156,12 @@ async function validateOrder() {
     caisseObj.orders = VENTES_PAR_CAISSE[caisse].length;
   }
 
-  // Générer et imprimer le ticket de caisse
-  printTicket(venteSaved, caisse);
+  // Générer et imprimer le document choisi : ticket de caisse (par défaut) ou facture
+  if(_posDocType === 'facture') {
+    _genererFactureDepuisVente(venteSaved, caisse);
+  } else {
+    printTicket(venteSaved, caisse);
+  }
 
   closeModal('confirmTicket');
   cart = [];
@@ -13126,7 +13177,7 @@ async function validateOrder() {
     const newNum = '#' + String(orderCounter).padStart(3, '0');
     cartTitle.innerHTML = `🛒 Commande <span style="font-family:'Space Mono';font-size:14px;color:var(--text2)">${newNum}</span>`;
   }
-  showNotif(`🎉 ${orderNum} — ${totalTTC.toLocaleString()} FCFA · ${confirmPayMethod === 'mixed' ? '🔀 Mixte' : (payLabels[confirmPayMethod]||'Espèces')} · 🖨️ Ticket imprimé`);
+  showNotif(`🎉 ${orderNum} — ${totalTTC.toLocaleString()} FCFA · ${confirmPayMethod === 'mixed' ? '🔀 Mixte' : (payLabels[confirmPayMethod]||'Espèces')} · ${_posDocType === 'facture' ? '📄 Facture générée' : '🖨️ Ticket imprimé'}`);
   refreshDashboard();
   _saveSessionImmediate(); // localStorage uniquement — pas de push Supabase immédiat
   // ✅ OPT REALTIME : 1 seul push Supabase après vente (au lieu de 2 : saveSession + direct)
@@ -13560,6 +13611,57 @@ function _initPhotosPreviews() {
   if(logoInput  && logo.startsWith('http'))  logoInput.value  = logo;
 }
 // ══════════════════════════════════════════════════════
+
+// ✅ Génère une Facture (module Factures) à partir d'une vente POS, au lieu
+// d'un simple ticket de caisse. Réutilise genFactNum/FACTURES/printFacture
+// du module Factures existant pour garder un numéro et un format cohérents.
+function _genererFactureDepuisVente(vente, caisse) {
+  try {
+    const lignes = (vente.items||[]).map(it => ({
+      desc: it.name || 'Article', qty: it.qty || 1, pu: it.price || 0, total: (it.qty||1) * (it.price||0)
+    }));
+    if(!lignes.length) {
+      showNotif('⚠️ Impossible de générer une facture sans articles — ticket imprimé à la place');
+      printTicket(vente, caisse);
+      return;
+    }
+    const sousTotal = lignes.reduce((a,l) => a + l.total, 0);
+    const remise = vente.remiseMontant || 0;
+    const ttc = Math.max(0, sousTotal - remise);
+    const tvaRate = 0.18;
+    const tva = Math.round(ttc * tvaRate / (1 + tvaRate));
+    const ht = ttc - tva;
+    const payMap = { cash:'especes', wave:'wave', orange:'orange', card:'carte', mixed:'especes' };
+    const payMethod = payMap[vente.payMethod] || 'especes';
+    const tiersNom = (vente.client && vente.client !== 'Client') ? vente.client : 'Client comptant';
+    const tiersTel = document.getElementById('ticket-telephone')?.value?.trim() || '';
+    const tiersEmail = document.getElementById('pos-facture-email')?.value?.trim() || '';
+    const tiersAdresse = document.getElementById('pos-facture-adresse')?.value?.trim() || '';
+
+    const factObj = {
+      id: 'F' + Date.now(),
+      num: genFactNum('client'),
+      type: 'client',
+      tiers: tiersNom, tiersEmail, tiersTel, tiersAdresse,
+      date: vente.date, echeance: '',
+      statut: 'payee', // ✅ vente déjà encaissée au POS → facture directement soldée
+      payMethod,
+      notes: `Générée automatiquement depuis la vente ${vente.orderNum} (${caisse})` + (vente.payMethod === 'mixed' ? ` · Paiement mixte : ${vente.payLabel||''}` : ''),
+      lignes, sousTotal, remise, ht, tva, ttc, tvaRate,
+      acompte: ttc, soldeRestant: 0,
+    };
+
+    FACTURES.push(factObj);
+    saveFacturesLocal();
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.factures().catch(e => console.error('push.factures (POS):', e));
+    if(typeof renderFactures === 'function') renderFactures();
+    setTimeout(() => printFacture(factObj.id), 150);
+  } catch(e) {
+    console.error('[_genererFactureDepuisVente]', e);
+    showNotif('⚠️ Erreur génération facture — ticket imprimé à la place');
+    printTicket(vente, caisse);
+  }
+}
 
 // ===== GÉNÉRATION DU TICKET DE CAISSE =====
 function printTicket(vente, caisse, isReprint) {
@@ -18336,6 +18438,7 @@ function renderRdvAgenda() {
           <div style="margin-top:4px;">${rdvStatutBadge(r.statut)}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button onclick='printRdv("${r.id}")' style="background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.3);color:var(--teal);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Imprimer">🖨️</button>
           <button onclick='editRdv("${r.id}")' style="background:rgba(245,158,42,0.12);border:1px solid rgba(245,158,42,0.25);color:var(--accent);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Modifier">✏️</button>
           <button onclick='deleteRdv("${r.id}")' style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);color:var(--red);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Supprimer">🗑️</button>
         </div>
@@ -18378,6 +18481,7 @@ function renderRdvListe() {
           <div style="margin-top:4px;">${rdvStatutBadge(r.statut)}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button onclick='printRdv("${r.id}")' style="background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.3);color:var(--teal);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Imprimer">🖨️</button>
           <button onclick='editRdv("${r.id}")' style="background:rgba(245,158,42,0.12);border:1px solid rgba(245,158,42,0.25);color:var(--accent);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Modifier">✏️</button>
           <button onclick='deleteRdv("${r.id}")' style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);color:var(--red);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Supprimer">🗑️</button>
         </div>
@@ -18583,6 +18687,118 @@ function openModalRdv(dateStr, heureStr) {
   document.getElementById('rdv-conflit-alert').style.display = 'none';
   showModal('rdv');
   setTimeout(() => document.getElementById('rdv-client-nom')?.focus(), 100);
+}
+
+// ─── IMPRESSION DU RDV (fiche/reçu de rendez-vous) ─────────────
+function printRdv(id) {
+  const r = (RDV_LIST||[]).find(x => x.id === id);
+  if(!r) return;
+  const resto   = RESTAURANT_INFO?.nom     || 'KEURGOUMAK';
+  const adresse = RESTAURANT_INFO?.adresse || 'Louga, Sénégal';
+  const tel     = RESTAURANT_INFO?.tel     || '';
+  const ninea   = RESTAURANT_INFO?.ninea   || '';
+  const logo    = RESTAURANT_INFO?.logo_url || '';
+  const dParts  = (r.date||'').split('-');
+  const dateFr  = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : (r.date||'');
+  const heureFin = rdvFmtHeureFin(r.heure, r.duree);
+  const statutMap = {
+    confirme:   { label:'✅ Confirmé',  bg:'#e8f9ee', color:'#1adb6a' },
+    en_attente: { label:'⏳ En attente', bg:'#fff7e6', color:'#f5a623' },
+    termine:    { label:'🏁 Terminé',   bg:'#f0edfb', color:'#7c5cbf' },
+    annule:     { label:'❌ Annulé',    bg:'#fdecec', color:'#f04444' },
+  };
+  const st = statutMap[r.statut] || statutMap.confirme;
+
+  const html = `<!DOCTYPE html><html lang="fr"><head>
+<meta charset="UTF-8">
+<title>RDV ${_escHTML(r.clientNom)} — ${dateFr}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+  body { font-family:'Inter',Arial,sans-serif; font-size:10pt; color:#1a1a2e; background:#fff; padding:16px 22px; max-width:560px; margin:0 auto; line-height:1.4; }
+  .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #f5a623; padding-bottom:12px; margin-bottom:16px; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .brand-logo { width:44px; height:44px; border-radius:8px; object-fit:cover; flex-shrink:0; }
+  .logo-name { font-size:20pt; font-weight:900; color:#f5a623; letter-spacing:-0.5px; }
+  .logo-sub  { font-size:7.5pt; color:#666; text-transform:uppercase; letter-spacing:2px; margin-top:2px; font-weight:600; }
+  .logo-meta { margin-top:7px; font-size:9pt; color:#444; line-height:1.6; }
+  .doc-info { text-align:right; }
+  .doc-type { font-size:13pt; font-weight:900; color:#1a1a2e; text-transform:uppercase; letter-spacing:1px; }
+  .statut-badge { display:inline-block; margin-top:8px; padding:4px 12px; border-radius:20px; font-size:9.5pt; font-weight:700; background:${st.bg}; color:${st.color}; }
+  .rdv-hero { background:linear-gradient(135deg,#f5a623,#e8440a); color:#fff; border-radius:12px; padding:18px 20px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; }
+  .rdv-hero-date { font-size:22pt; font-weight:900; }
+  .rdv-hero-time { font-size:11pt; font-weight:600; opacity:0.95; margin-top:2px; }
+  .rdv-hero-price { text-align:right; font-size:18pt; font-weight:900; }
+  .client-card { background:#f8f9fc; border-radius:8px; padding:14px; border:1.5px solid #e5e7eb; margin-bottom:14px; }
+  .client-label { font-size:7.5pt; text-transform:uppercase; letter-spacing:2px; color:#888; margin-bottom:5px; font-weight:700; }
+  .client-name  { font-size:13pt; font-weight:800; color:#1a1a2e; }
+  .client-meta  { font-size:9.5pt; color:#444; margin-top:4px; line-height:1.6; }
+  .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+  .detail-box { background:#f8f9fc; border:1.5px solid #e5e7eb; border-radius:8px; padding:10px 12px; }
+  .detail-label { font-size:7.5pt; text-transform:uppercase; letter-spacing:1.5px; color:#888; font-weight:700; margin-bottom:3px; }
+  .detail-val { font-size:11pt; font-weight:800; color:#1a1a2e; }
+  .notes-block { margin-top:6px; background:#fffbeb; border:1.5px solid #fde68a; border-radius:8px; padding:10px 14px; font-size:9.5pt; color:#78350f; line-height:1.6; }
+  .footer { margin-top:20px; border-top:2px solid #f5a623; padding-top:10px; text-align:center; font-size:8.5pt; color:#666; line-height:1.7; font-weight:500; }
+  @media print { body { padding:8px; } }
+</style>
+</head><body>
+  <div class="header">
+    <div class="brand">
+      ${logo ? `<img src="${logo}" class="brand-logo" alt="">` : ''}
+      <div>
+        <div class="logo-name">${_escHTML(resto)}</div>
+        <div class="logo-sub">Confirmation de rendez-vous</div>
+        <div class="logo-meta">${_escHTML(adresse)}${tel?'<br>📞 '+_escHTML(tel):''}${ninea?'<br>NINEA: '+_escHTML(ninea):''}</div>
+      </div>
+    </div>
+    <div class="doc-info">
+      <div class="doc-type">Rendez-vous</div>
+      <div class="statut-badge">${st.label}</div>
+    </div>
+  </div>
+
+  <div class="rdv-hero">
+    <div>
+      <div class="rdv-hero-date">${dateFr}</div>
+      <div class="rdv-hero-time">${(r.heure||'—').replace(':','h')} → ${heureFin}</div>
+    </div>
+    <div class="rdv-hero-price">${(r.prix||0).toLocaleString('fr-FR')} F</div>
+  </div>
+
+  <div class="client-card">
+    <div class="client-label">Client</div>
+    <div class="client-name">${_escHTML(r.clientNom||'—')}</div>
+    <div class="client-meta">${r.tel ? '📞 '+_escHTML(r.tel) : ''}</div>
+  </div>
+
+  <div class="detail-grid">
+    <div class="detail-box">
+      <div class="detail-label">Prestation</div>
+      <div class="detail-val">${_escHTML(r.service||'—')}</div>
+    </div>
+    <div class="detail-box">
+      <div class="detail-label">Durée</div>
+      <div class="detail-val">${r.duree||0} min</div>
+    </div>
+    ${r.employe ? `<div class="detail-box" style="grid-column:1 / -1;">
+      <div class="detail-label">Coiffeuse / Coiffeur</div>
+      <div class="detail-val">👤 ${_escHTML(r.employe)}</div>
+    </div>` : ''}
+  </div>
+
+  ${r.notes ? `<div class="notes-block">📝 ${_escHTML(r.notes)}</div>` : ''}
+
+  <div class="footer">
+    Merci de votre confiance !<br>
+    Merci d'arriver quelques minutes avant l'heure de votre rendez-vous.
+  </div>
+
+  <script>window.onload = () => window.print();<\/script>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  if(w) { w.document.write(html); w.document.close(); }
+  else showNotif('⚠️ Autorisez les pop-ups pour imprimer');
 }
 
 function editRdv(id) {
