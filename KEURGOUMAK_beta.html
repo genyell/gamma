@@ -115,7 +115,7 @@
   ];
   // Clés préfixes (commencent par) aussi isolées
   const _KG_PREFIXES = [
-    'kg_cmd_ouvert_','kg_deleted_orders_','kg_stock_pending_',
+    'kg_cmd_ouvert_','kg_deleted_orders_','kg_stock_pending_','kg_deleted_stock_',
     'kg-historique-clotures-','kg-rh-','kg_rh_',
   ];
 
@@ -16977,9 +16977,34 @@ function deleteStockArticle(sIdx) {
   const s = STOCK_DATA[sIdx];
   if(!s) return;
   if(!confirm(`Supprimer "${s.name}" du stock ?`)) return;
-  if(s.sbId && KGSync.isConnected) {
-    KGSync.getClient()?.from('stock_items').delete().eq('id', s.sbId).catch(()=>{});
+
+  // ✅ FIX SUPPRESSION DÉFINITIVE : mémoriser (tombstone) l'article supprimé
+  // AVANT tout. Sans ça, si un pullAll()/loadStockFromSupabase() se déclenche
+  // pendant que la suppression Supabase est encore en vol (ou si elle échoue
+  // silencieusement à cause du .catch(()=>{})), l'article est retrouvé dans
+  // stock_items et RÉ-AJOUTÉ automatiquement à STOCK_DATA → il "revenait"
+  // juste après suppression, exactement comme pour les ventes (kg_deleted_orders_).
+  try {
+    if(!window._KG_DELETED_STOCK) window._KG_DELETED_STOCK = new Set();
+    if(s.sbId) window._KG_DELETED_STOCK.add(String(s.sbId));
+    if(s.name) window._KG_DELETED_STOCK.add(('name:' + s.name.trim().toLowerCase()));
+    const _rid = (typeof window._KG_RESTAURANT_ID !== 'undefined' ? window._KG_RESTAURANT_ID : '');
+    const _key = 'kg_deleted_stock_' + _rid;
+    const _existing = JSON.parse(localStorage.getItem(_key) || '[]');
+    const _merged = Array.from(new Set([..._existing, ...window._KG_DELETED_STOCK]));
+    localStorage.setItem(_key, JSON.stringify(_merged));
+  } catch(e) { console.warn('[deleteStockArticle] tombstone:', e); }
+
+  const _sbIdToDelete = s.sbId;
+  if(_sbIdToDelete && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    // On relance la suppression Supabase même en cas d'échec réseau ponctuel :
+    // le tombstone local garantit de toute façon que l'article ne reviendra
+    // jamais dans l'UI, même si cette requête échoue.
+    KGSync.getClient()?.from('stock_items').delete().eq('id', _sbIdToDelete)
+      .then(({error}) => { if(error) console.warn('[deleteStockArticle] delete Supabase échoué (tombstone actif):', error); })
+      .catch(e => console.warn('[deleteStockArticle] delete Supabase erreur (tombstone actif):', e));
   }
+
   STOCK_DATA.splice(sIdx, 1);
   window._kgStockModifiedAt = Date.now();
   renderStock();
@@ -18582,6 +18607,9 @@ function renderRdvListe() {
           ${_rdvIsAdmin() ? `<button onclick='deleteRdv("${r.id}")' style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);color:var(--red);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Supprimer">🗑️</button>` : ''}
         </div>
       </div>`).join('') + `</div>`;
+
+  // S'assure que le bandeau de rappels reste toujours synchronisé avec l'agenda affiché
+  renderRdvRappelsBanner();
 }
 
 function exportRdvCSV() {
@@ -19044,6 +19072,26 @@ function _rdvDateFr(dateStr) {
   return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : dateStr;
 }
 
+// Calcule le temps restant avant un RDV (ex: "2 jours 4h", "3h30", "45 min")
+// Retourne null si la date est passée ou invalide.
+function _rdvTempsRestant(dateStr, heureStr) {
+  try {
+    const [y, m, d] = (dateStr || '').split('-').map(Number);
+    const [hh, mm] = (heureStr || '0:0').split(':').map(Number);
+    if(!y || !m || !d) return null;
+    const target = new Date(y, m - 1, d, hh || 0, mm || 0);
+    const diffMs = target - new Date();
+    if(diffMs <= 0) return null;
+    const totalMin = Math.round(diffMs / 60000);
+    const days = Math.floor(totalMin / 1440);
+    const hours = Math.floor((totalMin % 1440) / 60);
+    const mins = totalMin % 60;
+    if(days > 0) return `${days} jour${days > 1 ? 's' : ''}${hours > 0 ? ' ' + hours + 'h' : ''}`;
+    if(hours > 0) return `${hours}h${mins > 0 ? String(mins).padStart(2,'0') : ''}`;
+    return `${mins} min`;
+  } catch(e) { return null; }
+}
+
 function envoyerConfirmationRdvWhatsApp(id) {
   const r = (RDV_LIST||[]).find(x => x.id === id);
   if(!r) return;
@@ -19051,9 +19099,11 @@ function envoyerConfirmationRdvWhatsApp(id) {
   const resto = RESTAURANT_INFO?.nom || 'notre salon';
   const heureFin = rdvFmtHeureFin(r.heure, r.duree);
   const acompteLigne = (r.acompte && r.acompte > 0 && !r.acompteVerse)
-    ? `\n\n⚠️ Un acompte de ${r.acompte.toLocaleString('fr-FR')} FCFA est demandé pour confirmer ce rendez-vous.`
+    ? `\n⚠️ Acompte demandé : ${r.acompte.toLocaleString('fr-FR')} FCFA pour confirmer ce rendez-vous.`
     : '';
-  const msg = `Bonjour ${r.clientNom} 👋\n\nVotre rendez-vous chez *${resto}* est confirmé ✅\n\n📅 ${_rdvDateFr(r.date)}\n🕐 ${(r.heure||'').replace(':','h')} → ${heureFin}\n💇 ${r.service||''}\n💰 ${(r.prix||0).toLocaleString('fr-FR')} FCFA${acompteLigne}\n\nMerci de votre confiance et à bientôt !`;
+  const tempsRestant = _rdvTempsRestant(r.date, r.heure);
+  const compteALebours = tempsRestant ? `\n⏳ Dans ${tempsRestant}` : '';
+  const msg = `✅ *Confirmation de rendez-vous*\n\nBonjour ${r.clientNom},\n\nNous avons le plaisir de vous confirmer votre rendez-vous chez *${resto}*.\n\n📅 Date : ${_rdvDateFr(r.date)}\n🕐 Horaire : ${(r.heure||'').replace(':','h')} → ${heureFin}\n💇 Prestation : ${r.service||''}\n💰 Montant : ${(r.prix||0).toLocaleString('fr-FR')} FCFA${acompteLigne}${compteALebours}\n\nMerci de votre confiance. Nous serons ravis de vous accueillir.\n\n${resto}`;
   const wa = `https://wa.me/${_rdvFormatTelWa(r.tel)}?text=${encodeURIComponent(msg)}`;
   window.open(wa, '_blank');
 }
@@ -19064,7 +19114,9 @@ function envoyerRappelRdvWhatsApp(id) {
   if(!r.tel) { showNotif('⚠️ Aucun numéro de téléphone pour ce client'); return; }
   const resto = RESTAURANT_INFO?.nom || 'notre salon';
   const heureFin = rdvFmtHeureFin(r.heure, r.duree);
-  const msg = `Bonjour ${r.clientNom} 👋\n\nPetit rappel 🔔 : vous avez rendez-vous *aujourd'hui* chez *${resto}*\n\n🕐 ${(r.heure||'').replace(':','h')} → ${heureFin}\n💇 ${r.service||''}\n\nÀ tout à l'heure !`;
+  const tempsRestant = _rdvTempsRestant(r.date, r.heure);
+  const compteALebours = tempsRestant ? `\n⏳ Dans ${tempsRestant}` : '';
+  const msg = `🔔 *Rappel de rendez-vous*\n\nBonjour ${r.clientNom},\n\nNous vous rappelons votre rendez-vous chez *${resto}*.\n\n📅 Date : ${_rdvDateFr(r.date)}\n🕐 Horaire : ${(r.heure||'').replace(':','h')} → ${heureFin}\n💇 Prestation : ${r.service||''}${compteALebours}\n\nNous vous attendons avec plaisir.\n\n${resto}`;
   const wa = `https://wa.me/${_rdvFormatTelWa(r.tel)}?text=${encodeURIComponent(msg)}`;
   window.open(wa, '_blank');
   r.rappelEnvoye = true;
@@ -31146,9 +31198,33 @@ async function loadStockFromSupabase() {
     const { data, error } = await sb.from('stock_items')
       .select('*').eq('restaurant_id', rid).order('name');
     if(error || !data || data.length === 0) return;
+
+    // ✅ FIX SUPPRESSION DÉFINITIVE : ignorer (et re-tenter de supprimer) tout
+    // article présent dans le tombstone local kg_deleted_stock_. Sans ça, un
+    // article supprimé côté client mais pas encore (ou pas) supprimé côté
+    // Supabase revenait automatiquement dans STOCK_DATA à chaque pull.
+    let _deletedStockSet = new Set();
+    try {
+      const _rid5 = (typeof window._KG_RESTAURANT_ID !== 'undefined' ? window._KG_RESTAURANT_ID : '');
+      const _delRaw5 = JSON.parse(localStorage.getItem('kg_deleted_stock_' + _rid5) || '[]');
+      _delRaw5.forEach(v => _deletedStockSet.add(v));
+      if(window._KG_DELETED_STOCK) window._KG_DELETED_STOCK.forEach(v => _deletedStockSet.add(v));
+    } catch(e) {}
+
     // ✅ FIX FUSION COMPLÈTE : chaque article Supabase est garanti dans STOCK_DATA
     // Matching : sbId > nom (insensible casse) — lie aussi les articles créés hors-ligne
     data.forEach(d => {
+      if(_deletedStockSet.size > 0) {
+        const _byId   = _deletedStockSet.has(String(d.id));
+        const _byName = d.name && _deletedStockSet.has('name:' + d.name.trim().toLowerCase());
+        if(_byId || _byName) {
+          // Article déjà supprimé localement mais toujours présent côté Supabase
+          // (échec réseau précédent) → on ne le réaffiche pas et on retente sa
+          // suppression définitive.
+          try { sb.from('stock_items').delete().eq('id', d.id).catch(()=>{}); } catch(e) {}
+          return;
+        }
+      }
       let idx = STOCK_DATA.findIndex(s => s.sbId === d.id);
       if(idx < 0) idx = STOCK_DATA.findIndex(s => s.name.trim().toLowerCase() === d.name.trim().toLowerCase());
       if(idx >= 0) {
