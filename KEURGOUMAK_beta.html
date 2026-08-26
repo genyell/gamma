@@ -41512,7 +41512,12 @@ async function _pushTicketAttenteSupabase(ticket) {
     const sb  = KGSync?.getClient?.();
     const rid = window._KG_RESTAURANT_ID;
     if(!sb || !rid) return;
-    await sb.from('tickets_en_attente').upsert({
+    // ✅ FIX : la réponse d'un upsert Supabase échoué ne lève PAS d'exception JS —
+    // l'erreur arrive dans { error }. Sans la vérifier, un échec (ex: colonne
+    // manquante côté base, RLS, etc.) passait inaperçu : le ticket restait
+    // seulement en local, puis disparaissait au prochain pull qui écrasait la
+    // liste locale avec la version (vide) de Supabase — sur TOUS les appareils.
+    const { error: _pushErr } = await sb.from('tickets_en_attente').upsert({
       id:             ticket.id,
       restaurant_id:  rid,
       caisse:         ticket.caisse,
@@ -41530,6 +41535,10 @@ async function _pushTicketAttenteSupabase(ticket) {
       ticket_date:    ticket.date,
       created_at:     ticket.createdAt
     }, { onConflict: 'id' });
+    if(_pushErr) {
+      console.error('[tickets_attente push] ÉCHEC synchro Supabase — le ticket restera local uniquement :', _pushErr);
+      return;
+    }
     // ✅ FIX : signaler aux autres appareils qu'un ticket en attente vient de changer,
     // pour qu'ils le voient tout de suite sans devoir se déconnecter/reconnecter.
     try {
@@ -41593,17 +41602,23 @@ async function _pullTicketsAttenteSupabase() {
     // minuit et pas encore payé restait "en attente" mais disparaissait silencieusement
     // du prochain rechargement une fois la date changée. Un ticket en attente le reste
     // jusqu'à ce qu'il soit payé ou supprimé, peu importe le jour.
-    const { data } = await sb.from('tickets_en_attente')
+    const { data, error: _pullErr } = await sb.from('tickets_en_attente')
       .select('*')
       .eq('restaurant_id', rid)
       .order('created_at', { ascending: false });
+    // ✅ FIX : si la requête Supabase échoue (erreur réseau, RLS, colonne
+    // manquante...), NE PAS toucher à la liste locale. Avant, une erreur
+    // silencieuse pouvait laisser `data` vide/undefined et le code plus bas
+    // écrasait quand même TICKETS_ATTENTE, faisant disparaître les tickets
+    // en attente sur tous les appareils au prochain rafraîchissement.
+    if(_pullErr) { console.error('[tickets_attente pull] ÉCHEC lecture Supabase :', _pullErr); return; }
     if(data) {
       // ✅ FIX : ne pas réintroduire un ticket déjà validé localement
       // On garde uniquement les tickets Supabase qui ne sont PAS dans une liste noire locale
       let _blacklist = [];
       try { _blacklist = JSON.parse(_lsGet('kg-tickets-valides') || '[]'); } catch(e) {}
 
-      TICKETS_ATTENTE = data
+      const _remoteTickets = data
         .filter(r => !_blacklist.includes(r.id))  // exclure les tickets déjà encaissés
         .map(r => ({
           id:           r.id,
@@ -41622,6 +41637,18 @@ async function _pullTicketsAttenteSupabase() {
           date:         r.ticket_date,
           createdAt:    r.created_at
         }));
+
+      // ✅ FIX PRINCIPAL : FUSIONNER au lieu d'ÉCRASER. Un ticket créé sur cet
+      // appareil peut ne pas (encore, ou jamais si la synchro échoue) exister
+      // côté Supabase. Avant, il disparaissait dès qu'un pull renvoyait une
+      // liste ne le contenant pas — y compris juste après sa propre création.
+      // On garde donc les tickets locaux absents du pull (et non blacklistés),
+      // en plus de ceux renvoyés par Supabase.
+      _loadTicketsAttente();
+      const _remoteIds = new Set(_remoteTickets.map(t => t.id));
+      const _localOnly = TICKETS_ATTENTE.filter(t => !_remoteIds.has(t.id) && !_blacklist.includes(t.id));
+
+      TICKETS_ATTENTE = [..._remoteTickets, ..._localOnly];
       _saveTicketsAttente();
       _updateAttenteCounter();
       if(typeof renderOrders === 'function') renderOrders('all');
