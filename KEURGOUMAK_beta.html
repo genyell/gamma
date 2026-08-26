@@ -5545,7 +5545,7 @@ function _syncSportVentes()       { return []; }
     </div>
 
     <!-- CAISSE POS -->
-    <div id="view-caisse" class="view fade-in">
+    <div id="view-caisse" class="view fade-in" style="padding-bottom:100px;">
       <!-- Bandeau statut session -->
       <div id="pos-session-bar" style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:10px;">
@@ -5628,7 +5628,7 @@ function _syncSportVentes()       { return []; }
     </div>
 
     <!-- COMMANDES -->
-    <div id="view-commandes" class="view fade-in">
+    <div id="view-commandes" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
         <button class="cat-btn active" onclick="filterOrders('all', this)" id="tab-all">Toutes (0)</button>
         <button class="cat-btn" onclick="filterOrders('waiting_payment', this)" id="tab-waiting-payment" style="border-color:var(--accent);color:var(--accent);">⏳ En attente paiement <span id="badge-waiting-payment" style="background:var(--accent);color:#000;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;margin-left:4px;display:none;">0</span></button>
@@ -5820,7 +5820,7 @@ function _syncSportVentes()       { return []; }
 
     <!-- ═══ MODAL SCAN QR — VENTE RAPIDE ═══ -->
     <!-- MENU -->
-    <div id="view-menu" class="view fade-in">
+    <div id="view-menu" class="view fade-in" style="padding-bottom:100px;">
       <!-- Onglets Menu / Catégories -->
       <div style="display:flex;gap:8px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px;">
         <button class="cat-btn active" id="menu-tab-produits" onclick="switchMenuTab('produits',this)">🍽️ Produits</button>
@@ -5860,7 +5860,7 @@ function _syncSportVentes()       { return []; }
     </div>
 
     <!-- STOCK -->
-    <div id="view-stock" class="view fade-in">
+    <div id="view-stock" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
         <button class="cat-btn active" id="stock-tab-liste" onclick="switchStockTab('liste',this)">📦 Stock actuel</button>
         <button class="cat-btn" id="stock-tab-depots" onclick="switchStockTab('depots',this)">🏭 Dépôts</button>
@@ -5930,7 +5930,7 @@ function _syncSportVentes()       { return []; }
     </div>
 
     <!-- INVENTAIRE -->
-    <div id="view-inventaire" class="view fade-in">
+    <div id="view-inventaire" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">
         <button class="cat-btn active" id="inv-tab-saisie" onclick="switchInvTab('saisie',this)">📝 Prise d'inventaire</button>
         <button class="cat-btn" id="inv-tab-historique" onclick="switchInvTab('historique',this)">📜 Historique</button>
@@ -6009,7 +6009,7 @@ function _syncSportVentes()       { return []; }
     </div>
 
     <!-- PRÉPARATION -->
-    <div id="view-preparation" class="view fade-in">
+    <div id="view-preparation" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
         <button class="cat-btn active" id="prep-tab-recettes" onclick="switchPrepTab('recettes',this)">📋 Fiches recettes</button>
         <button class="cat-btn" id="prep-tab-journal" onclick="switchPrepTab('journal',this)">📅 Journal</button>
@@ -6051,7 +6051,7 @@ function _syncSportVentes()       { return []; }
 
     <!-- CLIENTS -->
     <!-- ════════════════════ VUE LIVREURS ════════════════════ -->
-    <div id="view-livreurs" class="view fade-in">
+    <div id="view-livreurs" class="view fade-in" style="padding-bottom:100px;">
       <div style="max-width:700px;margin:0 auto;padding:0 4px;">
         <!-- Header -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
@@ -6107,7 +6107,7 @@ function _syncSportVentes()       { return []; }
 
 
     <!-- ════════════════════ VUE SERVEURS ════════════════════ -->
-    <div id="view-serveurs" class="view fade-in">
+    <div id="view-serveurs" class="view fade-in" style="padding-bottom:100px;">
       <div style="max-width:700px;margin:0 auto;padding:0 4px;">
         <!-- Onglets -->
         <div style="display:flex;gap:8px;margin-bottom:20px;background:var(--surface);border-radius:12px;padding:6px;border:1px solid var(--border);">
@@ -6183,7 +6183,7 @@ function _syncSportVentes()       { return []; }
     </div>
     <!-- ════════════════════════════════════════════════════════ -->
 
-    <div id="view-clients" class="view fade-in">
+    <div id="view-clients" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
         <input class="search-input" type="text" id="client-search" placeholder="🔍 Rechercher un client..." oninput="filterClients()" style="width:260px;">
         <button class="cat-btn active" id="ctab-tous" onclick="filterClientsCat('tous',this)">Tous</button>
@@ -6195,7 +6195,7 @@ function _syncSportVentes()       { return []; }
     </div>
 
     <!-- FOURNISSEURS -->
-    <div id="view-fournisseurs" class="view fade-in">
+    <div id="view-fournisseurs" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
         <button class="cat-btn active" id="ftab-liste" onclick="switchFournTab('liste',this)">🏭 Fournisseurs</button>
         <button class="cat-btn" id="ftab-commandes" onclick="switchFournTab('commandes',this)">📋 Commandes fournisseurs</button>
@@ -6240,7 +6240,7 @@ function _syncSportVentes()       { return []; }
     </div>
 
 
-<div id="view-stats" class="view fade-in">
+<div id="view-stats" class="view fade-in" style="padding-bottom:100px;">
       <!-- KPIs réels -->
       <div class="stats-grid" style="margin-bottom:12px;">
         <div class="stat-card" style="--card-color:linear-gradient(90deg,var(--accent),var(--accent2))">
@@ -6300,7 +6300,7 @@ function _syncSportVentes()       { return []; }
     </div>
 
     <!-- GESTION CAISSES -->
-    <div id="view-caisses" class="view fade-in">
+    <div id="view-caisses" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
         <div>
           <div style="font-size:14px;color:var(--text2)" id="caisses-status-label">8 caisses configurées</div>
@@ -6315,7 +6315,7 @@ function _syncSportVentes()       { return []; }
     </div>
 
     <!-- FERMETURE DE CAISSE -->
-    <div id="view-fermeture" class="view fade-in">
+    <div id="view-fermeture" class="view fade-in" style="padding-bottom:100px;">
       <!-- Sélection caisse -->
       <div style="margin-bottom:20px;">
         <div style="font-size:14px;color:var(--text2);margin-bottom:12px;">Sélectionner la caisse à clôturer :</div>
@@ -6449,7 +6449,7 @@ function _syncSportVentes()       { return []; }
     </div>
 
     <!-- HISTORIQUE CLÔTURES -->
-    <div id="view-historique" class="view fade-in">
+    <div id="view-historique" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">
         <button class="cat-btn active" id="hist-tab-clotures" onclick="switchHistTab('clotures',this)">📋 Clôtures</button>
         <button class="cat-btn" id="hist-tab-tickets" onclick="switchHistTab('tickets',this)">🎫 Tickets Archivés</button>
@@ -6604,7 +6604,7 @@ function _syncSportVentes()       { return []; }
     <!-- ================================================================ -->
     <!-- FACTURES                                                          -->
     <!-- ================================================================ -->
-    <div id="view-factures" class="view fade-in">
+    <div id="view-factures" class="view fade-in" style="padding-bottom:100px;">
 
       <!-- ONGLETS -->
       <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
@@ -6694,7 +6694,7 @@ function _syncSportVentes()       { return []; }
     </div>
 
     <!-- DÉPENSES -->
-    <div id="view-depenses" class="view fade-in">
+    <div id="view-depenses" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">
         <select id="dep-filtre-cat" class="form-input" style="width:160px;padding:6px 10px;font-size:13px;" onchange="renderDepenses()">
           <option value="">Toutes catégories</option>
@@ -6789,7 +6789,7 @@ function _syncSportVentes()       { return []; }
       </div>
     </div>
 
-    <div id="view-settings" class="view fade-in">
+    <div id="view-settings" class="view fade-in" style="padding-bottom:100px;">
       <div class="grid-2">
         <div class="card">
           <div class="card-title">Informations du restaurant</div>
@@ -7053,7 +7053,7 @@ Revenez nous voir bient&#244;t.</textarea>
     </div>
 
     <!-- UTILISATEURS -->
-    <div id="view-utilisateurs" class="view fade-in">
+    <div id="view-utilisateurs" class="view fade-in" style="padding-bottom:100px;">
       <!-- TABS -->
       <div style="display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;align-items:center;">
         <button class="cat-btn active" id="utab-liste" onclick="switchUTab('liste')">👥 Liste utilisateurs</button>
@@ -7089,7 +7089,7 @@ Revenez nous voir bient&#244;t.</textarea>
     <!-- ═══════════════════════════════════════════════════════
          MODULE MANÈGE ENFANTS
     ════════════════════════════════════════════════════════ -->
-    <div id="view-qrcommandes" class="view fade-in">
+    <div id="view-qrcommandes" class="view fade-in" style="padding-bottom:100px;">
 
       <!-- BANDEAU AVERTISSEMENT CAISSE 3 FERMÉE -->
       <div id="qr-caisse3-warning" style="display:none;align-items:center;gap:14px;background:rgba(231,76,60,0.12);border:1.5px solid var(--red,#e74c3c);border-radius:12px;padding:14px 18px;margin-bottom:16px;">
@@ -7243,7 +7243,7 @@ Revenez nous voir bient&#244;t.</textarea>
     </div>
 
     <!-- ── RAPPORT X ── -->
-    <div id="view-rapportx" class="view fade-in">
+    <div id="view-rapportx" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:20px;">
         <div style="padding:7px 13px;background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.3);border-radius:8px;font-size:12px;color:var(--teal);flex:1;min-width:180px;">🟢 Consultation sans fermeture — Les compteurs restent ouverts</div>
         <div style="font-family:'Space Mono';font-size:12px;color:var(--text2);white-space:nowrap;">Snapshot : <span style="color:var(--accent)" id="snapshot-time"></span></div>
@@ -7264,7 +7264,7 @@ Revenez nous voir bient&#244;t.</textarea>
     </div>
 
     <!-- GESTION SHIFTS -->
-    <div id="view-shift" class="view fade-in">
+    <div id="view-shift" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
         <div style="font-size:14px;color:var(--text2)">Shift du jour — <strong style="color:var(--text)" id="shift-date-label"></strong></div>
         <button class="btn btn-primary" style="margin-left:auto;" onclick="showModal('addShift')">+ Nouveau shift</button>
@@ -7291,7 +7291,7 @@ Revenez nous voir bient&#244;t.</textarea>
     </div>
 
     <!-- RÉCONCILIATION MENSUELLE -->
-    <div id="view-reconciliation" class="view fade-in">
+    <div id="view-reconciliation" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
         <select class="form-input" style="width:auto;" id="recon-month" onchange="renderReconciliation()">
         </select>
@@ -7346,7 +7346,7 @@ Revenez nous voir bient&#244;t.</textarea>
 
 
     <!-- RH & SALAIRES -->
-    <div id="view-rh" class="view fade-in">
+    <div id="view-rh" class="view fade-in" style="padding-bottom:100px;">
 
       <!-- TABS -->
       <div style="display:flex;gap:10px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
@@ -7430,7 +7430,7 @@ Revenez nous voir bient&#244;t.</textarea>
     </div>
 
     <!-- COMPTABILITE -->
-    <div id="view-compta" class="view fade-in">
+    <div id="view-compta" class="view fade-in" style="padding-bottom:100px;">
 
       <!-- TABS -->
       <div style="display:flex;gap:10px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
@@ -7604,7 +7604,7 @@ Revenez nous voir bient&#244;t.</textarea>
   <!-- ══════════════════════════════════════════════════════════════════
        BANQUE — Suivi des comptes bancaires
   ══════════════════════════════════════════════════════════════════ -->
-  <div id="view-banque" class="view fade-in">
+  <div id="view-banque" class="view fade-in" style="padding-bottom:100px;">
 
     <!-- TOPBAR ACTIONS -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
@@ -7745,7 +7745,7 @@ Revenez nous voir bient&#244;t.</textarea>
      MATÉRIEL & AMORTISSEMENTS
 ══════════════════════════════════════════════════════════════════ -->
 <!-- VIEW -->
-<div id="view-materiel" class="view fade-in">
+<div id="view-materiel" class="view fade-in" style="padding-bottom:100px;">
   <!-- TABS -->
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:18px;">
     <button class="cat-btn active" id="mat-tab-liste"   onclick="switchMatTab('liste',this)">🖨️ Parc matériel</button>
@@ -7838,7 +7838,7 @@ Revenez nous voir bient&#244;t.</textarea>
 <!-- ══════════════════════════════════════════════════════════════
      📢 ANNONCES & PUBLICITÉS
 ══════════════════════════════════════════════════════════════ -->
-<div id="view-annonces" class="view fade-in">
+<div id="view-annonces" class="view fade-in" style="padding-bottom:100px;">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
     <div>
       <h2 style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px;">📢 Annonces & Publicités</h2>
@@ -7882,7 +7882,7 @@ Revenez nous voir bient&#244;t.</textarea>
 <!-- ══════════════════════════════════════════════════════════════
      ⚽ TERRAIN DE FOOTBALL — RÉSERVATIONS PAR HEURE
 ══════════════════════════════════════════════════════════════ -->
-<div id="view-terrain" class="view fade-in">
+<div id="view-terrain" class="view fade-in" style="padding-bottom:100px;">
 
   <!-- KPI HEADER -->
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
@@ -7986,7 +7986,7 @@ Revenez nous voir bient&#244;t.</textarea>
 <!-- ══════════════════════════════════════════════════════════════
      🏠 SALLE DE LOCATION — RÉSERVATIONS & CONTRATS
 ══════════════════════════════════════════════════════════════ -->
-<div id="view-salle" class="view fade-in">
+<div id="view-salle" class="view fade-in" style="padding-bottom:100px;">
 
   <!-- KPI HEADER -->
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
@@ -8101,7 +8101,7 @@ Revenez nous voir bient&#244;t.</textarea>
 <!-- ═══════════════════════════════════════════════════════════════
      MODULE SALLE DE SPORT — Abonnements mensuels + QR Code accès
      ═══════════════════════════════════════════════════════════════ -->
-<div id="view-sport" class="view fade-in">
+<div id="view-sport" class="view fade-in" style="padding-bottom:100px;">
 
   <!-- KPI HEADER -->
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
@@ -8242,7 +8242,7 @@ Revenez nous voir bient&#244;t.</textarea>
 
 
 <!-- ════════════════════ VUE HOTEL ════════════════════ -->
-<div id="view-hotel" class="view fade-in">
+<div id="view-hotel" class="view fade-in" style="padding-bottom:100px;">
 
   <!-- KPI HEADER -->
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
@@ -8389,7 +8389,7 @@ Revenez nous voir bient&#244;t.</textarea>
 <!-- ══════════════════════════════════════════════════════════════
      📅 PRENDRE RDV — AGENDA DE RENDEZ-VOUS (salon, institut, etc.)
 ══════════════════════════════════════════════════════════════ -->
-<div id="view-rdv" class="view fade-in">
+<div id="view-rdv" class="view fade-in" style="padding-bottom:100px;">
 
   <!-- KPI HEADER -->
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
@@ -8422,6 +8422,7 @@ Revenez nous voir bient&#244;t.</textarea>
       <button class="cat-btn" id="rdv-tab-liste" onclick="switchRdvTab('liste',this)">📋 Tous les RDV</button>
       <button class="cat-btn" id="rdv-tab-stats" onclick="switchRdvTab('stats',this)">📊 Statistiques</button>
       <button class="cat-btn" id="rdv-tab-services" onclick="switchRdvTab('services',this)">💇 Services & tarifs</button>
+      <button class="cat-btn" id="rdv-tab-historique" onclick="switchRdvTab('historique',this)">🕓 Historique</button>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <input type="date" class="form-input" id="rdv-date-picker" style="width:160px;" onchange="renderRdvAgenda()">
@@ -8432,6 +8433,7 @@ Revenez nous voir bient&#244;t.</textarea>
 
   <!-- PANEL AGENDA DU JOUR -->
   <div id="rdv-panel-agenda">
+    <div id="rdv-rappels-banner"></div>
     <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Rendez-vous triés par heure pour la date sélectionnée.</div>
     <div id="rdv-agenda-container"></div>
   </div>
@@ -8465,6 +8467,23 @@ Revenez nous voir bient&#244;t.</textarea>
       <button class="btn btn-primary" onclick="openModalRdvService()">+ Nouveau service</button>
     </div>
     <div id="rdv-services-content"></div>
+  </div>
+
+  <!-- PANEL HISTORIQUE (RDV passés) -->
+  <div id="rdv-panel-historique" style="display:none;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+      <input class="form-input" id="rdv-hist-search" placeholder="🔍 Chercher un nom, téléphone..." oninput="renderRdvHistorique()" style="width:260px;max-width:100%;">
+      <select class="form-input" id="rdv-hist-filtre-statut" onchange="renderRdvHistorique()" style="width:170px;">
+        <option value="">Tous les statuts</option>
+        <option value="confirme">✅ Confirmé</option>
+        <option value="en_attente">⏳ En attente</option>
+        <option value="termine">🏁 Terminé</option>
+        <option value="annule">❌ Annulé</option>
+      </select>
+      <button class="btn btn-ghost" onclick="exportRdvHistoriqueCSV()">⬇️ Export CSV</button>
+    </div>
+    <div id="rdv-hist-summary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px;"></div>
+    <div id="rdv-historique-content"></div>
   </div>
 </div>
 
@@ -8589,6 +8608,27 @@ Revenez nous voir bient&#244;t.</textarea>
         <option value="termine">🏁 Terminé</option>
         <option value="annule">❌ Annulé</option>
       </select>
+    </div>
+
+    <!-- ✅ Option Acompte — réduit les no-shows -->
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="rdv-acompte-demande" onchange="toggleRdvAcompteFields()">
+        <span class="form-label" style="margin:0;">💰 Demander un acompte pour ce RDV</span>
+      </label>
+    </div>
+    <div id="rdv-acompte-fields" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Montant de l'acompte (FCFA)</label>
+          <input class="form-input" type="number" id="rdv-acompte-montant" min="0" step="500" placeholder="Ex: 3000">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text2);">
+            <input type="checkbox" id="rdv-acompte-verse"> Déjà reçu
+          </label>
+        </div>
+      </div>
     </div>
 
     <div class="form-group">
@@ -14884,7 +14924,7 @@ function renderMenu(cat, subcat) {
         ${(_menuImgSrc => { const _isImg = _menuImgSrc && (_menuImgSrc.startsWith('data:') || _menuImgSrc.startsWith('http') || _menuImgSrc.startsWith('//') || _menuImgSrc.includes('ibb.co')); const _finalSrc = (_isImg && !_menuImgSrc.startsWith('http') && !_menuImgSrc.startsWith('data:') && !_menuImgSrc.startsWith('//')) ? 'https://' + _menuImgSrc : _menuImgSrc; return _isImg ? '<img src="' + _finalSrc + '" style="width:80px;height:80px;object-fit:cover;border-radius:12px;position:relative;z-index:1;" alt="" onError="this.remove()">' : '<span style="font-size:52px;position:relative;z-index:1;">' + (_menuImgSrc || '🍽️') + '</span>'; })(item.image_url || item.icon || '')}
         ${item.tag ? `<div class="menu-tag">${item.tag}</div>` : ''}
         ${stockBadge}
-        ${isManager ? `<button onclick="event.stopPropagation();openEditMenuItemById('${menuItemId}'||${menuIdx})" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:white;font-size:12px;padding:3px 8px;cursor:pointer;z-index:2;" title="Modifier le produit">✏️</button>` : ''}
+        ${isManager ? `<button onclick="event.stopPropagation();openEditMenuItemById('${menuItemId}',${menuIdx})" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:white;font-size:12px;padding:3px 8px;cursor:pointer;z-index:2;" title="Modifier le produit">✏️</button>` : ''}
       </div>
       <div class="menu-body">
         <div class="menu-name">${item.name}</div>
@@ -14914,7 +14954,7 @@ function renderMenu(cat, subcat) {
           </div>
           <div style="display:flex;gap:6px;align-items:center;">
             ${isManager ? `
-              <button onclick="event.stopPropagation();openEditMenuItemById('${menuItemId}'||${menuIdx})" title="Modifier l'article"
+              <button onclick="event.stopPropagation();openEditMenuItemById('${menuItemId}',${menuIdx})" title="Modifier l'article"
                 style="width:28px;height:28px;border-radius:50%;background:rgba(245,166,35,0.15);border:1px solid rgba(245,166,35,0.4);color:var(--accent);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;"
                 onmouseover="this.style.background='rgba(245,166,35,0.3)'" onmouseout="this.style.background='rgba(245,166,35,0.15)'">✏️</button>
               <button onclick="event.stopPropagation();deleteMenuItem(${menuIdx})" title="Supprimer l'article"
@@ -16944,6 +16984,13 @@ function deleteStockArticle(sIdx) {
   window._kgStockModifiedAt = Date.now();
   renderStock();
   showNotif(`🗑️ ${s.name} supprimé du stock`);
+  // ✅ FIX : pousser STOCK_DATA mis à jour vers kg_sync (clé stock_data).
+  // Sans ça, le cache "stock_data" gardait l'ancienne liste (avec l'article
+  // supprimé) et le prochain pullAll (reconnexion, autre appareil, F5...)
+  // le remettait en place → l'article "revenait" juste après suppression.
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    KGSync.push.stock().catch(e => console.error('push.stock (deleteStockArticle):', e));
+  }
 }
 
 function _populateStockCatSelect(selectedId) {
@@ -17485,15 +17532,19 @@ function updatePromoPreview() {
 }
 
 
-// ✅ FIX : Ouvrir l'édition par ID ou index (robuste même après pullAll)
-function openEditMenuItemById(idOrIdx) {
+// ✅ FIX : Ouvrir l'édition par ID, avec repli sur l'index RÉEL de la carte cliquée
+// (et non plus un parseInt de l'ID qui échoue toujours et retombe sur 0 = 1er article)
+function openEditMenuItemById(idOrIdx, fallbackIdx) {
   // D'abord chercher par id/sbId
   let idx = -1;
   if(typeof idOrIdx === 'string' && idOrIdx && idOrIdx !== 'undefined') {
     idx = MENU.findIndex(m => (m.sbId === idOrIdx || m.id === idOrIdx));
   }
-  // Fallback: utiliser comme index numérique
-  if(idx === -1) idx = parseInt(idOrIdx) || 0;
+  // Fallback : index numérique transmis depuis la carte cliquée (jamais un parseInt de l'ID,
+  // qui vaut toujours NaN pour un UUID/local_id et retombait donc sur 0 → 1er article du menu)
+  if(idx === -1) {
+    idx = (typeof fallbackIdx === 'number' && !isNaN(fallbackIdx)) ? fallbackIdx : (parseInt(idOrIdx) || 0);
+  }
   openEditMenuItem(idx);
 }
 function openEditMenuItem(menuIdx) {
@@ -18335,6 +18386,7 @@ function initRdvView() {
   const dp = document.getElementById('rdv-date-picker');
   if(dp && !dp.value) dp.value = rdvTodayStr();
 
+  _rdvApplyRoleUI();
   switchRdvTab('agenda', document.getElementById('rdv-tab-agenda'));
   updateRdvKPI();
 }
@@ -18366,20 +18418,56 @@ function updateRdvKPI() {
 
 // ─── ONGLETS ───────────────────────────────────────────────────
 function switchRdvTab(tab, btn) {
-  ['agenda','liste','stats','services'].forEach(t => {
+  ['agenda','liste','stats','services','historique'].forEach(t => {
     const panel = document.getElementById('rdv-panel-' + t);
     const tabBtn = document.getElementById('rdv-tab-' + t);
     if(panel) panel.style.display = (t === tab) ? '' : 'none';
     if(tabBtn) tabBtn.classList.toggle('active', t === tab);
   });
-  if(tab === 'agenda')   renderRdvAgenda();
-  if(tab === 'liste')    renderRdvListe();
-  if(tab === 'stats')    renderRdvStats();
-  if(tab === 'services') renderRdvServicesConfig();
+  if(tab === 'agenda') { renderRdvAgenda(); renderRdvRappelsBanner(); }
+  if(tab === 'liste')       renderRdvListe();
+  if(tab === 'stats')       renderRdvStats();
+  if(tab === 'services')    renderRdvServicesConfig();
+  if(tab === 'historique')  renderRdvHistorique();
   updateRdvKPI();
 }
 
 // ─── BADGE STATUT ──────────────────────────────────────────────
+// ✅ Seuls Gérant et Administrateur peuvent annuler un RDV et voir les RDV annulés
+function _rdvIsManager() {
+  return !!(currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant'));
+}
+// ✅ Seul l'Administrateur peut supprimer définitivement un RDV
+function _rdvIsAdmin() {
+  return !!(currentUser && currentUser.role === 'administrateur');
+}
+
+// Masque l'option "Annulé" des filtres/formulaires pour les rôles non autorisés
+function _rdvApplyRoleUI() {
+  if(_rdvIsManager()) return;
+  ['rdv-filtre-statut','rdv-hist-filtre-statut','rdv-statut'].forEach(id => {
+    const sel = document.getElementById(id);
+    if(!sel) return;
+    Array.from(sel.options).forEach(opt => { if(opt.value === 'annule') opt.remove(); });
+  });
+}
+
+// Annulation rapide d'un RDV — réservée Gérant/Administrateur
+function annulerRdv(id) {
+  if(!_rdvIsManager()) { showNotif("⛔ Seuls le Gérant et l'Administrateur peuvent annuler un RDV"); return; }
+  const r = (RDV_LIST||[]).find(x => x.id === id);
+  if(!r) return;
+  if(!confirm(`Annuler le RDV de ${r.clientNom} du ${r.date} à ${r.heure} ?`)) return;
+  r.statut = 'annule';
+  persistRdvList();
+  if(r.clientId !== null && r.clientId !== undefined) syncClientStatsFromRdv(r.clientId);
+  renderRdvAgenda();
+  renderRdvListe();
+  if(document.getElementById('rdv-panel-historique')?.style.display !== 'none') renderRdvHistorique();
+  updateRdvKPI();
+  showNotif(`🚫 RDV de ${r.clientNom} annulé`);
+}
+
 function rdvStatutBadge(s) {
   return ({
     confirme:   '<span style="background:rgba(26,219,106,0.15);color:var(--green);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;">✅ Confirmé</span>',
@@ -18407,6 +18495,7 @@ function renderRdvAgenda() {
 
   const list = (RDV_LIST||[])
     .filter(r => r.date === dateStr)
+    .filter(r => _rdvIsManager() || r.statut !== 'annule')
     .sort((a,b) => (a.heure||'').localeCompare(b.heure||''));
 
   if(!list.length) {
@@ -18436,11 +18525,14 @@ function renderRdvAgenda() {
         <div style="text-align:right;flex-shrink:0;">
           <div style="font-weight:700;font-size:15px;color:var(--accent);font-family:'JetBrains Mono',monospace;">${(r.prix||0).toLocaleString('fr-FR')} F</div>
           <div style="margin-top:4px;">${rdvStatutBadge(r.statut)}</div>
+          ${rdvAcompteBadge(r)}
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
+          ${r.tel ? `<button onclick='envoyerConfirmationRdvWhatsApp("${r.id}")' style="background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.35);color:#1da851;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Confirmation WhatsApp">💬</button>` : ''}
           <button onclick='printRdv("${r.id}")' style="background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.3);color:var(--teal);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Imprimer">🖨️</button>
           <button onclick='editRdv("${r.id}")' style="background:rgba(245,158,42,0.12);border:1px solid rgba(245,158,42,0.25);color:var(--accent);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Modifier">✏️</button>
-          <button onclick='deleteRdv("${r.id}")' style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);color:var(--red);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Supprimer">🗑️</button>
+          ${(_rdvIsManager() && r.statut !== 'annule') ? `<button onclick='annulerRdv("${r.id}")' style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);color:var(--red);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Annuler ce RDV">🚫</button>` : ''}
+          ${_rdvIsAdmin() ? `<button onclick='deleteRdv("${r.id}")' style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);color:var(--red);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Supprimer">🗑️</button>` : ''}
         </div>
       </div>`;
     }).join('') + `</div>`;
@@ -18455,6 +18547,7 @@ function renderRdvListe() {
   if(!content) return;
 
   let list = (RDV_LIST||[]).slice().sort((a,b) => (b.date+ (b.heure||'')).localeCompare(a.date+(a.heure||'')));
+  if(!_rdvIsManager()) list = list.filter(r => r.statut !== 'annule');
 
   if(search) list = list.filter(r => (r.clientNom||'').toLowerCase().includes(search) || (r.tel||'').includes(search));
   if(statut) list = list.filter(r => r.statut === statut);
@@ -18479,11 +18572,14 @@ function renderRdvListe() {
         <div style="text-align:right;flex-shrink:0;">
           <div style="font-weight:700;font-size:15px;color:var(--accent);font-family:'JetBrains Mono',monospace;">${(r.prix||0).toLocaleString('fr-FR')} F</div>
           <div style="margin-top:4px;">${rdvStatutBadge(r.statut)}</div>
+          ${rdvAcompteBadge(r)}
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
+          ${r.tel ? `<button onclick='envoyerConfirmationRdvWhatsApp("${r.id}")' style="background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.35);color:#1da851;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Confirmation WhatsApp">💬</button>` : ''}
           <button onclick='printRdv("${r.id}")' style="background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.3);color:var(--teal);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Imprimer">🖨️</button>
           <button onclick='editRdv("${r.id}")' style="background:rgba(245,158,42,0.12);border:1px solid rgba(245,158,42,0.25);color:var(--accent);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Modifier">✏️</button>
-          <button onclick='deleteRdv("${r.id}")' style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);color:var(--red);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Supprimer">🗑️</button>
+          ${(_rdvIsManager() && r.statut !== 'annule') ? `<button onclick='annulerRdv("${r.id}")' style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);color:var(--red);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Annuler ce RDV">🚫</button>` : ''}
+          ${_rdvIsAdmin() ? `<button onclick='deleteRdv("${r.id}")' style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);color:var(--red);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Supprimer">🗑️</button>` : ''}
         </div>
       </div>`).join('') + `</div>`;
 }
@@ -18498,6 +18594,100 @@ function exportRdvCSV() {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `rdv_export_${rdvTodayStr()}.csv`;
+  a.click();
+}
+
+// ─── HISTORIQUE (RDV déjà passés) ───────────────────────────────
+function renderRdvHistorique() {
+  const today = rdvTodayStr();
+  const search = (document.getElementById('rdv-hist-search')?.value||'').toLowerCase();
+  const statut = document.getElementById('rdv-hist-filtre-statut')?.value || '';
+  const summaryEl = document.getElementById('rdv-hist-summary');
+  const content = document.getElementById('rdv-historique-content');
+  if(!content) return;
+
+  // Historique = tous les RDV dont la date est déjà passée (avant aujourd'hui)
+  let list = (RDV_LIST||[]).filter(r => r.date < today);
+  if(!_rdvIsManager()) list = list.filter(r => r.statut !== 'annule');
+
+  // Résumé calculé sur l'historique complet (avant filtres de recherche)
+  if(summaryEl) {
+    const termines = list.filter(r => r.statut === 'termine');
+    const annules = list.filter(r => r.statut === 'annule');
+    const caTotal = termines.reduce((s,r) => s + (r.prix||0), 0);
+    summaryEl.innerHTML = `
+      <div class="stat-card" style="text-align:center;">
+        <div class="stat-icon">📋</div>
+        <div class="stat-val" style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--text);">${list.length}</div>
+        <div class="stat-label">RDV passés</div>
+      </div>
+      <div class="stat-card" style="text-align:center;">
+        <div class="stat-icon">🏁</div>
+        <div class="stat-val" style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--purple);">${termines.length}</div>
+        <div class="stat-label">Terminés</div>
+      </div>
+      ${_rdvIsManager() ? `<div class="stat-card" style="text-align:center;">
+        <div class="stat-icon">❌</div>
+        <div class="stat-val" style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--red);">${annules.length}</div>
+        <div class="stat-label">Annulés</div>
+      </div>` : ''}
+      <div class="stat-card" style="text-align:center;">
+        <div class="stat-icon">💰</div>
+        <div class="stat-val" style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--accent);">${caTotal.toLocaleString('fr-FR')} F</div>
+        <div class="stat-label">CA encaissé (terminés)</div>
+      </div>`;
+  }
+
+  if(search) list = list.filter(r => (r.clientNom||'').toLowerCase().includes(search) || (r.tel||'').includes(search));
+  if(statut) list = list.filter(r => r.statut === statut);
+
+  list = list.slice().sort((a,b) => (b.date+(b.heure||'')).localeCompare(a.date+(a.heure||'')));
+
+  if(!list.length) {
+    content.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--text2);">
+      <div style="font-size:48px;margin-bottom:14px;">🕓</div>
+      <div style="font-weight:600;font-size:16px;margin-bottom:6px;">Aucun historique pour l'instant</div>
+      <div style="font-size:13px;">Les RDV passés apparaîtront ici automatiquement.</div>
+    </div>`;
+    return;
+  }
+
+  content.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;">` +
+    list.map(r => {
+      const dParts = (r.date||'').split('-');
+      const dateFr = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : r.date;
+      return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;${r.statut==='annule'?'opacity:0.55;':''}">
+        <div style="width:44px;height:44px;border-radius:10px;background:rgba(0,201,177,0.12);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🕓</div>
+        <div style="flex:1;min-width:160px;">
+          <div style="font-weight:700;font-size:14px;color:var(--text);">${r.clientNom||'—'}</div>
+          <div style="font-size:12px;color:var(--text2);">${dateFr} à ${(r.heure||'—').replace(':','h')} · ${r.service||'—'}${r.employe?` · 👤 ${r.employe}`:''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-weight:700;font-size:15px;color:var(--accent);font-family:'JetBrains Mono',monospace;">${(r.prix||0).toLocaleString('fr-FR')} F</div>
+          <div style="margin-top:4px;">${rdvStatutBadge(r.statut)}</div>
+          ${rdvAcompteBadge(r)}
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          ${r.tel ? `<button onclick='envoyerConfirmationRdvWhatsApp("${r.id}")' style="background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.35);color:#1da851;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Confirmation WhatsApp">💬</button>` : ''}
+          <button onclick='printRdv("${r.id}")' style="background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.3);color:var(--teal);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Imprimer">🖨️</button>
+          <button onclick='editRdv("${r.id}")' style="background:rgba(245,158,42,0.12);border:1px solid rgba(245,158,42,0.25);color:var(--accent);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Modifier">✏️</button>
+          ${(_rdvIsManager() && r.statut !== 'annule') ? `<button onclick='annulerRdv("${r.id}")' style="background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.25);color:var(--red);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;" title="Annuler ce RDV">🚫</button>` : ''}
+        </div>
+      </div>`;
+    }).join('') + `</div><div style="height:60px;"></div>`;
+}
+
+function exportRdvHistoriqueCSV() {
+  const today = rdvTodayStr();
+  const rows = [['Date','Heure','Client','Téléphone','Prestation','Durée (min)','Prix','Statut','Coiffeuse/Coiffeur','Notes']];
+  (RDV_LIST||[]).filter(r => r.date < today).slice().sort((a,b)=>(b.date+(b.heure||'')).localeCompare(a.date+(a.heure||''))).forEach(r => {
+    rows.push([r.date, r.heure, r.clientNom, r.tel, r.service, r.duree, r.prix, r.statut, r.employe||'', (r.notes||'').replace(/\n/g,' ')]);
+  });
+  const csv = rows.map(row => row.map(v => `"${(v??'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(["\uFEFF"+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `rdv_historique_${rdvTodayStr()}.csv`;
   a.click();
 }
 
@@ -18585,7 +18775,7 @@ function renderRdvServicesConfig() {
           <button class="caisse-btn" style="flex:1;font-size:12px;" onclick="editRdvService(${i})">✏️ Modifier</button>
           <button class="caisse-btn danger" style="font-size:12px;" onclick="deleteRdvService(${i})">🗑</button>
         </div>
-      </div>`).join('') + `</div>`;
+      </div>`).join('') + `</div><div style="height:60px;"></div>`;
 }
 
 function openModalRdvService() {
@@ -18684,9 +18874,19 @@ function openModalRdv(dateStr, heureStr) {
   document.getElementById('rdv-employe').value = '';
   document.getElementById('rdv-statut').value = 'confirme';
   document.getElementById('rdv-notes').value = '';
+  document.getElementById('rdv-acompte-demande').checked = false;
+  document.getElementById('rdv-acompte-montant').value = '';
+  document.getElementById('rdv-acompte-verse').checked = false;
+  toggleRdvAcompteFields();
   document.getElementById('rdv-conflit-alert').style.display = 'none';
   showModal('rdv');
   setTimeout(() => document.getElementById('rdv-client-nom')?.focus(), 100);
+}
+
+function toggleRdvAcompteFields() {
+  const checked = document.getElementById('rdv-acompte-demande')?.checked;
+  const fields = document.getElementById('rdv-acompte-fields');
+  if(fields) fields.style.display = checked ? '' : 'none';
 }
 
 // ─── IMPRESSION DU RDV (fiche/reçu de rendez-vous) ─────────────
@@ -18784,6 +18984,10 @@ function printRdv(id) {
       <div class="detail-label">Coiffeuse / Coiffeur</div>
       <div class="detail-val">👤 ${_escHTML(r.employe)}</div>
     </div>` : ''}
+    ${(r.acompte && r.acompte > 0) ? `<div class="detail-box" style="grid-column:1 / -1;border-color:${r.acompteVerse?'#c6f0d8':'#fde68a'};background:${r.acompteVerse?'#f0fdf5':'#fffbeb'};">
+      <div class="detail-label">💰 Acompte</div>
+      <div class="detail-val" style="color:${r.acompteVerse?'#1a9e50':'#b3760a'};">${r.acompte.toLocaleString('fr-FR')} F ${r.acompteVerse ? '— Reçu ✅' : '— En attente ⏳'}</div>
+    </div>` : ''}
   </div>
 
   ${r.notes ? `<div class="notes-block">📝 ${_escHTML(r.notes)}</div>` : ''}
@@ -18799,6 +19003,102 @@ function printRdv(id) {
   const w = window.open('', '_blank');
   if(w) { w.document.write(html); w.document.close(); }
   else showNotif('⚠️ Autorisez les pop-ups pour imprimer');
+}
+
+// ─── Badge Acompte (affiché sur les cartes RDV) ─────────────────
+function rdvAcompteBadge(r) {
+  if(!r.acompte || r.acompte <= 0) return '';
+  if(r.acompteVerse) {
+    return `<div style="margin-top:4px;font-size:10px;color:var(--green);font-weight:700;">💰 Acompte ${r.acompte.toLocaleString('fr-FR')} F reçu ✅</div>`;
+  }
+  return `<div style="margin-top:5px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:flex-end;">
+    <span style="font-size:10px;color:var(--accent);font-weight:700;">💰 Acompte ${r.acompte.toLocaleString('fr-FR')} F en attente</span>
+    <button onclick='marquerAcompteRecu("${r.id}")' style="background:rgba(26,219,106,0.12);border:1px solid rgba(26,219,106,0.3);color:var(--green);border-radius:6px;padding:2px 7px;cursor:pointer;font-size:10px;font-weight:700;">✅ Reçu</button>
+  </div>`;
+}
+
+function marquerAcompteRecu(id) {
+  const r = (RDV_LIST||[]).find(x => x.id === id);
+  if(!r) return;
+  r.acompteVerse = true;
+  persistRdvList();
+  renderRdvAgenda();
+  renderRdvListe();
+  showNotif(`✅ Acompte de ${r.clientNom} marqué comme reçu`);
+}
+
+// ─── WHATSAPP : confirmation & rappel de RDV ────────────────────
+// Formate un numéro sénégalais pour un lien wa.me (ajoute l'indicatif 221
+// si absent — hypothèse : numéro local à 9 chiffres commençant par 7).
+function _rdvFormatTelWa(tel) {
+  if(!tel) return '';
+  let digits = tel.replace(/[^\d]/g, '');
+  if(digits.startsWith('00')) digits = digits.slice(2);
+  if(digits.startsWith('221')) return digits;
+  if(digits.length === 9) return '221' + digits;
+  return digits;
+}
+
+function _rdvDateFr(dateStr) {
+  const p = (dateStr||'').split('-');
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : dateStr;
+}
+
+function envoyerConfirmationRdvWhatsApp(id) {
+  const r = (RDV_LIST||[]).find(x => x.id === id);
+  if(!r) return;
+  if(!r.tel) { showNotif('⚠️ Aucun numéro de téléphone pour ce client'); return; }
+  const resto = RESTAURANT_INFO?.nom || 'notre salon';
+  const heureFin = rdvFmtHeureFin(r.heure, r.duree);
+  const acompteLigne = (r.acompte && r.acompte > 0 && !r.acompteVerse)
+    ? `\n\n⚠️ Un acompte de ${r.acompte.toLocaleString('fr-FR')} FCFA est demandé pour confirmer ce rendez-vous.`
+    : '';
+  const msg = `Bonjour ${r.clientNom} 👋\n\nVotre rendez-vous chez *${resto}* est confirmé ✅\n\n📅 ${_rdvDateFr(r.date)}\n🕐 ${(r.heure||'').replace(':','h')} → ${heureFin}\n💇 ${r.service||''}\n💰 ${(r.prix||0).toLocaleString('fr-FR')} FCFA${acompteLigne}\n\nMerci de votre confiance et à bientôt !`;
+  const wa = `https://wa.me/${_rdvFormatTelWa(r.tel)}?text=${encodeURIComponent(msg)}`;
+  window.open(wa, '_blank');
+}
+
+function envoyerRappelRdvWhatsApp(id) {
+  const r = (RDV_LIST||[]).find(x => x.id === id);
+  if(!r) return;
+  if(!r.tel) { showNotif('⚠️ Aucun numéro de téléphone pour ce client'); return; }
+  const resto = RESTAURANT_INFO?.nom || 'notre salon';
+  const heureFin = rdvFmtHeureFin(r.heure, r.duree);
+  const msg = `Bonjour ${r.clientNom} 👋\n\nPetit rappel 🔔 : vous avez rendez-vous *aujourd'hui* chez *${resto}*\n\n🕐 ${(r.heure||'').replace(':','h')} → ${heureFin}\n💇 ${r.service||''}\n\nÀ tout à l'heure !`;
+  const wa = `https://wa.me/${_rdvFormatTelWa(r.tel)}?text=${encodeURIComponent(msg)}`;
+  window.open(wa, '_blank');
+  r.rappelEnvoye = true;
+  persistRdvList();
+  renderRdvRappelsBanner();
+}
+
+// ─── BANDEAU "Rappels à envoyer aujourd'hui" ────────────────────
+function renderRdvRappelsBanner() {
+  const el = document.getElementById('rdv-rappels-banner');
+  if(!el) return;
+  const today = rdvTodayStr();
+  const aRappeler = (RDV_LIST||[]).filter(r =>
+    r.date === today && r.statut !== 'annule' && r.statut !== 'termine' && !r.rappelEnvoye
+  ).sort((a,b) => (a.heure||'').localeCompare(b.heure||''));
+
+  if(!aRappeler.length) { el.innerHTML = ''; return; }
+
+  el.innerHTML = `
+    <div style="background:rgba(245,158,42,0.1);border:1.5px solid rgba(245,158,42,0.35);border-radius:12px;padding:14px 16px;margin-bottom:16px;">
+      <div style="font-weight:700;font-size:14px;color:var(--accent);margin-bottom:10px;">🔔 ${aRappeler.length} rappel${aRappeler.length>1?'s':''} à envoyer aujourd'hui</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${aRappeler.map(r => `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border-radius:8px;padding:8px 12px;flex-wrap:wrap;">
+            <div style="font-size:13px;">
+              <span style="font-weight:700;color:var(--text);">${(r.heure||'').replace(':','h')} — ${r.clientNom||'—'}</span>
+              <span style="color:var(--text2);"> · ${r.service||''}</span>
+            </div>
+            ${r.tel
+              ? `<button onclick='envoyerRappelRdvWhatsApp("${r.id}")' style="background:#25D366;border:none;color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">💬 Envoyer rappel</button>`
+              : `<span style="font-size:11px;color:var(--text3);">Pas de téléphone</span>`}
+          </div>`).join('')}
+      </div>
+    </div>`;
 }
 
 function editRdv(id) {
@@ -18821,6 +19121,10 @@ function editRdv(id) {
   document.getElementById('rdv-employe').value = r.employe || '';
   document.getElementById('rdv-statut').value = r.statut || 'confirme';
   document.getElementById('rdv-notes').value = r.notes || '';
+  document.getElementById('rdv-acompte-demande').checked = !!(r.acompte && r.acompte > 0);
+  document.getElementById('rdv-acompte-montant').value = r.acompte || '';
+  document.getElementById('rdv-acompte-verse').checked = !!r.acompteVerse;
+  toggleRdvAcompteFields();
   document.getElementById('rdv-conflit-alert').style.display = 'none';
   showModal('rdv');
 }
@@ -18858,6 +19162,15 @@ function saveRdv() {
   const employe = document.getElementById('rdv-employe').value.trim();
   const statut = document.getElementById('rdv-statut').value;
   const notes = document.getElementById('rdv-notes').value.trim();
+  const acompteDemande = document.getElementById('rdv-acompte-demande').checked;
+  const acompte = acompteDemande ? (parseInt(document.getElementById('rdv-acompte-montant').value) || 0) : 0;
+  const acompteVerse = acompteDemande ? document.getElementById('rdv-acompte-verse').checked : false;
+
+  // ✅ Sécurité : seuls Gérant/Administrateur peuvent enregistrer un RDV en statut "Annulé"
+  if(statut === 'annule' && !_rdvIsManager()) {
+    showNotif("⛔ Seuls le Gérant et l'Administrateur peuvent annuler un RDV");
+    return;
+  }
 
   if(!clientNom) { showNotif('⚠️ Le nom du client est requis'); return; }
   if(!date || !heure) { showNotif('⚠️ Date et heure sont requises'); return; }
@@ -18865,7 +19178,7 @@ function saveRdv() {
   const editId = document.getElementById('rdv-edit-id').value;
   const data = {
     clientId: clientSel !== '' ? parseInt(clientSel) : null,
-    clientNom, tel, service, date, heure, duree, prix, employe, statut, notes,
+    clientNom, tel, service, date, heure, duree, prix, employe, statut, notes, acompte, acompteVerse,
   };
 
   if(editId) {
@@ -18885,6 +19198,7 @@ function saveRdv() {
 }
 
 function deleteRdv(id) {
+  if(!_rdvIsAdmin()) { showNotif('⛔ Seul l\'Administrateur peut supprimer un RDV'); return; }
   const r = RDV_LIST.find(x => x.id === id);
   if(!r) return;
   const clientId = r.clientId;
