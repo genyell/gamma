@@ -6984,9 +6984,15 @@ Revenez nous voir bient&#244;t.</textarea>
                   Afficher un QR code (avis client)
                 </label>
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;">
-                  <input type="checkbox" id="ticket-print-cuisine" checked onchange="updateTicketPreview()" style="width:16px;height:16px;accent-color:var(--accent);">
+                  <input type="checkbox" id="ticket-print-cuisine" checked onchange="updateTicketPreview();document.getElementById('cuisine-caisses-config-group').style.display=this.checked?'block':'none';" style="width:16px;height:16px;accent-color:var(--accent);">
                   🍳 Imprimer le ticket cuisine (2ème copie)
                 </label>
+                <!-- ✅ FIX : choisir quelles caisses n'ont pas besoin de bon de cuisine
+                (ex: caisse boissons/bar, caisse à emporter déjà préparé, etc.) -->
+                <div id="cuisine-caisses-config-group" style="margin:6px 0 0 26px;padding:10px 12px;background:var(--surface2, rgba(255,255,255,0.04));border-radius:8px;">
+                  <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Décocher une caisse ci-dessous si elle n'a jamais besoin de bon de cuisine :</div>
+                  <div id="cuisine-caisses-config"></div>
+                </div>
               </div>
             </div>
 
@@ -8572,6 +8578,9 @@ Revenez nous voir bient&#244;t.</textarea>
       <select class="form-input" id="rdv-service-select" onchange="onRdvServiceChange()">
         <option value="">— Choisir une prestation —</option>
       </select>
+      <!-- ✅ FIX : possibilité de décrire librement une prestation qui n'est
+      pas dans la liste prédéfinie (ex: demande spécifique de la cliente). -->
+      <input class="form-input" id="rdv-service-custom" placeholder="Décrire la prestation..." style="display:none;margin-top:8px;">
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
@@ -12893,13 +12902,10 @@ async function confirmerOuverture() {
     showNotif(`✅ ${caisse} ouverte — Fonds : ${fonds.toLocaleString()} FCFA`);
     setTimeout(_updatePosOverlay, 100);
     // Router vers le bon module et ouvrir automatiquement la session locale
-    const _caisseId = parseInt(caisse.replace('Caisse ',''));
-    if(_caisseId === 3) {
-      const _nav3 = document.querySelector('.nav-item[onclick*="qrcommandes"]');
-      showView('qrcommandes', _nav3);
-    } else {
-      showView('caisse', null, true);
-    }
+    // ✅ FIX : Caisse 3 redirigeait automatiquement vers "Commandes QR" à
+    // l'ouverture. Sur demande, elle suit désormais le même comportement
+    // que les autres caisses → vue Caisse POS normale.
+    showView('caisse', null, true);
     saveSession();
     // ✅ FIX ANTI-DOUBLON v3 OPTIMISÉ : sync Supabase uniquement si redémarrage machine
     // _kgPageJustLoaded = true seulement au 1er chargement → 0 requête lors des réouvertures normales
@@ -13274,6 +13280,9 @@ let TICKET_CONFIG = {
   sepStyle: 'dashed',
   printCuisine: true,   // Imprimer ticket cuisine après ticket client
   cuisineCategories: [], // Catégories qui vont en cuisine (vide = toutes les catégories)
+  // ✅ FIX : caisses n'ayant pas besoin de bon de cuisine (ex: caisse "à emporter
+  // déjà préparé", vente de boissons seules, etc.) — noms exacts de CAISSES.
+  caissesSansCuisine: [],
   // ✅ FIX v41 — Personnalisation police & couleurs
   fontFamily: "Arial,Helvetica,sans-serif",
   bgColor:    '#ffffff',
@@ -13704,7 +13713,12 @@ function _genererFactureDepuisVente(vente, caisse) {
 }
 
 // ===== GÉNÉRATION DU TICKET DE CAISSE =====
-function printTicket(vente, caisse, isReprint) {
+function printTicket(vente, caisse, isReprint, skipCuisine) {
+  // ✅ FIX : une caisse marquée "pas besoin de bon de cuisine" (Paramètres →
+  // Personnalisation ticket) ne l'imprime jamais, quel que soit l'appel.
+  if(!skipCuisine && typeof TICKET_CONFIG !== 'undefined' && Array.isArray(TICKET_CONFIG.caissesSansCuisine) && TICKET_CONFIG.caissesSansCuisine.includes(caisse)) {
+    skipCuisine = true;
+  }
   const now      = new Date();
   // ✅ FIX : afficher la date/heure RÉELLE de la vente, pas l'heure de réouverture/réimpression du ticket
   let dateStr = '';
@@ -14486,6 +14500,10 @@ ${TICKET_CONFIG.showQR ? `
 
 <!-- ══ TICKET CUISINE (2ème exemplaire) ══ -->
 ${(function(){
+  // ✅ FIX : un ticket validé depuis "En attente" a déjà eu son bon de
+  // cuisine imprimé à sa création (le plat est déjà préparé/servi) — on ne
+  // le réimprime pas une seconde fois au moment de l'encaissement.
+  if(skipCuisine) return '';
   if(!TICKET_CONFIG.printCuisine) return '';
   var _cats = TICKET_CONFIG.cuisineCategories || [];
   var _hasItems = _cats.length > 0
@@ -14494,6 +14512,7 @@ ${(function(){
   return _hasItems ? '<div class="page-cut"></div>' : '';
 })()}
 ${(function(){
+  if(skipCuisine) return '<div class="cuisine-ticket" style="display:none">';
   if(!TICKET_CONFIG.printCuisine) return '<div class="cuisine-ticket" style="display:none">';
   var _cats = TICKET_CONFIG.cuisineCategories || [];
   var _hasItems = _cats.length > 0
@@ -18864,7 +18883,8 @@ function populateRdvServiceSelect() {
   const sel = document.getElementById('rdv-service-select');
   if(!sel) return;
   sel.innerHTML = '<option value="">— Choisir une prestation —</option>' +
-    RDV_SERVICES.map((s,i) => `<option value="${i}">${s.nom} (${s.duree} min · ${(s.prix||0).toLocaleString('fr-FR')} F)</option>`).join('');
+    RDV_SERVICES.map((s,i) => `<option value="${i}">${s.nom} (${s.duree} min · ${(s.prix||0).toLocaleString('fr-FR')} F)</option>`).join('') +
+    '<option value="custom">✏️ Autre (décrire la prestation)</option>';
 }
 function onRdvClientSelect() {
   const sel = document.getElementById('rdv-client-select');
@@ -18877,7 +18897,14 @@ function onRdvClientSelect() {
 }
 function onRdvServiceChange() {
   const sel = document.getElementById('rdv-service-select');
+  const customEl = document.getElementById('rdv-service-custom');
   const idx = sel.value;
+  if(idx === 'custom') {
+    // ✅ FIX : afficher le champ de saisie libre pour décrire la prestation
+    if(customEl) { customEl.style.display = ''; customEl.focus(); }
+    return;
+  }
+  if(customEl) customEl.style.display = 'none';
   if(idx === '') return;
   const s = RDV_SERVICES[parseInt(idx)];
   if(!s) return;
@@ -18895,6 +18922,10 @@ function openModalRdv(dateStr, heureStr) {
   document.getElementById('rdv-client-nom').value = '';
   document.getElementById('rdv-client-tel').value = '';
   document.getElementById('rdv-service-select').value = '';
+  if(document.getElementById('rdv-service-custom')) {
+    document.getElementById('rdv-service-custom').value = '';
+    document.getElementById('rdv-service-custom').style.display = 'none';
+  }
   document.getElementById('rdv-date').value = dateStr || (document.getElementById('rdv-date-picker')?.value || rdvTodayStr());
   document.getElementById('rdv-heure').value = heureStr || '';
   document.getElementById('rdv-duree').value = 60;
@@ -19165,7 +19196,18 @@ function editRdv(id) {
   document.getElementById('rdv-client-tel').value = r.tel || '';
   document.getElementById('rdv-service-select').value = '';
   const svcIdx = RDV_SERVICES.findIndex(s => s.nom === r.service);
-  if(svcIdx >= 0) document.getElementById('rdv-service-select').value = svcIdx;
+  const customEl = document.getElementById('rdv-service-custom');
+  if(svcIdx >= 0) {
+    document.getElementById('rdv-service-select').value = svcIdx;
+    if(customEl) { customEl.value = ''; customEl.style.display = 'none'; }
+  } else if(r.service) {
+    // ✅ FIX : la prestation enregistrée n'est pas dans la liste prédéfinie
+    // (saisie libre) → repasser en mode "Autre" avec le texte pré-rempli.
+    document.getElementById('rdv-service-select').value = 'custom';
+    if(customEl) { customEl.value = r.service; customEl.style.display = ''; }
+  } else if(customEl) {
+    customEl.value = ''; customEl.style.display = 'none';
+  }
   document.getElementById('rdv-date').value = r.date || rdvTodayStr();
   document.getElementById('rdv-heure').value = r.heure || '';
   document.getElementById('rdv-duree').value = r.duree || 60;
@@ -19206,7 +19248,15 @@ function saveRdv() {
   const clientNom = document.getElementById('rdv-client-nom').value.trim();
   const tel = document.getElementById('rdv-client-tel').value.trim();
   const svcSel = document.getElementById('rdv-service-select').value;
-  const service = svcSel !== '' ? RDV_SERVICES[parseInt(svcSel)].nom : (document.getElementById('rdv-service-select').selectedOptions[0]?.text || '');
+  // ✅ FIX : si "Autre (décrire la prestation)" est sélectionné, on utilise le
+  // texte saisi librement par l'utilisateur comme nom de la prestation.
+  let service;
+  if(svcSel === 'custom') {
+    service = document.getElementById('rdv-service-custom')?.value.trim() || '';
+    if(!service) { showNotif('⚠️ Merci de décrire la prestation'); return; }
+  } else {
+    service = svcSel !== '' ? RDV_SERVICES[parseInt(svcSel)].nom : (document.getElementById('rdv-service-select').selectedOptions[0]?.text || '');
+  }
   const date = document.getElementById('rdv-date').value;
   const heure = document.getElementById('rdv-heure').value;
   const duree = parseInt(document.getElementById('rdv-duree').value) || 30;
@@ -28676,6 +28726,20 @@ function updateTicketPreview() {
   container.innerHTML = html;
 }
 
+// ✅ FIX : liste des caisses avec case à cocher "a besoin d'un bon de cuisine"
+// (décochée = cette caisse n'imprime jamais de bon de cuisine)
+function renderCuisineCaissesConfig() {
+  const cont = document.getElementById('cuisine-caisses-config');
+  if(!cont || typeof CAISSES === 'undefined') return;
+  const sansCuisine = TICKET_CONFIG.caissesSansCuisine || [];
+  cont.innerHTML = CAISSES.map(c => `
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;padding:4px 0;">
+      <input type="checkbox" class="cuisine-caisse-toggle" value="${_escHTML(c.name)}" ${sansCuisine.includes(c.name) ? '' : 'checked'} style="width:16px;height:16px;accent-color:var(--accent);">
+      ${_escHTML(c.name)}${c.loc ? ' <span style="color:var(--text2);">('+_escHTML(c.loc)+')</span>' : ''}
+    </label>
+  `).join('');
+}
+
 function saveTicketSettings() {
   TICKET_CONFIG.headerMsg = document.getElementById('ticket-header-msg')?.value || '';
   TICKET_CONFIG.footerMsg = document.getElementById('ticket-footer-msg')?.value || '';
@@ -28687,6 +28751,10 @@ function saveTicketSettings() {
   TICKET_CONFIG.showWifi = document.getElementById('ticket-show-wifi')?.checked ?? false;
   TICKET_CONFIG.showQR = document.getElementById('ticket-show-qr')?.checked ?? false;
   TICKET_CONFIG.printCuisine = document.getElementById('ticket-print-cuisine')?.checked ?? true;
+  // ✅ FIX : caisses décochées dans la liste = n'ont pas besoin de bon de cuisine
+  TICKET_CONFIG.caissesSansCuisine = Array.from(document.querySelectorAll('.cuisine-caisse-toggle'))
+    .filter(el => !el.checked)
+    .map(el => el.value);
   TICKET_CONFIG.qrLabel = document.getElementById('ticket-qr-label')?.value || 'Donnez votre avis :';
   TICKET_CONFIG.qrUrl = document.getElementById('ticket-qr-url')?.value || '';
   TICKET_CONFIG.sepStyle = document.getElementById('ticket-sep-style')?.value || 'dashed';
@@ -28739,6 +28807,9 @@ function loadTicketConfig() {
       setC('ticket-show-wifi',    TICKET_CONFIG.showWifi);
       setC('ticket-show-qr',      TICKET_CONFIG.showQR);
       setC('ticket-print-cuisine', TICKET_CONFIG.printCuisine ?? true);
+      renderCuisineCaissesConfig();
+      const cuisineGrp = document.getElementById('cuisine-caisses-config-group');
+      if(cuisineGrp) cuisineGrp.style.display = (TICKET_CONFIG.printCuisine ?? true) ? 'block' : 'none';
       setV('ticket-qr-label',     TICKET_CONFIG.qrLabel || 'Donnez votre avis :');
       setV('ticket-qr-url',       TICKET_CONFIG.qrUrl || '');
       setV('ticket-sep-style',    TICKET_CONFIG.sepStyle);
@@ -28750,6 +28821,8 @@ function loadTicketConfig() {
       if(qrGrp) qrGrp.style.display = TICKET_CONFIG.showQR ? 'block' : 'none';
     }
   } catch(e) {}
+  // ✅ FIX : rendre la liste même si aucune config n'a encore été sauvegardée (premier usage)
+  renderCuisineCaissesConfig();
   updateTicketPreview();
 }
 // ============================================================
@@ -41558,10 +41631,23 @@ async function _deleteTicketAttenteSupabase(ticketId) {
     const sb  = KGSync?.getClient?.();
     const rid = window._KG_RESTAURANT_ID;
     if(!sb || !rid) return;
-    await sb.from('tickets_en_attente')
-      .delete()
+    // ✅ FIX : vérifier l'erreur de suppression. Sans ça, si une règle de
+    // sécurité (RLS) côté Supabase bloque le DELETE (autorisant par ex.
+    // INSERT/SELECT mais pas DELETE), la ligne reste en base pour toujours.
+    // Le ticket disparaît alors seulement sur l'appareil qui l'a validé
+    // (retiré localement + liste noire locale), mais réapparaît à chaque
+    // pull sur tous les autres appareils puisqu'il existe toujours côté serveur.
+    const { error: _delErr, count: _delCount } = await sb.from('tickets_en_attente')
+      .delete({ count: 'exact' })
       .eq('id', ticketId)
       .eq('restaurant_id', rid);
+    if(_delErr) {
+      console.error('[tickets_attente delete] ÉCHEC suppression Supabase — le ticket va réapparaître ailleurs :', _delErr);
+      return;
+    }
+    if(_delCount === 0) {
+      console.error('[tickets_attente delete] 0 ligne supprimée côté Supabase (RLS bloque probablement le DELETE) — le ticket va réapparaître ailleurs. ticketId=', ticketId);
+    }
     // ✅ FIX : même signal qu'à la création — pour que la suppression/l'encaissement
     // d'un ticket disparaisse en direct de la liste sur les autres appareils.
     try {
@@ -41762,7 +41848,13 @@ function _validerClientEtCreerTicket() {
   const now = new Date();
   const clientName = (nomEl?.value || '').trim() || 'Client';
   const clientTelephone = tel;
-  const ticketId = 'ATT-' + Date.now().toString().slice(-6);
+  // ✅ FIX : l'ancien ID ('ATT-' + 6 derniers chiffres du timestamp) se répète
+  // toutes les ~16,7 minutes. Deux caisses différentes créant un ticket dans
+  // cette fenêtre pouvaient obtenir EXACTEMENT le même ID → lors de la synchro
+  // Supabase (upsert sur l'id), le second écrasait le premier, donnant
+  // l'impression qu'un ticket "changeait de caisse". On combine timestamp
+  // complet (base36) + suffixe aléatoire pour une unicité réelle.
+  const ticketId = 'ATT-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,5).toUpperCase();
 
   _loadTicketsAttente();
   const itemsSaved = cart.map(c => ({
@@ -41992,7 +42084,10 @@ async function validerTicketAttente() {
   }
 
   // Imprimer le ticket
-  printTicket(venteSaved, caisse);
+  // ✅ FIX : skipCuisine=true — le bon de cuisine a déjà été imprimé quand
+  // le ticket a été mis "en attente" (le plat est déjà préparé/consommé),
+  // pas besoin de le réimprimer au moment de l'encaissement.
+  printTicket(venteSaved, caisse, false, true);
 
   // Supprimer le ticket de la liste des en-attente
   const _paidId = _attenteCurrentId;
@@ -42255,6 +42350,8 @@ ${wifiSSID ? `<div class="wifi-section"><div class="wifi-title">WiFi : ${wifiSSI
 
 <!-- ══ TICKET CUISINE (2ème exemplaire) ══ -->
 ${(function(){
+  // ✅ FIX : caisse marquée "pas besoin de bon de cuisine" → jamais de bon de cuisine
+  if(typeof TICKET_CONFIG !== 'undefined' && Array.isArray(TICKET_CONFIG.caissesSansCuisine) && TICKET_CONFIG.caissesSansCuisine.includes(ticket.caisse)) return '';
   if(!(typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.printCuisine)) return '';
   var _cats = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.cuisineCategories) || [];
   var _items0 = ticket.items || [];
@@ -42262,6 +42359,7 @@ ${(function(){
   return _hasItems ? '<div class="page-cut"></div><div class="cuisine-ticket">' : '';
 })()}
 ${(function(){
+  if(typeof TICKET_CONFIG !== 'undefined' && Array.isArray(TICKET_CONFIG.caissesSansCuisine) && TICKET_CONFIG.caissesSansCuisine.includes(ticket.caisse)) return '';
   if(!(typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.printCuisine)) return '';
   var _cats = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.cuisineCategories) || [];
   var _items0 = ticket.items || [];
