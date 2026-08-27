@@ -9673,6 +9673,15 @@ Revenez nous voir bient&#244;t.</textarea>
       <input class="form-input" id="ticket-client" placeholder="Nom du client ou numéro de table...">
     </div>
     <div class="form-group">
+      <!-- ✅ FIX : préciser sur place / à emporter pour le bon de cuisine -->
+      <label class="form-label">🍽️ Type de service</label>
+      <select class="form-input" id="ticket-type-service">
+        <option value="sur_place">🪑 Sur place</option>
+        <option value="emporter">🥡 À emporter</option>
+        <option value="livraison">🛵 Livraison</option>
+      </select>
+    </div>
+    <div class="form-group">
       <label class="form-label">📞 Téléphone client (optionnel)</label>
       <input class="form-input" id="ticket-telephone" type="tel" placeholder="Ex: 77 123 45 67">
     </div>
@@ -11726,6 +11735,15 @@ function _onSelectServeur(val) {
       <label class="form-label">📞 Téléphone client (optionnel)</label>
       <input class="form-input" id="modal-client-tel-input" type="tel" placeholder="Ex: 77 123 45 67" autocomplete="off">
     </div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <!-- ✅ FIX : préciser sur place / à emporter pour le bon de cuisine -->
+      <label class="form-label">🍽️ Type de service</label>
+      <select class="form-input" id="modal-client-type-service">
+        <option value="sur_place">🪑 Sur place</option>
+        <option value="emporter">🥡 À emporter</option>
+        <option value="livraison">🛵 Livraison</option>
+      </select>
+    </div>
     <div style="display:flex;gap:10px;">
       <button class="btn btn-primary" style="flex:1;" onclick="_validerClientEtCreerTicket()">✅ Valider &amp; imprimer</button>
     </div>
@@ -12999,6 +13017,8 @@ function openConfirmTicket() {
   ['mixed-cash','mixed-wave','mixed-orange'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   const rv = document.getElementById('mixed-pay-reste-val'); if(rv) { rv.textContent = '— FCFA'; rv.style.color = 'var(--red)'; }
   document.getElementById('ticket-client').value = '';
+  // ✅ FIX : réinitialiser le type de service à "Sur place" par défaut
+  if(document.getElementById('ticket-type-service')) document.getElementById('ticket-type-service').value = 'sur_place';
   // ✅ FIX SERVEURS : remplir le select avec la liste des serveurs depuis kg_sync
   (async function() {
     const sel = document.getElementById('ticket-serveur');
@@ -13132,6 +13152,8 @@ async function validateOrder() {
   const now = new Date();
   const client = document.getElementById('ticket-client')?.value || 'Client';
   const serveur = document.getElementById('ticket-serveur')?.value?.trim() || '';
+  // ✅ FIX : type de service (sur place / à emporter / livraison) affiché sur le bon de cuisine
+  const typeService = document.getElementById('ticket-type-service')?.value || 'sur_place';
   const caisse = sessionCaisseActive?.caisse || (currentUser?.caisse !== 'Toutes' ? currentUser?.caisse : 'Caisse 1');
   const cashier = sessionCaisseActive?.cashier || (currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Caissier');
   const orderNum = await _getNextOrderNumGlobal(caisse);
@@ -13184,7 +13206,7 @@ async function validateOrder() {
     time: now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
     // ✅ FIX v15 FINAL : date ISO indispensable pour filtres dashboard/rapportX/inPeriode
     date: now.toISOString().split('T')[0],
-    cashier, client, serveur
+    cashier, client, serveur, typeService
   };
   VENTES_PAR_CAISSE[caisse].push(venteSaved);
   _saveVenteSupabase(caisse, venteSaved); // ✅ Persistance immédiate Supabase
@@ -14533,6 +14555,12 @@ ${(function(){
   <div class="cuisine-meta">
     📅 ${dateStr} · ${heureStr}<br>
     🏪 ${caisse}${TICKET_CONFIG.showCashier && vente.cashier ? ' · 👤 ' + vente.cashier : ''}${vente.serveur && vente.serveur !== vente.cashier ? '<br>🍽️ Serveur : <strong>' + vente.serveur + '</strong>' : ''}${vente.client && vente.client !== 'Client' ? '<br>🙋 Client : ' + vente.client : ''}
+    ${(function(){
+      // ✅ FIX : préciser sur place / à emporter / livraison pour la cuisine
+      var _labels = { sur_place:'🪑 SUR PLACE', emporter:'🥡 À EMPORTER', livraison:'🛵 LIVRAISON' };
+      var _lbl = _labels[vente.typeService] || _labels.sur_place;
+      return '<br><strong style="font-size:12px;">' + _lbl + '</strong>';
+    })()}
   </div>
   <div class="cuisine-items-title">Articles à préparer</div>
   ${(function(){
@@ -41610,6 +41638,7 @@ async function _pushTicketAttenteSupabase(ticket) {
       serveur:        ticket.serveur || '',
       client:         ticket.client,
       client_tel:     ticket.telephone || '',
+      type_service:   ticket.typeService || 'sur_place',
       items:          ticket.items,
       total:          ticket.total,
       sub:            ticket.sub,
@@ -41725,6 +41754,7 @@ async function _pullTicketsAttenteSupabase() {
           serveur:      r.serveur || '',
           client:       r.client,
           telephone:    r.client_tel || '',
+          typeService:  r.type_service || 'sur_place',
           items:        r.items,
           total:        r.total,
           sub:          r.sub,
@@ -41825,6 +41855,9 @@ function _confirmerEtCreerTicket(nomServeur) {
   const telEl = document.getElementById('modal-client-tel-input');
   if(nomEl) nomEl.value = document.getElementById('ticket-client')?.value || '';
   if(telEl) telEl.value = document.getElementById('ticket-telephone')?.value || '';
+  // ✅ FIX : pré-remplir le type de service, sinon "Sur place" par défaut
+  const typeServiceEl = document.getElementById('modal-client-type-service');
+  if(typeServiceEl) typeServiceEl.value = document.getElementById('ticket-type-service')?.value || 'sur_place';
   const errEl = document.getElementById('modal-client-attente-error');
   if(errEl) errEl.style.display = 'none';
 
@@ -41860,6 +41893,8 @@ function _validerClientEtCreerTicket() {
   const now = new Date();
   const clientName = (nomEl?.value || '').trim() || 'Client';
   const clientTelephone = tel;
+  // ✅ FIX : type de service (sur place / à emporter / livraison) affiché sur le bon de cuisine
+  const typeService = document.getElementById('modal-client-type-service')?.value || 'sur_place';
   // ✅ FIX : l'ancien ID ('ATT-' + 6 derniers chiffres du timestamp) se répète
   // toutes les ~16,7 minutes. Deux caisses différentes créant un ticket dans
   // cette fenêtre pouvaient obtenir EXACTEMENT le même ID → lors de la synchro
@@ -41880,6 +41915,7 @@ function _validerClientEtCreerTicket() {
     serveur,
     client: clientName,
     telephone: clientTelephone,
+    typeService,
     items: itemsSaved,
     total: totalTTC, sub: ht, tva: tvaIncluse,
     remisePct, remiseMontant,
@@ -42075,7 +42111,7 @@ async function validerTicketAttente() {
     payMethods: payMethodsData,
     time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
     date: new Date().toISOString().split('T')[0],
-    cashier: ticket.cashier, client: ticket.client, serveur: ticket.serveur || ''
+    cashier: ticket.cashier, client: ticket.client, serveur: ticket.serveur || '', typeService: ticket.typeService || 'sur_place'
   };
 
   if(!VENTES_PAR_CAISSE[caisse]) VENTES_PAR_CAISSE[caisse] = [];
@@ -42386,6 +42422,12 @@ ${(function(){
     ⏳ EN ATTENTE — À PRÉPARER<br>
     📅 ${ticket.date||''} ${ticket.time||''}<br>
     🏪 ${ticket.caisse||''}${showCashier && ticket.cashier ? ' · 👤 ' + ticket.cashier : ''}${ticket.serveur && ticket.serveur !== ticket.cashier ? '<br>🍽️ Serveur : <strong>' + ticket.serveur + '</strong>' : ''}${ticket.client && ticket.client !== 'Client' ? '<br>🙋 Client : ' + ticket.client : ''}
+    ${(function(){
+      // ✅ FIX : préciser sur place / à emporter / livraison pour la cuisine
+      var _labels = { sur_place:'🪑 SUR PLACE', emporter:'🥡 À EMPORTER', livraison:'🛵 LIVRAISON' };
+      var _lbl = _labels[ticket.typeService] || _labels.sur_place;
+      return '<br><strong style="font-size:12px;">' + _lbl + '</strong>';
+    })()}
   </div>
   <div class="cuisine-items-title">Articles à préparer</div>
   ${(function(){
