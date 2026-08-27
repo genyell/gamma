@@ -28535,7 +28535,12 @@ function handleLogoUpload(input) {
     if(typeof _applyLoginLogo === 'function') _applyLoginLogo();
     updateTicketPreview();
     // Sauvegarder en local
-    try { localStorage.setItem('kg-ticket-config', JSON.stringify({...TICKET_CONFIG, logo: logoData})); } catch(e2) {}
+    // ✅ FIX : ne plus dupliquer le logo (jusqu'à ~650 Ko) dans 2 clés
+    // localStorage différentes — il est déjà sauvegardé dans kg-restaurant-info
+    // juste en dessous. Cette duplication remplissait le quota de stockage sur
+    // certains appareils, empêchant même Supabase d'écrire son propre jeton de
+    // connexion (erreur "exceeded the quota" au login).
+    try { localStorage.setItem('kg-ticket-config', JSON.stringify({...TICKET_CONFIG, logo: null})); } catch(e2) {}
     try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e2) {}
     // Pousser vers Supabase
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
@@ -28566,7 +28571,8 @@ async function applyTicketLogoUrl(url) {
   previewTicketLogoUrl(url);
   if(typeof _applyLoginLogo === 'function') _applyLoginLogo();
   updateTicketPreview();
-  try { localStorage.setItem('kg-ticket-config', JSON.stringify(Object.assign({}, TICKET_CONFIG, {logo: url}))); } catch(e) {}
+  // ✅ FIX : ne pas dupliquer le logo dans 2 clés localStorage (voir handleLogoUpload)
+  try { localStorage.setItem('kg-ticket-config', JSON.stringify(Object.assign({}, TICKET_CONFIG, {logo: null}))); } catch(e) {}
   try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
     await KGSync.push.restaurantInfo().catch(function(){});
@@ -28763,7 +28769,8 @@ function saveTicketSettings() {
   TICKET_CONFIG.bgColor      = document.getElementById('ticket-bg-color')?.value || '#ffffff';
   TICKET_CONFIG.accentColor  = document.getElementById('ticket-accent-color')?.value || '#f5a623';
   // Persist localStorage
-  try { localStorage.setItem('kg-ticket-config', JSON.stringify({...TICKET_CONFIG, logo: TICKET_CONFIG.logo})); } catch(e) {}
+  // ✅ FIX : ne pas dupliquer le logo (déjà dans kg-restaurant-info) — voir handleLogoUpload
+  try { localStorage.setItem('kg-ticket-config', JSON.stringify({...TICKET_CONFIG, logo: null})); } catch(e) {}
   // ✅ FIX: persister aussi dans RESTAURANT_INFO → Supabase pour survivre à la déconnexion
   if(typeof RESTAURANT_INFO !== 'undefined') {
     RESTAURANT_INFO.ticketConfig = {...TICKET_CONFIG};
@@ -28786,6 +28793,11 @@ function loadTicketConfig() {
     const saved = JSON.parse(_lsGet('kg-ticket-config') || 'null');
     if(saved) {
       TICKET_CONFIG = { ...TICKET_CONFIG, ...saved };
+      // ✅ FIX : kg-ticket-config ne contient plus le logo (anti-duplication
+      // localStorage) — le récupérer depuis kg-restaurant-info à la place.
+      if(!TICKET_CONFIG.logo && typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.loginLogo) {
+        TICKET_CONFIG.logo = RESTAURANT_INFO.loginLogo;
+      }
       // Restore logo preview + sync sidebar + connexion
       if(TICKET_CONFIG.logo) {
         const prev = document.getElementById('ticket-logo-preview');
