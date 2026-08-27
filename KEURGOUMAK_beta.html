@@ -41638,18 +41638,36 @@ async function _pullTicketsAttenteSupabase() {
           createdAt:    r.created_at
         }));
 
-      // ✅ FIX PRINCIPAL : FUSIONNER au lieu d'ÉCRASER. Un ticket créé sur cet
-      // appareil peut ne pas (encore, ou jamais si la synchro échoue) exister
-      // côté Supabase. Avant, il disparaissait dès qu'un pull renvoyait une
-      // liste ne le contenant pas — y compris juste après sa propre création.
-      // On garde donc les tickets locaux absents du pull (et non blacklistés),
-      // en plus de ceux renvoyés par Supabase.
+      // ✅ FIX PRINCIPAL (v2) : FUSIONNER au lieu d'ÉCRASER, MAIS sans bloquer
+      // les suppressions distantes. Un ticket local doit être conservé
+      // uniquement s'il n'a JAMAIS été confirmé par le serveur (= pas encore
+      // synchronisé, ex: push qui a échoué) — pas simplement parce qu'il est
+      // absent du pull courant. Sinon un ticket validé/supprimé sur un autre
+      // appareil (donc légitimement retiré de Supabase) réapparaîtrait ici
+      // indéfiniment puisqu'il n'est jamais entré dans NOTRE liste noire locale.
+      let _seenRemote = [];
+      try { _seenRemote = JSON.parse(_lsGet('kg-tickets-attente-seen-remote') || '[]'); } catch(e) {}
+      const _seenRemoteSet = new Set(_seenRemote);
+
       _loadTicketsAttente();
       const _remoteIds = new Set(_remoteTickets.map(t => t.id));
-      const _localOnly = TICKETS_ATTENTE.filter(t => !_remoteIds.has(t.id) && !_blacklist.includes(t.id));
+      const _localOnly = TICKETS_ATTENTE.filter(t =>
+        !_remoteIds.has(t.id) &&        // absent du pull actuel
+        !_blacklist.includes(t.id) &&   // pas déjà validé ici
+        !_seenRemoteSet.has(t.id)       // jamais confirmé par le serveur avant → probablement pas encore synchronisé
+      );
 
       TICKETS_ATTENTE = [..._remoteTickets, ..._localOnly];
       _saveTicketsAttente();
+
+      // Mémoriser tous les IDs confirmés par ce pull, pour distinguer plus
+      // tard "jamais synchronisé" de "supprimé ailleurs".
+      try {
+        const _updatedSeen = Array.from(new Set([..._seenRemote, ...data.map(r => r.id)]));
+        if(_updatedSeen.length > 300) _updatedSeen.splice(0, _updatedSeen.length - 300);
+        _lsSet('kg-tickets-attente-seen-remote', JSON.stringify(_updatedSeen));
+      } catch(e) {}
+
       _updateAttenteCounter();
       if(typeof renderOrders === 'function') renderOrders('all');
     }
