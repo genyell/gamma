@@ -24009,7 +24009,18 @@ function initFermetureSelect() {
   // Exclut les modules spéciaux (Piscine=5, Location=6, Manège=7, Sport=8) qui ont leur propre fermeture
   const _isPosCaisse = c => c.id <= 4 || c.id >= 11;
   let caissesList = (isGerant ? CAISSES : CAISSES.filter(c => c.name === defaultName || c.name === _userC)).filter(_isPosCaisse);
-  if(caissesList.length === 0) caissesList = CAISSES.filter(_isPosCaisse);
+  // ✅ FIX SÉCURITÉ : ce filet de sécurité affichait TOUTES les caisses (sans
+  // restriction) dès que la liste filtrée était vide — ce qui arrivait
+  // notamment juste après une actualisation (F5), le temps que currentUser
+  // soit complètement rechargé. Un simple caissier obtenait alors, pendant
+  // cette fenêtre, l'accès à toutes les caisses au lieu de la sienne
+  // uniquement. Le filet de secours doit rester limité à SA caisse pour un
+  // rôle "caissier" — seul un gérant/administrateur peut voir toutes les caisses.
+  if(caissesList.length === 0) {
+    caissesList = isGerant
+      ? CAISSES.filter(_isPosCaisse)
+      : (_userC ? CAISSES.filter(c => c.name === _userC).filter(_isPosCaisse) : []);
+  }
 
   el.style.flexWrap = 'wrap';
   el.innerHTML = caissesList.map((c) => {
