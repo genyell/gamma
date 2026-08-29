@@ -6993,6 +6993,14 @@ Revenez nous voir bient&#244;t.</textarea>
                   <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Décocher une caisse ci-dessous si elle n'a jamais besoin de bon de cuisine :</div>
                   <div id="cuisine-caisses-config"></div>
                 </div>
+                <!-- ✅ FIX : assujettissement à la TVA — s'applique aux factures
+                générées automatiquement depuis une vente POS et à la valeur par
+                défaut du formulaire "Nouvelle facture". -->
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;margin-top:14px;">
+                  <input type="checkbox" id="ticket-tva-active" checked onchange="updateTicketPreview()" style="width:16px;height:16px;accent-color:var(--accent);">
+                  🧾 Assujetti à la TVA (18%)
+                </label>
+                <div style="font-size:11px;color:var(--text2);margin:2px 0 0 26px;">Si décoché, les factures générées automatiquement (et la valeur par défaut d'une nouvelle facture) seront à 0% de TVA.</div>
               </div>
             </div>
 
@@ -10008,6 +10016,8 @@ Revenez nous voir bient&#244;t.</textarea>
           <option value="boîtes">boîtes</option>
           <option value="btls">btls</option>
           <option value="sachets">sachets</option>
+          <option value="douzaine">douzaine</option>
+          <option value="portion">portion</option>
         </select>
       </div>
       <div>
@@ -10022,6 +10032,57 @@ Revenez nous voir bient&#244;t.</textarea>
     <div style="display:flex;gap:8px;">
       <button onclick="cfClosCreateArticle()" class="btn btn-ghost" style="flex:1;">Annuler</button>
       <button onclick="cfSaveNewArticle()" class="btn btn-primary" style="flex:2;">✅ Créer et sélectionner</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL CRÉATION RAPIDE ARTICLE STOCK — depuis Ingrédients (Menu & Carte) -->
+<!-- ✅ FIX : remplace 3 window.prompt() en cascade (peu fiables sur mobile/
+webview, notamment quand le fichier est ouvert en content://) par un vrai
+petit formulaire avec un menu déroulant d'unité fiable. -->
+<!-- ================================================================ -->
+<div id="rec-create-article-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px 20px;width:340px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
+    <div style="font-size:15px;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+      <span>📦</span> Nouvel article stock
+      <span style="font-size:11px;font-weight:400;color:var(--text2);margin-left:auto;">sera ajouté au stock</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <div style="flex:1;">
+        <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Nom *</label>
+        <input id="rec-new-art-nom" class="form-input" placeholder="ex: Huile végétale" style="width:100%;"
+          onkeydown="if(event.key==='Enter') recSaveNewArticle()">
+      </div>
+      <div style="width:70px;">
+        <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Icône</label>
+        <input id="rec-new-art-icon" class="form-input" value="📦" style="text-align:center;">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Unité</label>
+        <select id="rec-new-art-unit" class="form-input">
+          <option value="kg">kg</option>
+          <option value="g">g</option>
+          <option value="L">L</option>
+          <option value="ml">ml</option>
+          <option value="pcs">pcs</option>
+          <option value="boîtes">boîtes</option>
+          <option value="btls">btls</option>
+          <option value="sachets">sachets</option>
+          <option value="douzaine">douzaine</option>
+          <option value="portion">portion</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Stock actuel</label>
+        <input id="rec-new-art-qty" class="form-input" type="number" value="0" min="0" step="0.1">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="recCloseCreateArticle()" class="btn btn-ghost" style="flex:1;">Annuler</button>
+      <button onclick="recSaveNewArticle()" class="btn btn-primary" style="flex:2;">✅ Créer et sélectionner</button>
     </div>
   </div>
 </div>
@@ -10098,6 +10159,8 @@ Revenez nous voir bient&#244;t.</textarea>
           <option value="boîtes">boîtes</option>
           <option value="btls">bouteilles</option>
           <option value="sachets">sachets</option>
+          <option value="douzaine">douzaine</option>
+          <option value="portion">portion</option>
         </select>
       </div>
     </div>
@@ -10178,6 +10241,7 @@ Revenez nous voir bient&#244;t.</textarea>
           <option value="kg">kg</option><option value="g">g</option><option value="L">L</option>
           <option value="ml">ml</option><option value="pcs">pcs</option>
           <option value="boîtes">boîtes</option><option value="btls">btls</option><option value="sachets">sachets</option>
+          <option value="douzaine">douzaine</option><option value="portion">portion</option>
         </select>
       </div>
     </div>
@@ -10250,6 +10314,8 @@ Revenez nous voir bient&#244;t.</textarea>
           <option value="boîtes">boîtes</option>
           <option value="btls">btls (bouteilles)</option>
           <option value="sachets">sachets</option>
+          <option value="douzaine">douzaine</option>
+          <option value="portion">portion (portions)</option>
         </select>
       </div>
     </div>
@@ -10916,7 +10982,8 @@ function openAddFacture(type) {
   document.getElementById('fact-fourn-echeance').value = '';
   document.getElementById('fact-statut').value = 'attente';
   document.getElementById('fact-pay-method').value = 'especes';
-  document.getElementById('fact-tva-rate').value = '18';
+  // ✅ FIX : par défaut, respecter le réglage "Assujetti à la TVA" des Paramètres
+  document.getElementById('fact-tva-rate').value = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.tvaActive === false) ? '0' : '18';
   document.getElementById('fact-notes').value = '';
   // ✅ v36 : Réinitialiser acompte
   const acompteEl = document.getElementById('fact-acompte');
@@ -13351,6 +13418,10 @@ let TICKET_CONFIG = {
   // ✅ FIX : caisses n'ayant pas besoin de bon de cuisine (ex: caisse "à emporter
   // déjà préparé", vente de boissons seules, etc.) — noms exacts de CAISSES.
   caissesSansCuisine: [],
+  // ✅ FIX : assujettissement à la TVA — quand désactivé, les factures
+  // générées automatiquement depuis une vente POS (et la valeur par défaut
+  // du formulaire "Nouvelle facture") utilisent 0% au lieu de 18%.
+  tvaActive: true,
   // ✅ FIX v41 — Personnalisation police & couleurs
   fontFamily: "Arial,Helvetica,sans-serif",
   bgColor:    '#ffffff',
@@ -13745,7 +13816,9 @@ function _genererFactureDepuisVente(vente, caisse) {
     const sousTotal = lignes.reduce((a,l) => a + l.total, 0);
     const remise = vente.remiseMontant || 0;
     const ttc = Math.max(0, sousTotal - remise);
-    const tvaRate = 0.18;
+    // ✅ FIX : respecter le réglage "Assujetti à la TVA" des Paramètres —
+    // si désactivé, la facture générée automatiquement est à 0% de TVA.
+    const tvaRate = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.tvaActive === false) ? 0 : 0.18;
     const tva = Math.round(ttc * tvaRate / (1 + tvaRate));
     const ht = ttc - tva;
     const payMap = { cash:'especes', wave:'wave', orange:'orange', card:'carte', mixed:'especes' };
@@ -13772,6 +13845,13 @@ function _genererFactureDepuisVente(vente, caisse) {
     saveFacturesLocal();
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.factures().catch(e => console.error('push.factures (POS):', e));
     if(typeof renderFactures === 'function') renderFactures();
+    // ✅ FIX : mémoriser la facture générée sur la vente elle-même, pour
+    // pouvoir la RÉIMPRIMER ensuite au lieu d'en créer une nouvelle à chaque
+    // demande de réimpression "Facture" depuis la liste des Commandes.
+    vente.factureId = factObj.id;
+    if(typeof _saveVenteSupabase === 'function' && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      _saveVenteSupabase(caisse, vente).catch(()=>{});
+    }
     setTimeout(() => printFacture(factObj.id), 150);
   } catch(e) {
     console.error('[_genererFactureDepuisVente]', e);
@@ -15128,6 +15208,7 @@ function renderOrders(status) {
       <div class="badge badge-done">🎉 Livré</div>
       <div class="order-actions">
         <button class="ticket-btn" style="font-size:11px;padding:5px 10px;" onclick="reprintTicket('${o.id}')">🖨️ Ticket</button>
+        <button class="ticket-btn" style="font-size:11px;padding:5px 10px;background:rgba(99,102,241,0.12);color:#818cf8;border:1px solid rgba(99,102,241,0.35);" onclick="reprintOuGenererFacture('${o.id}')" title="Réimprimer en facture">📄 Facture</button>
         ${(currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant')) ? `<button style="background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.4);border-radius:8px;font-size:11px;padding:5px 10px;cursor:pointer;" onclick="modifierPaiementTicket('${o.id}')" title="Modifier le mode de paiement">✏️ Paiement</button>` : ''}
         ${(currentUser && currentUser.role === 'administrateur') ? '<button onclick="supprimerVenteAdmin(\'' + o.id + '\')" style="background:rgba(220,53,69,0.15);color:#dc3545;border:1px solid rgba(220,53,69,0.4);border-radius:8px;font-size:11px;padding:5px 10px;cursor:pointer;" title="Supprimer ce ticket (erreur)">🗑️</button>' : ''}
       </div>
@@ -15146,6 +15227,31 @@ function reprintTicket(orderNum) {
   if(!vente) { showNotif('⚠️ Vente introuvable'); return; }
   printTicket(vente, caisseName, true);
   showNotif(`🖨️ Ticket ${orderNum} réimprimé (marqué COPIE)`);
+}
+
+// ✅ FIX : permettre de choisir Ticket ou Facture au moment de réimprimer une
+// vente déjà encaissée. Si une facture existe déjà pour cette vente (générée
+// ici ou au moment du paiement), on la réimprime telle quelle au lieu d'en
+// créer une nouvelle à chaque clic.
+function reprintOuGenererFacture(orderNum) {
+  let vente = null;
+  let caisseName = '';
+  for(const [c, ventes] of Object.entries(VENTES_PAR_CAISSE)) {
+    const found = ventes.find(v => v.orderNum === orderNum);
+    if(found) { vente = found; caisseName = c; break; }
+  }
+  if(!vente) { showNotif('⚠️ Vente introuvable'); return; }
+
+  if(vente.factureId) {
+    const fExistante = (FACTURES||[]).find(f => f.id === vente.factureId);
+    if(fExistante) {
+      printFacture(fExistante.id);
+      showNotif(`📄 Facture ${fExistante.num} réimprimée`);
+      return;
+    }
+  }
+  // Aucune facture existante pour cette vente → en générer une nouvelle
+  _genererFactureDepuisVente(vente, caisseName);
 }
 
 // ===== MODIFIER MODE DE PAIEMENT TICKET =====
@@ -15981,7 +16087,7 @@ function renderCFArticles() {
         oninput="cfArticleLines[${i}].qty=parseFloat(this.value)||0;cfUpdateLineTotal(${i});updateCFTotal();updateCFSolde()"
         style="font-size:12px;text-align:center;">
       <select class="form-input" onchange="cfArticleLines[${i}].unit=this.value" style="font-size:12px;">
-        ${['kg','g','L','ml','pcs','boîtes','btls','sachets'].map(u=>`<option value="${u}" ${u===line.unit?'selected':''}>${u}</option>`).join('')}
+        ${['kg','g','L','ml','pcs','boîtes','btls','sachets','douzaine','portion'].map(u=>`<option value="${u}" ${u===line.unit?'selected':''}>${u}</option>`).join('')}
       </select>
       <input class="form-input" type="number" placeholder="Prix/u FCFA" value="${line.prix||''}" min="0"
         oninput="cfArticleLines[${i}].prix=parseFloat(this.value)||0;cfUpdateLineTotal(${i});updateCFTotal();updateCFSolde()"
@@ -28284,58 +28390,66 @@ function addRecetteLine() {
 // stock qui porte EXACTEMENT le nom du produit en cours de création (ex:
 // "Mafe"), sans prompt. Unité par défaut "unité", 0 en stock, 1 déduite/vente.
 function _quickCreateStockSameName(lineIdx, selectEl) {
-  console.log('[stock-quick-create] appelé — lineIdx:', lineIdx, '| STOCK_DATA.length avant:', STOCK_DATA.length);
   const nomProduitEl = document.getElementById('item-nom');
   const nom = nomProduitEl ? nomProduitEl.value.trim() : '';
   if(!nom) { selectEl.value = ''; showNotif('⚠️ Donnez d\'abord un nom au produit'); return; }
 
   // Si un article de stock porte déjà ce nom, on le réutilise plutôt que d'en recréer un doublon
   const existing = STOCK_DATA.find(s => s.name.trim().toLowerCase() === nom.toLowerCase());
-  let itemId;
   if(existing) {
-    itemId = existing.id;
+    _recetteLines[lineIdx].stockId = existing.id;
+    if(!_recetteLines[lineIdx].qty) _recetteLines[lineIdx].qty = 1;
+    _drawRecetteLines();
     showNotif(`✅ Article de stock "${nom}" déjà existant — lié`);
-  } else {
-    const newItem = {
-      id: 'local_' + Date.now(),
-      icon: '📦', name: nom, unit: 'unité',
-      qty: 0, max: 100, seuil: 10,
-      stockCatId: '', cat: ''
-    };
-    STOCK_DATA.push(newItem);
-    window._kgStockModifiedAt = Date.now();
-    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
-      KGSync.push.stock().catch((e) => { console.error('push.stock error:', e); showNotif('⚠️ Erreur de synchronisation stock — réessayez'); });
-      if(typeof KGSync.flushAllPending === 'function') {
-        KGSync.flushAllPending().catch((e) => { console.error('flushAllPending error:', e); });
-      }
-    } else {
-      // ✅ pas de connexion Supabase active → prévenir clairement au lieu d'échouer en silence
-      showNotif('⚠️ Hors-ligne : "' + nom + '" créé localement seulement, se synchronisera à la reconnexion');
-    }
-    itemId = newItem.id;
-    showNotif(`✅ Article de stock "${nom}" créé et lié`);
+    return;
   }
 
-  _recetteLines[lineIdx].stockId = itemId;
-  if(!_recetteLines[lineIdx].qty) _recetteLines[lineIdx].qty = 1;
-  _drawRecetteLines();
-  console.log('[stock-quick-create] terminé — STOCK_DATA.length après:', STOCK_DATA.length, '| itemId lié:', itemId);
+  // ✅ FIX : ne plus figer l'unité sur "unité" sans jamais demander — ouvrir
+  // le même formulaire fiable, pré-rempli avec le nom du plat, pour que
+  // l'unité (kg, L, pcs...) soit un vrai choix de l'utilisateur.
+  _recQuickCreateForLine = lineIdx;
+  if(selectEl) selectEl.value = '';
+  document.getElementById('rec-new-art-nom').value = nom;
+  document.getElementById('rec-new-art-icon').value = '📦';
+  document.getElementById('rec-new-art-unit').value = 'kg';
+  document.getElementById('rec-new-art-qty').value = '0';
+  document.getElementById('rec-create-article-modal').style.display = 'flex';
 }
 
+let _recQuickCreateForLine = -1;
+
 function _quickCreateStockFromRecette(lineIdx, selectEl) {
-  // Pré-remplit avec le nom du produit en cours de création, pratique pour
-  // les produits vendus à l'unité (ex: canette, bouteille) où stock = produit.
+  // ✅ FIX : remplace les window.prompt() en cascade (peu fiables sur mobile/
+  // webview — notamment ici, le fichier ouvert en content://downloads/ où
+  // prompt() peut se comporter de façon incohérente) par un vrai formulaire.
+  // Ça garantit que l'unité choisie est bien celle enregistrée sur l'article.
+  _recQuickCreateForLine = lineIdx;
+  if(selectEl) selectEl.value = ''; // reset le select en attendant la création
   const nomProduitEl = document.getElementById('item-nom');
   const suggestion = (nomProduitEl && nomProduitEl.value.trim()) || '';
-  const nom = prompt('Nom du nouvel article de stock :', suggestion);
-  if(!nom || !nom.trim()) { selectEl.value = ''; return; }
-  const unit = prompt('Unité (kg, g, L, ml, unité...) :', 'unité') || 'unité';
-  const qtyDepart = parseFloat(prompt('Quantité en stock actuellement (0 si aucune) :', '0')) || 0;
+  document.getElementById('rec-new-art-nom').value = suggestion;
+  document.getElementById('rec-new-art-icon').value = '📦';
+  document.getElementById('rec-new-art-unit').value = 'kg';
+  document.getElementById('rec-new-art-qty').value = '0';
+  document.getElementById('rec-create-article-modal').style.display = 'flex';
+  setTimeout(() => { document.getElementById('rec-new-art-nom').focus(); }, 100);
+}
+
+function recCloseCreateArticle() {
+  document.getElementById('rec-create-article-modal').style.display = 'none';
+  _recQuickCreateForLine = -1;
+}
+
+function recSaveNewArticle() {
+  const nom = document.getElementById('rec-new-art-nom').value.trim();
+  if(!nom) { showNotif('⚠️ Nom requis'); return; }
+  const unit = document.getElementById('rec-new-art-unit').value || 'kg';
+  const qtyDepart = parseFloat(document.getElementById('rec-new-art-qty').value) || 0;
 
   const newItem = {
     id: 'local_' + Date.now(),
-    icon: '📦', name: nom.trim(), unit: unit.trim(),
+    icon: document.getElementById('rec-new-art-icon').value || '📦',
+    name: nom, unit: unit,
     qty: qtyDepart, max: Math.max(qtyDepart, 100), seuil: 10,
     stockCatId: '', cat: ''
   };
@@ -28347,13 +28461,16 @@ function _quickCreateStockFromRecette(lineIdx, selectEl) {
       KGSync.flushAllPending().catch((e) => { console.error('flushAllPending error:', e); });
     }
   } else {
-    showNotif('⚠️ Hors-ligne : "' + nom.trim() + '" créé localement seulement, se synchronisera à la reconnexion');
+    showNotif('⚠️ Hors-ligne : "' + nom + '" créé localement seulement, se synchronisera à la reconnexion');
   }
 
-  _recetteLines[lineIdx].stockId = newItem.id;
-  if(!_recetteLines[lineIdx].qty) _recetteLines[lineIdx].qty = 1; // 1 unité déduite par défaut, ajustable
+  if(_recQuickCreateForLine >= 0 && _recetteLines[_recQuickCreateForLine] !== undefined) {
+    _recetteLines[_recQuickCreateForLine].stockId = newItem.id;
+    if(!_recetteLines[_recQuickCreateForLine].qty) _recetteLines[_recQuickCreateForLine].qty = 1;
+  }
+  recCloseCreateArticle();
   _drawRecetteLines();
-  showNotif(`✅ Article de stock "${nom.trim()}" créé et lié`);
+  showNotif(`✅ Article de stock "${nom}" (${unit}) créé et lié`);
 }
 
 function _removeRecetteLine(i) {
@@ -29062,6 +29179,8 @@ function saveTicketSettings() {
   TICKET_CONFIG.caissesSansCuisine = Array.from(document.querySelectorAll('.cuisine-caisse-toggle'))
     .filter(el => !el.checked)
     .map(el => el.value);
+  // ✅ FIX : assujettissement à la TVA
+  TICKET_CONFIG.tvaActive = document.getElementById('ticket-tva-active')?.checked ?? true;
   TICKET_CONFIG.qrLabel = document.getElementById('ticket-qr-label')?.value || 'Donnez votre avis :';
   TICKET_CONFIG.qrUrl = document.getElementById('ticket-qr-url')?.value || '';
   TICKET_CONFIG.sepStyle = document.getElementById('ticket-sep-style')?.value || 'dashed';
@@ -29120,6 +29239,7 @@ function loadTicketConfig() {
       setC('ticket-show-wifi',    TICKET_CONFIG.showWifi);
       setC('ticket-show-qr',      TICKET_CONFIG.showQR);
       setC('ticket-print-cuisine', TICKET_CONFIG.printCuisine ?? true);
+      setC('ticket-tva-active', TICKET_CONFIG.tvaActive ?? true);
       renderCuisineCaissesConfig();
       const cuisineGrp = document.getElementById('cuisine-caisses-config-group');
       if(cuisineGrp) cuisineGrp.style.display = (TICKET_CONFIG.printCuisine ?? true) ? 'block' : 'none';
