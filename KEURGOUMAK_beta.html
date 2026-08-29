@@ -104,6 +104,7 @@
 (function() {
   const _KG_KEYS = [
     'kg-session','kg-historique-clotures','kg-restaurant-info','kg-ticket-config',
+    'kg-rdv-msg-config','kg-nav-labels',
     'kg-modules-active','kg-order-counters','kg-caisses-config','kg-c3-orders',
     'kg-factures','kg-inventaires', /* kg-theme retiré intentionnellement : préférence locale non préfixée */
     'kg-tarifs-location','kg-tarifs-piscine','kg-tarifs-sport','kg-tarifs-terrain',
@@ -5324,110 +5325,114 @@ function _syncSportVentes()       { return []; }
   <div class="nav">
     <div class="nav-section">Principal</div>
     <div class="nav-item active" onclick="showView('dashboard', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span> Tableau de bord
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span> <span class="nav-label" data-navkey="dashboard">Tableau de bord</span>
     </div>
     <div class="nav-item" onclick="showView('caisse', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span> Caisse POS
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span> <span class="nav-label" data-navkey="caisse">Caisse POS</span>
     </div>
     <div class="nav-item" onclick="showView('commandes', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span> Commandes
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span> <span class="nav-label" data-navkey="commandes">Commandes</span>
     </div>
     <div class="nav-item" onclick="showView('qrcommandes', this)" id="nav-qrcommandes">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg></span> Commandes QR <span id="qr-nav-badge" style="display:none;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;animation:pulse-dot 1.5s infinite;">●</span>
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg></span> <span class="nav-label" data-navkey="qrcommandes">Commandes QR</span> <span id="qr-nav-badge" style="display:none;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;animation:pulse-dot 1.5s infinite;">●</span>
+    </div>
+    <!-- ✅ FIX : module dédié "En attente de paiement", séparé de Commandes -->
+    <div class="nav-item" onclick="showView('attentepaiement', this)" id="nav-attentepaiement">
+      <span class="icon">⏳</span> <span class="nav-label" data-navkey="attentepaiement">En attente de paiement</span> <span id="attente-nav-badge" style="display:none;background:var(--accent);color:#000;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
     </div>
     <div class="nav-section">Gestion</div>
     <div class="nav-item" onclick="showView('caisses', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span> Gestion des Caisses
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span> <span class="nav-label" data-navkey="caisses">Gestion des Caisses</span>
     </div>
     <div class="nav-item" onclick="showView('menu', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg></span> Menu & Carte
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg></span> <span class="nav-label" data-navkey="menu">Menu & Carte</span>
     </div>
     <div class="nav-item" onclick="showView('stock', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span> Stocks
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span> <span class="nav-label" data-navkey="stock">Stocks</span>
     </div>
     <div class="nav-item" onclick="showView('inventaire', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span> Inventaire
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span> <span class="nav-label" data-navkey="inventaire">Inventaire</span>
     </div>
     <div class="nav-item" onclick="showView('preparation', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg></span> Préparation
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg></span> <span class="nav-label" data-navkey="preparation">Préparation</span>
     </div>
     <div class="nav-item" onclick="showView('clients', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Clients
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> <span class="nav-label" data-navkey="clients">Clients</span>
     </div>
     <div class="nav-item" onclick="showView('rdv', this)" id="nav-rdv">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/></svg></span> Prendre RDV
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/></svg></span> <span class="nav-label" data-navkey="rdv">Prendre RDV</span>
     </div>
     <div class="nav-item" onclick="showView('annonces', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span> Annonces & Pubs
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span> <span class="nav-label" data-navkey="annonces">Annonces & Pubs</span>
     </div>
     <div class="nav-item" onclick="showView('fournisseurs', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span> Fournisseurs
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span> <span class="nav-label" data-navkey="fournisseurs">Fournisseurs</span>
     </div>
     <div class="nav-item" onclick="showView('livreurs', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></span> Livreurs
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></span> <span class="nav-label" data-navkey="livreurs">Livreurs</span>
     </div>
     <div class="nav-item" onclick="showView('serveurs', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="8" y1="21" x2="8" y2="17"/><line x1="16" y1="21" x2="16" y2="17"/></svg></span> Serveurs
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="8" y1="21" x2="8" y2="17"/><line x1="16" y1="21" x2="16" y2="17"/></svg></span> <span class="nav-label" data-navkey="serveurs">Serveurs</span>
     </div>
     <div class="nav-item" onclick="showView('utilisateurs', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> Utilisateurs
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> <span class="nav-label" data-navkey="utilisateurs">Utilisateurs</span>
     </div>
     <div class="nav-item" onclick="showView('depenses', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span> Dépenses
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span> <span class="nav-label" data-navkey="depenses">Dépenses</span>
     </div>
     <div class="nav-item" onclick="showView('rh', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span> RH & Salaires
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span> <span class="nav-label" data-navkey="rh">RH & Salaires</span>
     </div>
     <div class="nav-item" onclick="showView('compta', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span> Comptabilité
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span> <span class="nav-label" data-navkey="compta">Comptabilité</span>
     </div>
     <div class="nav-item" onclick="showView('factures', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></span> Factures
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></span> <span class="nav-label" data-navkey="factures">Factures</span>
     </div>
     <div class="nav-item" onclick="showView('banque', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg></span> Banque
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg></span> <span class="nav-label" data-navkey="banque">Banque</span>
     </div>
     <div class="nav-item" onclick="showView('materiel', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></span> Matériel & Amortissements
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></span> <span class="nav-label" data-navkey="materiel">Matériel & Amortissements</span>
     </div>
     <div class="nav-item" onclick="showView('terrain', this)" id="nav-terrain">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span> Terrain de Football
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span> <span class="nav-label" data-navkey="terrain">Terrain de Football</span>
     </div>
     <div class="nav-item" onclick="showView('salle', this)" id="nav-salle">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span> Salle de location
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span> <span class="nav-label" data-navkey="salle">Salle de location</span>
     </div>
     <div class="nav-item" onclick="showView('sport', this)" id="nav-sport">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5h11"/><path d="M6.5 17.5h11"/><path d="M3 9.5h2v5H3z"/><path d="M19 9.5h2v5h-2z"/><path d="M5 8h1v8H5z"/><path d="M18 8h1v8h-1z"/></svg></span> Salle de Sport
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5h11"/><path d="M6.5 17.5h11"/><path d="M3 9.5h2v5H3z"/><path d="M19 9.5h2v5h-2z"/><path d="M5 8h1v8H5z"/><path d="M18 8h1v8h-1z"/></svg></span> <span class="nav-label" data-navkey="sport">Salle de Sport</span>
     </div>
     <div class="nav-item" onclick="showView('hotel', this)" id="nav-hotel">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22V8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/><path d="M9 22v-4h6v4"/><path d="M3 11h18"/><rect x="9" y="8" width="2" height="3" rx="0.5"/><rect x="13" y="8" width="2" height="3" rx="0.5"/></svg></span> Hôtel
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22V8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14"/><path d="M3 22h18"/><path d="M9 22v-4h6v4"/><path d="M3 11h18"/><rect x="9" y="8" width="2" height="3" rx="0.5"/><rect x="13" y="8" width="2" height="3" rx="0.5"/></svg></span> <span class="nav-label" data-navkey="hotel">Hôtel</span>
     </div>
     <div class="nav-section">Caisses</div>
     <div class="nav-item" onclick="showView('rapportx', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> Rapport X
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span> <span class="nav-label" data-navkey="rapportx">Rapport X</span>
     </div>
     <div class="nav-item" onclick="showView('rapport-mensuel', this)">
-      <span class="icon">📅</span> Rapport Mensuel
+      <span class="icon">📅</span> <span class="nav-label" data-navkey="rapport-mensuel">Rapport Mensuel</span>
     </div>
     <div class="nav-item" onclick="showView('shift', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span> Shifts
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span> <span class="nav-label" data-navkey="shift">Shifts</span>
     </div>
     <div class="nav-item" onclick="showView('fermeture', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> Fermeture (Z)
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> <span class="nav-label" data-navkey="fermeture">Fermeture (Z)</span>
       <span class="nav-badge" style="background:var(--red)">!</span>
     </div>
     <div class="nav-item" onclick="showView('reconciliation', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span> Réconciliation
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span> <span class="nav-label" data-navkey="reconciliation">Réconciliation</span>
     </div>
     <div class="nav-item" onclick="showView('historique', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h5l1.5 4.5L8 9a11 11 0 0 0 7 7l1.5-2.5L21 15v5a2 2 0 0 1-2 2A17 17 0 0 1 2 5a2 2 0 0 1 2-2z"/></svg></span> Historique Clôtures
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h5l1.5 4.5L8 9a11 11 0 0 0 7 7l1.5-2.5L21 15v5a2 2 0 0 1-2 2A17 17 0 0 1 2 5a2 2 0 0 1 2-2z"/></svg></span> <span class="nav-label" data-navkey="historique">Historique Clôtures</span>
     </div>
     <div class="nav-section">Analyse</div>
     <div class="nav-item" onclick="showView('stats', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span> Statistiques
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span> <span class="nav-label" data-navkey="stats">Statistiques</span>
     </div>
     <div class="nav-item" onclick="showView('settings', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M5.34 18.66l-1.41 1.41M21 12h-2M5 12H3M18.66 18.66l-1.41-1.41M6.75 6.75L5.34 5.34M12 21v-2M12 5V3M15.66 6.75l1.41-1.41"/></svg></span> Paramètres
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M5.34 18.66l-1.41 1.41M21 12h-2M5 12H3M18.66 18.66l-1.41-1.41M6.75 6.75L5.34 5.34M12 21v-2M12 5V3M15.66 6.75l1.41-1.41"/></svg></span> <span class="nav-label" data-navkey="settings">Paramètres</span>
     </div>
   </div>
   <div class="sidebar-bottom">
@@ -7001,6 +7006,14 @@ Revenez nous voir bient&#244;t.</textarea>
                   🧾 Assujetti à la TVA (18%)
                 </label>
                 <div style="font-size:11px;color:var(--text2);margin:2px 0 0 26px;">Si décoché, les factures générées automatiquement (et la valeur par défaut d'une nouvelle facture) seront à 0% de TVA.</div>
+                <!-- ✅ FIX : choisir quelles caisses déduisent le stock central à la vente -->
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;margin-top:14px;">
+                  <span style="font-weight:700;">📦 Déduction du stock par caisse</span>
+                </label>
+                <div style="margin:6px 0 0 0;padding:10px 12px;background:var(--surface2, rgba(255,255,255,0.04));border-radius:8px;">
+                  <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Décocher une caisse ci-dessous si ses ventes ne doivent JAMAIS déduire le stock central :</div>
+                  <div id="stock-caisses-config"></div>
+                </div>
               </div>
             </div>
 
@@ -7063,6 +7076,20 @@ Revenez nous voir bient&#244;t.</textarea>
         </div>
       </div>
 
+      <!-- SECTION PERSONNALISATION DU MENU (SIDEBAR) -->
+      <div class="card" style="margin-top:20px;">
+        <div class="card-title" style="display:flex;align-items:center;gap:10px;">
+          <span>📝 Personnaliser les noms du menu</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">
+          Renommez librement les entrées du menu latéral (à gauche). Cela ne change que le texte affiché — aucune fonctionnalité n'est modifiée.
+        </div>
+        <div id="nav-labels-form" style="max-height:400px;overflow-y:auto;"></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px;">
+          <button class="btn btn-primary" onclick="saveNavLabelsSettings()">💾 Sauvegarder les noms</button>
+          <button class="btn btn-ghost" onclick="resetNavLabelsSettings()">🔄 Tout réinitialiser</button>
+        </div>
+      </div>
 
     </div>
 
@@ -7187,6 +7214,18 @@ Revenez nous voir bient&#244;t.</textarea>
         <div id="qr-ruptures-list" style="display:flex;flex-direction:column;gap:8px;"></div>
       </div>
 
+    </div>
+
+    <!-- ✅ FIX : module dédié "En attente de paiement" (séparé de Commandes et de Commandes QR) -->
+    <div id="view-attentepaiement" class="view fade-in" style="padding-bottom:100px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-size:20px;font-weight:700;color:var(--accent)">⏳ En attente de paiement</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:2px;">Tickets créés en caisse, en attente d'encaissement</div>
+        </div>
+        <button class="btn btn-ghost" onclick="renderAttentePaiementModule()">🔄 Actualiser</button>
+      </div>
+      <div id="attente-paiement-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;min-height:80px;"></div>
     </div>
 
     <!-- Modal ajout table QR -->
@@ -8437,6 +8476,7 @@ Revenez nous voir bient&#244;t.</textarea>
       <button class="cat-btn" id="rdv-tab-stats" onclick="switchRdvTab('stats',this)">📊 Statistiques</button>
       <button class="cat-btn" id="rdv-tab-services" onclick="switchRdvTab('services',this)">💇 Services & tarifs</button>
       <button class="cat-btn" id="rdv-tab-historique" onclick="switchRdvTab('historique',this)">🕓 Historique</button>
+      <button class="cat-btn" id="rdv-tab-messages" onclick="switchRdvTab('messages',this)">💬 Messages WhatsApp</button>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <input type="date" class="form-input" id="rdv-date-picker" style="width:160px;" onchange="renderRdvAgenda()">
@@ -8498,6 +8538,52 @@ Revenez nous voir bient&#244;t.</textarea>
     </div>
     <div id="rdv-hist-summary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px;"></div>
     <div id="rdv-historique-content"></div>
+  </div>
+
+  <!-- PANEL MESSAGES WHATSAPP (confirmation / rappel / remerciement) -->
+  <div id="rdv-panel-messages" style="display:none;">
+    <div class="card">
+      <div class="card-title" style="display:flex;align-items:center;gap:10px;">
+        <span>💬 Messages WhatsApp des Rendez-vous</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:16px;">
+        Personnalisez les 3 messages automatiques envoyés à vos clients par WhatsApp. Utilisez les variables entre accolades ci-dessous, elles seront remplacées automatiquement au moment de l'envoi.
+      </div>
+
+      <!-- MESSAGE DE CONFIRMATION -->
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>✅ Message de confirmation</span>
+          <button type="button" onclick="resetRdvMsgSettings('confirmation')" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">🔄 Réinitialiser</button>
+        </label>
+        <textarea class="form-input" id="rdv-msg-confirmation" rows="8" style="resize:vertical;font-family:'JetBrains Mono',monospace;font-size:12px;"></textarea>
+        <div style="font-size:10px;color:var(--text2);margin-top:4px;">Variables : {client} {resto} {date} {heure} {heureFin} {service} {prix} {remiseLigne} {acompteLigne} {compteALebours}</div>
+      </div>
+
+      <!-- MESSAGE DE RAPPEL -->
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>🔔 Message de rappel</span>
+          <button type="button" onclick="resetRdvMsgSettings('rappel')" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">🔄 Réinitialiser</button>
+        </label>
+        <textarea class="form-input" id="rdv-msg-rappel" rows="6" style="resize:vertical;font-family:'JetBrains Mono',monospace;font-size:12px;"></textarea>
+        <div style="font-size:10px;color:var(--text2);margin-top:4px;">Variables : {client} {resto} {date} {heure} {heureFin} {service} {compteALebours}</div>
+      </div>
+
+      <!-- MESSAGE DE REMERCIEMENT -->
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>🙏 Message de remerciement</span>
+          <button type="button" onclick="resetRdvMsgSettings('remerciement')" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">🔄 Réinitialiser</button>
+        </label>
+        <textarea class="form-input" id="rdv-msg-remerciement" rows="6" style="resize:vertical;font-family:'JetBrains Mono',monospace;font-size:12px;"></textarea>
+        <div style="font-size:10px;color:var(--text2);margin-top:4px;">Variables : {client} {resto} {date} {service} {resteLigne}</div>
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px;">
+        <button class="btn btn-primary" onclick="saveRdvMsgSettings()">💾 Sauvegarder les messages</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -10608,7 +10694,7 @@ function showView(id, el, pushState) {
     const navMatch = document.querySelector(`.nav-item[onclick*="showView('${id}'"]`);
     if(navMatch) navMatch.classList.add('active');
   }
-  const titles = { dashboard:'Tableau de bord', caisse:'Caisse POS', commandes:'Commandes', qrcommandes:'📱 Commandes en ligne — QR Code', menu:'Menu & Carte', stock:'Stocks', inventaire:'Inventaire', preparation:'🧑‍🍳 Préparation', clients:'Clients', fournisseurs:'Fournisseurs', stats:'Statistiques', settings:'Paramètres', caisses:'Gestion des Caisses', rapportx:'Rapport X — Consultation en cours', 'rapport-mensuel':'📅 Rapport Mensuel', shift:'Gestion des Shifts', fermeture:'Fermeture de Caisse (Z)', reconciliation:'Réconciliation Mensuelle', historique:'Historique des Clôtures', utilisateurs:'Utilisateurs', depenses:'Module Dépenses', rh:'RH & Gestion des Salaires', compta:'Comptabilité — Résultats & Bilan', factures:'Factures — Clients & Fournisseurs', banque:'Banque — Suivi des comptes', materiel:'Matériel & Amortissements', annonces:'📢 Annonces & Publicités', 'location-salle':'🏛️ Location de Salle', 'manege':'🎠 Manège Enfants', terrain:'⚽ Terrain de Football', 'salle-sport':'💪 Salle de Sport', piscine:'🏊 Piscine', caisse3commandes:'🖥️ Caisse 3 — Commandes Clients', salle:'🏠 Salle de Location', sport:'💪 Salle de Sport', hotel:'🏨 Hôtel — Gestion des Chambres', rdv:'📅 Prendre RDV — Rendez-vous' };
+  const titles = { dashboard:'Tableau de bord', caisse:'Caisse POS', commandes:'Commandes', qrcommandes:'📱 Commandes en ligne — QR Code', attentepaiement:'⏳ En attente de paiement', menu:'Menu & Carte', stock:'Stocks', inventaire:'Inventaire', preparation:'🧑‍🍳 Préparation', clients:'Clients', fournisseurs:'Fournisseurs', stats:'Statistiques', settings:'Paramètres', caisses:'Gestion des Caisses', rapportx:'Rapport X — Consultation en cours', 'rapport-mensuel':'📅 Rapport Mensuel', shift:'Gestion des Shifts', fermeture:'Fermeture de Caisse (Z)', reconciliation:'Réconciliation Mensuelle', historique:'Historique des Clôtures', utilisateurs:'Utilisateurs', depenses:'Module Dépenses', rh:'RH & Gestion des Salaires', compta:'Comptabilité — Résultats & Bilan', factures:'Factures — Clients & Fournisseurs', banque:'Banque — Suivi des comptes', materiel:'Matériel & Amortissements', annonces:'📢 Annonces & Publicités', 'location-salle':'🏛️ Location de Salle', 'manege':'🎠 Manège Enfants', terrain:'⚽ Terrain de Football', 'salle-sport':'💪 Salle de Sport', piscine:'🏊 Piscine', caisse3commandes:'🖥️ Caisse 3 — Commandes Clients', salle:'🏠 Salle de Location', sport:'💪 Salle de Sport', hotel:'🏨 Hôtel — Gestion des Chambres', rdv:'📅 Prendre RDV — Rendez-vous' };
   document.getElementById('page-title').textContent = titles[id] || id;
 
   // ===== HISTORY API : desactive en file:// pour eviter "Unsafe attempt" ===
@@ -10664,6 +10750,13 @@ function showView(id, el, pushState) {
     initQRCommandesSmart();
     // Mettre à jour le badge Additions dès l'ouverture
     setTimeout(_updateQRAdditionsBadge, 300);
+  }
+  // ✅ FIX : module dédié "En attente de paiement"
+  if(id === 'attentepaiement') {
+    renderAttentePaiementModule();
+    if(typeof _pullTicketsAttenteSupabase === 'function' && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      _pullTicketsAttenteSupabase().then(() => renderAttentePaiementModule()).catch(()=>{});
+    }
   }
   if(id === 'settings') setTimeout(_initPhotosPreviews, 200);
   if(id === 'livreurs') afficherListeLivreurs();
@@ -10862,7 +10955,7 @@ function showView(id, el, pushState) {
     }
   }
   if(id === 'compta') renderCompta();
-  if(id === 'settings') { setTimeout(() => { loadTicketConfig(); initTarifsSettings(); }, 100); }
+  if(id === 'settings') { renderNavLabelsForm(); setTimeout(() => { loadTicketConfig(); initTarifsSettings(); renderNavLabelsForm(); }, 100); }
   if(id === 'factures') { loadFacturesLocal().then ? loadFacturesLocal().then(()=>renderFactures()) : renderFactures(); }
   if(id === 'annonces') chargerAnnonces();
 }
@@ -13422,11 +13515,137 @@ let TICKET_CONFIG = {
   // générées automatiquement depuis une vente POS (et la valeur par défaut
   // du formulaire "Nouvelle facture") utilisent 0% au lieu de 18%.
   tvaActive: true,
+  // ✅ FIX : caisses dont les ventes NE déduisent PAS le stock central (ex:
+  // Caisse 1 et 2 vendent sans jamais toucher le stock, seules Caisse 3 et 4
+  // le déduisent). Vide = toutes les caisses déduisent normalement.
+  caissesSansDeductionStock: [],
   // ✅ FIX v41 — Personnalisation police & couleurs
   fontFamily: "Arial,Helvetica,sans-serif",
   bgColor:    '#ffffff',
   accentColor:'#f5a623',
 };
+
+// ✅ Modèles éditables des messages WhatsApp envoyés pour les RDV
+// (confirmation, rappel, remerciement). Variables disponibles : voir
+// RDV_MSG_PLACEHOLDERS ci-dessous. Ces textes sont utilisés tels quels par
+// envoyerConfirmationRdvWhatsApp / envoyerRappelRdvWhatsApp / envoyerRemerciementRdvWhatsApp.
+const RDV_MSG_DEFAULTS = {
+  confirmation: `✅ *Confirmation de rendez-vous*\n\nBonjour {client},\n\nNous avons le plaisir de vous confirmer votre rendez-vous chez *{resto}*.\n\n📅 Date : {date}\n🕐 Horaire : {heure} → {heureFin}\n💇 Prestation : {service}\n💰 Montant : {prix} FCFA{remiseLigne}{acompteLigne}{compteALebours}\n\nMerci de votre confiance. Nous serons ravis de vous accueillir.\n\n{resto}`,
+  rappel: `🔔 *Rappel de rendez-vous*\n\nBonjour {client},\n\nNous vous rappelons votre rendez-vous chez *{resto}*.\n\n📅 Date : {date}\n🕐 Horaire : {heure} → {heureFin}\n💇 Prestation : {service}{compteALebours}\n\nNous vous attendons avec plaisir.\n\n{resto}`,
+  remerciement: `🙏 *Merci de votre visite !*\n\nBonjour {client},\n\nMerci d'avoir choisi *{resto}* pour votre prestation *{service}* du {date}.\n\nNous espérons que le résultat vous plaît ! N'hésitez pas à nous faire part de vos impressions.{resteLigne}\n\nAu plaisir de vous accueillir à nouveau très prochainement 💛\n\n{resto}`,
+};
+let RDV_MSG_CONFIG = { ...RDV_MSG_DEFAULTS };
+
+// ✅ Personnalisation des noms du menu latéral (sidebar)
+// Liste figée (clé technique = celle utilisée par showView(), libellé d'origine
+// = texte affiché par défaut). On ne dépend PAS du DOM pour construire le
+// formulaire : ainsi la liste s'affiche toujours, même si le HTML du menu a
+// été modifié ou n'est pas encore chargé au moment du rendu.
+const NAV_LABELS_DEFAULTS_LIST = [
+  { key: 'dashboard',        label: 'Tableau de bord' },
+  { key: 'caisse',           label: 'Caisse POS' },
+  { key: 'commandes',        label: 'Commandes' },
+  { key: 'qrcommandes',      label: 'Commandes QR' },
+  { key: 'attentepaiement',  label: 'En attente de paiement' },
+  { key: 'caisses',          label: 'Gestion des Caisses' },
+  { key: 'menu',             label: 'Menu & Carte' },
+  { key: 'stock',            label: 'Stocks' },
+  { key: 'inventaire',       label: 'Inventaire' },
+  { key: 'preparation',      label: 'Préparation' },
+  { key: 'clients',          label: 'Clients' },
+  { key: 'rdv',              label: 'Prendre RDV' },
+  { key: 'annonces',         label: 'Annonces & Pubs' },
+  { key: 'fournisseurs',     label: 'Fournisseurs' },
+  { key: 'livreurs',         label: 'Livreurs' },
+  { key: 'serveurs',         label: 'Serveurs' },
+  { key: 'utilisateurs',     label: 'Utilisateurs' },
+  { key: 'depenses',         label: 'Dépenses' },
+  { key: 'rh',               label: 'RH & Salaires' },
+  { key: 'compta',           label: 'Comptabilité' },
+  { key: 'factures',         label: 'Factures' },
+  { key: 'banque',           label: 'Banque' },
+  { key: 'materiel',         label: 'Matériel & Amortissements' },
+  { key: 'terrain',          label: 'Terrain de Football' },
+  { key: 'salle',            label: 'Salle de location' },
+  { key: 'sport',            label: 'Salle de Sport' },
+  { key: 'hotel',            label: 'Hôtel' },
+  { key: 'rapportx',         label: 'Rapport X' },
+  { key: 'rapport-mensuel',  label: 'Rapport Mensuel' },
+  { key: 'shift',            label: 'Shifts' },
+  { key: 'fermeture',        label: 'Fermeture (Z)' },
+  { key: 'reconciliation',   label: 'Réconciliation' },
+  { key: 'historique',       label: 'Historique Clôtures' },
+  { key: 'stats',            label: 'Statistiques' },
+  { key: 'settings',         label: 'Paramètres' },
+];
+
+let NAV_LABELS_CONFIG = {};
+
+// Met à jour le texte affiché dans le menu latéral pour chaque entrée
+// personnalisée. Cherche en priorité le <span class="nav-label"> dédié ;
+// si absent (HTML modifié entre-temps), retombe sur le nav-item lui-même
+// via son attribut onclick (sélecteur déjà utilisé ailleurs dans l'appli).
+function applyNavLabels() {
+  NAV_LABELS_DEFAULTS_LIST.forEach(({ key }) => {
+    const val = NAV_LABELS_CONFIG[key];
+    if(!val) return;
+    const span = document.querySelector(`.nav-label[data-navkey="${key}"]`);
+    if(span) { span.textContent = val; return; }
+    // Fallback si le span n'existe pas dans le DOM actuel
+    const item = document.querySelector(`.nav-item[onclick*="showView('${key}'"]`);
+    if(item) {
+      const icon = item.querySelector('.icon');
+      if(icon && icon.nextSibling && icon.nextSibling.nodeType === 3) {
+        icon.nextSibling.textContent = ' ' + val;
+      }
+    }
+  });
+}
+
+function loadNavLabelsConfig() {
+  try {
+    const saved = JSON.parse(_lsGet('kg-nav-labels') || 'null');
+    if(saved) NAV_LABELS_CONFIG = saved;
+  } catch(e) {}
+  applyNavLabels();
+}
+
+// Construit le formulaire d'édition des noms de menu à partir de la liste
+// figée NAV_LABELS_DEFAULTS_LIST (indépendant du DOM du menu).
+function renderNavLabelsForm() {
+  const cont = document.getElementById('nav-labels-form');
+  if(!cont) return;
+  cont.innerHTML = NAV_LABELS_DEFAULTS_LIST.map(({ key, label }) => {
+    const current = NAV_LABELS_CONFIG[key] || label;
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);">
+        <div style="flex:0 0 150px;font-size:11px;color:var(--text2);">${_escHTML(label)}</div>
+        <input class="form-input nav-label-input" data-navkey="${_escHTML(key)}" data-original="${_escHTML(label)}" value="${_escHTML(current)}" style="flex:1;font-size:13px;">
+      </div>`;
+  }).join('');
+}
+
+function saveNavLabelsSettings() {
+  document.querySelectorAll('.nav-label-input').forEach(input => {
+    const key = input.getAttribute('data-navkey');
+    const original = input.getAttribute('data-original');
+    const val = input.value.trim();
+    if(val && val !== original) NAV_LABELS_CONFIG[key] = val;
+    else delete NAV_LABELS_CONFIG[key];
+  });
+  try { localStorage.setItem('kg-nav-labels', JSON.stringify(NAV_LABELS_CONFIG)); } catch(e) {}
+  applyNavLabels();
+  renderNavLabelsForm();
+  showNotif('✅ Noms du menu sauvegardés !');
+}
+
+function resetNavLabelsSettings() {
+  NAV_LABELS_CONFIG = {};
+  try { localStorage.setItem('kg-nav-labels', JSON.stringify(NAV_LABELS_CONFIG)); } catch(e) {}
+  applyNavLabels();
+  renderNavLabelsForm();
+  showNotif('🔄 Noms du menu réinitialisés');
+}
 
 
 // ✅ FIX GLOBAL : Convertir icon URL → emoji pour l'affichage texte
@@ -13491,6 +13710,8 @@ function loadRestaurantSettings() {
     }
   } catch(e) {}
   applyRestaurantSettingsToUI();
+  // ✅ Appliquer les noms de menu personnalisés dès le chargement
+  if(typeof loadNavLabelsConfig === 'function') loadNavLabelsConfig();
 }
 
 function applyRestaurantSettingsToUI() {
@@ -18665,7 +18886,7 @@ function updateRdvKPI() {
 
 // ─── ONGLETS ───────────────────────────────────────────────────
 function switchRdvTab(tab, btn) {
-  ['agenda','liste','stats','services','historique'].forEach(t => {
+  ['agenda','liste','stats','services','historique','messages'].forEach(t => {
     const panel = document.getElementById('rdv-panel-' + t);
     const tabBtn = document.getElementById('rdv-tab-' + t);
     if(panel) panel.style.display = (t === tab) ? '' : 'none';
@@ -18676,6 +18897,7 @@ function switchRdvTab(tab, btn) {
   if(tab === 'stats')       renderRdvStats();
   if(tab === 'services')    renderRdvServicesConfig();
   if(tab === 'historique')  renderRdvHistorique();
+  if(tab === 'messages')    loadRdvMsgConfig();
   updateRdvKPI();
 }
 
@@ -19422,6 +19644,13 @@ function _rdvTempsRestant(dateStr, heureStr) {
   } catch(e) { return null; }
 }
 
+// Remplace {placeholders} dans un modèle de message par les valeurs fournies.
+// Les placeholders non reconnus sont laissés tels quels (pour ne rien casser
+// si l'utilisateur tape une accolade par erreur).
+function _rdvFillTemplate(tpl, vars) {
+  return String(tpl || '').replace(/\{(\w+)\}/g, (m, key) => (vars[key] !== undefined ? vars[key] : m));
+}
+
 function envoyerConfirmationRdvWhatsApp(id) {
   const r = (RDV_LIST||[]).find(x => x.id === id);
   if(!r) return;
@@ -19447,7 +19676,18 @@ function envoyerConfirmationRdvWhatsApp(id) {
   }
   const tempsRestant = _rdvTempsRestant(r.date, r.heure);
   const compteALebours = tempsRestant ? `\n⏳ Dans ${tempsRestant}` : '';
-  const msg = `✅ *Confirmation de rendez-vous*\n\nBonjour ${r.clientNom},\n\nNous avons le plaisir de vous confirmer votre rendez-vous chez *${resto}*.\n\n📅 Date : ${_rdvDateFr(r.date)}\n🕐 Horaire : ${(r.heure||'').replace(':','h')} → ${heureFin}\n💇 Prestation : ${r.service||''}\n💰 Montant : ${prix.toLocaleString('fr-FR')} FCFA${remiseLigne}${acompteLigne}${compteALebours}\n\nMerci de votre confiance. Nous serons ravis de vous accueillir.\n\n${resto}`;
+  const msg = _rdvFillTemplate((RDV_MSG_CONFIG.confirmation || RDV_MSG_DEFAULTS.confirmation), {
+    client: r.clientNom || '',
+    resto,
+    date: _rdvDateFr(r.date),
+    heure: (r.heure||'').replace(':','h'),
+    heureFin,
+    service: r.service || '',
+    prix: prix.toLocaleString('fr-FR'),
+    remiseLigne,
+    acompteLigne,
+    compteALebours,
+  });
   const wa = `https://wa.me/${_rdvFormatTelWa(r.tel)}?text=${encodeURIComponent(msg)}`;
   window.open(wa, '_blank');
 }
@@ -19465,7 +19705,13 @@ function envoyerRemerciementRdvWhatsApp(id) {
   const resteLigne = (acompte > 0 && reste > 0)
     ? `\n💵 Petit rappel : il vous reste ${reste.toLocaleString('fr-FR')} FCFA à régler.`
     : '';
-  const msg = `🙏 *Merci de votre visite !*\n\nBonjour ${r.clientNom},\n\nMerci d'avoir choisi *${resto}* pour votre prestation *${r.service||''}* du ${_rdvDateFr(r.date)}.\n\nNous espérons que le résultat vous plaît ! N'hésitez pas à nous faire part de vos impressions.${resteLigne}\n\nAu plaisir de vous accueillir à nouveau très prochainement 💛\n\n${resto}`;
+  const msg = _rdvFillTemplate((RDV_MSG_CONFIG.remerciement || RDV_MSG_DEFAULTS.remerciement), {
+    client: r.clientNom || '',
+    resto,
+    date: _rdvDateFr(r.date),
+    service: r.service || '',
+    resteLigne,
+  });
   const wa2 = `https://wa.me/${_rdvFormatTelWa(r.tel)}?text=${encodeURIComponent(msg)}`;
   window.open(wa2, '_blank');
 }
@@ -19478,7 +19724,15 @@ function envoyerRappelRdvWhatsApp(id) {
   const heureFin = rdvFmtHeureFin(r.heure, r.duree);
   const tempsRestant = _rdvTempsRestant(r.date, r.heure);
   const compteALebours = tempsRestant ? `\n⏳ Dans ${tempsRestant}` : '';
-  const msg = `🔔 *Rappel de rendez-vous*\n\nBonjour ${r.clientNom},\n\nNous vous rappelons votre rendez-vous chez *${resto}*.\n\n📅 Date : ${_rdvDateFr(r.date)}\n🕐 Horaire : ${(r.heure||'').replace(':','h')} → ${heureFin}\n💇 Prestation : ${r.service||''}${compteALebours}\n\nNous vous attendons avec plaisir.\n\n${resto}`;
+  const msg = _rdvFillTemplate((RDV_MSG_CONFIG.rappel || RDV_MSG_DEFAULTS.rappel), {
+    client: r.clientNom || '',
+    resto,
+    date: _rdvDateFr(r.date),
+    heure: (r.heure||'').replace(':','h'),
+    heureFin,
+    service: r.service || '',
+    compteALebours,
+  });
   const wa = `https://wa.me/${_rdvFormatTelWa(r.tel)}?text=${encodeURIComponent(msg)}`;
   window.open(wa, '_blank');
   r.rappelEnvoye = true;
@@ -21081,17 +21335,17 @@ function renderReconciliation() {
 
 // ===== AUTH & USERS SYSTEM =====
 const ROLES_CONFIG = {
-  administrateur: { label:'Administrateur', icon:'🛡️', color:'#dc3545', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','rapport-mensuel','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','gestion-roles','annonces','livreurs','serveurs','terrain','salle','sport','rdv'] },
-  gerant:      { label:'Gérant', icon:'👑', color:'var(--accent)', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','annonces','livreurs','serveurs','terrain','salle','sport','rdv'] },
-  superviseur: { label:'Superviseur', icon:'🔷', color:'var(--purple)', perms: ['dashboard','caisse','commandes','qrcommandes','menu','stock','inventaire','fournisseurs','caisses','rapportx','shift','fermeture','historique','stats','depenses','rh','compta','factures','banque','annonces','livreurs','serveurs','terrain','salle','sport','rdv'] },
-  caissier:    { label:'Caissier', icon:'💳', color:'var(--teal)', perms: ['caisse','commandes','qrcommandes','rapportx'] },
-  cuisinier:   { label:'Cuisinier', icon:'👨‍🍳', color:'var(--accent2)', perms: ['commandes','qrcommandes','menu','stock'] },
-  livreur:     { label:'Livreur', icon:'🛵', color:'var(--green)', perms: ['commandes','qrcommandes'] },
+  administrateur: { label:'Administrateur', icon:'🛡️', color:'#dc3545', perms: ['dashboard','caisse','commandes','qrcommandes','attentepaiement','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','rapport-mensuel','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','gestion-roles','annonces','livreurs','serveurs','terrain','salle','sport','rdv'] },
+  gerant:      { label:'Gérant', icon:'👑', color:'var(--accent)', perms: ['dashboard','caisse','commandes','qrcommandes','attentepaiement','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','annonces','livreurs','serveurs','terrain','salle','sport','rdv'] },
+  superviseur: { label:'Superviseur', icon:'🔷', color:'var(--purple)', perms: ['dashboard','caisse','commandes','qrcommandes','attentepaiement','menu','stock','inventaire','fournisseurs','caisses','rapportx','shift','fermeture','historique','stats','depenses','rh','compta','factures','banque','annonces','livreurs','serveurs','terrain','salle','sport','rdv'] },
+  caissier:    { label:'Caissier', icon:'💳', color:'var(--teal)', perms: ['caisse','commandes','qrcommandes','attentepaiement','rapportx'] },
+  cuisinier:   { label:'Cuisinier', icon:'👨‍🍳', color:'var(--accent2)', perms: ['commandes','qrcommandes','attentepaiement','menu','stock'] },
+  livreur:     { label:'Livreur', icon:'🛵', color:'var(--green)', perms: ['commandes','qrcommandes','attentepaiement'] },
 };
 
 const ALL_PERMS = [
   { id:'dashboard', label:'Tableau de bord' }, { id:'caisse', label:'Caisse POS' },
-  { id:'commandes', label:'Commandes' }, { id:'qrcommandes', label:'📱 Commandes QR' }, { id:'menu', label:'Menu & Carte' },
+  { id:'commandes', label:'Commandes' }, { id:'qrcommandes', label:'📱 Commandes QR' }, { id:'attentepaiement', label:'⏳ En attente de paiement' }, { id:'menu', label:'Menu & Carte' },
   { id:'stock', label:'Stocks' }, { id:'inventaire', label:'Inventaire' }, { id:'clients', label:'Clients' },
   { id:'fournisseurs', label:'Fournisseurs' }, { id:'livreurs', label:'🛵 Livreurs' }, { id:'serveurs', label:'🍽️ Serveurs' }, { id:'utilisateurs', label:'Utilisateurs' },
   { id:'caisses', label:'🖥️ Gestion des Caisses' },
@@ -21564,7 +21818,7 @@ async function doLogin() {
     if(rolesData && rolesData.length) { rolesData.forEach(r => { if(ROLES_CONFIG[r.role_key]) ROLES_CONFIG[r.role_key].perms = r.perms; }); }
 
     // Charger infos restaurant
-    const { data: resto } = await sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url,ticket_config').eq('id', profile.restaurant_id).single();
+    const { data: resto } = await sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url,ticket_config,rdv_msg_config').eq('id', profile.restaurant_id).single();
     if(resto) {
       RESTAURANT_INFO = { ...RESTAURANT_INFO, nom: resto.nom, ninea: resto.ninea||'', tel: resto.tel||'', email: resto.email||'', adresse: resto.adresse||'', devise: resto.devise||'FCFA', cover_url: resto.cover_url||'', logo_url: resto.logo_url||'', wave_payment_url: resto.wave_payment_url||resto.wave_numero||'', orange_payment_url: resto.orange_payment_url||resto.orange_numero||'' };
       // ✅ FIX: restaurer la config ticket depuis Supabase
@@ -21572,6 +21826,12 @@ async function doLogin() {
         RESTAURANT_INFO.ticketConfig = resto.ticket_config;
         if(typeof TICKET_CONFIG !== 'undefined') Object.assign(TICKET_CONFIG, resto.ticket_config);
         try { _lsSet('kg-ticket-config', JSON.stringify(TICKET_CONFIG)); } catch(e) {}
+      }
+      // ✅ Restaurer les modèles de messages RDV (confirmation/rappel/remerciement)
+      if(resto.rdv_msg_config && typeof resto.rdv_msg_config === 'object' && typeof RDV_MSG_CONFIG !== 'undefined') {
+        RESTAURANT_INFO.rdvMsgConfig = resto.rdv_msg_config;
+        RDV_MSG_CONFIG = { ...RDV_MSG_DEFAULTS, ...resto.rdv_msg_config };
+        try { _lsSet('kg-rdv-msg-config', JSON.stringify(RDV_MSG_CONFIG)); } catch(e) {}
       }
       // ✅ Vérifier abonnement — BLOQUER si expiré
       if(resto.abonnement_fin) {
@@ -21885,7 +22145,7 @@ function _migrateLocalStorageKeys() {
   const rid = window._KG_RESTAURANT_ID;
   if(!rid) return;
   const keysToMigrate = [
-    'kg-session','kg-restaurant-info','kg-ticket-config','kg-modules-active',
+    'kg-session','kg-restaurant-info','kg-ticket-config','kg-rdv-msg-config','kg-nav-labels','kg-modules-active',
     'kg-historique-clotures','kg-current-user','kg-cloture-pending',
     'kg-order-counters','kg_depenses','kg-factures','kg-rh-paies',
     'kg-rh-conges','kg-rh-avances','kg-rh-employes','kg_cloture_timestamps',
@@ -25953,7 +26213,7 @@ TICKETS_ARCHIVES = [];
     document.getElementById('app-shell').style.display = 'block';
 
     const hash = window.location.hash.replace('#','');
-    const validViews = ['dashboard','caisse','commandes','qrcommandes','menu','stock','clients','fournisseurs','stats','settings','caisses','rapportx','shift','fermeture','reconciliation','historique','utilisateurs','rh','compta','caisse3commandes'];
+    const validViews = ['dashboard','caisse','commandes','qrcommandes','attentepaiement','menu','stock','clients','fournisseurs','stats','settings','caisses','rapportx','shift','fermeture','reconciliation','historique','utilisateurs','rh','compta','caisse3commandes'];
     const targetView = validViews.includes(hash) ? hash : getDefaultView();
     showView(targetView, null, false);
 
@@ -27518,6 +27778,12 @@ const KGSync = (() => {
             try { _lsSet('kg-ticket-config', JSON.stringify(TICKET_CONFIG)); } catch(e) {}
             if(typeof loadTicketConfig === 'function') loadTicketConfig();
           }
+          // ✅ Restaurer les modèles de messages RDV depuis Supabase (même canal que ticketConfig)
+          if(data.info.rdvMsgConfig && typeof RDV_MSG_CONFIG !== 'undefined') {
+            RDV_MSG_CONFIG = { ...RDV_MSG_DEFAULTS, ...data.info.rdvMsgConfig };
+            try { localStorage.setItem('kg-rdv-msg-config', JSON.stringify(RDV_MSG_CONFIG)); } catch(e) {}
+            if(typeof loadRdvMsgConfig === 'function') loadRdvMsgConfig();
+          }
         } else if(key === 'depenses_data') {
           // ✅ OPT EGRESS : recharger dépenses seulement si > 2 min (évite les rafales Realtime)
           const _nowD = Date.now();
@@ -28546,6 +28812,12 @@ async function _ensureRecettesLoaded(items) {
 }
 async function deduireStockVente(items, caisseName) {
   if(!items || !items.length) return;
+  // ✅ FIX : caisse configurée pour ne jamais déduire le stock central
+  // (ex: Caisse 1/2 vendent librement sans toucher le stock, contrairement
+  // à Caisse 3/4) — voir Paramètres → Personnalisation du ticket.
+  if(typeof TICKET_CONFIG !== 'undefined' && Array.isArray(TICKET_CONFIG.caissesSansDeductionStock) && TICKET_CONFIG.caissesSansDeductionStock.includes(caisseName)) {
+    return;
+  }
   let hasChanges = false;
   // ✅ FIX CONCURRENCE : cumul des quantités déduites par article (clé = sbId ou id),
   // envoyé ensuite en un seul appel atomique côté serveur (kg_decrement_stock) pour
@@ -29164,6 +29436,20 @@ function renderCuisineCaissesConfig() {
   `).join('');
 }
 
+// ✅ FIX : liste des caisses avec case à cocher "déduit le stock à la vente"
+// (décochée = cette caisse ne déduit jamais le stock central)
+function renderStockCaissesConfig() {
+  const cont = document.getElementById('stock-caisses-config');
+  if(!cont || typeof CAISSES === 'undefined') return;
+  const sansStock = TICKET_CONFIG.caissesSansDeductionStock || [];
+  cont.innerHTML = CAISSES.map(c => `
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;padding:4px 0;">
+      <input type="checkbox" class="stock-caisse-toggle" value="${_escHTML(c.name)}" ${sansStock.includes(c.name) ? '' : 'checked'} style="width:16px;height:16px;accent-color:var(--accent);">
+      ${_escHTML(c.name)}${c.loc ? ' <span style="color:var(--text2);">('+_escHTML(c.loc)+')</span>' : ''}
+    </label>
+  `).join('');
+}
+
 function saveTicketSettings() {
   TICKET_CONFIG.headerMsg = document.getElementById('ticket-header-msg')?.value || '';
   TICKET_CONFIG.footerMsg = document.getElementById('ticket-footer-msg')?.value || '';
@@ -29181,6 +29467,10 @@ function saveTicketSettings() {
     .map(el => el.value);
   // ✅ FIX : assujettissement à la TVA
   TICKET_CONFIG.tvaActive = document.getElementById('ticket-tva-active')?.checked ?? true;
+  // ✅ FIX : caisses décochées = ne déduisent jamais le stock central
+  TICKET_CONFIG.caissesSansDeductionStock = Array.from(document.querySelectorAll('.stock-caisse-toggle'))
+    .filter(el => !el.checked)
+    .map(el => el.value);
   TICKET_CONFIG.qrLabel = document.getElementById('ticket-qr-label')?.value || 'Donnez votre avis :';
   TICKET_CONFIG.qrUrl = document.getElementById('ticket-qr-url')?.value || '';
   TICKET_CONFIG.sepStyle = document.getElementById('ticket-sep-style')?.value || 'dashed';
@@ -29240,6 +29530,7 @@ function loadTicketConfig() {
       setC('ticket-show-qr',      TICKET_CONFIG.showQR);
       setC('ticket-print-cuisine', TICKET_CONFIG.printCuisine ?? true);
       setC('ticket-tva-active', TICKET_CONFIG.tvaActive ?? true);
+      renderStockCaissesConfig();
       renderCuisineCaissesConfig();
       const cuisineGrp = document.getElementById('cuisine-caisses-config-group');
       if(cuisineGrp) cuisineGrp.style.display = (TICKET_CONFIG.printCuisine ?? true) ? 'block' : 'none';
@@ -29256,7 +29547,53 @@ function loadTicketConfig() {
   } catch(e) {}
   // ✅ FIX : rendre la liste même si aucune config n'a encore été sauvegardée (premier usage)
   renderCuisineCaissesConfig();
+  renderStockCaissesConfig();
   updateTicketPreview();
+}
+
+// ============================================================
+// MESSAGES RDV — Modèles WhatsApp éditables (confirmation, rappel, remerciement)
+// ============================================================
+
+function loadRdvMsgConfig() {
+  try {
+    const saved = JSON.parse(_lsGet('kg-rdv-msg-config') || 'null');
+    if(saved) RDV_MSG_CONFIG = { ...RDV_MSG_DEFAULTS, ...saved };
+  } catch(e) {}
+  const setV = (id, val) => { const el = document.getElementById(id); if(el && val !== undefined) el.value = val; };
+  setV('rdv-msg-confirmation', RDV_MSG_CONFIG.confirmation);
+  setV('rdv-msg-rappel',       RDV_MSG_CONFIG.rappel);
+  setV('rdv-msg-remerciement', RDV_MSG_CONFIG.remerciement);
+}
+
+function saveRdvMsgSettings() {
+  RDV_MSG_CONFIG.confirmation = document.getElementById('rdv-msg-confirmation')?.value || RDV_MSG_DEFAULTS.confirmation;
+  RDV_MSG_CONFIG.rappel       = document.getElementById('rdv-msg-rappel')?.value       || RDV_MSG_DEFAULTS.rappel;
+  RDV_MSG_CONFIG.remerciement = document.getElementById('rdv-msg-remerciement')?.value || RDV_MSG_DEFAULTS.remerciement;
+  try { localStorage.setItem('kg-rdv-msg-config', JSON.stringify(RDV_MSG_CONFIG)); } catch(e) {}
+  // ✅ Persister aussi côté Supabase pour survivre à la déconnexion / multi-appareil
+  if(typeof RESTAURANT_INFO !== 'undefined') {
+    RESTAURANT_INFO.rdvMsgConfig = { ...RDV_MSG_CONFIG };
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      const _rid = window._KG_RESTAURANT_ID;
+      const _sb  = KGSync.getClient();
+      if(_rid && _sb) {
+        _sb.from('restaurants').update({ rdv_msg_config: RDV_MSG_CONFIG }).eq('id', _rid)
+          .catch(e => console.warn('update rdv_msg_config:', e));
+      }
+    }
+  }
+  showNotif('✅ Messages de rendez-vous sauvegardés !');
+}
+
+function resetRdvMsgSettings(which) {
+  // which : 'confirmation' | 'rappel' | 'remerciement' | undefined (= tous)
+  const setV = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+  if(!which || which === 'confirmation') { RDV_MSG_CONFIG.confirmation = RDV_MSG_DEFAULTS.confirmation; setV('rdv-msg-confirmation', RDV_MSG_DEFAULTS.confirmation); }
+  if(!which || which === 'rappel')       { RDV_MSG_CONFIG.rappel       = RDV_MSG_DEFAULTS.rappel;       setV('rdv-msg-rappel',       RDV_MSG_DEFAULTS.rappel); }
+  if(!which || which === 'remerciement') { RDV_MSG_CONFIG.remerciement = RDV_MSG_DEFAULTS.remerciement; setV('rdv-msg-remerciement', RDV_MSG_DEFAULTS.remerciement); }
+  try { localStorage.setItem('kg-rdv-msg-config', JSON.stringify(RDV_MSG_CONFIG)); } catch(e) {}
+  showNotif('🔄 Modèle(s) réinitialisé(s) — pensez à Sauvegarder si besoin');
 }
 // ============================================================
 
@@ -31384,7 +31721,7 @@ setTimeout(() => {
     const { data: rolesData } = await sb.from('roles_config').select('role_key, perms').eq('restaurant_id', profile.restaurant_id);
     if(rolesData && rolesData.length) { rolesData.forEach(r => { if(ROLES_CONFIG[r.role_key]) ROLES_CONFIG[r.role_key].perms = r.perms; }); }
 
-    const { data: resto } = await sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url,ticket_config').eq('id', profile.restaurant_id).single();
+    const { data: resto } = await sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url,ticket_config,rdv_msg_config').eq('id', profile.restaurant_id).single();
     if(resto) {
       RESTAURANT_INFO = { ...RESTAURANT_INFO, nom: resto.nom, ninea: resto.ninea||'', tel: resto.tel||'', email: resto.email||'', adresse: resto.adresse||'', devise: resto.devise||'FCFA', cover_url: resto.cover_url||'', logo_url: resto.logo_url||'', wave_payment_url: resto.wave_payment_url||resto.wave_numero||'', orange_payment_url: resto.orange_payment_url||resto.orange_numero||'' };
       // ✅ FIX: restaurer la config ticket depuis Supabase
@@ -31392,6 +31729,12 @@ setTimeout(() => {
         RESTAURANT_INFO.ticketConfig = resto.ticket_config;
         if(typeof TICKET_CONFIG !== 'undefined') Object.assign(TICKET_CONFIG, resto.ticket_config);
         try { _lsSet('kg-ticket-config', JSON.stringify(TICKET_CONFIG)); } catch(e) {}
+      }
+      // ✅ Restaurer les modèles de messages RDV (confirmation/rappel/remerciement)
+      if(resto.rdv_msg_config && typeof resto.rdv_msg_config === 'object' && typeof RDV_MSG_CONFIG !== 'undefined') {
+        RESTAURANT_INFO.rdvMsgConfig = resto.rdv_msg_config;
+        RDV_MSG_CONFIG = { ...RDV_MSG_DEFAULTS, ...resto.rdv_msg_config };
+        try { _lsSet('kg-rdv-msg-config', JSON.stringify(RDV_MSG_CONFIG)); } catch(e) {}
       }
     }
 
@@ -42368,6 +42711,8 @@ function _updateAttenteCounter() {
     navBadge.textContent = nb;
     navBadge.style.display = nb > 0 ? 'inline-flex' : 'none';
   }
+  // ✅ FIX : garder le badge du nouveau module "En attente de paiement" à jour aussi
+  if(typeof _updateAttentePaiementNavBadge === 'function') _updateAttentePaiementNavBadge();
 }
 
 // ── Ouvrir la modale pour valider le paiement d'un ticket en attente ──
@@ -43019,6 +43364,65 @@ renderOrders = function(status) {
     }
   }
 };
+
+// ✅ FIX : module dédié "En attente de paiement" — page à part, séparée de
+// Commandes et de Commandes QR, avec le même contenu/actions que l'onglet
+// "En attente paiement" de Commandes (isolation par caisse incluse).
+function renderAttentePaiementModule() {
+  _loadTicketsAttente();
+  const list = document.getElementById('attente-paiement-list');
+  if(!list) return;
+
+  const _apIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
+  const _apUserCaisse = (sessionCaisseActive && sessionCaisseActive.caisse)
+    ? sessionCaisseActive.caisse
+    : ((currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null);
+  const attenteList = (_apIsManager || !_apUserCaisse)
+    ? TICKETS_ATTENTE
+    : TICKETS_ATTENTE.filter(t => t.caisse === _apUserCaisse);
+
+  if(attenteList.length === 0) {
+    list.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2);">
+      <div style="font-size:40px;margin-bottom:12px;">✅</div>
+      <div style="font-weight:700;">Aucun ticket en attente</div>
+      <div style="font-size:12px;margin-top:8px;">Tous les tickets ont été encaissés</div>
+    </div>`;
+    _updateAttentePaiementNavBadge();
+    return;
+  }
+
+  list.innerHTML = attenteList.map(t => `
+    <div class="order-item" style="border-left:3px solid var(--accent);background:rgba(245,158,42,0.04);">
+      <div class="order-num" style="color:var(--accent);">${t.numero ? ('#'+t.numero) : t.id}</div>
+      <div class="order-info">
+        <div class="order-name">${t.client}${t.telephone ? ` <span style="font-size:11px;color:var(--text2);font-weight:500;">📞 ${t.telephone}</span>` : ''} <span style="font-size:10px;color:var(--teal);margin-left:6px;">[${t.caisse}]</span></div>
+        <div class="order-items-list">${(t.items||[]).map(i => `${i.icon||''} ${i.name||i.nom||''} x${i.qty||1}`).join(', ')}</div>
+      </div>
+      <div class="order-time">${t.time}</div>
+      <div class="order-price" style="color:var(--accent);">${t.total.toLocaleString()} F</div>
+      <div class="badge" style="background:rgba(245,158,42,0.15);color:var(--accent);border:1px solid rgba(245,158,42,0.4);font-size:10px;white-space:nowrap;">⏳ En attente</div>
+      <div style="display:flex;gap:5px;margin-left:6px;">
+        <button onclick="imprimerTicketAttente('${t.id}')" title="Imprimer ticket d'attente" style="font-size:11px;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2);">🖨️</button>
+        ${(currentUser && currentUser.role==='administrateur') ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / supprimer des plats (admin uniquement)" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
+        <button onclick="ouvrirPaiementAttente('${t.id}')" style="font-size:11px;padding:5px 10px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:6px;cursor:pointer;color:#fff;font-weight:700;">💳 Encaisser</button>
+        ${(currentUser && (currentUser.role==='gerant'||currentUser.role==='superviseur'||currentUser.role==='administrateur')) ? `<button onclick="supprimerTicketAttente('${t.id}')" title="Supprimer" style="font-size:11px;padding:5px 8px;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);border-radius:6px;cursor:pointer;color:var(--red);">🗑</button>` : ''}
+      </div>
+    </div>
+  `).join('');
+  _updateAttentePaiementNavBadge();
+}
+
+function _updateAttentePaiementNavBadge() {
+  const badge = document.getElementById('attente-nav-badge');
+  if(!badge) return;
+  const _apIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
+  const _apUserCaisse = (sessionCaisseActive && sessionCaisseActive.caisse)
+    ? sessionCaisseActive.caisse
+    : ((currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null);
+  const nb = (_apIsManager || !_apUserCaisse) ? TICKETS_ATTENTE.length : TICKETS_ATTENTE.filter(t => t.caisse === _apUserCaisse).length;
+  badge.textContent = nb;
+  badge.style.display = nb > 0 ? '' : 'none';
+}
 
 // ── Init au démarrage ──
 document.addEventListener('DOMContentLoaded', function() {
