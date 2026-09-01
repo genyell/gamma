@@ -1285,24 +1285,59 @@ if(typeof jsQR === 'undefined') {
   }
   .btn-validate:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(245,166,35,0.35); }
 
-  /* STATS CHART */
-  .chart-bars { display: flex; align-items: flex-end; gap: 8px; height: 140px; }
-  .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  /* STATS CHART — modernized */
+  .chart-card-head {
+    display: flex; align-items: center; justify-content: flex-end;
+    margin: -10px 0 14px;
+  }
+  .chart-week-trend {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    padding: 4px 11px; border-radius: 20px; white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .chart-week-trend.up { color: var(--green); background: rgba(26,219,106,0.14); }
+  .chart-week-trend.down { color: var(--red); background: rgba(240,68,68,0.14); }
+  .chart-week-trend.flat { color: var(--text2); background: rgba(136,146,184,0.14); }
+  .chart-bars {
+    position: relative; display: flex; align-items: flex-end; gap: 10px;
+    height: 200px; padding-top: 30px; box-sizing: border-box;
+    background-image: repeating-linear-gradient(to top, var(--border) 0px, var(--border) 1px, transparent 1px, transparent 40px);
+    background-position: bottom left; background-repeat: repeat-x; background-size: 100% 100%;
+  }
+  .bar-wrap {
+    flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-end; gap: 7px; position: relative;
+  }
+  .bar-value {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 700;
+    color: var(--bar-c2, var(--text2)); opacity: 0; transform: translateY(4px);
+    transition: opacity 0.45s ease 0.35s, transform 0.45s ease 0.35s, color 0.3s ease;
+    white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: clip;
+  }
+  .bar-wrap.is-today .bar-value { font-weight: 800; }
+  .bar-wrap.animate-in .bar-value { opacity: 1; transform: translateY(0); }
   .bar {
-    width: 100%; border-radius: 8px 8px 2px 2px;
-    background: linear-gradient(180deg, #f5a623 0%, #e05a10 70%, #c43a00 100%);
-    box-shadow: 0 -6px 20px rgba(245,158,42,0.4), 0 0 30px rgba(245,100,10,0.2);
-    transition: height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    width: 100%; height: 4px; min-height: 4px; border-radius: 12px 12px 4px 4px;
+    background: linear-gradient(180deg, var(--bar-c1, rgba(245,166,35,0.60)) 0%, var(--bar-c2, rgba(224,90,16,0.32)) 100%);
+    transition: height 0.75s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.4s ease, box-shadow 0.4s ease, filter 0.2s ease;
     position: relative; cursor: pointer;
   }
+  .bar.is-today {
+    box-shadow: 0 -8px 26px var(--bar-glow, rgba(245,158,42,0.5)), 0 0 34px var(--bar-glow, rgba(245,100,10,0.28));
+    filter: saturate(1.15) brightness(1.04);
+  }
+  .bar.is-empty { background: var(--border) !important; }
+  .bar:hover { filter: brightness(1.15); }
   .bar:hover::after {
     content: attr(data-val);
-    position: absolute; top: -28px; left: 50%; transform: translateX(-50%);
+    position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
     background: var(--surface); border: 1px solid var(--border);
-    padding: 3px 8px; border-radius: 6px; font-size: 11px; white-space: nowrap;
-    font-family: 'JetBrains Mono', monospace; color: var(--accent);
+    padding: 4px 10px; border-radius: 8px; font-size: 11px; white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace; color: var(--bar-c2, var(--accent));
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25); z-index: 2;
   }
-  .bar-label { font-size: 10px; color: var(--text2); }
+  .bar-label { font-size: 10.5px; color: var(--text2); font-weight: 600; }
+  .bar-wrap.is-today .bar-label { color: var(--bar-c2, var(--accent)); font-weight: 800; }
 
   /* TOP ITEMS */
   .top-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -1538,7 +1573,11 @@ if(typeof jsQR === 'undefined') {
     .btn-validate { padding: 12px; font-size: 14px; }
 
     /* Dashboard mobile */
-    .chart-bars { height: 100px; }
+    .chart-bars { height: 190px; padding-top: 26px; gap: 5px; }
+    .bar-value { font-size: 8.5px; }
+    .bar-label { font-size: 9px; }
+    .chart-card-head { margin: -6px 0 10px; }
+    .chart-week-trend { font-size: 10px; padding: 3px 8px; }
 
     /* Fermeture mobile — colonnes conservées côte à côte */
     .fermeture-step { padding: 14px; }
@@ -2670,34 +2709,64 @@ if(typeof jsQR === 'undefined') {
   /* ===== STOCK amélioré ===== */
   .stock-header-row {
     display: grid;
-    grid-template-columns: 40px 1fr 90px 100px 90px 100px auto;
-    gap: 12px; padding: 10px 16px;
+    grid-template-columns: 44px 1fr 150px 130px 90px 100px auto;
+    gap: 14px; padding: 10px 18px 10px 16px;
     font-size: 11px; color: var(--text2);
     text-transform: uppercase; letter-spacing: 1px;
     border-bottom: 1px solid var(--border);
     margin-bottom: 8px;
   }
+  @media (max-width: 768px) { .stock-header-row { display: none; } }
   .stock-row {
     display: grid;
-    grid-template-columns: 40px 1fr 90px 100px 90px 100px auto;
-    gap: 12px; align-items: center; padding: 12px 16px;
+    grid-template-columns: 44px 1fr 150px 130px 90px 100px auto;
+    gap: 14px; align-items: center; padding: 14px 18px 14px 16px;
     background: var(--surface2); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); margin-bottom: 6px;
-    transition: border-color 0.2s;
+    border-left: 3px solid var(--stock-accent, var(--border));
+    border-radius: var(--radius-sm); margin-bottom: 8px;
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
+  .stock-row:hover { border-color: var(--accent); box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+  .stock-row:hover { border-left-color: var(--stock-accent, var(--accent)); }
+  [data-theme="light"] .stock-row { border-left-color: var(--stock-accent, #c8cfe0); }
+  .stock-cell-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: rgba(148,163,184,0.14);
+    background: color-mix(in srgb, var(--stock-accent, var(--text2)) 14%, transparent);
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+  }
+  .stock-cell-info { min-width: 0; }
+  .stock-name { font-weight: 700; font-size: 13.5px; }
+  .stock-seuil { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .stock-cell-qty { display: flex; align-items: center; gap: 6px; }
+  .stock-cell-progress { min-width: 0; }
+  .stock-progress-pct { font-size: 10.5px; font-weight: 700; margin-top: 4px; text-align: right; font-family: 'JetBrains Mono', monospace; }
+  .stock-cell-total { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; }
+  .stock-cell-actions { display: flex; gap: 6px; }
   @media (max-width: 768px) {
     .stock-row {
-      grid-template-columns: 36px 1fr 70px 80px 60px !important;
-      gap: 6px;
-      padding: 10px 10px;
-      overflow: hidden;
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        "icon info"
+        "qty qty"
+        "progress progress"
+        "total badge"
+        "actions actions";
+      gap: 10px 12px;
+      padding: 14px;
     }
-    .stock-row > div:nth-child(6),
-    .stock-row > div:nth-child(7) { display: none; }
-    .stock-qty-input { width: 60px !important; font-size: 12px !important; padding: 5px 6px !important; }
-    .unit-select { font-size: 11px !important; padding: 4px 2px !important; max-width: 52px; }
+    .stock-cell-icon { grid-area: icon; width: 40px; height: 40px; font-size: 19px; justify-self: start; }
+    .stock-cell-info { grid-area: info; }
+    .stock-cell-qty { grid-area: qty; }
+    .stock-cell-progress { grid-area: progress; }
+    .stock-cell-total { grid-area: total; font-size: 14px; }
+    .stock-cell-badge { grid-area: badge; justify-self: end; }
+    .stock-cell-actions { grid-area: actions; justify-content: flex-end; padding-top: 8px; border-top: 1px dashed var(--border); }
+    .stock-cell-actions .ticket-btn,
+    .stock-cell-actions .caisse-btn { flex: 1; min-height: 38px; font-size: 15px; }
+    .stock-qty-input { width: auto !important; flex: 1; font-size: 13px !important; }
+    .unit-select { font-size: 12px !important; max-width: none; flex: 0 0 auto; }
   }
-  .stock-row:hover { border-color: var(--accent); }
   .stock-qty-input {
     width: 80px; padding: 6px 10px; background: var(--surface);
     border: 1px solid var(--border); border-radius: 6px;
@@ -4718,7 +4787,7 @@ if(typeof jsQR === 'undefined') {
   [data-theme="light"] .caisse-btn { color: #374151 !important; }
 
   /* Texte de charts/graphiques */
-  [data-theme="light"] .bar-label { color: #4b5563 !important; }
+  [data-theme="light"] .bar-wrap:not(.is-today) .bar-label { color: #4b5563 !important; }
   [data-theme="light"] .chart-label { color: #374151 !important; }
 
   /* Session / caissier */
@@ -4960,12 +5029,8 @@ if(typeof jsQR === 'undefined') {
   [data-theme="blue"] td { border-bottom: 1px solid #eef0ff !important; }
 
   /* ── Graphique barres ── */
-  [data-theme="blue"] .bar {
-    background: linear-gradient(180deg, #818cf8 0%, #4f46e5 100%) !important;
-    box-shadow: 0 -4px 16px rgba(99,102,241,0.35) !important;
-    border-radius: 8px 8px 2px 2px !important;
-  }
-  [data-theme="blue"] .bar-label { color: #8a96c4 !important; font-size: 10px !important; }
+  /* Couleurs par jour actives aussi en thème "blue" (voir .bar-c1/.bar-c2 inline) */
+  [data-theme="blue"] .bar-wrap:not(.is-today) .bar-label { color: #8a96c4 !important; font-size: 10px !important; }
 
   /* ── Progress bars (top produits) ── */
   [data-theme="blue"] .prod-bar { background: #e0e7ff !important; }
@@ -5516,6 +5581,9 @@ function _syncSportVentes()       { return []; }
       <div class="grid-2">
         <div class="card">
           <div class="card-title">Ventes 7 derniers jours <span>En FCFA</span></div>
+          <div class="chart-card-head">
+            <span class="chart-week-trend flat" id="chart-week-trend">—</span>
+          </div>
           <div class="chart-bars" id="chart-bars"></div>
         </div>
         <div class="card">
@@ -5834,6 +5902,13 @@ function _syncSportVentes()       { return []; }
 
       <!-- PANEL PRODUITS -->
       <div id="menu-panel-produits">
+      <div style="position:relative;margin-bottom:12px;">
+        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;">🔍</span>
+        <input id="menu-search" type="text" placeholder="Rechercher un produit du menu…"
+          oninput="filterMenuSearch(this.value)"
+          style="width:100%;box-sizing:border-box;padding:10px 12px 10px 38px;background:var(--surface2);border:1.5px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:14px;outline:none;transition:border-color 0.2s;"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+      </div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
         <div class="menu-cats" id="menu-cats" style="margin-bottom:0;flex:1;"></div>
         
@@ -7139,7 +7214,7 @@ Revenez nous voir bient&#244;t.</textarea>
           <div style="font-weight:700;color:var(--red,#e74c3c);font-size:14px;">Caisse 3 fermée — Impossible d'accepter des commandes</div>
           <div style="font-size:12px;color:var(--text2);margin-top:3px;">Ouvrez la Caisse 3 pour pouvoir accepter et traiter les commandes QR.</div>
         </div>
-        <button onclick="openModalOuverture(); document.querySelectorAll('.oc-caisse-btn').forEach(b=>b.classList.remove('selected')); const b3=document.querySelector('.oc-caisse-btn[onclick*=\'Caisse 3\']'); if(b3){b3.classList.add('selected'); window.ocSelectedCaisse='Caisse 3';}" style="background:var(--red,#e74c3c);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">🔓 Ouvrir Caisse 3</button>
+        <button onclick="openModalOuverture(); if(!currentUser || !currentUser.caisse || currentUser.caisse==='Toutes' || /Caisse\s*3\b/i.test(currentUser.caisse)) { document.querySelectorAll('.oc-caisse-btn').forEach(b=>b.classList.remove('selected')); const b3=document.querySelector('.oc-caisse-btn[onclick*=\'Caisse 3\']'); if(b3 && b3.style.display!=='none'){ b3.classList.add('selected'); window.ocSelectedCaisse='Caisse 3'; } } else { showNotif('⛔ Vous n\'avez pas le droit d\'ouvrir Caisse 3'); }" style="background:var(--red,#e74c3c);color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">🔓 Ouvrir Caisse 3</button>
       </div>
 
       <!-- HEADER -->
@@ -9257,17 +9332,17 @@ Revenez nous voir bient&#244;t.</textarea>
       </div>
       <div class="form-group"><label class="form-label">Caisse assignée</label>
         <select class="form-input" id="nu-caisse">
-          <option>Toutes les caisses</option>
-          <option>Caisse 1 — Salle</option>
-          <option>Caisse 2 — Emporter</option>
-          <option>Caisse 3 — Terrasse</option>
-          <option>Caisse 4 — Terrasse / Bar</option>
-          <option>Caisse 5</option>
-          <option>Caisse 6</option>
-          <option>Caisse 7</option>
-          <option>Caisse 8</option>
-          <option>Caisse 9</option>
-          <option>Caisse 10</option>
+          <option value="Toutes">Toutes les caisses</option>
+          <option value="Caisse 1">Caisse 1 — Salle</option>
+          <option value="Caisse 2">Caisse 2 — Emporter</option>
+          <option value="Caisse 3">Caisse 3 — Terrasse</option>
+          <option value="Caisse 4">Caisse 4 — Terrasse / Bar</option>
+          <option value="Caisse 5">Caisse 5</option>
+          <option value="Caisse 6">Caisse 6</option>
+          <option value="Caisse 7">Caisse 7</option>
+          <option value="Caisse 8">Caisse 8</option>
+          <option value="Caisse 9">Caisse 9</option>
+          <option value="Caisse 10">Caisse 10</option>
         </select>
       </div>
     </div>
@@ -10657,6 +10732,7 @@ let cart = [];
 let currentPayMethod = 'cash';
 let currentMenuCat = 'all';
 let currentMenuSubcat = 'all'; // ✅ sous-catégorie active dans Menu & Carte
+let currentMenuSearch = ''; // ✅ recherche active dans Menu & Carte
 
 function showView(id, el, pushState) {
   // ✅ FIX SÉCURITÉ : contrôle d'accès réel — bloque l'affichage d'une vue
@@ -12563,12 +12639,27 @@ let _orderCounters = {}; // { 'Caisse 1': 42, 'Caisse 2': 17 }
 function _getNextOrderNum(caisse) {
   // Fallback local (utilisé si Supabase indisponible)
   if(!_orderCounters[caisse]) {
+    let _fromStorage = 1;
     try {
       const saved = JSON.parse(_lsGet('kg-order-counters') || '{}');
-      _orderCounters[caisse] = saved[caisse] || 1;
-    } catch(e) {
-      _orderCounters[caisse] = 1;
-    }
+      _fromStorage = saved[caisse] || 1;
+    } catch(e) {}
+    // ✅ FIX ANTI-DOUBLON REDÉMARRAGE : si l'appli redémarre/recharge entre deux ventes
+    // (WebView tuée en arrière-plan, tablette qui replante, etc.), le compteur local en
+    // mémoire est perdu et on retombe sur la valeur sauvegardée dans localStorage — mais
+    // si cette sauvegarde était elle-même en retard (écriture ratée, quota, etc.), on
+    // pouvait re-proposer un numéro DÉJÀ utilisé par une vente réellement enregistrée.
+    // Sécurité : on prend aussi le plus haut numéro déjà présent dans les ventes connues
+    // de cette caisse (en mémoire) et on ne redescend jamais en dessous.
+    let _fromVentes = 1;
+    try {
+      const _ventesCaisse = (typeof VENTES_PAR_CAISSE !== 'undefined' && VENTES_PAR_CAISSE[caisse]) ? VENTES_PAR_CAISSE[caisse] : [];
+      _ventesCaisse.forEach(v => {
+        const n = parseInt(String(v.orderNum||'').replace(/[^0-9]/g,''), 10);
+        if(!isNaN(n) && n >= _fromVentes) _fromVentes = n + 1;
+      });
+    } catch(e) {}
+    _orderCounters[caisse] = Math.max(_fromStorage, _fromVentes, 1);
   }
   const num = _orderCounters[caisse];
   _orderCounters[caisse]++;
@@ -12587,28 +12678,20 @@ function _getNextOrderNum(caisse) {
 // mais avec sa propre clé de compteur ('tickets_attente_global') pour rester une
 // séquence propre à part : #1, #2, #3... peu importe la caisse qui crée le ticket.
 async function _getNextTicketAttenteNum() {
-  try {
-    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
-      const sb  = KGSync.getClient();
-      const rid = window._KG_RESTAURANT_ID || 'default';
-      const { data, error } = await sb.rpc('get_next_ticket_number_caisse', {
-        p_restaurant_id: rid,
-        p_caisse_key:    'tickets_attente_global'
-      });
-      if(!error && data) {
-        const num = parseInt(data);
-        try { _lsSet('kg-attente-counter', String(num + 1)); } catch(e) {}
-        return num;
-      }
-    }
-  } catch(e) {
-    console.warn('[Ticket attente] Fallback local (Supabase indisponible):', e);
+  const _res = await _getAtomicTicketNumber('tickets_attente_global', '[Ticket attente]');
+  if(_res.num != null) {
+    try { _lsSet('kg-attente-counter', String(_res.num + 1)); } catch(e) {}
+    return _res.num;
   }
-  // Fallback local si Supabase indisponible — au moins séquentiel sur cet appareil
-  let n = 1;
-  try { n = parseInt(_lsGet('kg-attente-counter') || '1') || 1; } catch(e) {}
-  try { _lsSet('kg-attente-counter', String(n + 1)); } catch(e) {}
-  return n;
+  if(_res.offline) {
+    // Vraiment hors-ligne : fallback local acceptable
+    let n = 1;
+    try { n = parseInt(_lsGet('kg-attente-counter') || '1') || 1; } catch(e) {}
+    try { _lsSet('kg-attente-counter', String(n + 1)); } catch(e) {}
+    return n;
+  }
+  // En ligne mais échec après plusieurs tentatives : signal d'échec (pas de numéro local)
+  return null;
 }
 
 // ✅ FIX v37 TICKETS UNIQUES — numéro global atomic via Supabase RPC
@@ -12634,6 +12717,24 @@ async function _clearVentesCaisseSupabase(caisse) {
   } catch(e) {
     console.warn('[ventes_caisse] Erreur clear:', e);
   }
+}
+
+// ✅ FIX "VEUILLEZ PATIENTER" QUI RESTE BLOQUÉ : plusieurs appels réseau Supabase
+// utilisés lors de la validation d'un ticket (numéro de ticket, recettes,
+// déduction de stock) étaient faits avec `await` SANS AUCUN TIMEOUT. Sur une
+// connexion lente ou instable (fréquent en 3G/4G), ces appels pouvaient rester
+// en attente très longtemps, voire indéfiniment côté navigateur, ce qui bloquait
+// validateOrder() en plein milieu et laissait le verrou _validateOrderInProgress
+// à `true` pour de bon : tout nouveau clic sur "Valider" affichait alors
+// "⏳ Validation en cours, patientez..." sans jamais réellement aboutir, jusqu'au
+// rechargement de la page. On force donc un délai maximum sur ces appels : si
+// Supabase ne répond pas à temps, on abandonne proprement et le code bascule
+// sur son fallback local déjà prévu, au lieu de rester coincé en attente.
+function _withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout' + (label ? (' ' + label) : ''))), ms))
+  ]);
 }
 
 async function _saveVenteSupabase(caisse, vente, _retryCount) {
@@ -12755,37 +12856,67 @@ async function _loadVentesSupabase(caisse) {
   }
 }
 
-async function _getNextOrderNumGlobal(caisse) {
-  try {
-    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+// ✅ FIX ANTI-DOUBLON MULTI-CAISSE : la génération du numéro de ticket ne doit
+// JAMAIS retomber sur un compteur local tant que l'appli est réellement connectée
+// à Supabase — sinon, si 3 caisses valident en même temps et que chacune bascule
+// sur son compteur local (car la requête a juste été lente), elles peuvent
+// produire le MÊME numéro de ticket chacune de leur côté. Le fallback local ne
+// doit servir que si l'appareil est VRAIMENT hors-ligne (pas juste lent) : dans
+// ce cas il n'y a de toute façon qu'une seule caisse capable d'agir localement.
+// Si l'appli est en ligne mais que Supabase met du temps à répondre, on
+// RÉESSAIE (au lieu d'abandonner sur un numéro local risqué) ; si after
+// plusieurs tentatives ça échoue toujours alors qu'on est censé être en ligne,
+// on renvoie `null` pour que l'appelant bloque proprement la vente et demande
+// de réessayer, plutôt que de continuer avec un numéro potentiellement dupliqué.
+async function _getAtomicTicketNumber(caisseKey, label) {
+  const _reallyOffline = (typeof KGSync === 'undefined' || !KGSync.isConnected) || (typeof navigator !== 'undefined' && navigator.onLine === false);
+  if(_reallyOffline) {
+    return { num: null, offline: true };
+  }
+  const _timeouts = [5000, 8000, 12000]; // tentatives avec délai croissant
+  for(let attempt = 0; attempt < _timeouts.length; attempt++) {
+    try {
       const sb  = KGSync.getClient();
       const rid = window._KG_RESTAURANT_ID || 'default';
-      // ✅ FIX ANTI-DOUBLON CAISSE 1 & 2 :
-      // On utilise la MÊME RPC atomique que les autres caisses (get_next_ticket_number_caisse)
-      // avec la clé partagée 'global'. Le SELECT + UPDATE est dans une transaction SQL,
-      // donc même si Caisse 1 et Caisse 2 appellent en même temps → numéros différents garantis.
-      const { data, error } = await sb.rpc('get_next_ticket_number_caisse', {
+      const { data, error } = await _withTimeout(sb.rpc('get_next_ticket_number_caisse', {
         p_restaurant_id: rid,
-        p_caisse_key:    'global'
-      });
-      if(!error && data) {
-        const num = parseInt(data);
-        // Synchroniser le compteur local pour la cohérence de la preview
-        _orderCounters[caisse] = Math.max(_orderCounters[caisse] || 1, num + 1);
-        try {
-          const saved = JSON.parse(_lsGet('kg-order-counters') || '{}');
-          saved[caisse] = _orderCounters[caisse];
-          _lsSet('kg-order-counters', JSON.stringify(saved));
-        } catch(e) {}
-        orderCounter = Math.max(orderCounter, num + 1);
-        return '#' + String(num).padStart(3, '0');
+        p_caisse_key:    caisseKey
+      }), _timeouts[attempt], label + ' tentative ' + (attempt+1));
+      if(!error && data != null) {
+        return { num: parseInt(data), offline: false };
       }
+      console.warn('[' + label + '] tentative ' + (attempt+1) + ' échouée:', error);
+    } catch(e) {
+      console.warn('[' + label + '] tentative ' + (attempt+1) + ' échouée (timeout/erreur réseau):', e.message);
     }
-  } catch(e) {
-    console.warn('[Ticket C1/C2] Fallback local (Supabase indisponible):', e);
   }
-  // Fallback local si Supabase non connecté
-  return _getNextOrderNum(caisse);
+  // Toutes les tentatives ont échoué alors qu'on est censé être en ligne :
+  // on ne bascule PAS en local (risque de doublon), on signale l'échec.
+  return { num: null, offline: false };
+}
+
+async function _getNextOrderNumGlobal(caisse) {
+  const _res = await _getAtomicTicketNumber('global', '[Ticket ' + caisse + ']');
+  if(_res.num != null) {
+    const num = _res.num;
+    // Synchroniser le compteur local pour la cohérence de la preview
+    _orderCounters[caisse] = Math.max(_orderCounters[caisse] || 1, num + 1);
+    try {
+      const saved = JSON.parse(_lsGet('kg-order-counters') || '{}');
+      saved[caisse] = _orderCounters[caisse];
+      _lsSet('kg-order-counters', JSON.stringify(saved));
+    } catch(e) {}
+    orderCounter = Math.max(orderCounter, num + 1);
+    return '#' + String(num).padStart(3, '0');
+  }
+  if(_res.offline) {
+    // Vraiment hors-ligne : fallback local acceptable (un seul appareil peut agir hors-ligne)
+    console.warn('[Ticket ' + caisse + '] Hors-ligne — numérotation locale.');
+    return _getNextOrderNum(caisse);
+  }
+  // En ligne mais Supabase injoignable après plusieurs tentatives : signal d'échec,
+  // PAS de numéro local (pour éviter tout doublon entre caisses).
+  return null;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -12805,10 +12936,10 @@ async function _getNextTicketNumCaisse(caisseKey) {
       const rid = window._KG_RESTAURANT_ID || 'default';
       // ✅ FIX v16 : utiliser la clé 'global' (même séquence que la plateforme QR et Caisse 1/2)
       // pour garantir l'unicité absolue des numéros de tickets entre toutes les caisses
-      const { data, error } = await sb.rpc('get_next_ticket_number_caisse', {
+      const { data, error } = await _withTimeout(sb.rpc('get_next_ticket_number_caisse', {
         p_restaurant_id: rid,
         p_caisse_key:    'global'
-      });
+      }), 6000, 'get_next_ticket_number_caisse (' + caisseKey + ')');
       if (!error && data) {
         const num = parseInt(data);
         // Synchroniser le compteur local
@@ -12993,19 +13124,31 @@ function openModalOuverture() {
     if(locEl)  locEl.textContent  = c.loc;
   });
 
-  var isCaissier = currentUser && currentUser.role === 'caissier' && currentUser.caisse !== 'Toutes';
+  // ✅ FIX : la restriction à la caisse assignée s'applique à TOUT utilisateur ayant une
+  // caisse précise (pas seulement le rôle "caissier") — sinon un gérant/superviseur assigné
+  // à Caisse 1 pouvait quand même ouvrir n'importe quelle autre caisse par erreur.
+  var isCaissier = currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes';
   if(isCaissier) {
     ocSelectedCaisse = currentUser.caisse;
+    // ✅ FIX : comparaison par numéro de caisse (ex: "Caisse 1" vs "Caisse 1 — Salle")
+    // plutôt qu'un indexOf exact qui échouait dès que les libellés différaient légèrement.
+    var _ucNumMatch = String(currentUser.caisse).match(/Caisse\s*(\d+)/i);
+    var _ucNum = _ucNumMatch ? _ucNumMatch[1] : null;
     document.querySelectorAll('.oc-caisse-btn').forEach(function(b) {
       var nameEl = b.querySelector('.oc-caisse-name');
       var rawText = nameEl ? nameEl.textContent : b.textContent;
-      var isMatch = rawText.indexOf(currentUser.caisse) !== -1;
+      var _rNumMatch = rawText.match(/Caisse\s*(\d+)/i);
+      var _rNum = _rNumMatch ? _rNumMatch[1] : null;
+      var isMatch = _ucNum && _rNum ? (_ucNum === _rNum) : (rawText.indexOf(currentUser.caisse) !== -1);
       b.classList.toggle('selected', isMatch);
       if(!isMatch) {
-        b.style.opacity = '0.4';
+        // ✅ FIX : masquer complètement les caisses non autorisées au lieu de les griser —
+        // inutile de les afficher si l'utilisateur ne peut de toute façon pas les ouvrir.
+        b.style.display = 'none';
         b.style.pointerEvents = 'none';
         b.onclick = null;
       } else {
+        b.style.display = '';
         b.style.opacity = '1';
         b.style.pointerEvents = 'auto';
       }
@@ -13014,6 +13157,7 @@ function openModalOuverture() {
     if(noteEl) noteEl.placeholder = 'Ouverture ' + currentUser.caisse + ' — ' + currentUser.prenom + ' ' + currentUser.nom;
   } else {
     document.querySelectorAll('.oc-caisse-btn').forEach(function(b) {
+      b.style.display = '';
       b.style.opacity = '1';
       b.style.pointerEvents = 'auto';
       b.classList.remove('selected'); // ✅ FIX : aucune pré-sélection automatique pour admin/gérant/superviseur
@@ -13363,6 +13507,16 @@ async function validateOrder() {
   const caisse = sessionCaisseActive?.caisse || (currentUser?.caisse !== 'Toutes' ? currentUser?.caisse : 'Caisse 1');
   const cashier = sessionCaisseActive?.cashier || (currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Caissier');
   const orderNum = await _getNextOrderNumGlobal(caisse);
+  // ✅ FIX ANTI-DOUBLON : si Supabase est censé être joignable (on est en ligne)
+  // mais que la génération atomique du numéro échoue après plusieurs tentatives,
+  // on N'ENREGISTRE PAS la vente avec un numéro local improvisé — cela pourrait
+  // créer un doublon avec une autre caisse travaillant en même temps. On arrête
+  // proprement et on demande de réessayer.
+  if(orderNum === null) {
+    showNotif('⚠️ Connexion au serveur trop lente pour générer le numéro de ticket. Vérifiez votre connexion et réessayez.');
+    _validateOrderInProgress = false;
+    return;
+  }
   // orderCounter maintenu pour compatibilité affichage
   orderCounter++;
   const payLabels = { cash:'Espèces', wave:'Wave', orange:'Orange Money', card:'Carte bancaire' };
@@ -15230,10 +15384,21 @@ function getActiveCaisseName() {
     || (typeof currentUser !== 'undefined' && currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes' ? currentUser.caisse : null);
 }
 
+// ✅ FIX : Administrateur et Gérant supervisent TOUTES les caisses/catégories —
+// la restriction "catégorie visible uniquement pour telle caisse" ne doit jamais
+// leur être appliquée, sinon ils perdent l'accès aux catégories/produits dès
+// qu'ils n'ont pas de caisse active ouverte dans leur session.
+function _bypassCatRestriction() {
+  return typeof currentUser !== 'undefined' && currentUser &&
+    (currentUser.role === 'administrateur' || currentUser.role === 'gerant');
+}
+
 // ✅ Une catégorie est visible pour une caisse si :
+//   - l'utilisateur est Administrateur/Gérant → toujours visible (supervision globale)
 //   - elle n'a AUCUNE restriction (c.caisses vide/absent) → visible par toutes les caisses (catégorie "commune")
 //   - OU la caisse active fait partie de c.caisses (liste blanche)
 function isCatVisibleForCaisse(c, caisseName) {
+  if(_bypassCatRestriction()) return true;
   if(!c || !Array.isArray(c.caisses) || c.caisses.length === 0) return true; // catégorie commune, non restreinte
   if(!caisseName) return false; // catégorie restreinte + pas de caisse active connue → cachée par prudence
   return c.caisses.includes(caisseName);
@@ -15292,17 +15457,41 @@ function renderMenu(cat, subcat) {
   if(cat !== 'all' && subcats.length && activeSubcat !== 'all') {
     items = items.filter(m => (m.subcat || '') === activeSubcat);
   }
+  // ✅ Filtrer par recherche texte (nom / description du produit)
+  if(currentMenuSearch && currentMenuSearch.trim()) {
+    const _q = currentMenuSearch.trim().toLowerCase();
+    items = items.filter(m => (m.name || '').toLowerCase().includes(_q) || (m.desc || '').toLowerCase().includes(_q));
+  }
   const isManager = currentUser && (currentUser.role === 'gerant' || currentUser.role === 'superviseur' || currentUser.role === 'administrateur');
+  if(items.length === 0) {
+    document.getElementById('menu-grid').innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px 16px;color:var(--text2);font-size:13px;">😕 Aucun produit ne correspond${currentMenuSearch ? ' à "' + currentMenuSearch.trim() + '"' : ''}</div>`;
+    return;
+  }
   document.getElementById('menu-grid').innerHTML = items.map(item => {
     const menuIdx = MENU.indexOf(item); // index sûr, pas d'UUID dans onclick
     const menuItemId = item.sbId || item.id || '';
     // ── Stock lié à l'article (via recette)
     const hasLinkedStock = item.recette && item.recette.length > 0;
-    const linkedStockOk  = hasLinkedStock && item.recette.some(r => {
+    // ✅ FIX : le badge doit refléter le DÉPÔT réellement décrémenté à la vente (comme dans finalizeVente),
+    // pas seulement le Stock général — sinon le badge peut afficher "Stock OK" alors que le dépôt est à 0.
+    const _caisseObjBadge = _activeCaisse ? CAISSES.find(c => c.name === _activeCaisse) : null;
+    const _depotBadge = _caisseObjBadge
+      ? DEPOTS.find(d => (d.caisseIds||[]).includes(_caisseObjBadge.id))
+      : null;
+    const linkedStockOk  = hasLinkedStock && item.recette.every(r => {
       let s = null;
       if(r.sbStockId) s = STOCK_DATA.find(x => String(x.sbId) === String(r.sbStockId));
       if(!s && r.stockId) s = STOCK_DATA.find(x => String(x.sbId) === String(r.stockId) || String(x.id) === String(r.stockId));
       if(!s && r.stockNom) s = STOCK_DATA.find(x => x.name && x.name.trim().toLowerCase() === r.stockNom.trim().toLowerCase());
+      // Priorité au dépôt lié à la caisse active (source de vérité au moment de la vente),
+      // sinon fallback sur le dépôt figé dans la recette, sinon Stock général si aucun dépôt.
+      const _depotCible = (typeof _resoudreDepotVente === 'function')
+        ? _resoudreDepotVente(_depotBadge, r.depotId)
+        : (_depotBadge || (r.depotId ? DEPOTS.find(d => d.id === r.depotId) : null));
+      if(_depotCible && _depotCible.articles) {
+        const artDepot = _depotCible.articles.find(a => a.stockId === (s && (s.id || s.sbId)) || (s && a.nom === s.name) || (r.stockNom && a.nom && a.nom.trim().toLowerCase() === r.stockNom.trim().toLowerCase()));
+        if(artDepot) return Number(artDepot.qty || 0) > 0;
+      }
       return s && s.qty > 0;
     });
     // Badge stock sur la carte
@@ -15364,6 +15553,12 @@ function renderMenu(cat, subcat) {
       </div>
     </div>`;
   }).join('');
+}
+
+// Recherche dans Menu & Carte : ne touche pas le champ (le focus reste intact pendant la frappe)
+function filterMenuSearch(query) {
+  currentMenuSearch = query;
+  renderMenu(currentMenuCat, currentMenuSubcat);
 }
 
 function filterOrders(status, el) {
@@ -15708,26 +15903,49 @@ async function supprimerVenteAdmin(orderNum) {
     const _depotCaisseRestore = (_caisseObjRestore && typeof DEPOTS !== 'undefined')
       ? DEPOTS.find(d => (d.caisseIds||[]).includes(_caisseObjRestore.id))
       : null;
+    let _depotChangedOnRestore = false;
     // Inverser : remettre les quantités
     (vente.items||[]).forEach(item => {
       const menuItem = MENU.find(m => m.id===item.id||m.sbId===item.id||m.name===item.name||m.nom===item.name);
       const recette = (menuItem && menuItem.recette && menuItem.recette.length) ? menuItem.recette : (item.recette||[]);
       recette.forEach(ligne => {
+        // ✅ FIX : même logique de correspondance que deduireStockVente (avec fallback par nom),
+        // sinon un ingrédient non retrouvé par ID n'était tout simplement pas restauré du tout.
         let s = null;
         if(ligne.sbStockId) s = STOCK_DATA.find(x=>String(x.sbId)===String(ligne.sbStockId));
         if(!s && ligne.stockId) s = STOCK_DATA.find(x=>String(x.sbId)===String(ligne.stockId)||String(x.id)===String(ligne.stockId));
+        if(!s && ligne.stockNom) {
+          const _n = ligne.stockNom.trim().toLowerCase();
+          s = STOCK_DATA.find(x => x.name && x.name.trim().toLowerCase() === _n);
+        }
         if(s) {
           const consumed = (ligne.qty||1) * (item.qty||1);
-          s.qty = (s.qty||0) + consumed;
-          // ✅ Restaurer aussi dans le dépôt de la caisse (ou depotId figé en fallback)
-          const _depotCibleRestore = _depotCaisseRestore || (ligne.depotId ? DEPOTS.find(d => d.id === ligne.depotId) : null);
-          if(_depotCibleRestore && _depotCibleRestore.articles) {
-            const depotArtR = _depotCibleRestore.articles.find(a => a.stockId === s.id || a.stockId === s.sbId || a.nom === s.name);
-            if(depotArtR) depotArtR.qty = Math.round((Number(depotArtR.qty||0) + consumed) * 1000) / 1000;
+          // ✅ FIX ISOLATION DÉPÔT : restaurer au même endroit qui a été déduit lors de la vente
+          // (dépôt OU stock général, jamais les deux — même résolution que deduireStockVente)
+          const _depotCibleRestore = (typeof _resoudreDepotVente === 'function')
+            ? _resoudreDepotVente(_depotCaisseRestore, ligne.depotId)
+            : (_depotCaisseRestore || (ligne.depotId ? DEPOTS.find(d => d.id === ligne.depotId) : null));
+          const depotArtR = (_depotCibleRestore && _depotCibleRestore.articles)
+            ? _depotCibleRestore.articles.find(a => a.stockId === s.id || a.stockId === s.sbId || a.nom === s.name)
+            : null;
+          if(depotArtR) {
+            depotArtR.qty = Math.round((Number(depotArtR.qty||0) + consumed) * 1000) / 1000;
+            _depotChangedOnRestore = true;
+          } else {
+            s.qty = (s.qty||0) + consumed;
           }
         }
       });
     });
+    // ✅ FIX : sans cet appel, la restauration du dépôt restait uniquement en mémoire —
+    // au prochain rechargement/sync, le dépôt revenait à son ancienne valeur (déduite),
+    // donnant l'impression que "le stock ne retourne pas dans son élément".
+    if(_depotChangedOnRestore && typeof _saveDepots === 'function') {
+      _saveDepots();
+      if(typeof renderDepotsTab === 'function' && document.getElementById('depot-list-cards')) {
+        try { renderDepotsTab(); } catch(e) {}
+      }
+    }
     // Push stock Supabase
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.stock();
   }
@@ -16484,12 +16702,19 @@ function ouvrirReception(cIdx) {
   if(listEl) {
     listEl.innerHTML = (c.articles||[]).map((a, ai) => {
       const stock = STOCK_DATA.find(s => s.id === a.stockId || s.name.toLowerCase() === (a.nom||'').toLowerCase());
+      // ✅ FIX DOUBLE ENTRÉE STOCK : ne pré-remplir que le reliquat NON encore reçu, pas la
+      // quantité commandée totale — sinon rouvrir ce modal juste pour finir de payer une
+      // commande déjà (partiellement) reçue réinjectait la quantité totale une 2e fois en stock.
+      const _dejaRecu = a.qtyRecue || 0;
+      const _resteARecevoir = Math.max(0, (a.qty||0) - _dejaRecu);
+      const _dejaRecuNote = _dejaRecu > 0 ? `<div style="font-size:11px;color:var(--accent);">Déjà reçu : ${_dejaRecu} ${a.unit}</div>` : '';
       return `<div style="display:grid;grid-template-columns:1fr 100px 80px;gap:8px;align-items:center;padding:8px;background:var(--surface2);border-radius:8px;margin-bottom:6px;">
         <div>
           <div style="font-weight:600;font-size:13px;">${stock ? (stock.icon+' ') : '📦'}${a.nom}</div>
           ${stock ? `<div style="font-size:11px;color:var(--teal);">Stock actuel: ${stock.qty} ${stock.unit}</div>` : '<div style="font-size:11px;color:var(--text2);">Produit non lié au stock</div>'}
+          ${_dejaRecuNote}
         </div>
-        <input class="form-input" type="number" value="${a.qty}" min="0" step="0.1"
+        <input class="form-input" type="number" value="${_resteARecevoir}" min="0" step="0.1"
           id="recep-qty-${ai}" style="font-size:12px;text-align:center;" placeholder="Qté reçue">
         <span style="font-size:12px;color:var(--text2);">${a.unit}</span>
       </div>`;
@@ -16554,6 +16779,7 @@ function confirmerReception() {
   const recepDateFR  = recepDateObj.toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'2-digit'});
 
   let stockMajCount = 0;
+  let generalMajCount = 0;
   (c.articles||[]).forEach((a, ai) => {
     const qtyInput = document.getElementById('recep-qty-' + ai);
     const qtyRecue = parseFloat(qtyInput?.value) || 0;
@@ -16562,9 +16788,10 @@ function confirmerReception() {
     // ✅ Trouver l'article dans le stock (par stockId ou nom)
     const stockItem = STOCK_DATA.find(s => s.id === a.stockId || s.sbId === a.stockId || s.name.toLowerCase() === (a.nom||'').toLowerCase());
     if(stockItem) {
-      stockItem.qty = Math.round((stockItem.qty + qtyRecue) * 1000) / 1000;
       stockMajCount++;
-      // ── Mettre à jour le dépôt choisi ──
+      // ✅ FIX ISOLATION DÉPÔT : si un dépôt de destination est choisi, la marchandise entre
+      // UNIQUEMENT dans ce dépôt — pas dans le stock général en plus. Le stock général n'est
+      // incrémenté que si aucun dépôt n'est sélectionné ("Stock général (aucun dépôt)").
       if(recepDepot) {
         let depotArt = recepDepot.articles ? recepDepot.articles.find(da => da.stockId === stockItem.id || da.stockId === stockItem.sbId || da.nom === stockItem.name) : null;
         const todayFR = recepDateFR;
@@ -16577,10 +16804,14 @@ function confirmerReception() {
           recepDepot.articles.push({ stockId: stockItem.id||stockItem.sbId, nom: stockItem.name, icon: stockItem.icon||'📦', unit: a.unit||stockItem.unit, qty: qtyRecue, seuil: 0,
             entrees: [{ date: todayFR, qty: qtyRecue, unit: a.unit||stockItem.unit, fournisseur: c.fournisseur||'—', ref: c.ref||'—' }] });
         }
+      } else {
+        stockItem.qty = Math.round((stockItem.qty + qtyRecue) * 1000) / 1000;
+        generalMajCount++;
       }
     }
-    // Mettre à jour la qté reçue dans la commande
-    a.qtyRecue = qtyRecue;
+    // ✅ FIX : cumuler la qté reçue (et non l'écraser) pour que les réceptions suivantes de
+    // cette même commande (ex: on finit de payer plus tard) sachent ce qui a déjà été reçu.
+    a.qtyRecue = (a.qtyRecue || 0) + qtyRecue;
   });
 
   // Paiement à la réception
@@ -16592,7 +16823,7 @@ function confirmerReception() {
 
   if(KGSync.isConnected) {
     KGSync.push.commandesFourn().catch(()=>{});
-    if(stockMajCount > 0) {
+    if(generalMajCount > 0) {
       KGSync.push.stock().catch(()=>{});
       // ✅ Mettre à jour stock_items Supabase après réception commande
       try {
@@ -16710,33 +16941,34 @@ function renderStock() {
     if(_sq && !(s.name||'').toLowerCase().includes(_sq) && !(s.cat||'').toLowerCase().includes(_sq)) return '';
     const status = getStockStatus(s);
     const pct = Math.min(100, Math.round(s.qty / (s.max||100) * 100));
-    return `<div class="stock-row">
-      <div style="font-size:24px;text-align:center;">${s.icon||'📦'}</div>
-      <div>
-        <div style="font-weight:600;font-size:13px;">${s.name}</div>
-        <div style="font-size:11px;color:var(--text2);">Seuil alerte: ${s.seuil} ${s.unit}</div>
+    return `<div class="stock-row" style="--stock-accent:${colors[status]};">
+      <div class="stock-cell-icon"><span>${s.icon||'📦'}</span></div>
+      <div class="stock-cell-info">
+        <div class="stock-name">${s.name}</div>
+        <div class="stock-seuil">Seuil alerte : ${s.seuil} ${s.unit}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;">
+      <div class="stock-cell-qty">
         <input class="stock-qty-input" type="number" value="${s.qty}" step="0.1" min="0"
-          onchange="updateStockQty(${sIdx}, this.value)" style="width:75px;">
+          onchange="updateStockQty(${sIdx}, this.value)">
         <select class="unit-select" onchange="updateStockUnit(${sIdx}, this.value)">
           ${['kg','g','L','ml','pcs','boîtes','btls','sachets'].map(u =>
             `<option value="${u}" ${u===s.unit?'selected':''}>${u}</option>`
           ).join('')}
         </select>
       </div>
-      <div>
+      <div class="stock-cell-progress">
         <div class="stock-progress-wrap">
           <div class="stock-progress-fill" style="width:${pct}%;background:${colors[status]};"></div>
         </div>
-        <div style="font-size:10px;color:var(--text2);margin-top:3px;text-align:center;">${pct}%</div>
+        <div class="stock-progress-pct" style="color:${colors[status]};">${pct}%</div>
       </div>
-      <div style="font-family:'Space Mono';font-size:13px;color:${colors[status]};">${s.qty} ${s.unit}</div>
-      <div><span class="badge" style="background:${colors[status]}22;color:${colors[status]}">${labels[status]}</span></div>
-      <div style="display:flex;gap:6px;">
-        <button class="ticket-btn" style="padding:6px 10px;" onclick="quickEntreeStock(${sIdx})">📥</button>
-        <button class="ticket-btn" style="padding:6px 10px;" onclick="openEditStockArticle(${sIdx})">✏️</button>
-        <button class="caisse-btn danger" onclick="deleteStockArticle(${sIdx})" style="padding:6px 10px;">🗑</button>
+      <div class="stock-cell-total" style="color:${colors[status]};">${s.qty} ${s.unit}</div>
+      <div class="stock-cell-badge"><span class="badge" style="background:${colors[status]}22;color:${colors[status]}">${labels[status]}</span></div>
+      <div class="stock-cell-actions">
+        <button class="ticket-btn" onclick="quickEntreeStock(${sIdx})" title="Entrée de stock">📥</button>
+        <button class="ticket-btn" style="background:rgba(155,124,244,0.15);border-color:var(--purple);" onclick="openTransfertDepot('stock',${sIdx})" title="Transférer vers un dépôt">🔄</button>
+        <button class="ticket-btn" onclick="openEditStockArticle(${sIdx})" title="Modifier l'article">✏️</button>
+        <button class="caisse-btn danger" onclick="deleteStockArticle(${sIdx})" title="Supprimer">🗑</button>
       </div>
     </div>`;
   }).join('');
@@ -17242,16 +17474,26 @@ function saveDepotEntree() {
 // TRANSFERT ENTRE DÉPÔTS
 // ================================================================
 function openTransfertDepot(depotSrcId, artIdx) {
-  const depotSrc = DEPOTS.find(d => d.id === depotSrcId);
-  if(!depotSrc || !depotSrc.articles[artIdx]) return;
-  const a = depotSrc.articles[artIdx];
+  let a, srcLabel, srcQty, srcUnit;
+  if(depotSrcId === 'stock') {
+    a = STOCK_DATA[artIdx];
+    if(!a) return;
+    srcLabel = '📦 Stock général';
+    srcQty = a.qty; srcUnit = a.unit;
+  } else {
+    const depotSrc = DEPOTS.find(d => d.id === depotSrcId);
+    if(!depotSrc || !depotSrc.articles[artIdx]) return;
+    a = depotSrc.articles[artIdx];
+    srcLabel = (depotSrc.icon||'🏭') + ' ' + depotSrc.nom;
+    srcQty = a.qty; srcUnit = a.unit;
+  }
 
   document.getElementById('transfert-depotSrcId').value = depotSrcId;
   document.getElementById('transfert-artIdx').value = artIdx;
   document.getElementById('transfert-info-content').innerHTML =
-    `${a.icon||'📦'} <strong>${a.nom}</strong> &nbsp;·&nbsp; <span style="font-family:'JetBrains Mono',monospace;">${a.unit}</span>`;
-  document.getElementById('transfert-src-name').textContent = (depotSrc.icon||'🏭') + ' ' + depotSrc.nom;
-  document.getElementById('transfert-src-qty').textContent = 'Disponible : ' + a.qty + ' ' + a.unit;
+    `${a.icon||'📦'} <strong>${a.nom||a.name}</strong> &nbsp;·&nbsp; <span style="font-family:'JetBrains Mono',monospace;">${srcUnit}</span>`;
+  document.getElementById('transfert-src-name').textContent = srcLabel;
+  document.getElementById('transfert-src-qty').textContent = 'Disponible : ' + srcQty + ' ' + srcUnit;
   document.getElementById('transfert-qty').value = '';
   document.getElementById('transfert-note').value = '';
   document.getElementById('transfert-warning').style.display = 'none';
@@ -17265,12 +17507,22 @@ function openTransfertDepot(depotSrcId, artIdx) {
   showModal('transfertDepot');
 }
 
+function _transfertGetSrc(depotSrcId, artIdx) {
+  if(depotSrcId === 'stock') {
+    const s = STOCK_DATA[artIdx];
+    if(!s) return null;
+    return { nom: s.name, icon: s.icon, unit: s.unit, qty: s.qty, seuil: s.seuil, stockId: s.id, sbStockId: s.sbId || '', _raw: s };
+  }
+  const depotSrc = DEPOTS.find(d => d.id === depotSrcId);
+  if(!depotSrc || !depotSrc.articles[artIdx]) return null;
+  return depotSrc.articles[artIdx];
+}
+
 function updateTransfertDestInfo() {
   const depotSrcId = document.getElementById('transfert-depotSrcId').value;
   const artIdx = parseInt(document.getElementById('transfert-artIdx').value);
-  const depotSrc = DEPOTS.find(d => d.id === depotSrcId);
-  if(!depotSrc) return;
-  const a = depotSrc.articles[artIdx];
+  const a = _transfertGetSrc(depotSrcId, artIdx);
+  if(!a) return;
   const destId = document.getElementById('transfert-depotDest').value;
   const depotDest = DEPOTS.find(d => d.id === destId);
   const infoEl = document.getElementById('transfert-dest-info');
@@ -17286,9 +17538,8 @@ function updateTransfertDestInfo() {
 function updateTransfertQtyInfo() {
   const depotSrcId = document.getElementById('transfert-depotSrcId').value;
   const artIdx = parseInt(document.getElementById('transfert-artIdx').value);
-  const depotSrc = DEPOTS.find(d => d.id === depotSrcId);
-  if(!depotSrc) return;
-  const a = depotSrc.articles[artIdx];
+  const a = _transfertGetSrc(depotSrcId, artIdx);
+  if(!a) return;
   const qty = parseFloat(document.getElementById('transfert-qty').value) || 0;
   const warnEl = document.getElementById('transfert-warning');
   if(qty > a.qty) {
@@ -17309,27 +17560,38 @@ function saveTransfertDepot() {
   if(!destId) { showNotif('⚠️ Choisissez le dépôt destination'); return; }
   if(!qty || qty <= 0) { showNotif('⚠️ Entrez une quantité valide'); return; }
 
-  const depotSrc  = DEPOTS.find(d => d.id === depotSrcId);
   const depotDest = DEPOTS.find(d => d.id === destId);
-  if(!depotSrc || !depotDest) return;
+  if(!depotDest) return;
 
-  const aSrc = depotSrc.articles[artIdx];
+  const isStockSrc = depotSrcId === 'stock';
+  const aSrc = isStockSrc ? STOCK_DATA[artIdx] : DEPOTS.find(d => d.id === depotSrcId)?.articles[artIdx];
   if(!aSrc) return;
-  if(qty > aSrc.qty) { showNotif('❌ Stock insuffisant dans ' + depotSrc.nom); return; }
+  if(qty > aSrc.qty) {
+    showNotif('❌ Stock insuffisant dans ' + (isStockSrc ? 'le Stock général' : DEPOTS.find(d => d.id === depotSrcId).nom));
+    return;
+  }
 
-  // Déduire du dépôt source
+  const srcNom = isStockSrc ? aSrc.name : aSrc.nom;
+  const srcIcon = aSrc.icon;
+  const srcUnit = aSrc.unit;
+  const srcStockId = isStockSrc ? aSrc.id : aSrc.stockId;
+  const srcSbStockId = isStockSrc ? (aSrc.sbId || '') : (aSrc.sbStockId || '');
+  const srcSeuil = isStockSrc ? aSrc.seuil : aSrc.seuil;
+  const srcLabel = isStockSrc ? 'Stock général' : DEPOTS.find(d => d.id === depotSrcId).nom;
+
+  // Déduire de la source
   const ancienSrc = aSrc.qty;
   aSrc.qty = Math.round((aSrc.qty - qty) * 1000) / 1000;
 
   // Ajouter dans le dépôt destination
-  let aDest = depotDest.articles.find(x => x.stockId === aSrc.stockId || x.nom === aSrc.nom);
+  let aDest = depotDest.articles.find(x => x.stockId === srcStockId || x.nom === srcNom);
   if(aDest) {
     aDest.qty = Math.round((aDest.qty + qty) * 1000) / 1000;
   } else {
     depotDest.articles.push({
-      stockId: aSrc.stockId, sbStockId: aSrc.sbStockId || '',
-      nom: aSrc.nom, icon: aSrc.icon, unit: aSrc.unit,
-      qty: qty, seuil: aSrc.seuil || 0, entrees: []
+      stockId: srcStockId, sbStockId: srcSbStockId,
+      nom: srcNom, icon: srcIcon, unit: srcUnit,
+      qty: qty, seuil: srcSeuil || 0, entrees: []
     });
     aDest = depotDest.articles[depotDest.articles.length - 1];
   }
@@ -17339,14 +17601,15 @@ function saveTransfertDepot() {
   aDest.entrees.unshift({
     date: new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),
     qty, prix: 0, ref: 'TRANSFERT',
-    fournisseur: 'Transfert depuis ' + depotSrc.nom + (note ? ' — ' + note : '')
+    fournisseur: 'Transfert depuis ' + srcLabel + (note ? ' — ' + note : '')
   });
 
   closeModal('transfertDepot');
   _saveDepots();
+  if(isStockSrc) { saveSession(); renderStock(); if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.stock().catch(()=>{}); }
   renderDepotsTab();
-  showNotif('🔄 ' + qty + ' ' + aSrc.unit + ' de ' + aSrc.nom + ' : ' +
-    depotSrc.nom + ' (' + ancienSrc + '→' + aSrc.qty + ') → ' + depotDest.nom + ' ✅');
+  showNotif('🔄 ' + qty + ' ' + srcUnit + ' de ' + srcNom + ' : ' +
+    srcLabel + ' (' + ancienSrc + '→' + aSrc.qty + ') → ' + depotDest.nom + ' ✅');
 }
 
 // ================================================================
@@ -17637,7 +17900,11 @@ function saveEntreeStock() {
 function populateItemCatSelect(selectedId, selectedSubId) {
   const sel = document.getElementById('item-cat');
   if (!sel) return;
-  const cats = (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []).filter(c => c.id !== 'all');
+  // ✅ FIX : n'afficher que les catégories visibles pour la caisse active (même règle que renderMenu)
+  const _activeCaisse = getActiveCaisseName();
+  const cats = (typeof CATEGORIES !== 'undefined' ? CATEGORIES : [])
+    .filter(c => c.id !== 'all')
+    .filter(c => isCatVisibleForCaisse(c, _activeCaisse));
   sel.innerHTML = '';
   if (!cats.length) {
     const opt = document.createElement('option');
@@ -18078,7 +18345,7 @@ icon:  (()=>{ const _v = document.getElementById('item-icon').value || '🍽️'
     tag:   document.getElementById('item-tag').value || null,
     color: '#8B4513',
     promo_pct: document.getElementById('item-promo-active').checked ? (parseInt(document.getElementById('item-promo-pct').value)||0) : 0,
-    recette: (typeof _recetteLines !== 'undefined') ? _recetteLines.filter(l => l.stockId && l.qty > 0).map(l => ({stockId:l.stockId, qty:l.qty})) : [],
+    recette: (typeof _recetteLines !== 'undefined') ? _recetteLines.filter(l => l.stockId && l.qty > 0).map(l => ({stockId:l.stockId, qty:l.qty, depotId:l.depotId||''})) : [],
   };
   // ✅ n'écrase le code-barres existant que si l'utilisateur en a saisi un nouveau
   if(_barcodeInput) data.barcode = _barcodeInput;
@@ -18331,19 +18598,10 @@ function renderInvSaisie() {
     depotSel.value = currentVal || 'all';
   }
 
-  // Construire la liste d'items fusionnée (stock général + articles dépôts)
+  // Construire la liste d'items fusionnée (articles dépôts + stock général en dernier)
   let allItems = [];
 
-  // Stock général
-  if(depotFilter === 'all' || depotFilter === 'stock') {
-    STOCK_DATA.filter(s => {
-      const matchQ   = !q || s.name.toLowerCase().includes(q);
-      const matchCat = cat === 'all' || s.cat === cat;
-      return matchQ && matchCat;
-    }).forEach(s => allItems.push({ ...s, _source: 'stock', _depotLabel: '📦 Stock général' }));
-  }
-
-  // Articles des dépôts
+  // Articles des dépôts (boutiques créées) — affichés en premier
   if(depotFilter === 'all' || depotFilter.startsWith('depot_')) {
     (DEPOTS || []).forEach(depot => {
       if(depotFilter !== 'all' && depotFilter !== 'depot_' + depot.id) return;
@@ -18365,6 +18623,15 @@ function renderInvSaisie() {
         });
       });
     });
+  }
+
+  // Stock général — affiché en dernier
+  if(depotFilter === 'all' || depotFilter === 'stock') {
+    STOCK_DATA.filter(s => {
+      const matchQ   = !q || s.name.toLowerCase().includes(q);
+      const matchCat = cat === 'all' || s.cat === cat;
+      return matchQ && matchCat;
+    }).forEach(s => allItems.push({ ...s, _source: 'stock', _depotLabel: '📦 Stock général' }));
   }
 
   let items = allItems;
@@ -21522,7 +21789,7 @@ function _showPosBlockOverlay() {
   btn.className = 'btn btn-primary';
   btn.style.cssText = 'margin-top:8px;padding:12px 28px;font-size:14px;';
   btn.textContent = '🟢 Ouvrir la caisse';
-  btn.onclick = function(){ ov.remove(); showModal('ouvertureCaisse'); };
+  btn.onclick = function(){ ov.remove(); if(typeof openModalOuverture === 'function') { openModalOuverture(); } else { showModal('ouvertureCaisse'); } };
   ov.innerHTML = '<div style="font-size:56px;">🔒</div>'
     + '<div style="font-size:18px;font-weight:700;color:#f0ede8;text-align:center;">Caisse non ouverte</div>'
     + '<div style="font-size:13px;color:#8a8a9e;text-align:center;max-width:260px;line-height:1.6;">Ouvrez une caisse pour pouvoir effectuer des ventes.</div>';
@@ -22208,6 +22475,19 @@ function applyPermissions() {
     const allowed = perms.includes(viewId);
     item.style.display = allowed ? '' : 'none';
   });
+
+  // ✅ FIX : l'onglet "Catégories" du Menu & Carte (voir + créer/modifier les catégories
+  // de produits) est réservé aux rôles Administrateur et Gérant.
+  const canManageCats = currentUser.role === 'administrateur' || currentUser.role === 'gerant';
+  const catTabBtn = document.getElementById('menu-tab-categories');
+  if(catTabBtn) catTabBtn.style.display = canManageCats ? '' : 'none';
+  // Si l'onglet Catégories était affiché avant un changement de session, on revient sur Produits.
+  if(!canManageCats) {
+    const panelCats = document.getElementById('menu-panel-categories');
+    if(panelCats && panelCats.style.display !== 'none') {
+      switchMenuTab('produits', document.getElementById('menu-tab-produits'));
+    }
+  }
 }
 
 function openUserMenuOrUtilisateurs() {
@@ -23241,26 +23521,23 @@ function refreshDashboard() {
     }
   }
 
-  // ===== GRAPHIQUE VENTES 7 DERNIERS JOURS =====
+  // ===== GRAPHIQUE VENTES 7 DERNIERS JOURS (modernisé) =====
   (function updateWeekChart() {
     const chartEl = document.getElementById('chart-bars');
     if (!chartEl) return;
 
-    // Construire un tableau des 7 derniers jours (aujourd'hui inclus)
+    // Construire un tableau des 14 derniers jours (7 précédents + 7 courants)
+    // pour pouvoir calculer une tendance semaine vs semaine.
     const days = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
     const labels = [];
     const vals = [];
+    const prevVals = [];
+    const dayIndexes = [];
 
-    for (let i = 6; i >= 0; i--) {
+    function totalForOffset(i) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dd = String(d.getDate()).padStart(2, '0');
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const yy = String(d.getFullYear()).slice(-2);
-      const dateStr = `${dd}/${mm}/${yy}`; // format HISTORIQUE_CLOTURES
       const dateISO = d.toISOString().slice(0, 10); // format Supabase YYYY-MM-DD
-
-      labels.push(days[d.getDay()]);
 
       // Sommer les clôtures du jour
       let total = 0;
@@ -23292,26 +23569,64 @@ function refreshDashboard() {
           ventesList.forEach(v => { total += (v.total || 0); });
         });
       }
-
-      vals.push(total);
+      return total;
     }
 
-    const max = Math.max(...vals) || 1;
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      labels.push(days[d.getDay()]);
+      dayIndexes.push(d.getDay());
+      vals.push(totalForOffset(i));
+    }
+    for (let i = 13; i >= 7; i--) {
+      prevVals.push(totalForOffset(i));
+    }
+
+    const fmtFull = n => n >= 1000 ? (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'k F' : n + ' F';
+    const fmtCompact = n => n >= 1000 ? Math.round(n / 1000) + 'k' : (n > 0 ? n : '0');
+    const max = Math.max(...vals, 1);
+
     chartEl.innerHTML = labels.map((label, i) => {
-      const pct = Math.round((vals[i] / max) * 130);
-      const height = Math.max(pct, vals[i] > 0 ? 8 : 4);
-      const color = i === 6
-        ? 'var(--accent)'      // aujourd'hui → orange
-        : 'var(--accent)';
-      const opacity = i === 6 ? '1' : '0.55';
-      const valLabel = vals[i] > 0
-        ? (vals[i] >= 1000 ? (vals[i] / 1000).toFixed(0) + 'k' : vals[i]) + ' F'
-        : '0 F';
-      return `<div class="bar-wrap">
-        <div class="bar" style="height:${height}px;min-height:4px;background:${color};opacity:${opacity};" data-val="${valLabel}"></div>
+      const isToday = i === labels.length - 1;
+      const v = vals[i];
+      const height = v > 0 ? Math.max(Math.round((v / max) * 158), 8) : 4;
+      const barClasses = ['bar', isToday ? 'is-today' : '', v <= 0 ? 'is-empty' : ''].filter(Boolean).join(' ');
+      const wrapClasses = ['bar-wrap', isToday ? 'is-today' : ''].filter(Boolean).join(' ');
+      const valLabel = fmtCompact(v);
+      const tipLabel = fmtFull(v);
+      const delay = (i * 0.05).toFixed(2);
+      return `<div class="${wrapClasses}">
+        <div class="bar-value">${valLabel}</div>
+        <div class="${barClasses}" style="height:${height}px;transition-delay:${delay}s;" data-val="${tipLabel}"></div>
         <div class="bar-label">${label}</div>
       </div>`;
     }).join('');
+
+    // Déclenche l'apparition animée des valeurs après le rendu
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        chartEl.querySelectorAll('.bar-wrap').forEach(w => w.classList.add('animate-in'));
+      });
+    });
+
+    // Tendance semaine en cours vs semaine précédente
+    const trendEl = document.getElementById('chart-week-trend');
+    if (trendEl) {
+      const sumCur = vals.reduce((a, b) => a + b, 0);
+      const sumPrev = prevVals.reduce((a, b) => a + b, 0);
+      trendEl.classList.remove('up', 'down', 'flat');
+      trendEl.title = 'Comparaison avec la semaine précédente';
+      if (sumPrev <= 0) {
+        trendEl.textContent = sumCur > 0 ? '✦ Nouveau' : '—';
+        trendEl.classList.add('flat');
+      } else {
+        const pct = Math.round(((sumCur - sumPrev) / sumPrev) * 100);
+        if (pct > 0) { trendEl.textContent = `▲ ${pct}% / sem.`; trendEl.classList.add('up'); }
+        else if (pct < 0) { trendEl.textContent = `▼ ${Math.abs(pct)}% / sem.`; trendEl.classList.add('down'); }
+        else { trendEl.textContent = '= vs sem. dern.'; trendEl.classList.add('flat'); }
+      }
+    }
   })();
 
   // Répartition par catégorie
@@ -28509,7 +28824,7 @@ const _kgPushOrig = KGSync.push;
 let _recetteLines = [];
 
 function renderRecetteLines(lines) {
-  _recetteLines = (lines || []).map(l => ({ stockId: l.stockId, qty: l.qty }));
+  _recetteLines = (lines || []).map(l => ({ stockId: l.stockId, qty: l.qty, depotId: l.depotId || '' }));
   _drawRecetteLines();
 }
 
@@ -28537,7 +28852,15 @@ function _drawRecetteLines() {
     const sameNameOpt = nomProduit
       ? '<option value="__new_same_name__" style="color:var(--accent);font-weight:700;">➕ Créer "' + nomProduit + '" comme article de stock</option>'
       : '';
-    return '<div style="display:flex;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;">' +
+    // ✅ Choix du dépôt d'où ce stock doit être déduit (au lieu du Stock général par défaut)
+    const depotOpts = '<option value="">🏭 Stock général</option>' +
+      (typeof DEPOTS !== 'undefined' ? DEPOTS : []).map(d => {
+        const _caissesLiees = (d.caisseIds||[]).map(cid => (CAISSES.find(c => c.id === cid)||{}).name).filter(Boolean);
+        const _suffix = _caissesLiees.length ? ' — ' + _caissesLiees.join(', ') : ' (aucune caisse liée)';
+        return '<option value="' + d.id + '"' + (line.depotId === d.id ? ' selected' : '') + '>' + (d.icon||'🏭') + ' ' + d.nom + _suffix + '</option>';
+      }).join('');
+    return '<div style="display:flex;flex-direction:column;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;">' +
+      '<div style="display:flex;gap:8px;align-items:center;">' +
       '<select data-line-idx="' + i + '" onchange="_onRecetteSelectChange(this)" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:12px;">' +
         '<option value="">— Article de stock —</option>' +
         sameNameOpt +
@@ -28550,6 +28873,11 @@ function _drawRecetteLines() {
       '<span id="rec-unit-' + i + '" style="font-size:11px;color:var(--text2);min-width:35px;text-align:left;">' + unitLabel + '</span>' +
       '<button type="button" onclick="_removeRecetteLine(' + i + ')" ' +
         'style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.35);border-radius:6px;color:var(--red);padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;">&#10005;</button>' +
+      '</div>' +
+      '<select style="width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--text2);padding:5px 8px;font-size:11px;" ' +
+        'onchange="_recetteLines[' + i + '].depotId=this.value">' +
+        depotOpts +
+      '</select>' +
     '</div>';
   }).join('');
 }
@@ -28645,7 +28973,7 @@ function _appliquerProduitOFF(nomEncoded, imageEncoded) {
 }
 
 function addRecetteLine() {
-  _recetteLines.push({ stockId: null, qty: 0 });
+  _recetteLines.push({ stockId: null, qty: 0, depotId: '' });
   _drawRecetteLines();
 }
 
@@ -28778,10 +29106,10 @@ async function _ensureRecettesLoaded(items) {
     const _sbStock = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
     const _ridStock = window._KG_RESTAURANT_ID;
     if(_sbStock && _ridStock) {
-      const { data: _recetteRows } = await _sbStock
-        .from('menu_items')
-        .select('id, name, recette')
-        .eq('restaurant_id', _ridStock);
+      const { data: _recetteRows } = await _withTimeout(
+        _sbStock.from('menu_items').select('id, name, recette').eq('restaurant_id', _ridStock),
+        6000, 'menu_items recettes'
+      );
       if(_recetteRows && _recetteRows.length) {
         _recetteRows.forEach(function(row) {
           if(!row.recette || !row.recette.length) return;
@@ -28810,6 +29138,25 @@ async function _ensureRecettesLoaded(items) {
     });
   }
 }
+// ✅ FIX RÉSOLUTION DÉPÔT PARTAGÉE : utilisée à la déduction (vente), à la restauration
+// (annulation de vente) et au badge produit, pour que les 3 endroits soient TOUJOURS d'accord
+// sur quel dépôt (ou aucun = stock général) doit être impacté pour une caisse donnée.
+//
+// Règles :
+// 1. Priorité absolue au dépôt réellement lié à la caisse vendeuse (Stock → Dépôts).
+// 2. Sinon, le depotId figé sur la ligne de recette (rétrocompat) ne s'applique QUE si ce
+//    dépôt n'est lié à AUCUNE caisse en particulier (dépôt "libre"/partagé). S'il est réservé
+//    à une ou plusieurs caisses précises et que ce n'est pas la caisse qui vend, on ignore ce
+//    dépôt et on retombe sur le stock général — sinon une caisse non liée (ex: Caisse 1) viderait
+//    à tort le dépôt d'une autre caisse (ex: Alimentation réservé à Caisse 3).
+function _resoudreDepotVente(depotCaisseVente, ligneDepotId) {
+  if(depotCaisseVente) return depotCaisseVente;
+  if(!ligneDepotId || typeof DEPOTS === 'undefined') return null;
+  const _depotFixe = DEPOTS.find(d => d.id === ligneDepotId);
+  if(!_depotFixe) return null;
+  const _reserveAUneCaisse = Array.isArray(_depotFixe.caisseIds) && _depotFixe.caisseIds.length > 0;
+  return _reserveAUneCaisse ? null : _depotFixe;
+}
 async function deduireStockVente(items, caisseName) {
   if(!items || !items.length) return;
   // ✅ FIX : caisse configurée pour ne jamais déduire le stock central
@@ -28819,6 +29166,7 @@ async function deduireStockVente(items, caisseName) {
     return;
   }
   let hasChanges = false;
+  let hasDepotChanges = false;
   // ✅ FIX CONCURRENCE : cumul des quantités déduites par article (clé = sbId ou id),
   // envoyé ensuite en un seul appel atomique côté serveur (kg_decrement_stock) pour
   // que deux caisses vendant le même ingrédient en même temps ne s'écrasent plus l'une l'autre.
@@ -28872,15 +29220,21 @@ async function deduireStockVente(items, caisseName) {
           }
           if(stockItem) {
             const consommation = ligne.qty * (item.qty || 1);
-            stockItem.qty = Math.max(0, Math.round((stockItem.qty - consommation) * 1000) / 1000);
-            hasChanges = true;
-            _addDelta(stockItem, consommation);
-            console.log('[stock-diag] ✅ Stock déduit (lastChance):', stockItem.name, '-', consommation, '→', stockItem.qty);
-            // ✅ Déduire aussi le dépôt lié à la caisse vendeuse (ou depotId figé en fallback)
-            const _depotCibleLC = _depotCaisseVente || (ligne.depotId ? DEPOTS.find(d => d.id === ligne.depotId) : null);
-            if(_depotCibleLC && _depotCibleLC.articles) {
-              const depotArtLC = _depotCibleLC.articles.find(a => a.stockId === stockItem.id || a.stockId === stockItem.sbId || a.nom === stockItem.name);
-              if(depotArtLC) depotArtLC.qty = Math.max(0, Math.round((Number(depotArtLC.qty||0) - consommation) * 1000) / 1000);
+            // ✅ FIX ISOLATION DÉPÔT : même logique que la boucle principale — si la caisse
+            // a un dépôt lié et que l'ingrédient y est suivi, on déduit UNIQUEMENT le dépôt.
+            const _depotCibleLC = _resoudreDepotVente(_depotCaisseVente, ligne.depotId);
+            const depotArtLC = (_depotCibleLC && _depotCibleLC.articles)
+              ? _depotCibleLC.articles.find(a => a.stockId === stockItem.id || a.stockId === stockItem.sbId || a.nom === stockItem.name)
+              : null;
+            if(depotArtLC) {
+              depotArtLC.qty = Math.max(0, Math.round((Number(depotArtLC.qty||0) - consommation) * 1000) / 1000);
+              hasDepotChanges = true;
+              console.log('[stock-diag] ✅ Stock déduit du dépôt (lastChance):', stockItem.name, '-', consommation, '→', depotArtLC.qty);
+            } else {
+              stockItem.qty = Math.max(0, Math.round((stockItem.qty - consommation) * 1000) / 1000);
+              hasChanges = true;
+              _addDelta(stockItem, consommation);
+              console.log('[stock-diag] ✅ Stock général déduit (lastChance):', stockItem.name, '-', consommation, '→', stockItem.qty);
             }
           }
         });
@@ -28937,18 +29291,35 @@ async function deduireStockVente(items, caisseName) {
         return;
       }
       const consommation = ligne.qty * (item.qty || 1);
-      stockItem.qty = Math.max(0, Math.round((stockItem.qty - consommation) * 1000) / 1000);
-      hasChanges = true;
-      _addDelta(stockItem, consommation);
-      // ── Déduire aussi du dépôt concerné : priorité au dépôt lié à la CAISSE vendeuse,
-      // sinon fallback sur le depotId figé dans la recette (rétrocompat), sinon Stock général (rien à faire)
-      const _depotCible = _depotCaisseVente || (ligne.depotId ? DEPOTS.find(d => d.id === ligne.depotId) : null);
-      if(_depotCible && _depotCible.articles) {
-        const depotArt = _depotCible.articles.find(a => a.stockId === stockItem.id || a.stockId === stockItem.sbId || a.nom === stockItem.name);
-        if(depotArt) depotArt.qty = Math.max(0, Math.round((Number(depotArt.qty||0) - consommation) * 1000) / 1000);
+      const _depotCible = _resoudreDepotVente(_depotCaisseVente, ligne.depotId);
+      const depotArt = (_depotCible && _depotCible.articles)
+        ? _depotCible.articles.find(a => a.stockId === stockItem.id || a.stockId === stockItem.sbId || a.nom === stockItem.name)
+        : null;
+      // ✅ FIX ISOLATION DÉPÔT : si la caisse est reliée à un dépôt ET que l'ingrédient y est
+      // suivi, on déduit UNIQUEMENT ce dépôt (le stock général représente ce qui n'a pas
+      // encore été transféré vers un dépôt — il ne doit pas être touché dans ce cas).
+      // Sinon (pas de dépôt lié, ou ingrédient non suivi dans ce dépôt), on déduit le stock général comme avant.
+      if(depotArt) {
+        depotArt.qty = Math.max(0, Math.round((Number(depotArt.qty||0) - consommation) * 1000) / 1000);
+        hasDepotChanges = true;
+      } else {
+        stockItem.qty = Math.max(0, Math.round((stockItem.qty - consommation) * 1000) / 1000);
+        hasChanges = true;
+        _addDelta(stockItem, consommation);
       }
     });
   });
+  if(hasDepotChanges) {
+    // ✅ FIX : sans cet appel, la déduction du dépôt restait uniquement en mémoire
+    // (jamais écrite dans Supabase ni le stockage local) — le dépôt affichait donc
+    // à nouveau son ancienne quantité dès la prochaine synchro/rechargement, alors
+    // que le "Stock actuel" général, lui, était bien mis à jour et persisté.
+    if(typeof _saveDepots === 'function') _saveDepots();
+    // Rafraîchir l'affichage des cartes dépôts si l'onglet est actuellement ouvert
+    if(typeof renderDepotsTab === 'function' && document.getElementById('depot-list-cards')) {
+      try { renderDepotsTab(); } catch(e) {}
+    }
+  }
   if(hasChanges) {
     // ✅ FIX ANTI-ÉCRASEMENT : verrou 15s pour bloquer pullAll après déduction ou modif manuelle
     window._kgStockModifiedAt = Date.now();
@@ -28966,10 +29337,10 @@ async function deduireStockVente(items, caisseName) {
           // au lieu d'écraser tout le stock avec l'instantané local (qui pouvait
           // effacer la vente simultanée d'une autre caisse). Voir kg_decrement_stock.sql.
           const _deltasPayload = [..._deltaMap.entries()].map(([match, qty]) => ({ match: String(match), qty }));
-          const { error: _rpcErr } = await _sb.rpc('kg_decrement_stock', {
+          const { error: _rpcErr } = await _withTimeout(_sb.rpc('kg_decrement_stock', {
             p_key: _rid + ':stock_data',
             p_deltas: _deltasPayload
-          });
+          }), 6000, 'kg_decrement_stock');
           if(_rpcErr) {
             console.warn('[stock] kg_decrement_stock a échoué, fallback sur push complet:', _rpcErr.message);
             KGSync.push.stock();
@@ -28982,7 +29353,13 @@ async function deduireStockVente(items, caisseName) {
         }
         // Vider les déductions en attente si elles avaient été sauvées hors-ligne
         try { const _rid2 = window._KG_RESTAURANT_ID; if(_rid2) localStorage.removeItem('kg_stock_pending_' + _rid2); } catch(e) {}
-      } catch(e) { console.warn('[stock] push.stock erreur:', e); }
+      } catch(e) {
+        console.warn('[stock] push.stock erreur (ex: timeout réseau) — fallback sur push complet:', e);
+        // ✅ FIX : si l'appel atomique a expiré/échoué (ex: timeout réseau), ne pas
+        // laisser la déduction de stock silencieusement non synchronisée — retenter
+        // via le push complet habituel, qui a lui-même sa propre logique de retry.
+        try { if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.stock(); } catch(e2) {}
+      }
     } else {
       // ✅ HORS-LIGNE : sauvegarder l'état complet du stock localement
       // Au retour en ligne, on pushera AVANT de puller Supabase
@@ -33279,6 +33656,14 @@ function printArchivedTicket(idx) {
 
 
 function switchMenuTab(tab, el) {
+  // ✅ FIX : accès à l'onglet Catégories réservé Administrateur / Gérant
+  if(tab === 'categories') {
+    const canManageCats = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant');
+    if(!canManageCats) {
+      showNotif('⛔ Accès réservé aux Administrateurs et Gérants');
+      return;
+    }
+  }
   document.querySelectorAll('#view-menu > div:first-child .cat-btn').forEach(b => b.classList.remove('active'));
   if(el) el.classList.add('active');
   document.getElementById('menu-panel-produits').style.display = tab === 'produits' ? '' : 'none';
@@ -42844,6 +43229,13 @@ async function validerTicketAttente() {
   const caisse = ticket.caisse || sessionCaisseActive?.caisse || 'Caisse 1';
 
   const orderNum = await _getNextOrderNumGlobal(caisse);
+  // ✅ FIX ANTI-DOUBLON : même règle que pour la caisse principale — jamais de
+  // numéro local improvisé si on est censé être en ligne mais que Supabase ne
+  // répond pas à temps (risque de doublon entre caisses).
+  if(orderNum === null) {
+    showNotif('⚠️ Connexion au serveur trop lente pour générer le numéro de ticket. Vérifiez votre connexion et réessayez.');
+    return;
+  }
   orderCounter++;
 
   const venteSaved = {
