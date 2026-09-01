@@ -5942,8 +5942,8 @@ function _syncSportVentes()       { return []; }
     <!-- STOCK -->
     <div id="view-stock" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
-        <button class="cat-btn active" id="stock-tab-liste" onclick="switchStockTab('liste',this)">📦 Stock actuel</button>
-        <button class="cat-btn" id="stock-tab-depots" onclick="switchStockTab('depots',this)">🏭 Dépôts</button>
+        <button class="cat-btn active" id="stock-tab-depots" onclick="switchStockTab('depots',this)">🏭 Dépôts</button>
+        <button class="cat-btn" id="stock-tab-liste" onclick="switchStockTab('liste',this)">📦 Stock actuel</button>
         <button class="cat-btn" id="stock-tab-categories" onclick="switchStockTab('categories',this)">🗂️ Catégories</button>
         <button class="cat-btn" id="stock-tab-entrees" onclick="switchStockTab('entrees',this)">📥 Entrées stock</button>
         <button class="cat-btn" id="stock-tab-alertes" onclick="switchStockTab('alertes',this)">⚠️ Alertes</button>
@@ -5951,7 +5951,7 @@ function _syncSportVentes()       { return []; }
         <button class="btn btn-ghost" onclick="populateEntreeStockModal();showModal('entreeStock')">📥 Entrée stock</button>
       </div>
       <!-- LISTE STOCK -->
-      <div id="stock-tab-content-liste">
+      <div id="stock-tab-content-liste" style="display:none;">
         <div class="card">
           <div class="card-title">Inventaire en temps réel <span id="stock-last-update">Mis à jour maintenant</span></div>
           <div style="margin-bottom:12px;">
@@ -5967,6 +5967,15 @@ function _syncSportVentes()       { return []; }
             <div>Actions</div>
           </div>
           <div id="stock-cat-filter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
+          <!-- ✅ Barre d'actions groupées pour transfert multiple vers un dépôt -->
+          <div id="stock-bulk-toolbar" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(155,124,244,0.1);border:1px solid var(--purple);border-radius:8px;padding:8px 12px;margin-bottom:10px;">
+            <span id="stock-bulk-count" style="font-size:12px;font-weight:700;color:var(--purple);">0 article(s) sélectionné(s)</span>
+            <button class="btn btn-ghost" style="font-size:12px;padding:5px 10px;" onclick="_stockBulkSelectAll(false)">Tout désélectionner</button>
+            <button class="btn btn-primary" style="font-size:12px;padding:5px 12px;margin-left:auto;" onclick="openBulkTransfertDepot()">🔄 Transférer la sélection</button>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);margin-bottom:8px;cursor:pointer;">
+            <input type="checkbox" id="stock-select-all-cb" onchange="_stockBulkSelectAll(this.checked)"> Tout sélectionner
+          </label>
           <div id="stock-list"></div>
         </div>
       </div>
@@ -6000,11 +6009,14 @@ function _syncSportVentes()       { return []; }
         </div>
       </div>
       <!-- DÉPÔTS -->
-      <div id="stock-tab-content-depots" style="display:none;">
+      <div id="stock-tab-content-depots">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
           <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;">🏭 Gestion des Dépôts</div>
           <button class="btn btn-primary" onclick="openAddDepot()">+ Nouveau dépôt</button>
         </div>
+        <select class="form-input" id="depot-filter-select" onchange="renderDepotsTab()" style="width:100%;padding:10px 14px;font-size:13px;font-weight:700;border:2px solid var(--purple);margin-bottom:16px;">
+          <option value="">— Choisir un dépôt à afficher —</option>
+        </select>
         <div id="depot-list-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;"></div>
       </div>
     </div>
@@ -6016,6 +6028,7 @@ function _syncSportVentes()       { return []; }
         <button class="cat-btn" id="inv-tab-historique" onclick="switchInvTab('historique',this)">📜 Historique</button>
         <button class="cat-btn" id="inv-tab-ecarts" onclick="switchInvTab('ecarts',this)">⚠️ Rapport d'écarts</button>
         <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost" onclick="exportInvValeurDetailCSV()">📊 Exporter détail valeur (Excel/CSV)</button>
           <button class="btn btn-ghost" onclick="invResetSaisie()">🔄 Réinitialiser</button>
           <button class="btn btn-primary" onclick="validerInventaire()">✅ Valider l'inventaire</button>
         </div>
@@ -6028,21 +6041,23 @@ function _syncSportVentes()       { return []; }
           <div class="inv-kpi"><div class="inv-kpi-val" style="color:var(--red)" id="inv-kpi-manquants">0</div><div class="inv-kpi-lbl">Manquants</div></div>
           <div class="inv-kpi"><div class="inv-kpi-val" style="color:var(--green)" id="inv-kpi-surplus">0</div><div class="inv-kpi-lbl">Surplus</div></div>
           <div class="inv-kpi"><div class="inv-kpi-val" style="color:var(--accent)" id="inv-kpi-conformes">0</div><div class="inv-kpi-lbl">Conformes</div></div>
+          <div class="inv-kpi"><div class="inv-kpi-val" style="color:var(--teal);font-size:15px;" id="inv-kpi-valeur">0 F</div><div class="inv-kpi-lbl">Valeur (prix de vente)</div></div>
         </div>
         <div class="card" style="padding:0;overflow:hidden;">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border);">
             <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;">
               🔍 Inventaire physique
               <span id="inv-date-label" style="font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;color:var(--text2);font-weight:400;margin-left:10px;"></span>
             </div>
-            <div style="display:flex;gap:10px;align-items:center;">
-              <input class="search-input" type="text" id="inv-search" placeholder="🔍 Filtrer..." oninput="renderInvSaisie()" style="width:180px;">
-              <select class="form-input" id="inv-filter-cat" onchange="renderInvSaisie()" style="width:140px;padding:8px 12px;font-size:13px;">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;width:100%;">
+              <input class="search-input" type="text" id="inv-search" placeholder="🔍 Filtrer..." oninput="renderInvSaisie()" style="flex:1 1 140px;min-width:120px;">
+              <select class="form-input" id="inv-filter-cat" onchange="renderInvSaisie()" style="flex:1 1 140px;min-width:130px;padding:8px 12px;font-size:13px;">
                 <option value="all">Toutes catégories</option>
               </select>
-              <select class="form-input" id="inv-filter-depot" onchange="renderInvSaisie()" style="width:140px;padding:8px 12px;font-size:13px;">
-                <option value="all">Tous les dépôts</option>
+              <select class="form-input" id="inv-filter-depot" onchange="renderInvSaisie()" style="flex:1 1 180px;min-width:160px;padding:8px 12px;font-size:13px;font-weight:700;border:2px solid var(--purple);">
+                <option value="">— Choisir un dépôt à inventorier —</option>
                 <option value="stock">📦 Stock général</option>
+                <option value="all">🗂️ Tous les dépôts (mélangés)</option>
               </select>
             </div>
           </div>
@@ -10241,6 +10256,12 @@ petit formulaire avec un menu déroulant d'unité fiable. -->
         <input id="rec-new-art-qty" class="form-input" type="number" value="0" min="0" step="0.1">
       </div>
     </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;">Dépôt</label>
+      <select id="rec-new-art-depot" class="form-input">
+        <option value="">📦 Stock général</option>
+      </select>
+    </div>
     <div style="display:flex;gap:8px;">
       <button onclick="recCloseCreateArticle()" class="btn btn-ghost" style="flex:1;">Annuler</button>
       <button onclick="recSaveNewArticle()" class="btn btn-primary" style="flex:2;">✅ Créer et sélectionner</button>
@@ -11021,8 +11042,7 @@ function showView(id, el, pushState) {
         }
       } catch(e) {}
     }
-    switchStockTab('liste', document.getElementById('stock-tab-liste'));
-    renderStock();
+    switchStockTab('depots', document.getElementById('stock-tab-depots'));
     // Rafraîchir depuis Supabase en arrière-plan si toujours vide
     if(STOCK_DATA.length === 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
       // ✅ FIX : reset throttle pour forcer pullAll si données vides
@@ -15490,7 +15510,9 @@ function renderMenu(cat, subcat) {
         : (_depotBadge || (r.depotId ? DEPOTS.find(d => d.id === r.depotId) : null));
       if(_depotCible && _depotCible.articles) {
         const artDepot = _depotCible.articles.find(a => a.stockId === (s && (s.id || s.sbId)) || (s && a.nom === s.name) || (r.stockNom && a.nom && a.nom.trim().toLowerCase() === r.stockNom.trim().toLowerCase()));
-        if(artDepot) return Number(artDepot.qty || 0) > 0;
+        // ✅ FIX : un dépôt ciblé sans cet article suivi = 0 dans ce dépôt (pas de fallback
+        // sur le Stock général, sinon le badge affiche "Stock OK" alors que le dépôt est vide).
+        return artDepot ? Number(artDepot.qty || 0) > 0 : false;
       }
       return s && s.qty > 0;
     });
@@ -15925,9 +15947,7 @@ async function supprimerVenteAdmin(orderNum) {
           const _depotCibleRestore = (typeof _resoudreDepotVente === 'function')
             ? _resoudreDepotVente(_depotCaisseRestore, ligne.depotId)
             : (_depotCaisseRestore || (ligne.depotId ? DEPOTS.find(d => d.id === ligne.depotId) : null));
-          const depotArtR = (_depotCibleRestore && _depotCibleRestore.articles)
-            ? _depotCibleRestore.articles.find(a => a.stockId === s.id || a.stockId === s.sbId || a.nom === s.name)
-            : null;
+          const depotArtR = _depotCibleRestore ? _getOrCreateDepotArticle(_depotCibleRestore, s) : null;
           if(depotArtR) {
             depotArtR.qty = Math.round((Number(depotArtR.qty||0) + consumed) * 1000) / 1000;
             _depotChangedOnRestore = true;
@@ -16430,7 +16450,7 @@ function cfOpenCreateArticle(lineIdx) {
   // Pré-remplir le mini-modal
   document.getElementById('cf-new-art-nom').value   = '';
   document.getElementById('cf-new-art-icon').value  = '📦';
-  document.getElementById('cf-new-art-unit').value  = 'kg';
+  document.getElementById('cf-new-art-unit').value  = 'pcs';
   document.getElementById('cf-new-art-qty').value   = '0';
   // Peupler le select catégorie
   const catSel = document.getElementById('cf-new-art-cat');
@@ -16937,12 +16957,26 @@ function renderStock() {
   // ✅ FIX RECHERCHE STOCK : filtrer par le texte saisi
   const _sq = (document.getElementById('stock-search-input')?.value || '').toLowerCase().trim();
 
-  document.getElementById('stock-list').innerHTML = STOCK_DATA.map((s, sIdx) => {
-    if(_sq && !(s.name||'').toLowerCase().includes(_sq) && !(s.cat||'').toLowerCase().includes(_sq)) return '';
+  // ✅ Afficher en premier les articles qui ont du stock (qty > 0), puis ceux à 0 —
+  // on trie une liste d'index (pas STOCK_DATA lui-même) pour que les actions de chaque
+  // ligne (updateStockQty, openEditStockArticle, etc.) continuent de pointer sur le bon article.
+  const _stockIdxOrdonnes = STOCK_DATA.map((s, i) => i)
+    .filter(i => { const s = STOCK_DATA[i]; return !_sq || (s.name||'').toLowerCase().includes(_sq) || (s.cat||'').toLowerCase().includes(_sq); })
+    .sort((iA, iB) => {
+      const hasA = (STOCK_DATA[iA].qty || 0) > 0, hasB = (STOCK_DATA[iB].qty || 0) > 0;
+      if(hasA !== hasB) return hasA ? -1 : 1;
+      return 0; // conserve l'ordre d'origine entre articles du même groupe
+    });
+
+  document.getElementById('stock-list').innerHTML = _stockIdxOrdonnes.map(sIdx => {
+    const s = STOCK_DATA[sIdx];
     const status = getStockStatus(s);
     const pct = Math.min(100, Math.round(s.qty / (s.max||100) * 100));
     return `<div class="stock-row" style="--stock-accent:${colors[status]};">
-      <div class="stock-cell-icon"><span>${s.icon||'📦'}</span></div>
+      <div class="stock-cell-icon" style="display:flex;align-items:center;gap:6px;">
+        <input type="checkbox" class="stock-bulk-cb" data-sidx="${sIdx}" onchange="_stockBulkOnChange()" style="width:16px;height:16px;flex-shrink:0;">
+        <span>${s.icon||'📦'}</span>
+      </div>
       <div class="stock-cell-info">
         <div class="stock-name">${s.name}</div>
         <div class="stock-seuil">Seuil alerte : ${s.seuil} ${s.unit}</div>
@@ -17146,7 +17180,36 @@ function _loadDepots() {
 function renderDepotsTab() {
   const el = document.getElementById('depot-list-cards');
   if(!el) return;
-  _loadDepots();
+
+  // ✅ Peupler le select de filtre dépôt (une seule fois par changement du nombre de dépôts)
+  const filterSel = document.getElementById('depot-filter-select');
+  if(filterSel && filterSel.dataset.populated !== String(DEPOTS.length)) {
+    const currentVal = filterSel.value;
+    filterSel.innerHTML = '<option value="">— Choisir un dépôt à afficher —</option>' +
+      DEPOTS.map(d => `<option value="${d.id}">${d.icon||'🏭'} ${d.nom}</option>`).join('') +
+      '<option value="all">🗂️ Tous les dépôts (mélangés)</option>';
+    filterSel.value = currentVal || '';
+    filterSel.dataset.populated = String(DEPOTS.length);
+  }
+  const depotFilter = filterSel ? filterSel.value : 'all';
+
+  // ✅ FIX MÉLANGE DÉPÔTS : par défaut, aucun dépôt n'est sélectionné — on demande un choix
+  // explicite plutôt que d'afficher tous les dépôts mélangés d'office.
+  if(!depotFilter) {
+    el.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:50px 20px;color:var(--text2);">
+      <div style="font-size:44px;margin-bottom:14px;">🏭</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Choisissez un dépôt à afficher</div>
+      <div style="font-size:12px;">Sélectionnez-en un ci-dessus, ou "Tous les dépôts" pour tout voir.</div>
+    </div>`;
+    return;
+  }
+
+  // ✅ FIX BUG SAISIE ÉCRASÉE : cette fonction ne doit plus relancer un pull réseau elle-même —
+  // sinon chaque appel à renderDepotsTab() (y compris celui déclenché par le .then() du pull
+  // précédent) relançait un NOUVEAU pull, créant une boucle infinie. Résultat : si l'utilisateur
+  // modifiait une quantité pendant qu'un ancien pull était encore en vol, sa saisie était écrasée
+  // ~1 seconde plus tard par la réponse (obsolète) de ce pull. Le chargement se fait maintenant
+  // une seule fois à l'ouverture de l'onglet (voir switchStockTab) et lors des re-pulls explicites.
   if(DEPOTS.length === 0) {
     el.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text2);">
       <div style="font-size:52px;margin-bottom:16px;">🏭</div>
@@ -17155,7 +17218,8 @@ function renderDepotsTab() {
     </div>`;
     return;
   }
-  el.innerHTML = DEPOTS.map((depot, dIdx) => {
+  const _depotsAffiches = depotFilter === 'all' ? DEPOTS : DEPOTS.filter(d => String(d.id) === String(depotFilter));
+  el.innerHTML = _depotsAffiches.map((depot, dIdx) => {
     const nbArticles = (depot.articles || []).length;
     const nbAlertes = (depot.articles || []).filter(a => a.qty <= (a.seuil || 0)).length;
     const articles = (depot.articles || []).map((a, aIdx) => {
@@ -17163,7 +17227,10 @@ function renderDepotsTab() {
       const colors = { ok:'var(--green)', low:'var(--accent)', critical:'var(--red)' };
       const labels = { ok:'✅ OK', low:'⚠️ Bas', critical:'🚨 Critique' };
       return `<div class="stock-row" style="padding:10px 12px;margin-bottom:6px;">
-        <div style="font-size:20px;text-align:center;">${a.icon||'📦'}</div>
+        <div style="display:flex;align-items:center;gap:6px;justify-content:center;">
+          <input type="checkbox" class="depot-bulk-cb" data-depotid="${depot.id}" data-aidx="${aIdx}" onchange="_depotBulkOnChange('${depot.id}')" style="width:16px;height:16px;flex-shrink:0;">
+          <span style="font-size:20px;">${a.icon||'📦'}</span>
+        </div>
         <div>
           <div style="font-weight:600;font-size:13px;">${a.nom}</div>
           <div style="font-size:11px;color:var(--text2);">Seuil: ${a.seuil||0} ${a.unit}</div>
@@ -17201,6 +17268,16 @@ function renderDepotsTab() {
           <div style="font-size:12px;color:var(--text2);">${nbArticles} article(s) · ${nbAlertes > 0 ? '<span style="color:var(--red);">⚠️ '+nbAlertes+' alerte(s)</span>' : '<span style="color:var(--green);">✅ Aucune alerte</span>'}</div>
           <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" onclick="openAddDepotArticle('${depot.id}')">+ Article</button>
         </div>
+        ${nbArticles > 0 ? `
+        <!-- ✅ Transfert multiple depuis ce dépôt vers un autre -->
+        <div id="depot-bulk-toolbar-${depot.id}" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(155,124,244,0.1);border:1px solid var(--purple);border-radius:8px;padding:7px 10px;margin-bottom:8px;">
+          <span id="depot-bulk-count-${depot.id}" style="font-size:12px;font-weight:700;color:var(--purple);">0 sélectionné(s)</span>
+          <button class="btn btn-ghost" style="font-size:11px;padding:4px 8px;" onclick="_depotBulkSelectAll('${depot.id}',false)">Désélectionner</button>
+          <button class="btn btn-primary" style="font-size:11px;padding:4px 10px;margin-left:auto;" onclick="openBulkTransfertFromDepot('${depot.id}')">🔄 Transférer la sélection</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);margin-bottom:6px;cursor:pointer;">
+          <input type="checkbox" id="depot-select-all-cb-${depot.id}" onchange="_depotBulkSelectAll('${depot.id}',this.checked)"> Tout sélectionner
+        </label>` : ''}
         <div>${articles || '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px;">Aucun article. Cliquez sur <strong>+ Article</strong>.</div>'}</div>
       </div>
     </div>`;
@@ -17469,6 +17546,31 @@ function saveDepotEntree() {
   </div>
 </div>
 
+<!-- ✅ TRANSFERT MULTIPLE (Stock général → un dépôt, plusieurs articles en un coup) -->
+<div class="modal-overlay" id="modal-bulkTransfertDepot">
+  <div class="modal" style="width:520px;">
+    <div class="modal-title">🔄 Transfert multiple vers un dépôt</div>
+    <input type="hidden" id="bulk-transfert-srcType" value="stock">
+    <div class="form-group" style="margin-bottom:14px;">
+      <label class="form-label">Dépôt destination</label>
+      <select class="form-input" id="bulk-transfert-depotDest">
+        <option value="">— Choisir le dépôt destination —</option>
+      </select>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Ajuste si besoin la quantité de chaque article (par défaut : tout le stock disponible) :</div>
+    <div id="bulk-transfert-list" style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;margin-bottom:14px;"></div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label class="form-label">Note (optionnel)</label>
+      <input class="form-input" id="bulk-transfert-note" placeholder="Ex: Réapprovisionnement boutique">
+    </div>
+    <div id="bulk-transfert-warning" style="display:none;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);border-radius:8px;padding:10px;font-size:12px;color:var(--red);margin-bottom:12px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('bulkTransfertDepot')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveBulkTransfertDepot()" style="background:linear-gradient(135deg,var(--purple),var(--purple2));">🔄 Transférer tout</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ================================================================
 // TRANSFERT ENTRE DÉPÔTS
@@ -17613,8 +17715,187 @@ function saveTransfertDepot() {
 }
 
 // ================================================================
-// FIN MODULE DÉPÔTS
+// ✅ TRANSFERT MULTIPLE (Stock général → un dépôt, en un seul clic)
 // ================================================================
+function _stockBulkOnChange() {
+  const nb = document.querySelectorAll('.stock-bulk-cb:checked').length;
+  const toolbar = document.getElementById('stock-bulk-toolbar');
+  const countEl = document.getElementById('stock-bulk-count');
+  if(toolbar) toolbar.style.display = nb > 0 ? 'flex' : 'none';
+  if(countEl) countEl.textContent = nb + ' article(s) sélectionné(s)';
+  const allCb = document.getElementById('stock-select-all-cb');
+  const total = document.querySelectorAll('.stock-bulk-cb').length;
+  if(allCb) allCb.checked = total > 0 && nb === total;
+}
+
+function _stockBulkSelectAll(checked) {
+  document.querySelectorAll('.stock-bulk-cb').forEach(cb => { cb.checked = checked; });
+  _stockBulkOnChange();
+}
+
+function openBulkTransfertDepot() {
+  const selected = Array.from(document.querySelectorAll('.stock-bulk-cb:checked'))
+    .map(cb => parseInt(cb.getAttribute('data-sidx')))
+    .filter(i => !isNaN(i) && STOCK_DATA[i]);
+  if(!selected.length) { showNotif('⚠️ Sélectionnez au moins un article'); return; }
+
+  document.getElementById('bulk-transfert-srcType').value = 'stock';
+  document.getElementById('modal-bulkTransfertDepot').querySelector('.modal-title').textContent = '🔄 Transfert multiple — depuis le Stock général';
+
+  const sel = document.getElementById('bulk-transfert-depotDest');
+  sel.innerHTML = '<option value="">— Choisir le dépôt destination —</option>' +
+    (typeof DEPOTS !== 'undefined' ? DEPOTS : []).map(d =>
+      `<option value="${d.id}">${d.icon||'🏭'} ${d.nom}</option>`
+    ).join('');
+
+  document.getElementById('bulk-transfert-list').innerHTML = selected.map(sIdx => {
+    const s = STOCK_DATA[sIdx];
+    return `<div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;" data-bulk-row="${sIdx}">
+      <span style="font-size:18px;">${s.icon||'📦'}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:13px;">${s.name}</div>
+        <div style="font-size:11px;color:var(--text2);">Disponible : ${s.qty} ${s.unit}</div>
+      </div>
+      <input type="number" class="form-input bulk-transfert-qty" data-sidx="${sIdx}" value="${s.qty}" min="0" max="${s.qty}" step="0.1" style="width:80px;">
+      <span style="font-size:12px;color:var(--text2);min-width:35px;">${s.unit}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('bulk-transfert-note').value = '';
+  document.getElementById('bulk-transfert-warning').style.display = 'none';
+  showModal('bulkTransfertDepot');
+}
+
+function saveBulkTransfertDepot() {
+  const destId = document.getElementById('bulk-transfert-depotDest').value;
+  const note = document.getElementById('bulk-transfert-note').value.trim();
+  const warnEl = document.getElementById('bulk-transfert-warning');
+  if(!destId) { showNotif('⚠️ Choisissez le dépôt destination'); return; }
+
+  const depotDest = DEPOTS.find(d => d.id === destId);
+  if(!depotDest) return;
+
+  // ✅ Source générique : Stock général (srcType='stock') OU un dépôt précis (srcType=id du dépôt),
+  // pour que le même modal serve au transfert multiple depuis "Stock actuel" ET depuis un dépôt.
+  const srcType = document.getElementById('bulk-transfert-srcType').value || 'stock';
+  const isStockSrc = srcType === 'stock';
+  const depotSrc = isStockSrc ? null : DEPOTS.find(d => d.id === srcType);
+
+  const rows = Array.from(document.querySelectorAll('#bulk-transfert-list [data-bulk-row]'));
+  const lignes = rows.map(row => {
+    const idx = parseInt(row.getAttribute('data-bulk-row'));
+    const qtyInput = row.querySelector('.bulk-transfert-qty');
+    const qty = parseFloat(qtyInput.value) || 0;
+    return { idx, qty };
+  }).filter(l => l.qty > 0);
+
+  if(!lignes.length) { showNotif('⚠️ Entrez au moins une quantité valide'); return; }
+
+  const _getSrcArt = (idx) => isStockSrc ? STOCK_DATA[idx] : depotSrc.articles[idx];
+
+  // Vérifier le stock disponible avant de toucher quoi que ce soit
+  const insuffisant = lignes.find(l => l.qty > _getSrcArt(l.idx).qty);
+  if(insuffisant) {
+    const art = _getSrcArt(insuffisant.idx);
+    warnEl.style.display = '';
+    warnEl.textContent = '⚠️ Quantité insuffisante pour ' + (art.name || art.nom) +
+      ' (disponible : ' + art.qty + ' ' + art.unit + ')';
+    return;
+  }
+  warnEl.style.display = 'none';
+
+  const srcLabel = isStockSrc ? 'Stock général' : depotSrc.nom;
+  const resume = [];
+  lignes.forEach(l => {
+    const aSrc = _getSrcArt(l.idx);
+    const srcNom = isStockSrc ? aSrc.name : aSrc.nom;
+    const srcStockId = isStockSrc ? aSrc.id : aSrc.stockId;
+    const srcSbStockId = isStockSrc ? (aSrc.sbId || '') : (aSrc.sbStockId || '');
+    const ancienSrc = aSrc.qty;
+    aSrc.qty = Math.round((aSrc.qty - l.qty) * 1000) / 1000;
+
+    let aDest = depotDest.articles.find(x => x.stockId === srcStockId || x.nom === srcNom);
+    if(aDest) {
+      aDest.qty = Math.round((aDest.qty + l.qty) * 1000) / 1000;
+    } else {
+      depotDest.articles.push({
+        stockId: srcStockId, sbStockId: srcSbStockId,
+        nom: srcNom, icon: aSrc.icon, unit: aSrc.unit,
+        qty: l.qty, seuil: aSrc.seuil || 0, entrees: []
+      });
+      aDest = depotDest.articles[depotDest.articles.length - 1];
+    }
+    if(!aDest.entrees) aDest.entrees = [];
+    aDest.entrees.unshift({
+      date: new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}),
+      qty: l.qty, prix: 0, ref: 'TRANSFERT',
+      fournisseur: 'Transfert depuis ' + srcLabel + (note ? ' — ' + note : '')
+    });
+    resume.push(srcNom + ' (' + ancienSrc + '→' + aSrc.qty + ')');
+  });
+
+  closeModal('bulkTransfertDepot');
+  _saveDepots();
+  if(isStockSrc) {
+    saveSession();
+    renderStock();
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.stock().catch(()=>{});
+  }
+  renderDepotsTab();
+  showNotif('🔄 ' + lignes.length + ' article(s) transféré(s) vers ' + depotDest.nom + ' : ' + resume.join(', ') + ' ✅');
+}
+
+// ✅ Sélection multiple DANS un dépôt (pour transférer vers un AUTRE dépôt)
+function _depotBulkOnChange(depotId) {
+  const nb = document.querySelectorAll(`.depot-bulk-cb[data-depotid="${depotId}"]:checked`).length;
+  const total = document.querySelectorAll(`.depot-bulk-cb[data-depotid="${depotId}"]`).length;
+  const toolbar = document.getElementById('depot-bulk-toolbar-' + depotId);
+  const countEl = document.getElementById('depot-bulk-count-' + depotId);
+  if(toolbar) toolbar.style.display = nb > 0 ? 'flex' : 'none';
+  if(countEl) countEl.textContent = nb + ' sélectionné(s)';
+  const allCb = document.getElementById('depot-select-all-cb-' + depotId);
+  if(allCb) allCb.checked = total > 0 && nb === total;
+}
+
+function _depotBulkSelectAll(depotId, checked) {
+  document.querySelectorAll(`.depot-bulk-cb[data-depotid="${depotId}"]`).forEach(cb => { cb.checked = checked; });
+  _depotBulkOnChange(depotId);
+}
+
+function openBulkTransfertFromDepot(depotId) {
+  const depotSrc = DEPOTS.find(d => d.id === depotId);
+  if(!depotSrc) return;
+  const selected = Array.from(document.querySelectorAll(`.depot-bulk-cb[data-depotid="${depotId}"]:checked`))
+    .map(cb => parseInt(cb.getAttribute('data-aidx')))
+    .filter(i => !isNaN(i) && depotSrc.articles[i]);
+  if(!selected.length) { showNotif('⚠️ Sélectionnez au moins un article'); return; }
+
+  document.getElementById('bulk-transfert-srcType').value = depotId;
+
+  const sel = document.getElementById('bulk-transfert-depotDest');
+  sel.innerHTML = '<option value="">— Choisir le dépôt destination —</option>' +
+    DEPOTS.filter(d => d.id !== depotId).map(d =>
+      `<option value="${d.id}">${d.icon||'🏭'} ${d.nom}</option>`
+    ).join('');
+
+  document.getElementById('bulk-transfert-list').innerHTML = selected.map(aIdx => {
+    const a = depotSrc.articles[aIdx];
+    return `<div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;" data-bulk-row="${aIdx}">
+      <span style="font-size:18px;">${a.icon||'📦'}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:13px;">${a.nom}</div>
+        <div style="font-size:11px;color:var(--text2);">Disponible : ${a.qty} ${a.unit}</div>
+      </div>
+      <input type="number" class="form-input bulk-transfert-qty" data-aidx="${aIdx}" value="${a.qty}" min="0" max="${a.qty}" step="0.1" style="width:80px;">
+      <span style="font-size:12px;color:var(--text2);min-width:35px;">${a.unit}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('modal-bulkTransfertDepot').querySelector('.modal-title').textContent = '🔄 Transfert multiple — depuis ' + depotSrc.nom;
+  document.getElementById('bulk-transfert-note').value = '';
+  document.getElementById('bulk-transfert-warning').style.display = 'none';
+  showModal('bulkTransfertDepot');
+}
 
 function switchStockTab(tab, el) {
   ['liste','depots','categories','entrees','alertes'].forEach(t => {
@@ -17623,7 +17904,7 @@ function switchStockTab(tab, el) {
     if(content) content.style.display = t===tab ? '' : 'none';
   });
   if(tab === 'categories') renderStockCatManager();
-  else if(tab === 'depots') renderDepotsTab();
+  else if(tab === 'depots') { _loadDepots(); renderDepotsTab(); }
   else renderStock();
 }
 
@@ -17733,7 +18014,7 @@ function openAddStockArticle() {
   document.getElementById('sa-qty').value   = '';
   document.getElementById('sa-max').value   = '';
   document.getElementById('sa-seuil').value = '';
-  document.getElementById('sa-unit').value  = 'kg';
+  document.getElementById('sa-unit').value  = 'pcs';
   _populateStockCatSelect('');
   showModal('addStock');
 }
@@ -18345,7 +18626,10 @@ icon:  (()=>{ const _v = document.getElementById('item-icon').value || '🍽️'
     tag:   document.getElementById('item-tag').value || null,
     color: '#8B4513',
     promo_pct: document.getElementById('item-promo-active').checked ? (parseInt(document.getElementById('item-promo-pct').value)||0) : 0,
-    recette: (typeof _recetteLines !== 'undefined') ? _recetteLines.filter(l => l.stockId && l.qty > 0).map(l => ({stockId:l.stockId, qty:l.qty, depotId:l.depotId||''})) : [],
+    recette: (typeof _recetteLines !== 'undefined') ? _recetteLines.filter(l => l.stockId && l.qty > 0).map(l => {
+      const _s = STOCK_DATA.find(x => String(x.id) === String(l.stockId) || String(x.sbId) === String(l.stockId));
+      return { stockId: _s ? _s.id : l.stockId, sbStockId: _s ? (_s.sbId || null) : null, stockNom: _s ? _s.name : null, qty: l.qty, depotId: l.depotId || '' };
+    }) : [],
   };
   // ✅ n'écrase le code-barres existant que si l'utilisateur en a saisi un nouveau
   if(_barcodeInput) data.barcode = _barcodeInput;
@@ -18582,20 +18866,38 @@ function renderInvSaisie() {
 
   const q   = (document.getElementById('inv-search')?.value || '').toLowerCase();
   const cat = document.getElementById('inv-filter-cat')?.value || 'all';
-  const depotFilter = document.getElementById('inv-filter-depot')?.value || 'all';
+  const depotFilter = document.getElementById('inv-filter-depot')?.value ?? '';
 
   // ✅ FIX : Mettre à jour les options du select dépôt dynamiquement
   const depotSel = document.getElementById('inv-filter-depot');
-  if(depotSel && DEPOTS.length > 0) {
+  if(depotSel && DEPOTS.length > 0 && depotSel.dataset.populated !== String(DEPOTS.length)) {
     const currentVal = depotSel.value;
-    depotSel.innerHTML = '<option value="all">Tous les dépôts</option><option value="stock">📦 Stock général</option>';
+    depotSel.innerHTML = '<option value="">— Choisir un dépôt à inventorier —</option><option value="stock">📦 Stock général</option>';
     DEPOTS.forEach(d => {
       const opt = document.createElement('option');
       opt.value = 'depot_' + d.id;
       opt.textContent = (d.icon||'🏭') + ' ' + d.nom;
       depotSel.appendChild(opt);
     });
-    depotSel.value = currentVal || 'all';
+    const optAll = document.createElement('option');
+    optAll.value = 'all';
+    optAll.textContent = '🗂️ Tous les dépôts (mélangés)';
+    depotSel.appendChild(optAll);
+    depotSel.value = currentVal || '';
+    depotSel.dataset.populated = String(DEPOTS.length);
+  }
+
+  // ✅ FIX MÉLANGE DÉPÔTS : par défaut, aucun dépôt n'est sélectionné — on demande un choix
+  // explicite plutôt que d'afficher 262 articles de tous les dépôts mélangés d'office.
+  // "Tous les dépôts" reste disponible en dernier recours, mais n'est plus la valeur par défaut.
+  if(!depotFilter) {
+    container.innerHTML = `<div style="text-align:center;padding:50px 20px;color:var(--text2);">
+      <div style="font-size:44px;margin-bottom:14px;">🏭</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Choisissez un dépôt à inventorier</div>
+      <div style="font-size:12px;">Chaque dépôt a son propre stock — sélectionnez-en un ci-dessus pour éviter de tout mélanger.</div>
+    </div>`;
+    _updateInvKPIs([]);
+    return;
   }
 
   // Construire la liste d'items fusionnée (articles dépôts + stock général en dernier)
@@ -18619,7 +18921,9 @@ function renderInvSaisie() {
           _source: 'depot',
           _depotId: depot.id,
           _aIdx: aIdx,
-          _depotLabel: (depot.icon||'🏭') + ' ' + depot.nom
+          _depotLabel: (depot.icon||'🏭') + ' ' + depot.nom,
+          _stockId: a.stockId || '',
+          _sbStockId: a.sbStockId || ''
         });
       });
     });
@@ -18631,10 +18935,11 @@ function renderInvSaisie() {
       const matchQ   = !q || s.name.toLowerCase().includes(q);
       const matchCat = cat === 'all' || s.cat === cat;
       return matchQ && matchCat;
-    }).forEach(s => allItems.push({ ...s, _source: 'stock', _depotLabel: '📦 Stock général' }));
+    }).forEach(s => allItems.push({ ...s, _source: 'stock', _depotLabel: '📦 Stock général', _stockId: s.id, _sbStockId: s.sbId || '' }));
   }
 
   let items = allItems;
+  window._invLastRenderedItems = items; // ✅ utilisé par exportInvValeurDetailCSV pour recalculer exactement le même détail
 
   if(items.length === 0) {
     container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);">Aucun article correspondant</div>';
@@ -18689,9 +18994,118 @@ function renderInvSaisie() {
   _updateInvKPIs(items);
 }
 
-function _updateInvKPIs(items) {
-  let manquants = 0, surplus = 0, conformes = 0, total = 0;
+// ✅ Retrouve le prix de vente "équivalent" d'un article de stock en se basant sur
+// le(s) produit(s) du Menu & Carte qui l'utilisent comme ingrédient. On calcule le prix
+// par unité de stock (prix du plat ÷ quantité de cet ingrédient consommée pour 1 vente),
+// pour pouvoir ensuite multiplier par la quantité en stock/dépôt et estimer la valeur.
+function _getSalePriceForStockItem(item) {
+  if(typeof MENU === 'undefined' || !MENU.length) return null;
+  const _nom = (item.name || '').trim().toLowerCase();
+  for(const m of MENU) {
+    const _mPrix = (m.price !== undefined && m.price !== null) ? m.price : m.prix;
+    if(!m.recette || !m.recette.length || !_mPrix) continue;
+    for(const ligne of m.recette) {
+      const matchId = (item._sbStockId && ligne.sbStockId && String(ligne.sbStockId) === String(item._sbStockId))
+        || (item._stockId && ligne.stockId && String(ligne.stockId) === String(item._stockId));
+      let matchNom = ligne.stockNom && _nom && ligne.stockNom.trim().toLowerCase() === _nom;
+      // ✅ Filet de sécurité : anciennes recettes sans stockNom enregistré — on résout
+      // l'article de stock lié via STOCK_DATA (par id/sbId) pour comparer son nom réel.
+      if(!matchId && !matchNom && typeof STOCK_DATA !== 'undefined') {
+        const _linkedStock = STOCK_DATA.find(x =>
+          (ligne.sbStockId && String(x.sbId) === String(ligne.sbStockId)) ||
+          (ligne.stockId && (String(x.id) === String(ligne.stockId) || String(x.sbId) === String(ligne.stockId)))
+        );
+        if(_linkedStock && _linkedStock.name && _nom && _linkedStock.name.trim().toLowerCase() === _nom) matchNom = true;
+      }
+      if((matchId || matchNom) && ligne.qty > 0) {
+        return _mPrix / ligne.qty;
+      }
+    }
+  }
+  return null;
+}
+
+// ✅ Variante "détail" de _getSalePriceForStockItem : renvoie aussi le produit du menu
+// et la ligne de recette utilisés, pour permettre l'export/vérification du calcul.
+function _getSaleDetailForStockItem(item) {
+  if(typeof MENU === 'undefined' || !MENU.length) return null;
+  const _nom = (item.name || '').trim().toLowerCase();
+  for(const m of MENU) {
+    const _mPrix = (m.price !== undefined && m.price !== null) ? m.price : m.prix;
+    if(!m.recette || !m.recette.length || !_mPrix) continue;
+    for(const ligne of m.recette) {
+      const matchId = (item._sbStockId && ligne.sbStockId && String(ligne.sbStockId) === String(item._sbStockId))
+        || (item._stockId && ligne.stockId && String(ligne.stockId) === String(item._stockId));
+      let matchNom = ligne.stockNom && _nom && ligne.stockNom.trim().toLowerCase() === _nom;
+      if(!matchId && !matchNom && typeof STOCK_DATA !== 'undefined') {
+        const _linkedStock = STOCK_DATA.find(x =>
+          (ligne.sbStockId && String(x.sbId) === String(ligne.sbStockId)) ||
+          (ligne.stockId && (String(x.id) === String(ligne.stockId) || String(x.sbId) === String(ligne.stockId)))
+        );
+        if(_linkedStock && _linkedStock.name && _nom && _linkedStock.name.trim().toLowerCase() === _nom) matchNom = true;
+      }
+      if((matchId || matchNom) && ligne.qty > 0) {
+        return { prixUnitaire: _mPrix / ligne.qty, menuNom: m.name || '(sans nom)', menuPrix: _mPrix, recetteQty: ligne.qty, matchType: matchId ? 'id' : 'nom' };
+      }
+    }
+  }
+  return null;
+}
+
+// ✅ Exporte en CSV (ouvrable dans Excel) le détail ligne par ligne du calcul de la
+// "Valeur (prix de vente)" affichée dans les KPI, pour que l'utilisateur puisse vérifier
+// exactement quel produit du menu et quel prix ont été utilisés pour chaque article.
+function exportInvValeurDetailCSV() {
+  const items = window._invLastRenderedItems || [];
+  if(!items.length) { showNotif('⚠️ Aucun article affiché — choisissez un dépôt d\'abord'); return; }
+
+  const rows = [['Article','Dépôt/Source','Catégorie','Qté théorique','Unité','Produit du menu utilisé pour le prix','Prix du produit (F)','Qté ingrédient dans la recette','Prix unitaire déduit (F)','Valeur ligne (F)']];
+  let total = 0;
   items.forEach(s => {
+    const detail = _getSaleDetailForStockItem(s);
+    const qte = s.qty || 0;
+    const valeurLigne = detail ? Math.round(qte * detail.prixUnitaire) : 0;
+    total += valeurLigne;
+    rows.push([
+      s.name || '',
+      s._depotLabel || s.cat || '',
+      s.cat || '',
+      qte,
+      s.unit || '',
+      detail ? detail.menuNom : '(non lié à un produit du menu)',
+      detail ? detail.menuPrix : '',
+      detail ? detail.recetteQty : '',
+      detail ? Math.round(detail.prixUnitaire) : '',
+      valeurLigne
+    ]);
+  });
+  rows.push(['', '', '', '', '', '', '', '', 'TOTAL', total]);
+
+  const csv = '\uFEFF' + rows.map(r => r.map(v => {
+    const s = String(v ?? '');
+    return /[;"\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }).join(';')).join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0,10);
+  a.href = url;
+  a.download = `detail-valeur-inventaire-${dateStr}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  showNotif('📊 Détail exporté (' + items.length + ' articles)');
+}
+
+function _updateInvKPIs(items) {
+  let manquants = 0, surplus = 0, conformes = 0, total = 0, valeurTotale = 0;
+  items.forEach(s => {
+    // Valeur potentielle = quantité théorique en stock × prix de vente unitaire équivalent
+    const prixUnitaire = _getSalePriceForStockItem(s);
+    if(prixUnitaire) valeurTotale += (s.qty || 0) * prixUnitaire;
     if(_invSaisie[s.id] === undefined) return;
     total++;
     const ecart = parseFloat(_invSaisie[s.id]) - (s.qty || 0);
@@ -18704,6 +19118,7 @@ function _updateInvKPIs(items) {
   setKpi('inv-kpi-manquants', manquants);
   setKpi('inv-kpi-surplus',   surplus);
   setKpi('inv-kpi-conformes', conformes);
+  setKpi('inv-kpi-valeur', Math.round(valeurTotale).toLocaleString('fr-FR') + ' F');
 }
 
 function invResetSaisie() {
@@ -18721,6 +19136,15 @@ function validerInventaire() {
   const dateStr  = now.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});
   const heureStr = now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   const agent    = currentUser ? currentUser.prenom + ' ' + currentUser.nom : 'Gérant';
+
+  // ✅ FIX : garder trace du dépôt inventorié (évite de mélanger les historiques de plusieurs dépôts)
+  const depotFilterVal = document.getElementById('inv-filter-depot')?.value || '';
+  let depotLabel = 'Tous les dépôts';
+  if(depotFilterVal === 'stock') depotLabel = '📦 Stock général';
+  else if(depotFilterVal.startsWith('depot_')) {
+    const d = DEPOTS.find(d => 'depot_' + d.id === depotFilterVal);
+    if(d) depotLabel = (d.icon||'🏭') + ' ' + d.nom;
+  }
 
   // ✅ FIX : Mettre à jour les articles des dépôts si leur id est dans _invSaisie
   (DEPOTS || []).forEach(depot => {
@@ -18751,8 +19175,10 @@ function validerInventaire() {
       nbCorr++;
     }
   });
+  // ✅ Compter aussi les corrections faites dans les dépôts pour le résumé
+  nbCorr += Object.keys(_invSaisie).filter(k => k.startsWith('depot_')).length;
 
-  INVENTAIRES.unshift({ id: Date.now(), date: dateStr, heure: heureStr, agent, lignes, nbCorr });
+  INVENTAIRES.unshift({ id: Date.now(), date: dateStr, heure: heureStr, agent, lignes, nbCorr, depotLabel });
 
   // ✅ FIX v32b : Sauvegarder immédiatement dans la clé autonome (survit aux déconnexions)
   try { _lsSet('kg-inventaires', JSON.stringify(INVENTAIRES)); } catch(e) {}
@@ -18812,7 +19238,7 @@ function renderInvHistorique() {
     return `<div class="inv-hist-row" onclick="viewInvDetail(${idx})">
       <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);min-width:80px;">${inv.date}<br><span style="font-size:10px;">${inv.heure}</span></div>
       <div style="flex:1;">
-        <div style="font-weight:700;font-size:13px;">👤 ${inv.agent}</div>
+        <div style="font-weight:700;font-size:13px;">👤 ${inv.agent} ${inv.depotLabel ? '· <span style="color:var(--purple);">'+inv.depotLabel+'</span>' : ''}</div>
         <div style="font-size:11px;color:var(--text2);">${inv.nbCorr} article(s) comptés</div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
@@ -29005,8 +29431,9 @@ function _quickCreateStockSameName(lineIdx, selectEl) {
   if(selectEl) selectEl.value = '';
   document.getElementById('rec-new-art-nom').value = nom;
   document.getElementById('rec-new-art-icon').value = '📦';
-  document.getElementById('rec-new-art-unit').value = 'kg';
+  document.getElementById('rec-new-art-unit').value = 'pcs';
   document.getElementById('rec-new-art-qty').value = '0';
+  _populateRecNewArtDepot();
   document.getElementById('rec-create-article-modal').style.display = 'flex';
 }
 
@@ -29023,10 +29450,21 @@ function _quickCreateStockFromRecette(lineIdx, selectEl) {
   const suggestion = (nomProduitEl && nomProduitEl.value.trim()) || '';
   document.getElementById('rec-new-art-nom').value = suggestion;
   document.getElementById('rec-new-art-icon').value = '📦';
-  document.getElementById('rec-new-art-unit').value = 'kg';
+  document.getElementById('rec-new-art-unit').value = 'pcs';
   document.getElementById('rec-new-art-qty').value = '0';
+  _populateRecNewArtDepot();
   document.getElementById('rec-create-article-modal').style.display = 'flex';
   setTimeout(() => { document.getElementById('rec-new-art-nom').focus(); }, 100);
+}
+
+// ✅ Peuple le sélecteur de dépôt du mini-modal "Nouvel article stock" (créé depuis une
+// recette) avec "Stock général" + tous les dépôts existants, pour que le nouvel article
+// puisse être placé directement dans le bon dépôt sans étape supplémentaire.
+function _populateRecNewArtDepot() {
+  const sel = document.getElementById('rec-new-art-depot');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">📦 Stock général</option>' +
+    (typeof DEPOTS !== 'undefined' ? DEPOTS : []).map(d => `<option value="${d.id}">${d.icon||'🏭'} ${d.nom}</option>`).join('');
 }
 
 function recCloseCreateArticle() {
@@ -29037,8 +29475,9 @@ function recCloseCreateArticle() {
 function recSaveNewArticle() {
   const nom = document.getElementById('rec-new-art-nom').value.trim();
   if(!nom) { showNotif('⚠️ Nom requis'); return; }
-  const unit = document.getElementById('rec-new-art-unit').value || 'kg';
+  const unit = document.getElementById('rec-new-art-unit').value || 'pcs';
   const qtyDepart = parseFloat(document.getElementById('rec-new-art-qty').value) || 0;
+  const depotId = document.getElementById('rec-new-art-depot')?.value || '';
 
   const newItem = {
     id: 'local_' + Date.now(),
@@ -29049,6 +29488,20 @@ function recSaveNewArticle() {
   };
   STOCK_DATA.push(newItem);
   window._kgStockModifiedAt = Date.now();
+
+  // ✅ Si un dépôt a été choisi (autre que "Stock général"), ajouter aussi
+  // l'article dans ce dépôt avec la même quantité de départ.
+  let depotNom = '';
+  if(depotId && typeof DEPOTS !== 'undefined') {
+    const depot = DEPOTS.find(d => String(d.id) === String(depotId));
+    if(depot) {
+      depot.articles = depot.articles || [];
+      depot.articles.push({ stockId: newItem.id, sbStockId: newItem.sbId || '', nom: newItem.name, icon: newItem.icon, unit, qty: qtyDepart, seuil: 10, entrees: [] });
+      depotNom = depot.nom;
+      if(typeof _saveDepots === 'function') _saveDepots();
+    }
+  }
+
   if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
     KGSync.push.stock().catch((e) => { console.error('push.stock error:', e); showNotif('⚠️ Erreur de synchronisation stock — réessayez'); });
     if(typeof KGSync.flushAllPending === 'function') {
@@ -29060,11 +29513,12 @@ function recSaveNewArticle() {
 
   if(_recQuickCreateForLine >= 0 && _recetteLines[_recQuickCreateForLine] !== undefined) {
     _recetteLines[_recQuickCreateForLine].stockId = newItem.id;
+    _recetteLines[_recQuickCreateForLine].depotId = depotId;
     if(!_recetteLines[_recQuickCreateForLine].qty) _recetteLines[_recQuickCreateForLine].qty = 1;
   }
   recCloseCreateArticle();
   _drawRecetteLines();
-  showNotif(`✅ Article de stock "${nom}" (${unit}) créé et lié`);
+  showNotif(`✅ Article de stock "${nom}" (${unit})${depotNom ? ' — ajouté à ' + depotNom : ''} créé et lié`);
 }
 
 function _removeRecetteLine(i) {
@@ -29144,18 +29598,33 @@ async function _ensureRecettesLoaded(items) {
 //
 // Règles :
 // 1. Priorité absolue au dépôt réellement lié à la caisse vendeuse (Stock → Dépôts).
-// 2. Sinon, le depotId figé sur la ligne de recette (rétrocompat) ne s'applique QUE si ce
-//    dépôt n'est lié à AUCUNE caisse en particulier (dépôt "libre"/partagé). S'il est réservé
-//    à une ou plusieurs caisses précises et que ce n'est pas la caisse qui vend, on ignore ce
-//    dépôt et on retombe sur le stock général — sinon une caisse non liée (ex: Caisse 1) viderait
-//    à tort le dépôt d'une autre caisse (ex: Alimentation réservé à Caisse 3).
+// 2. Sinon, le dépôt choisi explicitement sur la ligne de recette (ligneDepotId) est
+//    TOUJOURS respecté — qu'il soit réservé à une caisse précise ou non. C'est un choix
+//    délibéré de l'utilisateur (ex: "cet ingrédient sort du dépôt Alimentation générale")
+//    et il doit s'appliquer dans tous les contextes (vente, badge produit, restauration),
+//    y compris quand on consulte le Menu sans caisse active (Admin/Gérant).
 function _resoudreDepotVente(depotCaisseVente, ligneDepotId) {
   if(depotCaisseVente) return depotCaisseVente;
   if(!ligneDepotId || typeof DEPOTS === 'undefined') return null;
-  const _depotFixe = DEPOTS.find(d => d.id === ligneDepotId);
-  if(!_depotFixe) return null;
-  const _reserveAUneCaisse = Array.isArray(_depotFixe.caisseIds) && _depotFixe.caisseIds.length > 0;
-  return _reserveAUneCaisse ? null : _depotFixe;
+  return DEPOTS.find(d => d.id === ligneDepotId) || null;
+}
+// ✅ FIX : quand un dépôt est ciblé (caisse liée ou depotId de recette) mais que l'article n'y
+// est pas encore suivi, on le CRÉE dans ce dépôt (à 0) au lieu de retomber sur le Stock général.
+// Sans ce correctif, une vente depuis une caisse liée à un dépôt pouvait vider le Stock général
+// par erreur alors que l'utilisateur avait explicitement choisi d'isoler cet article dans le dépôt.
+function _getOrCreateDepotArticle(depot, stockItem) {
+  if(!depot || !stockItem) return null;
+  if(!Array.isArray(depot.articles)) depot.articles = [];
+  let art = depot.articles.find(a => a.stockId === stockItem.id || a.stockId === stockItem.sbId || a.nom === stockItem.name);
+  if(!art) {
+    art = {
+      stockId: stockItem.id, sbStockId: stockItem.sbId || '',
+      nom: stockItem.name, icon: stockItem.icon || '📦', unit: stockItem.unit || 'pcs',
+      qty: 0, seuil: stockItem.seuil || 0, entrees: []
+    };
+    depot.articles.push(art);
+  }
+  return art;
 }
 async function deduireStockVente(items, caisseName) {
   if(!items || !items.length) return;
@@ -29223,9 +29692,7 @@ async function deduireStockVente(items, caisseName) {
             // ✅ FIX ISOLATION DÉPÔT : même logique que la boucle principale — si la caisse
             // a un dépôt lié et que l'ingrédient y est suivi, on déduit UNIQUEMENT le dépôt.
             const _depotCibleLC = _resoudreDepotVente(_depotCaisseVente, ligne.depotId);
-            const depotArtLC = (_depotCibleLC && _depotCibleLC.articles)
-              ? _depotCibleLC.articles.find(a => a.stockId === stockItem.id || a.stockId === stockItem.sbId || a.nom === stockItem.name)
-              : null;
+            const depotArtLC = _depotCibleLC ? _getOrCreateDepotArticle(_depotCibleLC, stockItem) : null;
             if(depotArtLC) {
               depotArtLC.qty = Math.max(0, Math.round((Number(depotArtLC.qty||0) - consommation) * 1000) / 1000);
               hasDepotChanges = true;
@@ -29292,9 +29759,7 @@ async function deduireStockVente(items, caisseName) {
       }
       const consommation = ligne.qty * (item.qty || 1);
       const _depotCible = _resoudreDepotVente(_depotCaisseVente, ligne.depotId);
-      const depotArt = (_depotCible && _depotCible.articles)
-        ? _depotCible.articles.find(a => a.stockId === stockItem.id || a.stockId === stockItem.sbId || a.nom === stockItem.name)
-        : null;
+      const depotArt = _depotCible ? _getOrCreateDepotArticle(_depotCible, stockItem) : null;
       // ✅ FIX ISOLATION DÉPÔT : si la caisse est reliée à un dépôt ET que l'ingrédient y est
       // suivi, on déduit UNIQUEMENT ce dépôt (le stock général représente ce qui n'a pas
       // encore été transféré vers un dépôt — il ne doit pas être touché dans ce cas).
