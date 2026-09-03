@@ -6,6 +6,19 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script>
+// 🔒 SÉCURITÉ : échappement HTML anti-XSS pour tout texte saisi par un
+// utilisateur (nom d'article, client, employé, note...) avant insertion
+// dans innerHTML. Défini très tôt pour être disponible partout.
+window.escHtml = function(str) {
+  if(str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 // ✅ ISOLATION MULTI-RESTAURANT : helpers localStorage préfixés
 // Définis très tôt pour être disponibles dès le chargement
 (function() {
@@ -11286,7 +11299,7 @@ function addFactLigne(desc='', qty=1, pu=0) {
   div.innerHTML = `
     <input class="form-input" placeholder="Description (ex: Yassa Poulet x2)" value="${desc}" style="padding:8px 10px;font-size:13px;" oninput="calcFactTotaux()">
     <input class="form-input" type="number" min="1" value="${qty}" placeholder="Qté" style="padding:8px 10px;font-size:13px;font-family:'JetBrains Mono',monospace;" oninput="calcFactTotaux()">
-    <input class="form-input" type="number" min="0" value="${pu}" placeholder="Prix unitaire HT" style="padding:8px 10px;font-size:13px;font-family:'JetBrains Mono',monospace;" oninput="calcFactTotaux()">
+    <input class="form-input" type="number" min="0" value="${pu}" placeholder="Prix unitaire TTC" style="padding:8px 10px;font-size:13px;font-family:'JetBrains Mono',monospace;" oninput="calcFactTotaux()">
     <button type="button" onclick="removeFactLigne(${id})" style="background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.3);color:var(--red);border-radius:6px;padding:8px 10px;cursor:pointer;font-size:16px;line-height:1;" title="Supprimer">×</button>
   `;
   document.getElementById('fact-lignes').appendChild(div);
@@ -11807,8 +11820,8 @@ function printFacture(id) {
     <tr>
       <th style="width:50%">Description</th>
       <th style="text-align:right;width:10%">Qté</th>
-      <th style="text-align:right;width:20%">Prix unit. HT</th>
-      <th style="text-align:right;width:20%">Total HT</th>
+      <th style="text-align:right;width:20%">Prix unit. TTC</th>
+      <th style="text-align:right;width:20%">Total TTC</th>
     </tr>
   </thead>
   <tbody>${lignesHTML}</tbody>
@@ -12160,7 +12173,7 @@ function _renderPOSGrid(cat, query) {
       : `<div class="pos-item-icon">${iconVal}</div>`;
     return `<div class="pos-item" onclick="addToCart(${menuIdx})">
       ${iconHtml}
-      <div class="pos-item-name">${item.name}</div>
+      <div class="pos-item-name">${escHtml(item.name)}</div>
       <div class="pos-item-price">${(item.price||0).toLocaleString()} F</div>
     </div>`;
   }).join('');
@@ -12499,6 +12512,19 @@ function changeQty(cartIdx, delta) {
   renderCart();
 }
 
+// ── Saisie manuelle d'une quantité décimale (ex: 10.5 kg de fromage) ──
+// Tap sur le nombre au centre du panier (au lieu de cliquer 10 fois sur +).
+function editQtyManuelle(cartIdx) {
+  if(cartIdx < 0 || cartIdx >= cart.length) return;
+  const item = cart[cartIdx];
+  const input = prompt(`Quantité pour "${item.name}" (ex: 10.5) :`, item.qty);
+  if(input === null) return;
+  const val = parseFloat(String(input).replace(',', '.'));
+  if(isNaN(val) || val <= 0) { showNotif('⚠️ Quantité invalide'); return; }
+  item.qty = val;
+  renderCart();
+}
+
 function renderCart() {
   const el = document.getElementById('cart-items');
   // (Tentative de limite de hauteur abandonnée : incompatible avec certains
@@ -12537,7 +12563,7 @@ function renderCart() {
     <div class="cart-item" style="position:relative;">
       <div class="cart-item-icon">${_iconHtml(item.icon, item.image_url, '32px')}</div>
       <div class="cart-item-info" style="flex:1;">
-        <div class="cart-item-name">${item.name}${hasPromo ? ` <span style="background:var(--red);color:white;border-radius:4px;font-size:10px;font-weight:700;padding:1px 5px;">-${item.discount}%</span>` : ''}</div>
+        <div class="cart-item-name">${escHtml(item.name)}${hasPromo ? ` <span style="background:var(--red);color:white;border-radius:4px;font-size:10px;font-weight:700;padding:1px 5px;">-${item.discount}%</span>` : ''}</div>
         <div class="cart-item-price" style="display:flex;gap:6px;align-items:center;">
           ${hasPromo ? `<span style="text-decoration:line-through;color:var(--text2);font-size:11px;">${(prixOriginal * item.qty).toLocaleString()} F</span>` : ''}
           <span style="color:${hasPromo ? 'var(--red)' : 'inherit'};font-weight:${hasPromo ? '700' : '400'};">${(prixFinal * item.qty).toLocaleString()} FCFA TTC</span>
@@ -12547,7 +12573,7 @@ function renderCart() {
         <button onclick="openPromoArticle(${cartIdx})" title="Appliquer une promo" style="background:${hasPromo ? 'var(--red)' : 'var(--surface2)'};border:1px solid ${hasPromo ? 'var(--red)' : 'var(--border)'};color:${hasPromo ? 'white' : 'var(--text2)'};border-radius:6px;padding:3px 7px;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;">%</button>
         <div class="qty-ctrl">
           <button class="qty-btn" onclick="changeQty(${cartIdx},-1)">−</button>
-          <div class="qty-num">${item.qty}</div>
+          <div class="qty-num" onclick="editQtyManuelle(${cartIdx})" title="Toucher pour saisir une quantité précise (ex: 10.5)" style="cursor:pointer;border-bottom:1px dashed var(--text2);">${item.qty}</div>
           <button class="qty-btn" onclick="changeQty(${cartIdx},1)">+</button>
         </div>
       </div>
@@ -12690,6 +12716,19 @@ function selectPay(el, method) {
 // Chaque caisse a son propre compteur, stocké dans localStorage pour persistance inter-sessions
 let _orderCounters = {}; // { 'Caisse 1': 42, 'Caisse 2': 17 }
 
+// ✅ FIX PERF MULTI-CAISSES : préfixe lisible + clé de compteur Supabase par caisse
+// (ex: "Caisse 1" → préfixe "C1", clé "caisse_1"). Permet à chaque caisse de générer
+// son numéro via SA PROPRE ligne dans kg_ticket_counters, sans verrou partagé avec
+// les autres caisses — élimine l'attente quand plusieurs caisses vendent en même
+// temps. L'unicité globale des tickets est garantie par le préfixe (C1-005 ≠ C4-005).
+function _caisseTicketPrefix(caisse) {
+  const m = String(caisse || '').match(/\d+/);
+  return m ? ('C' + m[0]) : String(caisse || '??').slice(0, 2).toUpperCase();
+}
+function _caisseCounterKey(caisse) {
+  return 'caisse_' + String(caisse || 'default').toLowerCase().replace(/\s+/g, '_');
+}
+
 function _getNextOrderNum(caisse) {
   // Fallback local (utilisé si Supabase indisponible)
   if(!_orderCounters[caisse]) {
@@ -12709,7 +12748,11 @@ function _getNextOrderNum(caisse) {
     try {
       const _ventesCaisse = (typeof VENTES_PAR_CAISSE !== 'undefined' && VENTES_PAR_CAISSE[caisse]) ? VENTES_PAR_CAISSE[caisse] : [];
       _ventesCaisse.forEach(v => {
-        const n = parseInt(String(v.orderNum||'').replace(/[^0-9]/g,''), 10);
+        // ✅ FIX PERF MULTI-CAISSES : ne prendre que les chiffres FINAUX (ex: "005" dans
+        // "#C10-005") — un simple strip de tous les chiffres mélangerait le préfixe
+        // de caisse (ex: le "10" de "C10") avec le numéro du ticket.
+        const _mOrderNum = String(v.orderNum||'').match(/(\d+)$/);
+        const n = _mOrderNum ? parseInt(_mOrderNum[1], 10) : NaN;
         if(!isNaN(n) && n >= _fromVentes) _fromVentes = n + 1;
       });
     } catch(e) {}
@@ -12722,7 +12765,7 @@ function _getNextOrderNum(caisse) {
     saved[caisse] = _orderCounters[caisse];
     _lsSet('kg-order-counters', JSON.stringify(saved));
   } catch(e) {}
-  return '#' + String(num).padStart(3, '0');
+  return '#' + _caisseTicketPrefix(caisse) + '-' + String(num).padStart(3, '0');
 }
 
 // ✅ FIX : numéro d'affichage SÉQUENTIEL pour les tickets "en attente" (#1, #2, #3...)
@@ -12949,8 +12992,110 @@ async function _getAtomicTicketNumber(caisseKey, label) {
   return { num: null, offline: false };
 }
 
+// ✅ FIX ANTI-ATTENTE "VEUILLEZ PATIENTER" : réserve un LOT de numéros en un seul
+// appel réseau (ex: 10 numéros d'un coup) au lieu d'un aller-retour Supabase à
+// CHAQUE vente. La RPC est appelée avec p_count : elle incrémente le compteur de
+// "count" d'un coup et renvoie le DERNIER numéro du bloc réservé ; le bloc va donc
+// de (dernier - count + 1) à (dernier). Nécessite la RPC mise à jour avec le
+// paramètre p_count (voir instructions SQL fournies séparément) — reste
+// compatible : si la RPC n'a pas encore été mise à jour, l'appel échoue proprement
+// et le mécanisme retombe sur l'ancienne méthode (1 par 1) via _getAtomicTicketNumber.
+async function _getAtomicTicketBlock(caisseKey, count, label) {
+  const _reallyOffline = (typeof KGSync === 'undefined' || !KGSync.isConnected) || (typeof navigator !== 'undefined' && navigator.onLine === false);
+  if(_reallyOffline) {
+    return { lastNum: null, offline: true };
+  }
+  const _timeouts = [5000, 8000, 12000];
+  for(let attempt = 0; attempt < _timeouts.length; attempt++) {
+    try {
+      const sb  = KGSync.getClient();
+      const rid = window._KG_RESTAURANT_ID || 'default';
+      const { data, error } = await _withTimeout(sb.rpc('get_next_ticket_number_caisse', {
+        p_restaurant_id: rid,
+        p_caisse_key:    caisseKey,
+        p_count:         count
+      }), _timeouts[attempt], label + ' tentative ' + (attempt+1));
+      if(!error && data != null) {
+        return { lastNum: parseInt(data), offline: false };
+      }
+      console.warn('[' + label + '] bloc tentative ' + (attempt+1) + ' échouée:', error);
+    } catch(e) {
+      console.warn('[' + label + '] bloc tentative ' + (attempt+1) + ' échouée (timeout/erreur réseau):', e.message);
+    }
+  }
+  return { lastNum: null, offline: false };
+}
+
+// État du "stock" de numéros déjà réservés, par caisse — consommé localement,
+// sans appel réseau, tant qu'il en reste.
+const _ticketPool = {}; // { 'Caisse 1': { next: 12, max: 20 } }
+const _ticketPoolRefilling = {}; // évite de lancer 2 recharges en parallèle pour la même caisse
+const _TICKET_POOL_SIZE = 10;
+const _TICKET_POOL_REFILL_THRESHOLD = 2; // recharger en avance quand il reste ce nombre de numéros
+
+function _refillTicketPool(caisse) {
+  if(_ticketPoolRefilling[caisse]) return _ticketPoolRefilling[caisse]; // déjà en cours
+  const _key = _caisseCounterKey(caisse);
+  _ticketPoolRefilling[caisse] = (async () => {
+    try {
+      const _res = await _getAtomicTicketBlock(_key, _TICKET_POOL_SIZE, '[Pool ' + caisse + ']');
+      if(_res.lastNum != null) {
+        const startNum = _res.lastNum - _TICKET_POOL_SIZE + 1;
+        // Ne jamais reculer si un autre appel a déjà avancé le pool entre-temps
+        if(!_ticketPool[caisse] || _ticketPool[caisse].max < _res.lastNum) {
+          _ticketPool[caisse] = { next: Math.max(startNum, 1), max: _res.lastNum };
+        }
+      }
+      return _res;
+    } finally {
+      delete _ticketPoolRefilling[caisse];
+    }
+  })();
+  return _ticketPoolRefilling[caisse];
+}
+
 async function _getNextOrderNumGlobal(caisse) {
-  const _res = await _getAtomicTicketNumber('global', '[Ticket ' + caisse + ']');
+  // ✅ FIX PERF MULTI-CAISSES : chaque caisse utilise SA PROPRE clé de compteur
+  // Supabase (ex: 'caisse_1', 'caisse_4', ...) au lieu d'une clé 'global' unique
+  // partagée par les 10 caisses. Avant : toutes les caisses verrouillaient la MÊME
+  // ligne de kg_ticket_counters à chaque validation → attente en cascade quand
+  // plusieurs caisses vendaient en même temps. Maintenant : chaque caisse touche
+  // sa propre ligne → aucune contention entre caisses différentes.
+  // L'unicité des numéros de ticket est garantie par le préfixe (C1-005, C4-017…).
+  const _prefix = _caisseTicketPrefix(caisse);
+
+  // ✅ FIX ANTI-ATTENTE : si un lot de numéros est déjà en stock localement pour
+  // cette caisse, on en consomme un directement — AUCUN appel réseau, donc
+  // AUCUNE attente possible pour cette vente.
+  if(_ticketPool[caisse] && _ticketPool[caisse].next <= _ticketPool[caisse].max) {
+    const num = _ticketPool[caisse].next++;
+    // Recharger le stock à l'avance, en arrière-plan, sans bloquer cette vente,
+    // dès qu'il reste peu de numéros — pour que le stock ne soit jamais à sec
+    // au moment où une nouvelle vente en a besoin.
+    if((_ticketPool[caisse].max - _ticketPool[caisse].next) < _TICKET_POOL_REFILL_THRESHOLD) {
+      _refillTicketPool(caisse).catch(() => {});
+    }
+    _orderCounters[caisse] = Math.max(_orderCounters[caisse] || 1, num + 1);
+    try {
+      const saved = JSON.parse(_lsGet('kg-order-counters') || '{}');
+      saved[caisse] = _orderCounters[caisse];
+      _lsSet('kg-order-counters', JSON.stringify(saved));
+    } catch(e) {}
+    orderCounter = Math.max(orderCounter, num + 1);
+    return '#' + _prefix + '-' + String(num).padStart(3, '0');
+  }
+
+  // Stock épuisé ou jamais rempli : il faut attendre UNE fois la recharge du lot
+  // (au lieu d'attendre à CHAQUE vente comme avant). Les 9 ventes suivantes
+  // seront ensuite instantanées.
+  const _blockRes = await _refillTicketPool(caisse);
+  if(_ticketPool[caisse] && _ticketPool[caisse].next <= _ticketPool[caisse].max) {
+    return _getNextOrderNumGlobal(caisse); // consomme maintenant depuis le stock rempli
+  }
+  // La recharge par bloc a échoué (RPC pas encore mise à jour avec p_count, ou
+  // erreur réseau) → on retombe sur l'ancienne méthode fiable (1 numéro à la fois).
+  const _key = _caisseCounterKey(caisse);
+  const _res = await _getAtomicTicketNumber(_key, '[Ticket ' + caisse + ']');
   if(_res.num != null) {
     const num = _res.num;
     // Synchroniser le compteur local pour la cohérence de la preview
@@ -12961,7 +13106,7 @@ async function _getNextOrderNumGlobal(caisse) {
       _lsSet('kg-order-counters', JSON.stringify(saved));
     } catch(e) {}
     orderCounter = Math.max(orderCounter, num + 1);
-    return '#' + String(num).padStart(3, '0');
+    return '#' + _prefix + '-' + String(num).padStart(3, '0');
   }
   if(_res.offline) {
     // Vraiment hors-ligne : fallback local acceptable (un seul appareil peut agir hors-ligne)
@@ -12988,11 +13133,12 @@ async function _getNextTicketNumCaisse(caisseKey) {
     if (typeof KGSync !== 'undefined' && KGSync.isConnected) {
       const sb  = KGSync.getClient();
       const rid = window._KG_RESTAURANT_ID || 'default';
-      // ✅ FIX v16 : utiliser la clé 'global' (même séquence que la plateforme QR et Caisse 1/2)
-      // pour garantir l'unicité absolue des numéros de tickets entre toutes les caisses
+      // ✅ FIX PERF MULTI-CAISSES : clé propre à cette caisse (plus de 'global' partagé)
+      // — l'unicité entre caisses est garantie par le préfixe (C4-017 ≠ C5-017), pas
+      // par un compteur commun qui forçait toutes les caisses à se mettre en file.
       const { data, error } = await _withTimeout(sb.rpc('get_next_ticket_number_caisse', {
         p_restaurant_id: rid,
-        p_caisse_key:    'global'
+        p_caisse_key:    caisseKey
       }), 6000, 'get_next_ticket_number_caisse (' + caisseKey + ')');
       if (!error && data) {
         const num = parseInt(data);
@@ -13003,26 +13149,22 @@ async function _getNextTicketNumCaisse(caisseKey) {
           _lsSet('kg-order-counters', JSON.stringify(saved));
         } catch(e) {}
         orderCounter = Math.max(orderCounter || 1, num + 1);
-        console.log('[Ticket] Supabase global (' + caisseKey + ') → #' + String(num).padStart(3,'0'));
-        return '#' + String(num).padStart(3, '0');
+        console.log('[Ticket] Supabase (' + caisseKey + ') → #' + _prefix + '-' + String(num).padStart(3,'0'));
+        return '#' + _prefix + '-' + String(num).padStart(3, '0');
       }
     }
   } catch (e) {
     console.warn('[Ticket] Fallback local pour', caisseKey, ':', e);
   }
-  // Fallback local si Supabase indisponible — utiliser orderCounter local
-  const _fbKey = 'kg-tc-' + caisseKey;
+  // Fallback local si Supabase indisponible — utiliser un compteur local propre à cette caisse
   let _fbNum = 1;
   try {
-    // Utiliser le même compteur local que les autres caisses pour éviter doublons offline
     const saved = JSON.parse(_lsGet('kg-order-counters') || '{}');
-    _fbNum = Math.max(orderCounter || 1, saved[caisseKey] || 1, saved['global'] || 1);
+    _fbNum = Math.max(saved[caisseKey] || 1, 1);
     saved[caisseKey] = _fbNum + 1;
-    saved['global'] = _fbNum + 1;
-    orderCounter = _fbNum + 1;
     _lsSet('kg-order-counters', JSON.stringify(saved));
   } catch(e) {}
-  return '#' + String(_fbNum).padStart(3, '0');
+  return '#' + _prefix + '-' + String(_fbNum).padStart(3, '0');
 }
 
 function _resetOrderCounter(caisse) {
@@ -13381,7 +13523,7 @@ function openConfirmTicket() {
     const _saved = JSON.parse(_lsGet('kg-order-counters') || '{}');
     if(_saved[_previewCaisse]) _previewCounter = Math.max(orderCounter, _saved[_previewCaisse]);
   } catch(e) {}
-  const orderNum = '#' + String(_previewCounter).padStart(3, '0');
+  const orderNum = '#' + _caisseTicketPrefix(_previewCaisse) + '-' + String(_previewCounter).padStart(3, '0');
   const nomResto = RESTAURANT_INFO?.nom || 'KEURGOUMAK';
 
   document.getElementById('ticket-preview').innerHTML = `
@@ -13656,7 +13798,7 @@ async function validateOrder() {
   document.querySelector('.pay-btn')?.classList.add('selected');
   const cartTitle = document.querySelector('.cart-title');
   if(cartTitle) {
-    const newNum = '#' + String(orderCounter).padStart(3, '0');
+    const newNum = '#' + _caisseTicketPrefix(caisse) + '-' + String(orderCounter).padStart(3, '0');
     cartTitle.innerHTML = `🛒 Commande <span style="font-family:'Space Mono';font-size:14px;color:var(--text2)">${newNum}</span>`;
   }
   showNotif(`🎉 ${orderNum} — ${totalTTC.toLocaleString()} FCFA · ${confirmPayMethod === 'mixed' ? '🔀 Mixte' : (payLabels[confirmPayMethod]||'Espèces')} · ${_posDocType === 'facture' ? '📄 Facture générée' : '🖨️ Ticket imprimé'}`);
@@ -15269,6 +15411,18 @@ function changeCmdQty(cartIdx, delta) {
   renderCmdItems();
 }
 
+// ── Saisie manuelle d'une quantité décimale dans la commande manuelle ──
+function editCmdQtyManuelle(cartIdx) {
+  if(cartIdx < 0 || cartIdx >= cmdCart.length) return;
+  const item = cmdCart[cartIdx];
+  const input = prompt(`Quantité pour "${item.name}" (ex: 10.5) :`, item.qty);
+  if(input === null) return;
+  const val = parseFloat(String(input).replace(',', '.'));
+  if(isNaN(val) || val <= 0) { showNotif('⚠️ Quantité invalide'); return; }
+  item.qty = val;
+  renderCmdItems();
+}
+
 function clearCmdCart() { cmdCart = []; renderCmdItems(); }
 
 function renderCmdItems() {
@@ -15284,7 +15438,7 @@ function renderCmdItems() {
         <div class="cmd-item-price">${((item.price||0)*item.qty).toLocaleString()} F</div>
         <div class="cmd-qty-ctrl">
           <button class="cmd-qty-btn" onclick="changeCmdQty(${cIdx},-1)">−</button>
-          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;width:20px;text-align:center;">${item.qty}</span>
+          <span onclick="editCmdQtyManuelle(${cIdx})" title="Toucher pour saisir une quantité précise (ex: 10.5)" style="font-family:'JetBrains Mono',monospace;font-size:12px;width:20px;text-align:center;cursor:pointer;border-bottom:1px dashed var(--text2);">${item.qty}</span>
           <button class="cmd-qty-btn" onclick="changeCmdQty(${cIdx},1)">+</button>
         </div>
       </div>
@@ -16912,6 +17066,14 @@ function confirmerReception() {
     const stockItem = STOCK_DATA.find(s => s.id === a.stockId || s.sbId === a.stockId || s.name.toLowerCase() === (a.nom||'').toLowerCase());
     if(stockItem) {
       stockMajCount++;
+      // ✅ Mémoriser le dernier prix d'achat payé pour cet article (utilisé en
+      // secours dans l'export "détail valeur inventaire" quand l'article n'est
+      // relié à aucun produit du menu, pour ne plus afficher 0 F).
+      if(a.prix > 0) {
+        stockItem.prixAchat = a.prix;
+        stockItem.prixAchatDate = recepDateFR;
+        stockItem.prixAchatFournisseur = c.fournisseur || '';
+      }
       // ✅ FIX ISOLATION DÉPÔT : si un dépôt de destination est choisi, la marchandise entre
       // UNIQUEMENT dans ce dépôt — pas dans le stock général en plus. Le stock général n'est
       // incrémenté que si aucun dépôt n'est sélectionné ("Stock général (aucun dépôt)").
@@ -19250,12 +19412,34 @@ function exportInvValeurDetailCSV() {
   const items = window._invLastRenderedItems || [];
   if(!items.length) { showNotif('⚠️ Aucun article affiché — choisissez un dépôt d\'abord'); return; }
 
-  const rows = [['Article','Dépôt/Source','Catégorie','Qté théorique','Unité','Produit du menu utilisé pour le prix','Prix du produit (F)','Qté ingrédient dans la recette','Prix unitaire déduit (F)','Valeur ligne (F)']];
+  const rows = [['Article','Dépôt/Source','Catégorie','Qté théorique','Unité','Produit du menu utilisé pour le prix','Prix du produit (F)','Qté ingrédient dans la recette','Prix unitaire déduit (F)','Valeur ligne (F)','Origine du prix']];
   let total = 0;
   items.forEach(s => {
     const detail = _getSaleDetailForStockItem(s);
     const qte = s.qty || 0;
-    const valeurLigne = detail ? Math.round(qte * detail.prixUnitaire) : 0;
+    // ✅ Article non relié à un produit du menu : on retombe sur le dernier prix
+    // d'achat connu (issu d'une commande fournisseur réceptionnée), plutôt que 0 F.
+    // Sinon (jamais acheté via commande fournisseur non plus), reste à 0 F et c'est
+    // signalé explicitement dans la colonne "Origine du prix".
+    const _stockItemRef = (typeof STOCK_DATA !== 'undefined') ? STOCK_DATA.find(x =>
+      (s._sbStockId && x.sbId === s._sbStockId) || (s._stockId && (x.id === s._stockId || x.sbId === s._stockId)) ||
+      (x.name && s.name && x.name.trim().toLowerCase() === s.name.trim().toLowerCase())
+    ) : null;
+    const prixAchat = _stockItemRef ? (_stockItemRef.prixAchat || 0) : 0;
+    let valeurLigne, origine, prixUniliste;
+    if(detail) {
+      valeurLigne = Math.round(qte * detail.prixUnitaire);
+      origine = 'Prix de vente (via recette menu)';
+      prixUniliste = Math.round(detail.prixUnitaire);
+    } else if(prixAchat > 0) {
+      valeurLigne = Math.round(qte * prixAchat);
+      origine = `Non lié — prix d'achat utilisé (dernier achat${_stockItemRef.prixAchatFournisseur ? ' chez ' + _stockItemRef.prixAchatFournisseur : ''}${_stockItemRef.prixAchatDate ? ' le ' + _stockItemRef.prixAchatDate : ''})`;
+      prixUniliste = prixAchat;
+    } else {
+      valeurLigne = 0;
+      origine = 'Non lié à un produit du menu — aucun prix d\'achat connu';
+      prixUniliste = '';
+    }
     total += valeurLigne;
     rows.push([
       s.name || '',
@@ -19266,11 +19450,12 @@ function exportInvValeurDetailCSV() {
       detail ? detail.menuNom : '(non lié à un produit du menu)',
       detail ? detail.menuPrix : '',
       detail ? detail.recetteQty : '',
-      detail ? Math.round(detail.prixUnitaire) : '',
-      valeurLigne
+      prixUniliste,
+      valeurLigne,
+      origine
     ]);
   });
-  rows.push(['', '', '', '', '', '', '', '', 'TOTAL', total]);
+  rows.push(['', '', '', '', '', '', '', '', 'TOTAL', total, '']);
 
   const csv = '\uFEFF' + rows.map(r => r.map(v => {
     const s = String(v ?? '');
@@ -19735,9 +19920,9 @@ function renderClients() {
       <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:14px;">
         <div class="client-avatar-big" style="background:${c.color}22;color:${c.color};">${(c.prenom[0]+c.nom[0]).toUpperCase()}</div>
         <div style="flex:1;">
-          <div style="font-weight:700;font-size:15px;">${c.prenom} ${c.nom}</div>
-          <div style="font-size:12px;color:var(--text2);">📱 ${c.tel||'—'}</div>
-          ${c.email ? `<div style="font-size:11px;color:var(--text2);">✉️ ${c.email}</div>` : ''}
+          <div style="font-weight:700;font-size:15px;">${escHtml(c.prenom)} ${escHtml(c.nom)}</div>
+          <div style="font-size:12px;color:var(--text2);">📱 ${escHtml(c.tel)||'—'}</div>
+          ${c.email ? `<div style="font-size:11px;color:var(--text2);">✉️ ${escHtml(c.email)}</div>` : ''}
         </div>
         <span class="badge" style="background:${c.type==='vip'?'rgba(245,166,35,0.15)':'rgba(0,201,177,0.12)'};color:${c.type==='vip'?'var(--accent)':'var(--teal)'};">${typeLabels[c.type]||c.type||''}</span>
       </div>
@@ -19746,8 +19931,8 @@ function renderClients() {
         <div class="fourn-stat"><div class="fourn-stat-val">${((c.totalDepense||c.total||0)/1000).toFixed(0)}k F</div><div class="fourn-stat-lbl">Total dépensé</div></div>
       </div>
       <div style="font-size:11px;color:var(--text2);margin-bottom:12px;">
-        📅 Dernier achat : ${c.dernierAchat||c.last||'—'} · 📍 ${c.adresse||'—'}
-        ${c.notes ? `<br>📝 ${c.notes}` : ''}
+        📅 Dernier achat : ${escHtml(c.dernierAchat||c.last)||'—'} · 📍 ${escHtml(c.adresse)||'—'}
+        ${c.notes ? `<br>📝 ${escHtml(c.notes)}` : ''}
       </div>
       <div style="display:flex;gap:8px;">
         <button class="caisse-btn" style="flex:1;font-size:12px;" onclick="openEditClient(${cIdx})">✏️ Modifier</button>
@@ -22804,6 +22989,43 @@ async function _kgUnregisterSessionToken() {
 //  FIN SYSTÈME SESSION UNIQUE
 // ═══════════════════════════════════════════════════════════════
 
+// 🔒 SÉCURITÉ : limiteur de tentatives de connexion (anti-bruteforce côté
+// client). Après 5 échecs sur un même email, blocage de 5 minutes.
+const _LOGIN_MAX_ATTEMPTS = 5;
+const _LOGIN_LOCK_MS = 5 * 60 * 1000; // 5 min
+function _loginAttemptsKey(email) { return 'kg-login-attempts:' + (email || '').trim().toLowerCase(); }
+function _getLoginAttempts(email) {
+  try { return JSON.parse(localStorage.getItem(_loginAttemptsKey(email)) || '{}'); } catch(e) { return {}; }
+}
+function _setLoginAttempts(email, data) {
+  try { localStorage.setItem(_loginAttemptsKey(email), JSON.stringify(data)); } catch(e) {}
+}
+function _checkLoginLock(email) {
+  const a = _getLoginAttempts(email);
+  if(a.lockedUntil && Date.now() < a.lockedUntil) {
+    const secs = Math.ceil((a.lockedUntil - Date.now()) / 1000);
+    const mins = Math.ceil(secs / 60);
+    return `🔒 Trop de tentatives échouées. Réessayez dans ${mins} min.`;
+  }
+  return null;
+}
+function _registerFailedLogin(email) {
+  const a = _getLoginAttempts(email);
+  const now = Date.now();
+  // Réinitialiser le compteur si le dernier échec date de plus de 10 min
+  if(a.lastFail && (now - a.lastFail) > 10 * 60 * 1000) a.count = 0;
+  a.count = (a.count || 0) + 1;
+  a.lastFail = now;
+  if(a.count >= _LOGIN_MAX_ATTEMPTS) {
+    a.lockedUntil = now + _LOGIN_LOCK_MS;
+    a.count = 0;
+  }
+  _setLoginAttempts(email, a);
+}
+function _clearLoginAttempts(email) {
+  try { localStorage.removeItem(_loginAttemptsKey(email)); } catch(e) {}
+}
+
 async function doLogin() {
   const email = document.getElementById('login-user').value.trim();
   const pwd   = document.getElementById('login-pass').value;
@@ -22812,6 +23034,15 @@ async function doLogin() {
   errEl.style.display = 'none';
   document.getElementById('login-user').classList.remove('error');
   document.getElementById('login-pass').classList.remove('error');
+
+  // 🔒 Vérifier le verrouillage anti-bruteforce avant toute tentative
+  const _lockMsg = _checkLoginLock(email);
+  if(_lockMsg) {
+    errEl.textContent = _lockMsg;
+    errEl.style.display = 'block';
+    errEl.style.color = 'var(--red)';
+    return;
+  }
 
   // Connexion automatique si pas encore connecté
   if(!KGSync.isConnected) {
@@ -22840,7 +23071,8 @@ async function doLogin() {
     if(!sb) throw new Error('Supabase non initialisé');
 
     const { data: authData, error: authError } = await sb.auth.signInWithPassword({ email, password: pwd });
-    if(authError) throw authError;
+    if(authError) { _registerFailedLogin(email); throw authError; }
+    _clearLoginAttempts(email);
 
     const { data: profile, error: profileError } = await sb
       .from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('id', authData.user.id).single();
@@ -23183,8 +23415,11 @@ async function doLogin() {
     const errEl2 = document.getElementById('login-error');
 
     // Messages d'erreur clairs selon le type d'échec
+    const _lockMsgAfter = _checkLoginLock(email);
     let friendlyMsg;
-    if(msg.includes('Invalid') || msg.includes('credentials') || msg.includes('password') || msg.includes('Email not confirmed') === false && msg.includes('email')) {
+    if(_lockMsgAfter) {
+      friendlyMsg = _lockMsgAfter;
+    } else if(msg.includes('Invalid') || msg.includes('credentials') || msg.includes('password') || msg.includes('Email not confirmed') === false && msg.includes('email')) {
       friendlyMsg = '❌ Email ou mot de passe incorrect.';
     } else if(msg.includes('fetch') || msg.includes('network') || msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
       friendlyMsg = '❌ Pas de connexion internet. KEURGOUMAK nécessite Supabase pour fonctionner.';
@@ -23301,7 +23536,7 @@ function openUserMenuOrUtilisateurs() {
 //  DÉCONNEXION AUTOMATIQUE APRÈS 15 MIN D'INACTIVITÉ
 // ═══════════════════════════════════════════════════════════════
 (function() {
-  const INACTIVITY_MS  = 60 * 60 * 1000; // 1h
+  const INACTIVITY_MS  = 20 * 60 * 1000; // 20 min (renforcé — était 1h)
   const WARNING_BEFORE = 60 * 1000;       // Avertissement 60s avant
   let _mainTimer    = null;
   let _countdownInt = null;
@@ -23579,8 +23814,8 @@ function renderUsersGrid() {
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
         <div class="user-row-avatar" style="background:${u.color}22;color:${u.color};font-size:15px;">${getInitials(u)}</div>
         <div style="flex:1;">
-          <div style="font-weight:700;font-size:15px;">${u.prenom} ${u.nom}</div>
-          <div style="font-size:12px;color:var(--text2);font-family:'Space Mono'">@${u.login}</div>
+          <div style="font-weight:700;font-size:15px;">${escHtml(u.prenom)} ${escHtml(u.nom)}</div>
+          <div style="font-size:12px;color:var(--text2);font-family:'Space Mono'">@${escHtml(u.login)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           <div class="user-status-dot ${u.status==='actif'?'user-status-online':u.status==='suspendu'?'user-status-pause':'user-status-offline'}"></div>
@@ -27672,17 +27907,34 @@ const KGSync = (() => {
     return rid + ':' + key;
   }
 
-  // ✅ OPT EGRESS : broadcast un signal minuscule après chaque upsert
-  // Les autres appareils reçoivent {key, ts} (~50 bytes) au lieu du row complet (jusqu'à 500KB)
+  // ✅ OPT EGRESS v2 : REGROUPEMENT DES BROADCASTS (réduction Realtime Messages)
+  // AVANT : chaque upsert() envoyait immédiatement SON PROPRE message broadcast.
+  // Une seule vente peut modifier plusieurs clés d'un coup (ventes + caisses + stock,
+  // voire jusqu'à 10 clés "ventes_Caisse X" dans _doPushVentesNow) → jusqu'à 10 messages
+  // Realtime distincts pour UN SEUL événement métier. Le compteur "Realtime Messages"
+  // compte l'ENVOI + CHAQUE RÉCEPTION (multiplié par le nb d'appareils connectés),
+  // d'où l'explosion rapide du quota avec plusieurs caisses ouvertes en même temps.
+  // MAINTENANT : toutes les clés modifiées dans une fenêtre de 800ms sont regroupées
+  // et envoyées en UN SEUL message broadcast (quel que soit leur nombre).
+  let _syncPendingKeys = new Set();
+  let _syncBatchTimer = null;
   function _broadcastSync(key) {
     if(!_rtChannel || !window._KG_RESTAURANT_ID) return;
-    try {
-      _rtChannel.send({
-        type: 'broadcast',
-        event: 'sync',
-        payload: { key: window._KG_RESTAURANT_ID + ':' + key, ts: Date.now() }
-      });
-    } catch(e) {} // silencieux — le pullAll polling prend le relais si ça échoue
+    _syncPendingKeys.add(key);
+    if(_syncBatchTimer) return; // un envoi groupé est déjà programmé, la clé sera incluse
+    _syncBatchTimer = setTimeout(() => {
+      const keys = Array.from(_syncPendingKeys);
+      _syncPendingKeys.clear();
+      _syncBatchTimer = null;
+      if(!_rtChannel) return;
+      try {
+        _rtChannel.send({
+          type: 'broadcast',
+          event: 'sync',
+          payload: { keys: keys.map(k => window._KG_RESTAURANT_ID + ':' + k), ts: Date.now() }
+        });
+      } catch(e) {} // silencieux — le pullAll polling prend le relais si ça échoue
+    }, 800);
   }
 
   async function upsert(key, data) {
@@ -29418,9 +29670,19 @@ const KGSync = (() => {
       _rtChannel = client.channel('kg_broadcast_v1_' + (window._KG_RESTAURANT_ID || 'default'))
         .on('broadcast', { event: 'sync' }, (msg) => {
           try {
-            var key = msg && msg.payload && msg.payload.key;
+            // ✅ OPT EGRESS v2 : le payload peut désormais contenir soit :
+            //  - "key" (singulier) : messages spéciaux envoyés individuellement et
+            //    immédiatement (session unique, ping clôture, ping ticket en attente)
+            //  - "keys" (tableau) : envoi groupé standard produit par _broadcastSync()
+            var _keysArr = [];
+            if(msg && msg.payload) {
+              if(Array.isArray(msg.payload.keys)) _keysArr = msg.payload.keys;
+              else if(msg.payload.key) _keysArr = [msg.payload.key];
+            }
+            var key = _keysArr[0];
             var _rid = window._KG_RESTAURANT_ID;
             // SESSION UNIQUE : détecter autre appareil via broadcast (token dans payload)
+            // (toujours envoyé seul avec "key", jamais dans un lot groupé)
             if(currentUser && key === _rid + ':_active_session_' + currentUser.id) {
               try {
                 var _tok = msg.payload && msg.payload.token;
@@ -29430,13 +29692,13 @@ const KGSync = (() => {
                 }
               } catch(se) {}
             }
-            // ✅ FIX EGRESS : throttle 10s minimum entre 2 pulls déclenchés par broadcast
+            // ✅ FIX EGRESS : throttle 5s minimum entre 2 pulls déclenchés par broadcast
             // EXCEPTION : le ping de clôture (_cloture_ping) et de ticket en attente
             // (_ticket_attente_ping) doivent TOUJOURS déclencher un pull immédiat —
             // sans ça, un nouveau ticket en attente n'apparaît pas en direct sur les
             // autres appareils (il fallait se déconnecter/reconnecter pour le voir).
-            var _isCloturePing = key && key.indexOf('_cloture_ping') !== -1;
-            var _isTicketAttentePing = key && key.indexOf('_ticket_attente_ping') !== -1;
+            var _isCloturePing = _keysArr.some(function(k){ return k && k.indexOf('_cloture_ping') !== -1; });
+            var _isTicketAttentePing = _keysArr.some(function(k){ return k && k.indexOf('_ticket_attente_ping') !== -1; });
             if(_isTicketAttentePing) {
               if(typeof _pullTicketsAttenteSupabase === 'function') _pullTicketsAttenteSupabase().catch(function(){});
               return; // pas besoin de déclencher aussi un _pullAll complet
@@ -34880,8 +35142,9 @@ ALTER TABLE public.ventes_caisse ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "allow_all_vc" ON public.ventes_caisse FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================
--- TABLE kg_ticket_counters — compteur atomique global
--- Caisse 1, 2 et 3 partagent la même séquence → jamais de doublons
+-- TABLE kg_ticket_counters — 1 compteur atomique PAR CAISSE
+-- Chaque caisse (caisse_1, caisse_4, ...) a sa propre ligne : aucune
+-- caisse n'attend qu'une autre libère un verrou pour obtenir son numéro.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.kg_ticket_counters (
   restaurant_id TEXT NOT NULL,
@@ -34893,20 +35156,25 @@ ALTER TABLE public.kg_ticket_counters ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "allow_all_tc" ON public.kg_ticket_counters FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================
--- RPC get_next_ticket_number_caisse — incrément atomique
--- Même si Caisse 1 et Caisse 2 appellent en même temps :
--- l'une obtient #007, l'autre #008 — jamais le même numéro
+-- RPC get_next_ticket_number_caisse — incrément atomique, par lot
+-- p_count (optionnel, défaut 1) : réserve plusieurs numéros d'un coup.
+-- Renvoie le DERNIER numéro du lot réservé — le lot va donc de
+-- (résultat - p_count + 1) à résultat. Toujours utilisé avec un
+-- préfixe par caisse côté application (ex: C1-007, C4-008) pour
+-- garantir l'unicité entre caisses différentes.
 -- ============================================================
+DROP FUNCTION IF EXISTS public.get_next_ticket_number_caisse(TEXT, TEXT);
 CREATE OR REPLACE FUNCTION public.get_next_ticket_number_caisse(
   p_restaurant_id TEXT,
-  p_caisse_key TEXT
+  p_caisse_key TEXT,
+  p_count INTEGER DEFAULT 1
 ) RETURNS INTEGER AS $$
 DECLARE v_num INTEGER;
 BEGIN
   INSERT INTO public.kg_ticket_counters (restaurant_id, caisse_key, current_num)
-  VALUES (p_restaurant_id, p_caisse_key, 1)
+  VALUES (p_restaurant_id, p_caisse_key, p_count)
   ON CONFLICT (restaurant_id, caisse_key)
-  DO UPDATE SET current_num = kg_ticket_counters.current_num + 1
+  DO UPDATE SET current_num = kg_ticket_counters.current_num + p_count
   RETURNING current_num INTO v_num;
   RETURN v_num;
 END;
