@@ -1996,6 +1996,7 @@ if(typeof jsQR === 'undefined') {
     width: min(96vw, 920px);
     max-width: 920px;
     min-width: 0;
+    max-height: calc(100vh - 40px);
     background: rgba(8,8,18,0.85);
     border: 1px solid rgba(255,255,255,0.07);
     border-radius: 28px;
@@ -2036,7 +2037,10 @@ if(typeof jsQR === 'undefined') {
   .login-left {
     width: 360px;
     flex-shrink: 0;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.15) transparent;
     background: linear-gradient(160deg,
       #060610 0%,
       #0c0616 35%,
@@ -2049,6 +2053,8 @@ if(typeof jsQR === 'undefined') {
     gap: 0;
     position: relative;
   }
+  .login-left::-webkit-scrollbar { width: 5px; }
+  .login-left::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
 
   /* Effet grain sur le panneau gauche */
   .login-left::after {
@@ -2479,6 +2485,20 @@ if(typeof jsQR === 'undefined') {
   .quick-user:hover .quick-arrow { color: rgba(245,158,42,0.7); transform: translateX(2px); }
 
   /* ── RESPONSIVE LOGIN ── */
+
+  /* ✅ FIX : écrans avec peu de hauteur disponible (laptop, fenêtre non plein
+  écran, barre des tâches) — compresser le panneau gauche pour qu'il tienne
+  sans avoir besoin de dézoomer le navigateur ni de faire défiler. */
+  @media (max-height: 760px) {
+    .login-left { padding: 24px 36px; }
+    .login-left-top { margin-bottom: 14px; }
+    .login-feat-item { padding: 7px 0; font-size: 12px; }
+    .login-feat-icon { font-size: 15px; }
+  }
+  @media (max-height: 650px) {
+    .login-left-top > div[style*="margin-top:28px"] { display: none; } /* texte descriptif long, moins prioritaire */
+    .login-feat-item:nth-child(6), .login-feat-item:nth-child(7) { display: none; } /* garder les 5 plus importantes */
+  }
 
   /* Tablette : sidebar plus étroite */
   @media (min-width: 640px) and (max-width: 900px) {
@@ -5443,7 +5463,7 @@ function _syncSportVentes()       { return []; }
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span> <span class="nav-label" data-navkey="caisses">Gestion des Caisses</span>
     </div>
     <div class="nav-item" onclick="showView('menu', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg></span> <span class="nav-label" data-navkey="menu">Menu & Carte</span>
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg></span> <span class="nav-label" data-navkey="menu">Catalogue Produits</span>
     </div>
     <div class="nav-item" onclick="showView('stock', this)">
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span> <span class="nav-label" data-navkey="stock">Stocks</span>
@@ -5470,7 +5490,7 @@ function _syncSportVentes()       { return []; }
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></span> <span class="nav-label" data-navkey="livreurs">Livreurs</span>
     </div>
     <div class="nav-item" onclick="showView('serveurs', this)">
-      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="8" y1="21" x2="8" y2="17"/><line x1="16" y1="21" x2="16" y2="17"/></svg></span> <span class="nav-label" data-navkey="serveurs">Serveurs</span>
+      <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="8" y1="21" x2="8" y2="17"/><line x1="16" y1="21" x2="16" y2="17"/></svg></span> <span class="nav-label" data-navkey="serveurs">Employés</span>
     </div>
     <div class="nav-item" onclick="showView('utilisateurs', this)">
       <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> <span class="nav-label" data-navkey="utilisateurs">Utilisateurs</span>
@@ -5725,7 +5745,7 @@ function _syncSportVentes()       { return []; }
             <div class="pay-btn" onclick="selectPay(this, 'card')">💳 Carte</div>
           </div>
           <div style="display:flex;gap:8px;">
-            <button onclick="mettreEnAttente()" title="Mettre en attente de paiement" style="flex:0 0 auto;padding:0 14px;height:48px;border-radius:12px;border:1.5px solid var(--accent);background:rgba(245,158,42,0.10);color:var(--accent);font-size:18px;cursor:pointer;font-weight:800;transition:all .2s ease;display:flex;align-items:center;justify-content:center;gap:6px;" onmouseover="this.style.background='rgba(245,158,42,0.2)'" onmouseout="this.style.background='rgba(245,158,42,0.10)'">⏳</button>
+            <button id="btn-mettre-en-attente" onclick="mettreEnAttente()" title="Mettre en attente de paiement" style="flex:0 0 auto;padding:0 14px;height:48px;border-radius:12px;border:1.5px solid var(--accent);background:rgba(245,158,42,0.10);color:var(--accent);font-size:18px;cursor:pointer;font-weight:800;transition:all .2s ease;display:flex;align-items:center;justify-content:center;gap:6px;" onmouseover="this.style.background='rgba(245,158,42,0.2)'" onmouseout="this.style.background='rgba(245,158,42,0.10)'">⏳</button>
             <button class="btn-validate" style="flex:1;" onclick="openConfirmTicket()">✅ Valider la commande</button>
           </div>
           </details><!-- /cart-checkout-section -->
@@ -5975,8 +5995,8 @@ function _syncSportVentes()       { return []; }
     <!-- STOCK -->
     <div id="view-stock" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
-        <button class="cat-btn active" id="stock-tab-depots" onclick="switchStockTab('depots',this)">🏭 Dépôts</button>
         <button class="cat-btn" id="stock-tab-liste" onclick="switchStockTab('liste',this)">📦 Stock actuel</button>
+        <button class="cat-btn" id="stock-tab-depots" onclick="switchStockTab('depots',this)">🏭 Dépôts</button>
         <button class="cat-btn" id="stock-tab-categories" onclick="switchStockTab('categories',this)">🗂️ Catégories</button>
         <button class="cat-btn" id="stock-tab-entrees" onclick="switchStockTab('entrees',this)">📥 Entrées stock</button>
         <button class="cat-btn" id="stock-tab-alertes" onclick="switchStockTab('alertes',this)">⚠️ Alertes</button>
@@ -6142,9 +6162,9 @@ function _syncSportVentes()       { return []; }
     <!-- PRÉPARATION -->
     <div id="view-preparation" class="view fade-in" style="padding-bottom:100px;">
       <div style="display:flex;gap:12px;margin-bottom:20px;align-items:center;flex-wrap:wrap;">
-        <button class="cat-btn active" id="prep-tab-recettes" onclick="switchPrepTab('recettes',this)">📋 Fiches recettes</button>
+        <button class="cat-btn active" id="prep-tab-recettes" onclick="switchPrepTab('recettes',this)">📋 Fiches de composition</button>
         <button class="cat-btn" id="prep-tab-journal" onclick="switchPrepTab('journal',this)">📅 Journal</button>
-        <button class="btn btn-primary" style="margin-left:auto;" onclick="openAddPreparation()">+ Nouvelle recette</button>
+        <button class="btn btn-primary" style="margin-left:auto;" onclick="openAddPreparation()">+ Nouvelle composition</button>
       </div>
 
       <!-- FICHES RECETTES -->
@@ -6258,7 +6278,7 @@ function _syncSportVentes()       { return []; }
             </button>
           </div>
           <div id="form-serveur" style="display:none;background:var(--surface);border-radius:14px;padding:20px;margin-bottom:20px;border:1px solid var(--border);">
-            <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px;" id="form-serveur-title">➕ Nouveau serveur</div>
+            <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px;" id="form-serveur-title">➕ Nouvel employé</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
               <div>
                 <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px;">Nom complet *</label>
@@ -6346,6 +6366,8 @@ function _syncSportVentes()       { return []; }
             <button onclick="document.getElementById('fourn-date-du').value='';document.getElementById('fourn-date-au').value='';renderFournisseurs();" style="padding:6px 12px;border-radius:8px;background:var(--surface3);border:1px solid var(--border);color:var(--text2);font-size:12px;cursor:pointer;">✕ Tout</button>
             <span id="fourn-periode-label" style="font-size:12px;color:var(--accent);font-weight:600;"></span>
           </div>
+          <!-- 💰 Total général tous fournisseurs confondus, sur la période choisie -->
+          <div id="fourn-total-global" style="display:flex;align-items:center;gap:20px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);"></div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;" id="fournisseurs-grid"></div>
       </div>
@@ -6923,9 +6945,9 @@ function _syncSportVentes()       { return []; }
     <div id="view-settings" class="view fade-in" style="padding-bottom:100px;">
       <div class="grid-2">
         <div class="card">
-          <div class="card-title">Informations du restaurant</div>
+          <div class="card-title">Informations de l'entreprise</div>
           <div class="form-group">
-            <label class="form-label">Nom du restaurant</label>
+            <label class="form-label">Nom du commerce</label>
             <input class="form-input" id="settings-nom" value="KEURGOUMAK Louga" placeholder="Nom de votre commerce">
           </div>
           <div class="form-group">
@@ -6964,7 +6986,7 @@ function _syncSportVentes()       { return []; }
 
             <!-- Photo logo -->
             <div style="margin-bottom:14px;">
-              <label style="font-size:12px;font-weight:600;color:var(--text);display:block;margin-bottom:8px;">🏷️ Logo / photo du restaurant</label>
+              <label style="font-size:12px;font-weight:600;color:var(--text);display:block;margin-bottom:8px;">🏷️ Logo / photo du commerce</label>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                 <div id="logo-preview-wrap" style="width:56px;height:56px;border:2px dashed var(--border);border-radius:12px;overflow:hidden;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">
                   <img id="logo-preview-img" src="" style="width:100%;height:100%;object-fit:cover;display:none;" />
@@ -7053,7 +7075,7 @@ function _syncSportVentes()       { return []; }
 
             <!-- LOGO -->
             <div class="form-group">
-              <label class="form-label">Logo du restaurant</label>
+              <label class="form-label">Logo du commerce</label>
               <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                 <div id="ticket-logo-preview" style="width:64px;height:64px;border:2px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--surface2);overflow:hidden;flex-shrink:0;">
                   &#127869;
@@ -9584,6 +9606,13 @@ Revenez nous voir bient&#244;t.</textarea>
       </div>
       <input type="hidden" id="edit-caisse-color">
     </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);">
+        <input type="checkbox" id="edit-caisse-attente" style="width:16px;height:16px;cursor:pointer;">
+        ⏳ Autoriser « Mettre en attente de paiement » sur cette caisse
+      </label>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px;margin-left:24px;">Si désactivé, le bouton ⏳ sera masqué sur cette caisse.</div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeEditCaisse()">Annuler</button>
       <button class="btn btn-primary" onclick="saveEditCaisse()">💾 Enregistrer</button>
@@ -9602,7 +9631,7 @@ Revenez nous voir bient&#244;t.</textarea>
         <input class="form-input" id="item-nom" placeholder="Ex: Thiéboudienne royal">
       </div>
       <div class="form-group">
-        <label class="form-label">Photo du plat</label>
+        <label class="form-label">Photo du produit</label>
         <input type="hidden" id="item-icon" value="🍽️">
         <div style="display:flex;align-items:center;gap:10px;">
           <input type="file" id="item-img-file" accept="image/*" style="display:none" onchange="handleItemImageUpload(this)">
@@ -9643,7 +9672,7 @@ Revenez nous voir bient&#244;t.</textarea>
     </div>
     <div class="form-group">
       <label class="form-label">Description</label>
-      <input class="form-input" id="item-desc" placeholder="Description courte du plat...">
+      <input class="form-input" id="item-desc" placeholder="Description courte du produit...">
     </div>
     <div class="form-group">
       <label class="form-label">🏷️ Code-barres (optionnel)</label>
@@ -11082,7 +11111,7 @@ function showView(id, el, pushState) {
         }
       } catch(e) {}
     }
-    switchStockTab('depots', document.getElementById('stock-tab-depots'));
+    switchStockTab('liste', document.getElementById('stock-tab-liste'));
     // ✅ Masquer les actions d'écriture (ajouter article, entrée stock, nouveau dépôt) pour
     // les profils qui n'ont pas le droit de modifier le stock (ex: caissier avec accès lecture).
     const _canEditStockNow = (typeof _canEditStock === 'function') ? _canEditStock() : true;
@@ -12526,6 +12555,12 @@ function editQtyManuelle(cartIdx) {
 }
 
 function renderCart() {
+  // 🔒 Afficher/masquer le bouton ⏳ selon le réglage de la caisse ouverte
+  const _btnAttente = document.getElementById('btn-mettre-en-attente');
+  if(_btnAttente) {
+    const _caisseActuelle = (typeof sessionCaisseActive !== 'undefined' && sessionCaisseActive) ? CAISSES.find(c => c.name === sessionCaisseActive.caisse) : null;
+    _btnAttente.style.display = (_caisseActuelle && _caisseActuelle.waitingPaymentEnabled === false) ? 'none' : 'flex';
+  }
   const el = document.getElementById('cart-items');
   // (Tentative de limite de hauteur abandonnée : incompatible avec certains
   // navigateurs Android qui n'affichaient plus le contenu. Le panier
@@ -12889,8 +12924,11 @@ async function _loadVentesSupabase(caisse) {
     const sb  = KGSync.getClient();
     const rid = window._KG_RESTAURANT_ID;
     if(!sb || !rid) return;
-    // ✅ FIX : charger les ventes des 2 derniers jours (session peut démarrer la veille)
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    // ✅ FIX : une caisse non clôturée peut rester ouverte plusieurs jours
+    // (oubli de clôture). Une fenêtre d'1 jour seulement faisait disparaître
+    // de l'affichage les ventes plus anciennes non clôturées — alors qu'elles
+    // restaient bien enregistrées côté Supabase. On élargit à 30 jours.
+    const yesterday = new Date(Date.now() - 30*86400000).toISOString().split('T')[0];
     const { data, error } = await sb.from('ventes_caisse')
       .select('*')
       .eq('restaurant_id', rid)
@@ -13786,6 +13824,9 @@ async function validateOrder() {
   } else {
     printTicket(venteSaved, caisse);
   }
+  // ✅ FIX : sécurité supplémentaire — ne jamais laisser 'facture' actif pour la
+  // prochaine vente, même si openConfirmTicket() n'est pas repassé entre-temps.
+  _posDocType = 'ticket';
 
   closeModal('confirmTicket');
   cart = [];
@@ -14195,7 +14236,7 @@ async function saveRestaurantSettings() {
   const adresse= (document.getElementById('settings-adresse')?.value || '').trim();
   const devise = document.getElementById('settings-devise')?.value || 'FCFA (Franc CFA)';
 
-  if(!nom) { showNotif('⚠️ Le nom du restaurant est obligatoire'); return; }
+  if(!nom) { showNotif('⚠️ Le nom du commerce est obligatoire'); return; }
 
   const waveUrl   = (document.getElementById('settings-wave-url')?.value   || '').trim();
   const orangeUrl = (document.getElementById('settings-orange-url')?.value || '').trim();
@@ -14473,12 +14514,12 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
 
   body {
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 13px;
+    font-size: 12px;
     color: #1a1a1a;
     background: ${TICKET_CONFIG.bgColor || '#fff'};
     width: 302px;
     margin: 0 auto;
-    line-height: 1.5;
+    line-height: 1.25;
     overflow: visible;
   }
 
@@ -14487,11 +14528,11 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
   .header {
     background: #111;
     color: #fff;
-    padding: 4px 8px 3px;
+    padding: 3px 8px 2px;
     text-align: center;
   }
   .header-logo {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 900;
     letter-spacing: 1px;
     text-transform: uppercase;
@@ -14503,12 +14544,12 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
     color: #aaa;
     letter-spacing: 1px;
     text-transform: uppercase;
-    margin-bottom: 1px;
+    margin-bottom: 0px;
   }
   .header-addr {
     font-size: 9px;
     color: #ccc;
-    line-height: 1.15;
+    line-height: 1.1;
   }
   .header-tel {
     font-size: 9px;
@@ -14522,21 +14563,21 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
     background: #f5a623;
     color: #000;
     text-align: center;
-    padding: 2px 0 2px;
+    padding: 1px 0 1px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
   }
   .ticket-band-label {
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 700;
     letter-spacing: 2px;
     text-transform: uppercase;
     opacity: 0.7;
   }
   .ticket-band-num {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 900;
     letter-spacing: 3px;
   }
@@ -14544,15 +14585,15 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
   /* ══ INFOS COMMANDE ══ */
   .meta-block {
     background: #f8f8f8;
-    padding: 2px 8px;
+    padding: 1px 8px;
     border-bottom: 1px dashed #ddd;
   }
   .meta-row {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    font-size: 11px;
-    padding: 1px 0;
+    font-size: 10px;
+    padding: 0px 0;
     color: #333;
     gap: 6px;
   }
@@ -14563,15 +14604,15 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
   .meta-row .val { font-weight: 700; color: #111; text-align: right; word-break: break-word; overflow-wrap: break-word; min-width: 0; flex: 1; }
 
   /* ══ SECTION ARTICLES ══ */
-  .articles-section { padding: 3px 8px; }
+  .articles-section { padding: 2px 8px; }
   .articles-title {
     font-size: 9px;
     font-weight: 800;
     letter-spacing: 1px;
     text-transform: uppercase;
     color: #777;
-    margin-bottom: 2px;
-    padding-bottom: 2px;
+    margin-bottom: 1px;
+    padding-bottom: 1px;
     border-bottom: 1px solid #ddd;
   }
 
@@ -14579,7 +14620,7 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
     display: flex;
     align-items: flex-start;
     gap: 5px;
-    padding: 2px 0;
+    padding: 1px 0;
     border-bottom: 1px solid #eee;
   }
   .article-item:last-child { border-bottom: none; }
@@ -14587,10 +14628,10 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
   .article-qty-badge {
     background: #111;
     color: #fff;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 800;
-    min-width: 20px;
-    height: 20px;
+    min-width: 17px;
+    height: 17px;
     border-radius: 3px;
     display: flex;
     align-items: center;
@@ -14601,14 +14642,14 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
   .article-details { flex: 1; }
 
   .article-name {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     color: #111;
-    line-height: 1.3;
+    line-height: 1.15;
   }
 
   .article-total {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
     color: #111;
     white-space: nowrap;
@@ -14644,59 +14685,59 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
 
   /* ══ TOTAUX ══ */
   .totaux-section {
-    padding: 2px 8px 0;
+    padding: 1px 8px 0;
     border-top: 1px dashed #ddd;
   }
   .subtotal-row {
     display: flex;
     justify-content: space-between;
-    font-size: 10px;
+    font-size: 9px;
     color: #666;
     padding: 0px 0;
   }
 
   /* ══ TOTAL FINAL ══ */
   .total-final {
-    margin: 3px 8px;
+    margin: 2px 8px;
     background: #111;
     color: #fff;
     border-radius: 6px;
-    padding: 5px 10px;
+    padding: 3px 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
   .total-final-label {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 1px;
     text-transform: uppercase;
   }
   .total-final-amount {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 900;
     color: #f5a623;
   }
 
   /* ══ PAIEMENT ══ */
   .pay-section {
-    margin: 0 8px 3px;
+    margin: 0 8px 2px;
     background: #f8f8f8;
     border-radius: 5px;
-    padding: 3px 8px;
+    padding: 2px 8px;
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-  .pay-label { font-size: 10px; color: #777; text-transform: uppercase; letter-spacing: 1px; }
-  .pay-value { font-size: 13px; font-weight: 800; color: #111; }
+  .pay-label { font-size: 9px; color: #777; text-transform: uppercase; letter-spacing: 1px; }
+  .pay-value { font-size: 12px; font-weight: 800; color: #111; }
 
   /* ══ TVA NOTE ══ */
   .tva-note {
     text-align: center;
-    font-size: 9px;
+    font-size: 8px;
     color: #999;
-    padding: 1px 8px;
+    padding: 0px 8px;
   }
 
   /* ══ WIFI ══ */
@@ -14730,20 +14771,20 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
   .footer-section {
     background: #f8f8f8;
     border-top: 2px solid #f5a623;
-    padding: 3px 8px 4px;
+    padding: 2px 8px 3px;
     text-align: center;
   }
   .footer-msg {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     color: #111;
-    line-height: 1.2;
-    margin-bottom: 1px;
+    line-height: 1.1;
+    margin-bottom: 0px;
   }
   .footer-meta {
-    font-size: 9px;
+    font-size: 8px;
     color: #888;
-    line-height: 1.2;
+    line-height: 1.1;
   }
   .footer-ninea {
     display: inline-block;
@@ -14799,7 +14840,7 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
       padding: 0 !important;
       overflow: visible !important;
       height: auto !important;
-      font-size: 12px !important;
+      font-size: 11px !important;
     }
     .no-print { display: none !important; }
     .page-cut {
@@ -14812,25 +14853,25 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
       background: #fff !important;
       color: #000 !important;
       border-bottom: 2px solid #000 !important;
-      padding: 2px 6px 2px !important;
+      padding: 1px 6px 1px !important;
     }
     .header-logo {
       color: #000 !important;
-      font-size: 14px !important;
+      font-size: 13px !important;
       font-weight: 900 !important;
       letter-spacing: 1px !important;
     }
     .header-tagline {
       color: #000 !important;
-      font-size: 8px !important;
+      font-size: 7px !important;
     }
     .header-addr {
       color: #000 !important;
-      font-size: 9px !important;
+      font-size: 8px !important;
     }
     .header-tel {
       color: #000 !important;
-      font-size: 10px !important;
+      font-size: 9px !important;
       font-weight: 900 !important;
     }
     .header-logo img {
@@ -14839,15 +14880,15 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
     .ticket-band {
       background: #000 !important;
       color: #fff !important;
-      padding: 2px 0 !important;
+      padding: 1px 0 !important;
     }
     .ticket-band-label {
       color: #fff !important;
-      font-size: 8px !important;
+      font-size: 7px !important;
     }
     .ticket-band-num {
       color: #fff !important;
-      font-size: 16px !important;
+      font-size: 14px !important;
       font-weight: 900 !important;
     }
     .meta-block {
@@ -14855,87 +14896,87 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
       border-bottom: 1px dashed #000 !important;
     }
     .meta-row {
-      font-size: 11px !important;
+      font-size: 10px !important;
       color: #000 !important;
     }
     .meta-row .lbl { color: #000 !important; font-weight: 600 !important; }
     .meta-row .val { color: #000 !important; font-weight: 900 !important; }
-    .articles-section { padding: 2px 8px !important; }
+    .articles-section { padding: 1px 8px !important; }
     .articles-title {
       color: #000 !important;
-      font-size: 10px !important;
+      font-size: 9px !important;
       font-weight: 900 !important;
       border-bottom: 2px solid #000 !important;
     }
     .article-name {
-      font-size: 13px !important;
+      font-size: 11px !important;
       font-weight: 900 !important;
       color: #000 !important;
     }
     .article-qty-badge {
       background: #000 !important;
       color: #fff !important;
-      font-size: 11px !important;
+      font-size: 10px !important;
       font-weight: 900 !important;
-      min-width: 18px !important;
-      height: 18px !important;
+      min-width: 16px !important;
+      height: 16px !important;
     }
     .article-total {
-      font-size: 13px !important;
+      font-size: 11px !important;
       font-weight: 900 !important;
       color: #000 !important;
     }
     .article-unit-price {
-      font-size: 10px !important;
+      font-size: 9px !important;
       color: #000 !important;
     }
     .article-item {
       border-bottom: 1px dashed #000 !important;
-      padding: 2px 0 !important;
+      padding: 1px 0 !important;
     }
     .totaux-section {
       border-top: 2px solid #000 !important;
     }
     .subtotal-row {
-      font-size: 11px !important;
+      font-size: 10px !important;
       color: #000 !important;
     }
     .total-final {
       background: #000 !important;
       color: #fff !important;
       border-radius: 0 !important;
-      margin: 2px 0 !important;
-      padding: 4px 8px !important;
+      margin: 1px 0 !important;
+      padding: 3px 8px !important;
     }
     .total-final-label {
       color: #fff !important;
-      font-size: 12px !important;
+      font-size: 11px !important;
       font-weight: 900 !important;
     }
     .total-final-amount {
       color: #fff !important;
-      font-size: 16px !important;
+      font-size: 14px !important;
       font-weight: 900 !important;
     }
     .pay-section {
       background: #fff !important;
       border: 1px solid #000 !important;
       border-radius: 0 !important;
-      margin: 2px 0 !important;
+      margin: 1px 0 !important;
     }
     .pay-label {
       color: #000 !important;
-      font-size: 9px !important;
+      font-size: 8px !important;
       font-weight: 700 !important;
     }
     .pay-value {
       color: #000 !important;
-      font-size: 12px !important;
+      font-size: 11px !important;
       font-weight: 900 !important;
     }
     .tva-note {
       color: #000 !important;
-      font-size: 10px !important;
+      font-size: 9px !important;
     }
     .footer-section {
       background: #fff !important;
@@ -14943,12 +14984,12 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
     }
     .footer-msg {
       color: #000 !important;
-      font-size: 10px !important;
+      font-size: 9px !important;
       font-weight: 700 !important;
     }
     .footer-meta {
       color: #000 !important;
-      font-size: 8px !important;
+      font-size: 7px !important;
     }
     .footer-ninea {
       background: #000 !important;
@@ -15492,7 +15533,18 @@ function switchSessionTab(tab, el) {
 }
 
 function renderSessionModal() {
-  const sessions = USERS.filter(u => u.status === 'actif' && (u.role === 'caissier' || u.role === 'superviseur'));
+  // ✅ FIX : n'afficher que les caissiers dont la caisse est RÉELLEMENT ouverte
+  // (ou en pause) en ce moment, d'après le statut réel dans CAISSES — pas tous
+  // les comptes caissiers configurés dans le système. Avant, ouvrir UNE SEULE
+  // caisse (ex: Caisse 1) affichait quand même TOUS les caissiers (2,3,4,5,6…)
+  // comme "En ligne", alors que personne d'autre n'avait ouvert sa caisse.
+  const _caissesOuvertes = new Set(CAISSES.filter(c => c.status === 'open' || c.status === 'paused').map(c => c.name));
+  const sessions = USERS.filter(u => {
+    if(u.status !== 'actif') return false;
+    if(u.role === 'superviseur') return true; // supervise plusieurs caisses, toujours visible
+    if(u.role !== 'caissier') return false;
+    return _caissesOuvertes.has(u.caisse);
+  });
   const now = new Date();
   // Sessions actives
   document.getElementById('session-actives-list').innerHTML = sessions.map(u => `
@@ -15504,7 +15556,11 @@ function renderSessionModal() {
       </div>
       <div class="session-status" style="color:${currentUser && currentUser.id===u.id?'var(--green)':'var(--text2)'}">
         <div class="dot" style="background:${currentUser && currentUser.id===u.id?'var(--green)':'var(--text2)'}"></div>
-        ${currentUser && currentUser.id === u.id ? 'Actif' : 'En ligne'}
+        ${(function(){
+          if(currentUser && currentUser.id === u.id) return 'Actif';
+          const _c = CAISSES.find(c => c.name === u.caisse);
+          return (_c && _c.status === 'paused') ? '⏸️ En pause' : '🟢 Caisse ouverte';
+        })()}
       </div>
     </div>
   `).join('');
@@ -15797,13 +15853,19 @@ function renderOrders(status) {
         client: v.client && v.client !== 'undefined' ? v.client : 'Client',
         items: (v.items||[]).map(i => `${_safeIconText(i.icon)} ${i.name||i.nom||''} x${i.qty||1}`).join(', '),
         price: v.total, time: v.time, status: 'done',
+        // ✅ FIX TRI CHRONOLOGIQUE : combine date (YYYY-MM-DD) + heure (HH:MM) en une
+        // chaîne comparable directement (ex: "2026-09-04 20:13"). Nécessaire depuis
+        // que les numéros de ticket ont un préfixe par caisse (C1-005, C4-001...) :
+        // trier par id mélangeait l'ordre réel des ventes (C4 passait avant C1 même
+        // si la vente C1 était plus récente).
+        dateTime: (v.date || '') + ' ' + (v.time || ''),
         payLabel: v.payLabel,
         caisse: _nbCaisses > 1 ? caisseName : '',
         vente: v
       });
     });
   });
-  allOrders.sort((a, b) => (b.id||'').localeCompare(a.id||''));
+  allOrders.sort((a, b) => (b.dateTime||'').localeCompare(a.dateTime||''));
 
   // Mettre à jour les compteurs des tabs
   const _tabAll = document.getElementById('tab-all');
@@ -16236,6 +16298,24 @@ function renderFournisseurs() {
   const _hasPeriode = _fDu || _fAu;
   const _label = document.getElementById('fourn-periode-label');
   if(_label) _label.textContent = _hasPeriode ? `Totaux filtrés du ${_fDu||'…'} au ${_fAu||'…'}` : '';
+
+  // 💰 Total général — toutes commandes fournisseurs confondues sur la période choisie
+  const _globalEl = document.getElementById('fourn-total-global');
+  if(_globalEl) {
+    const _cmdsGlobal = COMMANDES_FOURNISSEURS.filter(c => {
+      if(_hasPeriode) {
+        const ts = _parseFournDate(c.dateCmd || c.dateLivraison || '');
+        if(ts < _duTs || ts > _auTs) return false;
+      }
+      return true;
+    });
+    const _nbGlobal = _cmdsGlobal.length;
+    const _totalGlobal = _cmdsGlobal.reduce((s,c) => s + (c.total||0), 0);
+    _globalEl.innerHTML = `
+      <div><div style="font-size:20px;font-weight:800;color:var(--text);">${_nbGlobal}</div><div style="font-size:11px;color:var(--text2);">Commandes ${_hasPeriode?'(période)':'(total)'}</div></div>
+      <div><div style="font-size:20px;font-weight:800;color:var(--accent);">${_totalGlobal.toLocaleString()} F</div><div style="font-size:11px;color:var(--text2);">Montant total tous fournisseurs ${_hasPeriode?'(période)':'(total)'}</div></div>
+    `;
+  }
 
   // Liste
   const grid = document.getElementById('fournisseurs-grid');
@@ -21659,13 +21739,22 @@ function kgSafePrintIframe(iframeId, _attempt) {
   }
 }
 
-function printRapportXCaisse(name) {
+async function printRapportXCaisse(name) {
+  try {
   // ✅ ISOLATION CAISSIER : un caissier ne peut imprimer que SA caisse assignée.
   const _pcIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
   const _pcUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
   if(!_pcIsManager && _pcUserCaisse && name !== _pcUserCaisse) {
     showNotif('⛔ Accès refusé : vous ne pouvez consulter que '+_pcUserCaisse);
     return;
+  }
+  // 🔒 FIX cohérence multi-navigateurs : si ce navigateur n'a localement aucune
+  // vente pour cette caisse, on retente un chargement direct depuis Supabase
+  // avant de conclure qu'il n'y a "aucune vente" — évite le cas où les ventes
+  // existent bien côté serveur (visibles sur un autre navigateur) mais n'ont
+  // pas encore été rechargées localement sur celui-ci.
+  if((VENTES_PAR_CAISSE[name] || []).length === 0 && typeof _loadVentesSupabase === 'function') {
+    try { await _loadVentesSupabase(name); } catch(_e) {}
   }
   const ventes = VENTES_PAR_CAISSE[name] || [];
   if(ventes.length === 0) { showNotif('Aucune vente pour '+name); return; }
@@ -21870,6 +21959,20 @@ function printRapportXCaisse(name) {
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
   document.getElementById('rapportx-single-frame').srcdoc = html;
+  } catch(_errRapportX) {
+    // 🔒 FIABILITÉ : avant, toute erreur ici laissait une fenêtre ouverte avec
+    // un aperçu totalement blanc, sans aucune indication du problème (bug
+    // signalé : "ça marche sur un autre navigateur mais pas sur celui-ci").
+    // On affiche maintenant un message clair au lieu d'un écran vide muet,
+    // et on log le détail pour pouvoir diagnostiquer précisément la cause.
+    console.error('[printRapportXCaisse] Erreur génération rapport pour ' + name + ' :', _errRapportX);
+    document.getElementById('kg-rapportx-overlay')?.remove();
+    if(typeof showNotif === 'function') {
+      showNotif('❌ Impossible d\'afficher le rapport (' + (_errRapportX?.message || 'erreur inconnue') + '). Essayez de rafraîchir la page (F5).');
+    } else {
+      alert('Impossible d\'afficher le rapport : ' + (_errRapportX?.message || 'erreur inconnue'));
+    }
+  }
 }
 
 // ===== IMPRESSION RAPPORT X — TOUTES CAISSES (ou sa caisse si Caissier) =====
@@ -23259,6 +23362,11 @@ async function doLogin() {
       console.warn('[login] pullAll échoué, retry dans 3s…', _e1);
       setTimeout(() => KGSync.pullAll().catch(e => console.warn('[login] pullAll retry:', e)), 3000);
     }
+    // ✅ FIX FIABILITÉ : si une donnée (facture, stock...) n'avait pas pu être envoyée
+    // lors d'une session précédente (coupure réseau juste avant fermeture), la renvoyer
+    // maintenant — sans ça elle restait invisible ailleurs tant qu'aucune nouvelle
+    // modification ne relançait un push pour cette même clé.
+    try { if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.retryFailedSyncs === 'function') KGSync.retryFailedSyncs(); } catch(_e1b) {}
 
     // ✅ FIX STOCK/FOURN VIDE : charger depuis cache localStorage IMMÉDIATEMENT
     // Sans attendre pullAll → affichage instantané dès la connexion
@@ -24225,8 +24333,9 @@ async function initDashboard() {
     try {
       const sb = KGSync.getClient();
       const rid = window._KG_RESTAURANT_ID;
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-      // ✅ FIX : récupérer la date de la dernière clôture pour ne pas recharger les ventes clôturées
+      // ✅ FIX : fenêtre élargie à 30 jours (une caisse oubliée non clôturée
+      // depuis plusieurs jours doit rester visible, pas juste 1 jour).
+      const yesterday = new Date(Date.now() - 30*86400000).toISOString().split('T')[0];
       let lastCloture = yesterday;
       try {
         const { data: cloData } = await sb.from('kg_sync')
@@ -24769,25 +24878,25 @@ function refreshDashboard() {
 
 // ===== CAISSES =====
 const CAISSES = [
-  { id:1, name:'Caisse 1', loc:'Salle principale', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#00c9b1' },
-  { id:2, name:'Caisse 2', loc:'Comptoir emporter', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#f5a623' },
-  { id:3, name:'Caisse 3', loc:'Commandes Clients (QR)', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#7c5cbf', mode:'commandes' },
-  { id:4, name:'Caisse 4', loc:'Terrasse / Bar', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#e84520' },
+  { id:1, name:'Caisse 1', loc:'Salle principale', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#00c9b1', waitingPaymentEnabled:true },
+  { id:2, name:'Caisse 2', loc:'Comptoir emporter', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#f5a623', waitingPaymentEnabled:true },
+  { id:3, name:'Caisse 3', loc:'Commandes Clients (QR)', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#7c5cbf', mode:'commandes', waitingPaymentEnabled:true },
+  { id:4, name:'Caisse 4', loc:'Terrasse / Bar', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#e84520', waitingPaymentEnabled:true },
   // ✅ FIX : Caisse 5-10 utilisent des IDs 11-16 pour ne pas entrer en conflit avec les modules
   // Piscine (id:5), Location (id:6), Manège (id:7), Sport (id:8) déjà existants
-  { id:11, name:'Caisse 5', loc:'Piscine', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#06b6d4' },
-  { id:12, name:'Caisse 6', loc:'Location', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#8b5cf6' },
-  { id:13, name:'Caisse 7', loc:'Manège', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#ec4899' },
-  { id:14, name:'Caisse 8', loc:'Salle de sport', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#10b981' },
-  { id:15, name:'Caisse 9', loc:'Caisse additionnelle', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#f97316' },
-  { id:16, name:'Caisse 10', loc:'Caisse additionnelle', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#6366f1' },
+  { id:11, name:'Caisse 5', loc:'Piscine', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#06b6d4', waitingPaymentEnabled:true },
+  { id:12, name:'Caisse 6', loc:'Location', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#8b5cf6', waitingPaymentEnabled:true },
+  { id:13, name:'Caisse 7', loc:'Manège', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#ec4899', waitingPaymentEnabled:true },
+  { id:14, name:'Caisse 8', loc:'Salle de sport', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#10b981', waitingPaymentEnabled:true },
+  { id:15, name:'Caisse 9', loc:'Caisse additionnelle', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#f97316', waitingPaymentEnabled:true },
+  { id:16, name:'Caisse 10', loc:'Caisse additionnelle', status:'closed', cashier:'—', since:'—', orders:0, ca:0, fonds:0, color:'#6366f1', waitingPaymentEnabled:true },
 
 ];
 const statusLabel = { open:'🟢 Ouverte', paused:'🟡 En pause', closed:'⚫ Fermée' };
 
 function saveCaisses() {
   try {
-    const config = CAISSES.map(c => ({ id: c.id, name: c.name, loc: c.loc, color: c.color, sbId: c.sbId }));
+    const config = CAISSES.map(c => ({ id: c.id, name: c.name, loc: c.loc, color: c.color, sbId: c.sbId, waitingPaymentEnabled: c.waitingPaymentEnabled }));
     localStorage.setItem('kg-caisses-config', JSON.stringify(config));
   } catch(e) {}
 }
@@ -24803,6 +24912,8 @@ function loadCaisses() {
           if(s.loc)   c.loc   = s.loc;
           if(s.color) c.color = s.color;
           if(s.sbId)  c.sbId  = s.sbId;
+          // ✅ Autoriser/bloquer "Mettre en attente de paiement" par caisse
+          c.waitingPaymentEnabled = (s.waitingPaymentEnabled !== undefined) ? s.waitingPaymentEnabled : true;
         }
       });
     }
@@ -25239,6 +25350,8 @@ function openEditCaisse(id) {
   document.getElementById('edit-caisse-loc').value = c.loc;
   _editCaisseColor = c.color || '#00c9b1';
   document.getElementById('edit-caisse-color').value = _editCaisseColor;
+  const _attenteEl = document.getElementById('edit-caisse-attente');
+  if(_attenteEl) _attenteEl.checked = (c.waitingPaymentEnabled !== false);
   // Marquer la couleur active
   document.querySelectorAll('#edit-caisse-colors div').forEach(el => {
     el.style.border = el.style.background === _editCaisseColor ? '3px solid white' : '3px solid transparent';
@@ -25269,6 +25382,7 @@ async function saveEditCaisse() {
   c.name  = nom;
   c.loc   = loc;
   c.color = col;
+  c.waitingPaymentEnabled = document.getElementById('edit-caisse-attente')?.checked !== false;
   // Mettre à jour les ventes si le nom a changé
   if(oldName !== nom && VENTES_PAR_CAISSE[oldName]) {
     VENTES_PAR_CAISSE[nom] = VENTES_PAR_CAISSE[oldName];
@@ -27809,6 +27923,65 @@ const KGSync = (() => {
   function enc(obj) { return JSON.stringify(obj); }
   function dec(str) { try { return JSON.parse(str); } catch(e) { return null; } }
 
+  // 🔒 SÉCURITÉ/FIABILITÉ : adaptateur de stockage résilient pour le client
+  // Supabase Auth. Le localStorage a un quota limité (~5-10 Mo) ; une fois
+  // rempli par les caches de l'app (kg_val_*, historiques...), même écrire
+  // le petit jeton de connexion (sb-...-auth-token) échouait et bloquait
+  // TOUTE connexion avec "exceeded the quota". On intercepte cette erreur :
+  // on libère de la place en supprimant les plus grosses entrées de cache
+  // non-essentielles (facilement re-téléchargées depuis Supabase ensuite),
+  // puis on réessaie. En dernier recours, on garde le jeton en mémoire pour
+  // que la session en cours fonctionne quand même.
+  const _memoryFallback = {};
+  function _freeUpStorageSpace() {
+    try {
+      const entries = [];
+      for(let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if(!k) continue;
+        // On ne touche jamais aux jetons d'authentification ni aux
+        // identifiants de connexion Supabase.
+        if(k.startsWith('sb-') || k === 'kg-supabase') continue;
+        const v = localStorage.getItem(k) || '';
+        entries.push([k, v.length]);
+      }
+      // Les plus grosses entrées d'abord — typiquement les caches de
+      // données (kg_val_*, historiques, catalogues) plutôt que des petits
+      // réglages, qu'on préfère garder si possible.
+      entries.sort((a, b) => b[1] - a[1]);
+      let freed = 0;
+      for(const [k, size] of entries) {
+        localStorage.removeItem(k);
+        freed += size;
+        if(freed > 500000) break; // ~500 Ko libérés suffisent largement
+      }
+      console.warn('KGSync: quota localStorage dépassé — cache nettoyé (' + Math.round(freed/1024) + ' Ko libérés) pour permettre la connexion.');
+    } catch(e) {}
+  }
+  const _resilientStorage = {
+    getItem(key) {
+      try { const v = localStorage.getItem(key); return (v !== null) ? v : (_memoryFallback[key] || null); }
+      catch(e) { return _memoryFallback[key] || null; }
+    },
+    setItem(key, value) {
+      try { localStorage.setItem(key, value); delete _memoryFallback[key]; return; }
+      catch(e) {
+        // Quota dépassé (ou storage indisponible) : on libère de la place et on réessaie une fois.
+        _freeUpStorageSpace();
+        try { localStorage.setItem(key, value); delete _memoryFallback[key]; return; }
+        catch(e2) {
+          // Toujours impossible (mode navigation privée, storage désactivé...) :
+          // on garde en mémoire pour que la session fonctionne au moins le temps de l'onglet.
+          _memoryFallback[key] = value;
+        }
+      }
+    },
+    removeItem(key) {
+      try { localStorage.removeItem(key); } catch(e) {}
+      delete _memoryFallback[key];
+    }
+  };
+
   // ── Intercepteur global DataCloneError (Android WebView) ───────
   (function() {
     var _origOnError = window.onerror;
@@ -27846,7 +28019,7 @@ const KGSync = (() => {
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: false,
-          storage: window.localStorage
+          storage: _resilientStorage
         }
       });
       // Test de connexion via SELECT (évite le DataCloneError du upsert sur Android)
@@ -27937,7 +28110,8 @@ const KGSync = (() => {
     }, 800);
   }
 
-  async function upsert(key, data) {
+  async function upsert(key, data, _retryCount) {
+    _retryCount = _retryCount || 0;
     if(!client || !syncEnabled) return;
     try {
       await client.from(TABLE).upsert(
@@ -27946,7 +28120,67 @@ const KGSync = (() => {
       );
       // Signal broadcast léger après chaque upsert (pas de value dans le message)
       _broadcastSync(key);
-    } catch(e) { console.warn('KGSync upsert error:', key, e); }
+      // ✅ Succès — nettoyer une éventuelle trace d'échec précédent pour cette clé
+      try {
+        const _fk = 'kg-sync-save-failed';
+        const _failed = JSON.parse(_lsGet(_fk) || '{}');
+        if(_failed[key]) { delete _failed[key]; _lsSet(_fk, JSON.stringify(_failed)); }
+      } catch(_e0) {}
+    } catch(e) {
+      // ✅ FIX FIABILITÉ (ex: factures) : ne plus abandonner en silence après un seul
+      // échec réseau — réessayer automatiquement (même logique que pour les ventes),
+      // puis garder une trace locale + alerter visiblement en cas d'échec définitif,
+      // pour qu'une facture (ou toute autre donnée) créée sur l'appareil ne disparaisse
+      // jamais silencieusement faute d'avoir atteint Supabase.
+      console.warn('KGSync upsert error:', key, '(tentative ' + (_retryCount+1) + '/4):', e);
+      if(_retryCount < 3) {
+        setTimeout(() => upsert(key, data, _retryCount + 1), 1500 * (_retryCount + 1));
+      } else {
+        console.error('KGSync upsert ÉCHEC DÉFINITIF après 4 tentatives pour "' + key + '" — donnée à risque de perte réseau !');
+        try {
+          const _fk = 'kg-sync-save-failed';
+          const _failed = JSON.parse(_lsGet(_fk) || '{}');
+          _failed[key] = { ts: Date.now() };
+          _lsSet(_fk, JSON.stringify(_failed));
+        } catch(_e2) {}
+        if(typeof showNotif === 'function') {
+          const _labels = { factures_data: 'Factures', stock_data: 'Stock', clients_data: 'Clients', caisses_data: 'Caisses' };
+          showNotif('⚠️ ' + (_labels[key] || key) + ' : échec de sauvegarde réseau — sera renvoyé automatiquement à la reconnexion.');
+        }
+      }
+    }
+  }
+
+  // ✅ FIX FIABILITÉ : au retour de connexion (ou à la connexion initiale), renvoyer
+  // automatiquement toute donnée dont l'écriture avait définitivement échoué — en
+  // repartant des données ACTUELLES en mémoire (déjà rechargées depuis localStorage
+  // au démarrage), pas d'une copie figée au moment de l'échec.
+  function _retryFailedSyncs() {
+    let _failed = {};
+    try { _failed = JSON.parse(_lsGet('kg-sync-save-failed') || '{}'); } catch(e) { return; }
+    const _retryMap = {
+      factures_data: () => pushFactures(),
+      stock_data: () => pushStock(),
+      caisses_data: () => pushCaisses(),
+      clients_data: () => pushClients(),
+      commandes_fourn_data: () => pushCommandesFourn(),
+      menu_data: () => pushMenu(),
+      users_data: () => pushUsers(),
+      restaurant_info: () => pushRestaurantInfo(),
+      depenses_data: () => pushDepenses(),
+      journal_data: () => pushJournal(),
+      categories_data: () => pushCategories(),
+      stock_categories_data: () => pushStockCategories(),
+      rh_data: () => pushRH(),
+      inventaires_data: () => pushInventaires(),
+      tarifs_data: () => pushTarifs()
+    };
+    Object.keys(_failed).forEach(key => {
+      if(typeof _retryMap[key] === 'function') {
+        console.log('[KGSync] Retentative après reconnexion pour "' + key + '"…');
+        try { _retryMap[key](); } catch(e) {}
+      }
+    });
   }
 
   // ── Debounce global pour TOUS les push (anti-egress) ─────────
@@ -29775,6 +30009,7 @@ const KGSync = (() => {
     disconnect: () => { _stopRealtime(); syncEnabled = false; client = null; setStatus('disconnected'); },
     pullAll:    _pullAll,
     flushAllPending: _flushAllPending, // ✅ FIX MULTI-RESTAURANT : à appeler avant tout changement de compte/restaurant
+    retryFailedSyncs: _retryFailedSyncs, // ✅ FIX FIABILITÉ : renvoyer les données qui avaient définitivement échoué
     startRealtime: _startRealtime,
     _stopRealtime: _stopRealtime,
     _startRealtime: _startRealtime,
@@ -33100,6 +33335,9 @@ window.addEventListener('online',  () => {
     const _sinceLastPull = Date.now() - (window._lastPullAllTs || 0);
     if(_sinceLastPull > 120000) { KGSync.pullAll().then(checkOnlineStatus); }
     else { checkOnlineStatus(); }
+    // ✅ FIX FIABILITÉ : au retour en ligne, renvoyer toute donnée (factures, stock,
+    // clients...) dont l'écriture avait définitivement échoué pendant la coupure.
+    try { if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.retryFailedSyncs === 'function') KGSync.retryFailedSyncs(); } catch(e) {}
   }, 1500);
 });
 window.addEventListener('offline', () => checkOnlineStatus());
@@ -35022,10 +35260,10 @@ function deleteCat(id) {
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Nom de l'article</label>
-        <input class="form-input" id="emi-name" placeholder="Nom du plat">
+        <input class="form-input" id="emi-name" placeholder="Nom du produit">
       </div>
       <div class="form-group">
-        <label class="form-label">Photo du plat</label>
+        <label class="form-label">Photo du produit</label>
         <input type="hidden" id="emi-icon" value="🍽️">
         <div style="display:flex;align-items:center;gap:10px;">
           <div id="emi-img-preview-box" style="width:64px;height:64px;border-radius:10px;overflow:hidden;background:rgba(255,255,255,0.07);border:2px dashed rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:28px;">
@@ -35057,7 +35295,7 @@ function deleteCat(id) {
     </div>
     <div class="form-group">
       <label class="form-label">Description</label>
-      <input class="form-input" id="emi-desc" placeholder="Description courte du plat...">
+      <input class="form-input" id="emi-desc" placeholder="Description courte du produit...">
     </div>
     <div style="padding:10px 14px;background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.25);border-radius:8px;font-size:12px;color:var(--accent);margin-bottom:4px;" id="emi-ht-display">
       HT estimé : — (TVA 18% incluse dans le prix TTC)
@@ -35334,7 +35572,7 @@ function renderPrepRecettes() {
   if (list.length === 0) {
     el.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text2);">
       <div style="font-size:36px;margin-bottom:10px;">📋</div>
-      Aucune recette — cliquez sur <strong style="color:var(--accent);">+ Nouvelle recette</strong>
+      Aucune recette — cliquez sur <strong style="color:var(--accent);">+ Nouvelle composition</strong>
     </div>`;
     return;
   }
@@ -35719,7 +35957,7 @@ async function executeReset() {
   <div class="modal" style="width:480px;max-height:90vh;overflow-y:auto;">
     <div class="modal-title" id="editIngredient-title">&#127859; Ingr&eacute;dients — Pr&eacute;paration</div>
     <input type="hidden" id="editIngredient-itemId">
-    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">Le stock est d&eacute;duit automatiquement &agrave; chaque vente de ce plat.</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">Le stock est d&eacute;duit automatiquement &agrave; chaque vente de ce produit.</div>
     <div id="editIngredient-lines" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
     <button type="button" class="btn btn-ghost" style="width:100%;margin-bottom:14px;" onclick="addIngredientLine()">+ Ajouter un ingr&eacute;dient</button>
     <div class="modal-actions">
@@ -39395,7 +39633,7 @@ function ouvrirFormServeur(serveur = null) {
   document.getElementById('serveur-form-nom').value = serveur?.nom || '';
   document.getElementById('serveur-form-statut').value = serveur?.statut || 'actif';
   document.getElementById('serveur-form-id').value = serveur?.id || '';
-  title.textContent = serveur ? '✏️ Modifier le serveur' : '➕ Nouveau serveur';
+  title.textContent = serveur ? '✏️ Modifier l\'employé' : '➕ Nouvel employé';
   form.style.display = 'block';
   try { form.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch(e) {}
 }
@@ -44038,6 +44276,13 @@ async function _pullTicketsAttenteSupabase() {
 // ── Mettre le panier actuel en attente ──
 function mettreEnAttente() {
   if(!sessionCaisseActive) { showNotif('🔒 Ouvrez une caisse avant de mettre en attente !'); return; }
+  // 🔒 Restriction par caisse : le gérant choisit quelles caisses ont accès
+  // à "Mettre en attente de paiement" (modifiable via Gestion des Caisses → ✏️).
+  const _caisseActuelle = CAISSES.find(c => c.name === sessionCaisseActive.caisse);
+  if(_caisseActuelle && _caisseActuelle.waitingPaymentEnabled === false) {
+    showNotif('🚫 « Mettre en attente » n\'est pas autorisé sur ' + sessionCaisseActive.caisse);
+    return;
+  }
   if(typeof cart === 'undefined' || cart.length === 0) { showNotif('⚠️ Panier vide — rien à mettre en attente'); return; }
 
   // ✅ FIX SERVEUR AUTO : si l'utilisateur connecté est un serveur, bypass le modal
@@ -44818,7 +45063,7 @@ renderOrders = function(status) {
         <div class="badge" style="background:rgba(245,158,42,0.15);color:var(--accent);border:1px solid rgba(245,158,42,0.4);font-size:10px;white-space:nowrap;">⏳ En attente</div>
         <div style="display:flex;gap:5px;margin-left:6px;">
           <button onclick="imprimerTicketAttente('${t.id}')" title="Imprimer ticket d'attente" style="font-size:11px;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2);">🖨️</button>
-          ${(currentUser && currentUser.role==='administrateur') ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / supprimer des plats (admin uniquement)" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
+          ${(currentUser && currentUser.role==='administrateur') ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / supprimer des produits (admin uniquement)" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
           <button onclick="ouvrirPaiementAttente('${t.id}')" style="font-size:11px;padding:5px 10px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:6px;cursor:pointer;color:#fff;font-weight:700;">💳 Encaisser</button>
           ${(currentUser && (currentUser.role==='gerant'||currentUser.role==='superviseur'||currentUser.role==='administrateur')) ? `<button onclick="supprimerTicketAttente('${t.id}')" title="Supprimer" style="font-size:11px;padding:5px 8px;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);border-radius:6px;cursor:pointer;color:var(--red);">🗑</button>` : ''}
         </div>
@@ -44856,7 +45101,7 @@ renderOrders = function(status) {
           <div class="badge" style="background:rgba(245,158,42,0.15);color:var(--accent);border:1px solid rgba(245,158,42,0.4);font-size:10px;white-space:nowrap;">⏳ En attente</div>
           <div style="display:flex;gap:5px;margin-left:6px;">
             <button onclick="imprimerTicketAttente('${t.id}')" title="Imprimer" style="font-size:11px;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2);">🖨️</button>
-            ${(currentUser && currentUser.role==='administrateur') ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / supprimer des plats (admin uniquement)" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
+            ${(currentUser && currentUser.role==='administrateur') ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / supprimer des produits (admin uniquement)" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
             <button onclick="ouvrirPaiementAttente('${t.id}')" style="font-size:11px;padding:5px 10px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:6px;cursor:pointer;color:#fff;font-weight:700;">💳 Encaisser</button>
             ${(currentUser && (currentUser.role==='gerant'||currentUser.role==='superviseur'||currentUser.role==='administrateur')) ? `<button onclick="supprimerTicketAttente('${t.id}')" title="Supprimer" style="font-size:11px;padding:5px 8px;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);border-radius:6px;cursor:pointer;color:var(--red);">🗑</button>` : ''}
           </div>
@@ -44905,7 +45150,7 @@ function renderAttentePaiementModule() {
       <div class="badge" style="background:rgba(245,158,42,0.15);color:var(--accent);border:1px solid rgba(245,158,42,0.4);font-size:10px;white-space:nowrap;">⏳ En attente</div>
       <div style="display:flex;gap:5px;margin-left:6px;">
         <button onclick="imprimerTicketAttente('${t.id}')" title="Imprimer ticket d'attente" style="font-size:11px;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2);">🖨️</button>
-        ${(currentUser && currentUser.role==='administrateur') ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / supprimer des plats (admin uniquement)" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
+        ${(currentUser && currentUser.role==='administrateur') ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / supprimer des produits (admin uniquement)" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
         <button onclick="ouvrirPaiementAttente('${t.id}')" style="font-size:11px;padding:5px 10px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:6px;cursor:pointer;color:#fff;font-weight:700;">💳 Encaisser</button>
         ${(currentUser && (currentUser.role==='gerant'||currentUser.role==='superviseur'||currentUser.role==='administrateur')) ? `<button onclick="supprimerTicketAttente('${t.id}')" title="Supprimer" style="font-size:11px;padding:5px 8px;background:rgba(240,68,68,0.1);border:1px solid rgba(240,68,68,0.3);border-radius:6px;cursor:pointer;color:var(--red);">🗑</button>` : ''}
       </div>
@@ -45024,7 +45269,7 @@ function _cmRenderPlats() {
   const el = document.getElementById('cm-plats-liste');
   if(!el) return;
   el.innerHTML = _cmPlatsListe.length === 0
-    ? '<div style="font-size:12px;color:var(--text2);">Aucun plat ajouté pour l\'instant</div>'
+    ? '<div style="font-size:12px;color:var(--text2);">Aucun produit ajouté pour l\'instant</div>'
     : _cmPlatsListe.map(p => `
       <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;">
         <span style="flex:1;">${p.icon} ${p.nom}</span>
