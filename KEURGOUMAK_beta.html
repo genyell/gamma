@@ -5688,15 +5688,15 @@ function _syncSportVentes()       { return []; }
     <!-- CAISSE POS -->
     <div id="view-caisse" class="view fade-in" style="padding-bottom:100px;">
       <!-- Bandeau statut session -->
-      <div id="pos-session-bar" style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div id="pos-session-dot" class="dot" style="background:var(--text2);"></div>
+      <div id="pos-session-bar" style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 16px;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+          <div id="pos-session-dot" class="dot" style="background:var(--text2);flex-shrink:0;"></div>
           <span id="pos-session-label" style="font-size:13px;color:var(--text2);">Aucune session active — Ouvrez une caisse</span>
         </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-ghost" style="font-size:12px;padding:7px 14px;" onclick="openSessionModal()">👤 Session</button>
-          <button class="btn btn-primary" style="font-size:12px;padding:7px 14px;" onclick="openModalOuverture()">🟢 Ouvrir caisse</button>
-          <button class="btn btn-ghost" style="font-size:12px;padding:7px 14px;" onclick="openModalCommandeManuelle()">📝 Commande manuelle</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost" style="font-size:12px;padding:7px 14px;white-space:nowrap;" onclick="openSessionModal()">👤 Session</button>
+          <button class="btn btn-primary" style="font-size:12px;padding:7px 14px;white-space:nowrap;" onclick="openModalOuverture()">🟢 Ouvrir caisse</button>
+          <button class="btn btn-ghost" style="font-size:12px;padding:7px 14px;white-space:nowrap;" onclick="openModalCommandeManuelle()">📝 Commande manuelle</button>
         </div>
       </div>
       <div class="pos-layout">
@@ -14889,8 +14889,8 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
       font-size: 9px !important;
       font-weight: 900 !important;
     }
-    .header-logo img {
-      filter: grayscale(100%) contrast(200%) !important;
+    .ticket-logo-img {
+      filter: grayscale(100%) contrast(220%) brightness(1.05) !important;
     }
     .ticket-band {
       background: #000 !important;
@@ -15164,7 +15164,7 @@ ${isReprint ? `
 ` : ''}
 <!-- ══ EN-TÊTE ══ -->
 <div class="header">
-  ${(TICKET_CONFIG.showLogo && TICKET_CONFIG.logo) ? `<div style="margin-bottom:8px;"><img src="${window.safeUrl(TICKET_CONFIG.logo)}" style="max-width:100px;max-height:70px;object-fit:contain;border-radius:6px;"></div>` : ''}
+  ${(TICKET_CONFIG.showLogo && TICKET_CONFIG.logo) ? `<div style="margin-bottom:8px;"><img src="${window.safeUrl(TICKET_CONFIG.logo)}" class="ticket-logo-img" style="max-width:100px;max-height:70px;object-fit:contain;border-radius:6px;"></div>` : ''}
   <div class="header-logo">${restaurant}</div>
   <div class="header-tagline">${TICKET_CONFIG.headerMsg || 'Fast-Food & Restauration'}</div>
   <div class="header-addr">${window.escHtml(adresse)}</div>
@@ -17443,15 +17443,17 @@ function renderStockCatManager() {
     return;
   }
   el.innerHTML = cats.map((c, idx) => `
-    <div style="display:flex;align-items:center;gap:16px;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-left:4px solid ${c.color||'#888'};border-radius:var(--radius-sm);margin-bottom:8px;">
-      <span style="font-size:22px;">${c.label.split(' ')[0]}</span>
-      <div style="flex:1;">
+    <div style="display:flex;align-items:center;gap:16px;padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-left:4px solid ${c.color||'#888'};border-radius:var(--radius-sm);margin-bottom:8px;flex-wrap:wrap;">
+      <span style="font-size:22px;flex-shrink:0;">${c.label.split(' ')[0]}</span>
+      <div style="flex:1;min-width:140px;">
         <div style="font-weight:700;font-size:14px;">${window.escHtml(c.label)}</div>
         <div style="font-size:11px;color:var(--text2);">ID: ${c.id} · ${STOCK_DATA.filter(s => s.stockCatId === c.id).length} article(s)</div>
       </div>
-      <div style="width:22px;height:22px;border-radius:50%;background:${c.color||'#888'};border:2px solid rgba(255,255,255,0.2);"></div>
-      <button onclick="renameStockCat('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:5px 12px;cursor:pointer;font-size:12px;">✏️ Renommer</button>
-      <button onclick="deleteStockCat('${c.id}')" style="background:none;border:1px solid var(--red);border-radius:6px;color:var(--red);padding:5px 12px;cursor:pointer;font-size:12px;">🗑️ Supprimer</button>
+      <div style="width:22px;height:22px;border-radius:50%;background:${c.color||'#888'};border:2px solid rgba(255,255,255,0.2);flex-shrink:0;"></div>
+      <div style="display:flex;gap:8px;flex-shrink:0;margin-left:auto;">
+        <button onclick="renameStockCat('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap;">✏️ Renommer</button>
+        <button onclick="deleteStockCat('${c.id}')" style="background:none;border:1px solid var(--red);border-radius:6px;color:var(--red);padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap;">🗑️ Supprimer</button>
+      </div>
     </div>
   `).join('');
 }
@@ -17514,13 +17516,13 @@ function renderStockAlertes(alertes) {
   el.innerHTML = alertes.map(s => {
     const sIdx = STOCK_DATA.indexOf(s);
     const status = getStockStatus(s);
-    return `<div style="display:flex;align-items:center;gap:16px;padding:14px 16px;background:var(--surface2);border:1px solid ${colors[status]}44;border-left:3px solid ${colors[status]};border-radius:var(--radius-sm);margin-bottom:8px;">
-      <span style="font-size:28px;">${s.icon||'📦'}</span>
-      <div style="flex:1;">
+    return `<div style="display:flex;align-items:center;gap:16px;padding:14px 16px;background:var(--surface2);border:1px solid ${colors[status]}44;border-left:3px solid ${colors[status]};border-radius:var(--radius-sm);margin-bottom:8px;flex-wrap:wrap;">
+      <span style="font-size:28px;flex-shrink:0;">${s.icon||'📦'}</span>
+      <div style="flex:1;min-width:140px;">
         <div style="font-weight:700;font-size:14px;">${window.escHtml(s.name)}</div>
         <div style="font-size:12px;color:var(--text2);">Stock: <strong style="color:${colors[status]}">${s.qty} ${window.escHtml(s.unit)}</strong> / Seuil: ${s.seuil} ${window.escHtml(s.unit)}</div>
       </div>
-      <button class="btn btn-primary" style="font-size:12px;padding:7px 14px;" onclick="quickEntreeStock(${sIdx})">📥 Réapprovisionner</button>
+      <button class="btn btn-primary" style="font-size:12px;padding:7px 14px;flex-shrink:0;white-space:nowrap;" onclick="quickEntreeStock(${sIdx})">📥 Réapprovisionner</button>
     </div>`;
   }).join('');
 }
@@ -19994,6 +19996,17 @@ function renderClients() {
   if(typeof _reconcileClientStatsFromRdvOnce === 'function') _reconcileClientStatsFromRdvOnce();
   const grid = document.getElementById('clients-grid');
   if(!grid) return;
+  // 🔒 FIX FIABILITÉ : si la liste est vide (ex: juste après connexion, avant
+  // la fin de la synchro), retenter une fois un chargement direct depuis
+  // Supabase avant de conclure "aucun client" — au lieu d'afficher un écran
+  // vide silencieux alors que les clients existent bien côté serveur.
+  if(CLIENTS.length === 0 && !renderClients._retried && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    renderClients._retried = true;
+    KGSync.pullAll().then(() => {
+      renderClients._retried = false;
+      if(document.getElementById('clients-grid')) renderClients();
+    }).catch(() => { renderClients._retried = false; });
+  }
   let filtered = CLIENTS.filter(c => {
     const matchSearch = clientSearch ? (
       `${c.prenom} ${c.nom} ${c.tel}`.toLowerCase().includes(clientSearch.toLowerCase())
@@ -22413,7 +22426,7 @@ function printRapportX() {
   </table>
   <div class="section-title">Détail par caisse</div>
   <table><thead><tr><th>Caisse</th><th>Tickets</th><th>CA TTC</th><th>Espèces</th><th>Wave</th><th>Orange</th><th>Carte</th><th>Dépenses</th><th>Solde Net</th></tr></thead>
-  <tbody>${window.escHtml(caisseRows)}</tbody></table>
+  <tbody>${caisseRows}</tbody></table>
   <div class="section-title">Top produits</div>
   <table><thead><tr><th>Rang</th><th>Produit</th><th>Qté</th><th>CA</th></tr></thead>
   <tbody>${topRows}</tbody></table>
@@ -27950,13 +27963,20 @@ const KGSync = (() => {
   const _memoryFallback = {};
   function _freeUpStorageSpace() {
     try {
+      // 🔒 FIX : ces clés contiennent l'état essentiel de l'app (dont la liste
+      // des clients) et ne doivent JAMAIS être sacrifiées pour faire de la
+      // place — même si ce sont les plus grosses entrées. Avant, ce nettoyage
+      // supprimait "kg-session" en premier (car la plus volumineuse), ce qui
+      // faisait disparaître les clients/stock/etc. localement après une
+      // connexion tant que la resynchronisation Supabase n'était pas terminée.
+      const _protected = new Set(['kg-session', 'kg-caisses-config', 'kg-restaurant-info', 'kg-modules-active', 'kg-order-counters']);
       const entries = [];
       for(let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if(!k) continue;
-        // On ne touche jamais aux jetons d'authentification ni aux
-        // identifiants de connexion Supabase.
-        if(k.startsWith('sb-') || k === 'kg-supabase') continue;
+        // On ne touche jamais aux jetons d'authentification, aux identifiants
+        // Supabase, ni aux clés protégées ci-dessus.
+        if(k.startsWith('sb-') || k === 'kg-supabase' || _protected.has(k)) continue;
         const v = localStorage.getItem(k) || '';
         entries.push([k, v.length]);
       }
@@ -31418,23 +31438,23 @@ function renderEmployes() {
       return c.employeId === e.id && now >= d1 && now <= d2;
     });
     return `
-    <div style="display:flex;align-items:center;gap:14px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+    <div style="display:flex;align-items:center;gap:14px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;transition:border-color 0.2s;flex-wrap:wrap;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
       <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">
         ${RH_POSTES[e.poste]?.split(' ')[0] || '👤'}
       </div>
-      <div style="flex:1;min-width:0;">
+      <div style="flex:1;min-width:160px;">
         <div style="font-weight:700;font-size:14px;">${window.escHtml(e.prenom)} ${window.escHtml(e.nom)}</div>
         <div style="font-size:12px;color:var(--text2);">${RH_POSTES[e.poste] || e.poste} &nbsp;·&nbsp; ${RH_CONTRATS[e.contrat] || e.contrat}</div>
         <div style="font-size:11px;color:var(--text2);margin-top:2px;">📞 ${e.tel || '—'} &nbsp;·&nbsp; Depuis ${e.dateEmbauche || e.date_embauche ? new Date(e.dateEmbauche || e.date_embauche).toLocaleDateString('fr-FR',{month:'short',year:'numeric'}) : '—'}</div>
       </div>
-      <div style="text-align:right;flex-shrink:0;">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--accent);">${e.salaire.toLocaleString()} F <span style="font-size:10px;font-weight:400;color:var(--text2);">net</span></div>
-        ${(e.transport||0) > 0 ? `<div style="font-size:10px;color:var(--teal);">🚌 Transport: ${(e.transport||0).toLocaleString()} F</div>` : ''}
-        <div style="font-size:10px;color:var(--text2);">${RH_MODES_PAIE[e.modePaie || e.mode_paie] || e.modePaie || e.mode_paie}</div>
-        ${avancesEmp > 0 ? `<div style="font-size:10px;color:var(--red);margin-top:2px;">💳 Avance: ${avancesEmp.toLocaleString()} F</div>` : ''}
-        ${congeActif ? `<div style="font-size:10px;color:var(--teal);margin-top:2px;">${RH_TYPE_CONGE[congeActif.type] || congeActif.type}</div>` : ''}
+      <div style="text-align:right;flex-shrink:0;min-width:110px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--accent);white-space:nowrap;">${e.salaire.toLocaleString()} F <span style="font-size:10px;font-weight:400;color:var(--text2);">net</span></div>
+        ${(e.transport||0) > 0 ? `<div style="font-size:10px;color:var(--teal);white-space:nowrap;">🚌 Transport: ${(e.transport||0).toLocaleString()} F</div>` : ''}
+        <div style="font-size:10px;color:var(--text2);white-space:nowrap;">${RH_MODES_PAIE[e.modePaie || e.mode_paie] || e.modePaie || e.mode_paie}</div>
+        ${avancesEmp > 0 ? `<div style="font-size:10px;color:var(--red);margin-top:2px;white-space:nowrap;">💳 Avance: ${avancesEmp.toLocaleString()} F</div>` : ''}
+        ${congeActif ? `<div style="font-size:10px;color:var(--teal);margin-top:2px;white-space:nowrap;">${RH_TYPE_CONGE[congeActif.type] || congeActif.type}</div>` : ''}
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;">
+      <div style="display:flex;gap:6px;flex-shrink:0;margin-left:auto;">
         <button class="ticket-btn" title="Modifier" onclick="openEditEmploye(${e.id})" style="padding:7px 10px;">✏️</button>
         <button class="ticket-btn" title="Fiche de paie" onclick="voirFichePaie(${e.id})" style="padding:7px 10px;">💰</button>
         <button class="caisse-btn danger" title="Désactiver" onclick="desactiverEmploye(${e.id})" style="padding:7px 10px;">🚫</button>
@@ -31472,28 +31492,28 @@ function renderSalaires() {
       ? ({ especes:'💵 Espèces', virement:'🏦 Virement', mobile:'📱 Mobile' }[paie.modePaiement] || paie.modePaiement)
       : '';
     return `
-    <div style="display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;">
-      <div style="flex:1;">
+    <div style="display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:140px;">
         <div style="font-weight:600;font-size:13px;">${window.escHtml(e.prenom)} ${window.escHtml(e.nom)}</div>
         <div style="font-size:11px;color:var(--text2);">${RH_POSTES[e.poste] || e.poste}</div>
         ${modePayeLabel ? `<div style="font-size:10px;color:var(--teal);margin-top:2px;">${window.escHtml(modePayeLabel)}</div>` : ''}
       </div>
-      <div style="text-align:center;min-width:100px;">
+      <div style="text-align:center;min-width:100px;flex-shrink:0;">
         <div style="font-size:11px;color:var(--text2);">Salaire net</div>
         <div style="font-family:'JetBrains Mono',monospace;font-size:13px;">${netAPayer.toLocaleString()} F</div>
         ${transport > 0 ? `<div style="font-size:10px;color:var(--teal);">+🚌 ${transport.toLocaleString()} F</div>` : ''}
       </div>
-      ${avancesEmp > 0 ? `<div style="text-align:center;min-width:90px;"><div style="font-size:11px;color:var(--red);">Avances</div><div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--red);">-${avancesEmp.toLocaleString()} F</div></div>` : ''}
-      <div style="text-align:center;min-width:110px;">
+      ${avancesEmp > 0 ? `<div style="text-align:center;min-width:90px;flex-shrink:0;"><div style="font-size:11px;color:var(--red);">Avances</div><div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--red);">-${avancesEmp.toLocaleString()} F</div></div>` : ''}
+      <div style="text-align:center;min-width:110px;flex-shrink:0;">
         <div style="font-size:11px;color:var(--text2);">Total versé</div>
         <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--accent);">${totalVerse.toLocaleString()} F</div>
       </div>
-      <div>
-        <span style="background:${statutColors[statut]}22;color:${statutColors[statut]};border:1px solid ${statutColors[statut]}44;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;">${window.escHtml(statutLabels[statut])}</span>
+      <div style="flex-shrink:0;">
+        <span style="background:${statutColors[statut]}22;color:${statutColors[statut]};border:1px solid ${statutColors[statut]}44;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;white-space:nowrap;">${window.escHtml(statutLabels[statut])}</span>
       </div>
-      <div style="display:flex;gap:6px;">
-        ${statut !== 'paye' ? `<button class="btn btn-primary" style="padding:6px 12px;font-size:11px;" onclick="marquerPaie(${e.id},'${moisVal}')">💰 Payer</button>` : ''}
-        <button class="ticket-btn" style="padding:6px 10px;" onclick="imprimerFichePaie(${e.id},'${moisVal}')">🖨️</button>
+      <div style="display:flex;gap:6px;flex-shrink:0;margin-left:auto;">
+        ${statut !== 'paye' ? `<button class="btn btn-primary" style="padding:6px 12px;font-size:11px;white-space:nowrap;" onclick="marquerPaie(${e.id},'${moisVal}')">💰 Payer</button>` : ''}
+        <button class="ticket-btn" style="padding:6px 10px;flex-shrink:0;" onclick="imprimerFichePaie(${e.id},'${moisVal}')">🖨️</button>
       </div>
     </div>`;
   }).join('');
@@ -32016,18 +32036,18 @@ function renderConges() {
     const statusColor = isActif ? 'var(--green)' : isPasse ? 'var(--text2)' : 'var(--accent)';
     const statusLabel = isActif ? '🟢 En cours' : isPasse ? '✅ Terminé' : '⏳ À venir';
     return `
-    <div style="display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;">
-      <div style="flex:1;">
+    <div style="display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:140px;">
         <div style="font-weight:600;font-size:13px;">${emp ? emp.prenom + ' ' + emp.nom : '—'}</div>
         <div style="font-size:12px;color:var(--text2);">${RH_TYPE_CONGE[c.type] || c.type}</div>
         ${c.notes ? `<div style="font-size:11px;color:var(--text2);font-style:italic;">${window.escHtml(c.notes)}</div>` : ''}
       </div>
-      <div style="text-align:center;">
-        <div style="font-size:11px;color:var(--text2);">${new Date(c.debut).toLocaleDateString('fr-FR')} → ${new Date(c.fin).toLocaleDateString('fr-FR')}</div>
+      <div style="text-align:center;flex-shrink:0;">
+        <div style="font-size:11px;color:var(--text2);white-space:nowrap;">${new Date(c.debut).toLocaleDateString('fr-FR')} → ${new Date(c.fin).toLocaleDateString('fr-FR')}</div>
         <div style="font-size:12px;font-weight:600;">${jours} jour${jours>1?'s':''}</div>
       </div>
-      <div><span style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;border-radius:20px;padding:3px 10px;font-size:11px;">${window.escHtml(statusLabel)}</span></div>
-      <button class="caisse-btn danger" onclick="supprimerConge(${c.id})" style="padding:6px 10px;">🗑</button>
+      <div style="flex-shrink:0;"><span style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;border-radius:20px;padding:3px 10px;font-size:11px;white-space:nowrap;">${window.escHtml(statusLabel)}</span></div>
+      <button class="caisse-btn danger" onclick="supprimerConge(${c.id})" style="padding:6px 10px;flex-shrink:0;margin-left:auto;">🗑</button>
     </div>`;
   }).join('');
 }
@@ -32044,19 +32064,19 @@ function renderAvances() {
   list.innerHTML = RH_AVANCES.slice().reverse().map(a => {
     const emp = RH_EMPLOYES.find(e => e.id === a.employeId);
     return `
-    <div style="display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;">
-      <div style="flex:1;">
+    <div style="display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:140px;">
         <div style="font-weight:600;font-size:13px;">${emp ? emp.prenom + ' ' + emp.nom : '—'}</div>
         <div style="font-size:12px;color:var(--text2);">${typeLabels[a.type] || a.type}${a.motif ? ' — ' + a.motif : ''}</div>
         <div style="font-size:11px;color:var(--text2);">${a.date ? new Date(a.date).toLocaleDateString('fr-FR') : '—'}</div>
       </div>
-      <div style="text-align:right;">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--red);">${a.montant.toLocaleString()} F</div>
-        <div style="font-size:11px;color:${a.rembourse ? 'var(--green)' : 'var(--accent)'};">${a.rembourse ? '✅ Remboursée' : '⏳ En cours'}</div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--red);white-space:nowrap;">${a.montant.toLocaleString()} F</div>
+        <div style="font-size:11px;color:${a.rembourse ? 'var(--green)' : 'var(--accent)'};white-space:nowrap;">${a.rembourse ? '✅ Remboursée' : '⏳ En cours'}</div>
       </div>
-      <div style="display:flex;gap:6px;">
-        ${!a.rembourse ? `<button class="btn btn-ghost" style="padding:6px 12px;font-size:11px;" onclick="marquerRembourse(${a.id})">✅ Remboursé</button>` : ''}
-        <button class="caisse-btn danger" onclick="supprimerAvance(${a.id})" style="padding:6px 10px;">🗑</button>
+      <div style="display:flex;gap:6px;flex-shrink:0;margin-left:auto;">
+        ${!a.rembourse ? `<button class="btn btn-ghost" style="padding:6px 12px;font-size:11px;white-space:nowrap;" onclick="marquerRembourse(${a.id})">✅ Remboursé</button>` : ''}
+        <button class="caisse-btn danger" onclick="supprimerAvance(${a.id})" style="padding:6px 10px;flex-shrink:0;">🗑</button>
       </div>
     </div>`;
   }).join('');
@@ -35041,18 +35061,18 @@ function renderCatManager() {
     const restrictLabel = restricted ? `🔒 ${c.caisses.join(', ')}` : '🌐 Toutes les caisses';
     const subcats = Array.isArray(c.subcategories) ? c.subcategories : [];
     const subcatsHtml = subcats.length ? subcats.map(sc => `
-        <div style="display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 6px 3px 10px;font-size:11px;">
+        <div style="display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 6px 3px 10px;font-size:11px;flex-wrap:nowrap;white-space:nowrap;">
           <span>${window.escHtml(sc.label)}</span>
-          <button onclick="renameSubCat('${c.id}','${sc.id}')" title="Renommer" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:11px;padding:2px;">✏️</button>
-          <button onclick="deleteSubCat('${c.id}','${sc.id}')" title="Supprimer" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px;padding:2px;">🗑️</button>
+          <button onclick="renameSubCat('${c.id}','${sc.id}')" title="Renommer" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:11px;padding:2px;flex-shrink:0;">✏️</button>
+          <button onclick="deleteSubCat('${c.id}','${sc.id}')" title="Supprimer" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px;padding:2px;flex-shrink:0;">🗑️</button>
         </div>
       `).join('') : `<span style="font-size:11px;color:var(--text2);">Aucune sous-catégorie</span>`;
     return `
     <div style="display:flex;flex-direction:column;gap:8px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span style="flex:1;font-size:14px;">${window.escHtml(c.label)}</span>
-        <button onclick="renameCat('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:4px 10px;cursor:pointer;font-size:12px;">✏️ Renommer</button>
-        <button onclick="deleteCat('${c.id}')" style="background:none;border:1px solid var(--red);border-radius:6px;color:var(--red);padding:4px 10px;cursor:pointer;font-size:12px;">🗑️ Supprimer</button>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="flex:1;font-size:14px;min-width:100px;">${window.escHtml(c.label)}</span>
+        <button onclick="renameCat('${c.id}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:4px 10px;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0;">✏️ Renommer</button>
+        <button onclick="deleteCat('${c.id}')" style="background:none;border:1px solid var(--red);border-radius:6px;color:var(--red);padding:4px 10px;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0;">🗑️ Supprimer</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span style="font-size:11px;color:${restricted?'var(--accent)':'var(--text2)'};">${window.escHtml(restrictLabel)}</span>
@@ -42536,10 +42556,10 @@ function renderSalleListe() {
         ${reste>0?`<div style="font-size:11px;color:var(--red);margin-top:1px;">Reste: ${reste.toLocaleString('fr-FR')} F</div>`:''}
         <div style="margin-top:6px;">${statutBadge(r.statut)}</div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        <button onclick="editSalleReservation('${r.id}')" class="btn btn-ghost" style="padding:6px 12px;font-size:12px;">✏️ Modifier</button>
-        <button onclick="openSalleContrat('${r.id}')" class="btn btn-ghost" style="padding:6px 12px;font-size:12px;color:var(--purple);border-color:var(--purple);">📄 Contrat</button>
-        <button onclick="deleteSalleReservation('${r.id}')" class="btn btn-ghost" style="padding:6px 12px;font-size:12px;color:var(--red);border-color:var(--red);">🗑️</button>
+      <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+        <button onclick="editSalleReservation('${r.id}')" class="btn btn-ghost" style="padding:6px 12px;font-size:12px;white-space:nowrap;">✏️ Modifier</button>
+        <button onclick="openSalleContrat('${r.id}')" class="btn btn-ghost" style="padding:6px 12px;font-size:12px;color:var(--purple);border-color:var(--purple);white-space:nowrap;">📄 Contrat</button>
+        <button onclick="deleteSalleReservation('${r.id}')" class="btn btn-ghost" style="padding:6px 12px;font-size:12px;color:var(--red);border-color:var(--red);white-space:nowrap;">🗑️</button>
       </div>
     </div>`;
   });
@@ -44717,10 +44737,10 @@ function imprimerTicketAttente(ticketId) {
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Commande ${ticket.id}</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#000; background:#fff; width:302px; margin:0 auto; line-height:1.5; overflow:visible; }
+  body { font-family:Arial,Helvetica,sans-serif; font-size:11px; color:#000; background:#fff; width:302px; margin:0 auto; line-height:1.2; overflow:visible; }
 
   /* ══ BANDEAU TOP — EN ATTENTE ══ */
-  .top-band { border:2px solid #000; margin:3px 6px 0; padding:3px 4px 2px; text-align:center; }
+  .top-band { border:2px solid #000; margin:2px 6px 0; padding:2px 4px 1px; text-align:center; }
   .top-band-title { font-size:13px; font-weight:900; letter-spacing:2px; text-transform:uppercase; }
   .top-band-sub   { font-size:8px; font-weight:700; letter-spacing:1px; margin-top:0px; }
 
@@ -44730,7 +44750,7 @@ function imprimerTicketAttente(ticketId) {
 
   /* ══ EN-TÊTE RESTAURANT ══ */
   .header { padding:3px 8px 2px; text-align:center; }
-  .header-logo-img { max-width:55px; max-height:38px; object-fit:contain; margin-bottom:2px; }
+  .header-logo-img { max-width:40px; max-height:28px; object-fit:contain; margin-bottom:1px; }
   .header-name { font-size:13px; font-weight:900; letter-spacing:1px; text-transform:uppercase; }
   .header-addr { font-size:9px; color:#444; line-height:1.15; }
   .header-tel  { font-size:9px; font-weight:700; margin-top:0px; }
@@ -44765,7 +44785,7 @@ function imprimerTicketAttente(ticketId) {
   .subtotal-row { display:flex; justify-content:space-between; font-size:10px; color:#444; padding:0px 0; }
 
   /* ══ MONTANT À PAYER — zone centrale claire ══ */
-  .montant-block { border:2px solid #000; margin:0 6px 3px; padding:4px 8px 3px; text-align:center; }
+  .montant-block { border:2px solid #000; margin:0 6px 2px; padding:3px 8px 2px; text-align:center; }
   .montant-label  { font-size:9px; font-weight:800; letter-spacing:2px; text-transform:uppercase; margin-bottom:1px; }
   .montant-amount { font-size:22px; font-weight:900; letter-spacing:1px; line-height:1.05; }
   .montant-fcfa   { font-size:11px; font-weight:700; }
@@ -44785,22 +44805,22 @@ function imprimerTicketAttente(ticketId) {
   .footer-ninea { display:inline-block; border:1px solid #000; font-size:9px; font-weight:700; padding:1px 5px; letter-spacing:1px; margin-top:1px; }
 
   /* ══ BANDEAU BAS ATTENTE ══ */
-  .bottom-band { border:2px solid #000; margin:0 6px 3px; padding:3px 4px; text-align:center; }
+  .bottom-band { border:2px solid #000; margin:0 6px 2px; padding:2px 4px; text-align:center; }
   .bottom-band-txt { font-size:11px; font-weight:900; letter-spacing:1px; text-transform:uppercase; }
 
   /* ══ TICKET CUISINE (2ème exemplaire) ══ */
   .page-cut { margin-top:0; padding-top:0; }
   .cuisine-ticket { width:100%; font-family:Arial,Helvetica,sans-serif; padding:3px 8px 6px; border-top:3px dashed #000; }
-  .cuisine-header { text-align:center; background:#000; color:#fff; padding:3px 6px; margin-bottom:3px; }
-  .cuisine-header-title { font-size:12px; font-weight:900; letter-spacing:1px; text-transform:uppercase; color:#fff; }
-  .cuisine-header-num { font-size:20px; font-weight:900; letter-spacing:2px; color:#fff; margin-top:0px; }
-  .cuisine-meta { font-size:11px; color:#000; font-weight:600; margin-bottom:3px; border-bottom:1px dashed #000; padding-bottom:2px; line-height:1.25; }
-  .cuisine-items-title { font-size:10px; font-weight:900; letter-spacing:1px; text-transform:uppercase; color:#000; margin-bottom:2px; border-bottom:2px solid #000; padding-bottom:1px; }
-  .cuisine-item { display:flex; align-items:center; gap:6px; padding:3px 0; border-bottom:1px dashed #000; font-size:13px; font-weight:700; }
+  .cuisine-header { text-align:center; background:#000; color:#fff; padding:2px 6px; margin-bottom:2px; }
+  .cuisine-header-title { font-size:11px; font-weight:900; letter-spacing:1px; text-transform:uppercase; color:#fff; }
+  .cuisine-header-num { font-size:17px; font-weight:900; letter-spacing:2px; color:#fff; margin-top:0px; }
+  .cuisine-meta { font-size:10px; color:#000; font-weight:600; margin-bottom:2px; border-bottom:1px dashed #000; padding-bottom:1px; line-height:1.15; }
+  .cuisine-items-title { font-size:9px; font-weight:900; letter-spacing:1px; text-transform:uppercase; color:#000; margin-bottom:1px; border-bottom:2px solid #000; padding-bottom:1px; }
+  .cuisine-item { display:flex; align-items:center; gap:6px; padding:2px 0; border-bottom:1px dashed #000; font-size:12px; font-weight:700; }
   .cuisine-item:last-child { border-bottom:none; }
-  .cuisine-item-price { font-size:12px; color:#000; white-space:nowrap; text-align:right; font-weight:900; }
-  .cuisine-total { margin-top:3px; padding:5px 8px; background:#000; color:#fff; display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:900; }
-  .cuisine-total-amount { color:#fff; font-size:15px; font-weight:900; }
+  .cuisine-item-price { font-size:11px; color:#000; white-space:nowrap; text-align:right; font-weight:900; }
+  .cuisine-total { margin-top:2px; padding:3px 8px; background:#000; color:#fff; display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:900; }
+  .cuisine-total-amount { color:#fff; font-size:14px; font-weight:900; }
 
   .no-print { padding:8px; display:flex; gap:8px; justify-content:center; background:#eee; border-bottom:1px solid #ccc; }
   .no-print button { padding:7px 18px; border:none; border-radius:6px; font-size:13px; font-weight:700; cursor:pointer; }
@@ -44814,6 +44834,13 @@ function imprimerTicketAttente(ticketId) {
     body { width:272px !important; margin:0 auto !important; font-size:11px !important; }
     .cmd-band { background:#000 !important; color:#fff !important; }
     .page-cut { page-break-before:always !important; break-before:always !important; display:block !important; }
+    /* ✅ FIX NETTETÉ LOGO THERMIQUE : sans ce filtre, un logo en couleur ou aux
+       bords adoucis ressort flou/délavé sur une imprimante thermique (qui
+       n'imprime qu'en points noirs). On force noir & blanc + fort contraste,
+       comme sur le ticket de vente principal. */
+    .header-logo-img {
+      filter: grayscale(100%) contrast(200%) !important;
+    }
   }
 </style></head><body>
 
@@ -44871,36 +44898,17 @@ function imprimerTicketAttente(ticketId) {
 
 ${(ticket.remiseMontant||0) > 0 ? `<div class="remise-row"><span>Remise ${ticket.remisePct}%</span><span>- ${ticket.remiseMontant.toLocaleString('fr-FR')} F</span></div>` : ''}
 
-<!-- SOUS-TOTAUX -->
-<div class="totaux-section">
-  <div class="subtotal-row"><span>HT ${(ticket.sub||0).toLocaleString('fr-FR')} F · TVA 18% ${(ticket.tva||0).toLocaleString('fr-FR')} F</span><span></span></div>
-</div>
-
 <!-- MONTANT À PAYER -->
 <div class="montant-block">
   <div class="montant-label">Montant a payer</div>
   <div class="montant-amount">${ticket.total.toLocaleString('fr-FR')} <span class="montant-fcfa">FCFA</span></div>
 </div>
 
-<!-- MODES DE PAIEMENT -->
-<div class="pay-section">
-  <div class="pay-title">Paiement accepte</div>
-  <div class="pay-list">Especes · Wave · Orange Money · Carte · Mixte</div>
-</div>
-
-${wifiSSID ? `<div class="wifi-section"><div class="wifi-title">WiFi : ${wifiSSID}</div><div>Mot de passe : ${wifiPwd}</div></div>` : ''}
-
-<!-- FOOTER -->
-<div class="footer-section">
-  <div class="footer-msg">${footerMsg.replace(/\n/g,'<br>')}</div>
-  ${ninea ? `<div class="footer-ninea">NINEA : ${ninea}</div>` : ''}
-</div>
-
 <!-- BANDEAU BAS -->
 <div class="bottom-band">
   <div class="bottom-band-txt">⏳ EN ATTENTE DE PAIEMENT</div>
 </div>
-<div style="height:8px;"></div>
+<div style="height:4px;"></div>
 
 <!-- ══ TICKET CUISINE (2ème exemplaire) ══ -->
 ${(function(){
@@ -45286,11 +45294,11 @@ function _cmRenderPlats() {
   el.innerHTML = _cmPlatsListe.length === 0
     ? '<div style="font-size:12px;color:var(--text2);">Aucun produit ajouté pour l\'instant</div>'
     : _cmPlatsListe.map(p => `
-      <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;">
-        <span style="flex:1;">${p.icon} ${window.escHtml(p.nom)}</span>
-        <span style="color:var(--text2);">${p.qty}× ${(p.prix||0).toLocaleString()} F</span>
-        <span style="font-weight:700;color:var(--green);min-width:70px;text-align:right;">${(p.qty*(p.prix||0)).toLocaleString()} F</span>
-        <button type="button" onclick="_cmRetirerPlat('${p.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;">✕</button>
+      <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;flex-wrap:wrap;">
+        <span style="flex:1;min-width:100px;">${p.icon} ${window.escHtml(p.nom)}</span>
+        <span style="color:var(--text2);flex-shrink:0;white-space:nowrap;">${p.qty}× ${(p.prix||0).toLocaleString()} F</span>
+        <span style="font-weight:700;color:var(--green);min-width:70px;text-align:right;flex-shrink:0;">${(p.qty*(p.prix||0)).toLocaleString()} F</span>
+        <button type="button" onclick="_cmRetirerPlat('${p.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;flex-shrink:0;">✕</button>
       </div>`).join('');
   const totalPlats = _cmPlatsListe.reduce((s,p)=>s+p.qty,0);
   const totalCA = _cmPlatsListe.reduce((s,p)=>s+p.qty*(p.prix||0),0);
