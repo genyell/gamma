@@ -7064,15 +7064,15 @@ function _syncSportVentes()       { return []; }
           <div style="display:flex;flex-direction:column;gap:16px;">
             <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--surface2);border-radius:8px;">
               <div><div style="font-size:14px;font-weight:600;">🖨️ Impression auto reçus</div><div style="font-size:12px;color:var(--text2)">Imprimer après chaque commande</div></div>
-              <div style="width:44px;height:24px;background:var(--accent);border-radius:12px;cursor:pointer;position:relative;"><div style="position:absolute;right:2px;top:2px;width:20px;height:20px;background:white;border-radius:50%;"></div></div>
+              <div id="toggle-impression_auto_recus" onclick="toggleSystemSetting('impression_auto_recus')" style="width:44px;height:24px;border-radius:12px;cursor:pointer;position:relative;transition:background .2s;"><div style="position:absolute;top:2px;width:20px;height:20px;background:white;border-radius:50%;transition:left .2s;"></div></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--surface2);border-radius:8px;">
               <div><div style="font-size:14px;font-weight:600;">🔔 Alertes stock bas</div><div style="font-size:12px;color:var(--text2)">Notification SMS au gérant</div></div>
-              <div style="width:44px;height:24px;background:var(--accent);border-radius:12px;cursor:pointer;position:relative;"><div style="position:absolute;right:2px;top:2px;width:20px;height:20px;background:white;border-radius:50%;"></div></div>
+              <div id="toggle-alertes_stock_bas" onclick="toggleSystemSetting('alertes_stock_bas')" style="width:44px;height:24px;border-radius:12px;cursor:pointer;position:relative;transition:background .2s;"><div style="position:absolute;top:2px;width:20px;height:20px;background:white;border-radius:50%;transition:left .2s;"></div></div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--surface2);border-radius:8px;">
               <div><div style="font-size:14px;font-weight:600;">📊 Rapport quotidien</div><div style="font-size:12px;color:var(--text2)">Envoyer par email chaque soir</div></div>
-              <div style="width:44px;height:24px;background:var(--border);border-radius:12px;cursor:pointer;position:relative;"><div style="position:absolute;left:2px;top:2px;width:20px;height:20px;background:var(--text2);border-radius:50%;"></div></div>
+              <div id="toggle-rapport_quotidien" onclick="toggleSystemSetting('rapport_quotidien')" style="width:44px;height:24px;border-radius:12px;cursor:pointer;position:relative;transition:background .2s;"><div style="position:absolute;top:2px;width:20px;height:20px;background:white;border-radius:50%;transition:left .2s;"></div></div>
             </div>
           </div>
         </div>
@@ -9949,7 +9949,12 @@ Revenez nous voir bient&#244;t.</textarea>
     </div>
     <div class="form-group">
       <label class="form-label">Client (optionnel)</label>
-      <input class="form-input" id="ticket-client" placeholder="Nom du client ou numéro de table...">
+      <div style="position:relative;">
+        <input class="form-input" id="ticket-client" placeholder="Nom du client, numéro de table, ou rechercher un client enregistré..."
+          oninput="posFilterClients(this.value)" onfocus="posShowClientDropdown()" autocomplete="off">
+        <input type="hidden" id="ticket-client-id" value="">
+        <div id="ticket-client-dropdown" style="display:none;position:fixed;z-index:99999;background:#1e1e2e;border:2px solid var(--primary);border-radius:10px;max-height:220px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.8);"></div>
+      </div>
     </div>
     <div class="form-group">
       <!-- ✅ FIX : préciser sur place / à emporter pour le bon de cuisine -->
@@ -10134,6 +10139,33 @@ Revenez nous voir bient&#244;t.</textarea>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('addClient')">Annuler</button>
       <button class="btn btn-primary" onclick="saveClient()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL DÉPÔT SOLDE CLIENT (porte-monnaie prépayé)                  -->
+<!-- ================================================================ -->
+<div class="modal-overlay" id="modal-depotClient">
+  <div class="modal" style="width:440px;">
+    <div class="modal-title">💰 Déposer de l'argent</div>
+    <input type="hidden" id="depot-client-idx" value="">
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+      <div style="font-size:12px;color:var(--text2);">Client</div>
+      <div style="font-weight:700;font-size:15px;" id="depot-client-nom">—</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:6px;">Solde actuel</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;color:var(--green);" id="depot-client-solde-actuel">0 F</div>
+      <div id="depot-client-dette" style="display:none;font-size:11px;color:var(--red);font-weight:600;margin-top:6px;"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Montant déposé (FCFA)</label>
+      <input class="form-input" type="number" id="depot-montant" min="0" placeholder="Ex: 50000" style="font-family:'JetBrains Mono',monospace;font-size:16px;">
+    </div>
+    <div class="form-group"><label class="form-label">Note (optionnel)</label><input class="form-input" id="depot-note" placeholder="Ex: Dépôt en espèces au comptoir"></div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">💡 Ce montant sera automatiquement déduit lors des prochaines factures de ce client (mode de paiement "💰 Solde client").</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('depotClient')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveDepotClient()">💾 Enregistrer le dépôt</button>
     </div>
   </div>
 </div>
@@ -11267,7 +11299,7 @@ function openAddFacture(type) {
   document.getElementById('fact-notes').value = '';
   // ✅ v36 : Réinitialiser acompte
   const acompteEl = document.getElementById('fact-acompte');
-  if(acompteEl) acompteEl.value = '';
+  if(acompteEl) { acompteEl.value = ''; acompteEl.readOnly = false; acompteEl.style.opacity = ''; delete acompteEl.dataset.autoFilled; }
   // ✅ Réinitialiser remise
   const remiseEl = document.getElementById('fact-remise');
   if(remiseEl) remiseEl.value = '';
@@ -11299,6 +11331,7 @@ function onFactTypeChange() {
 function onFactClientChange() {
   const val = document.getElementById('fact-client-select').value;
   document.getElementById('fact-client-libre').style.display = val === '__new__' ? 'block' : 'none';
+  const soldeInfo = document.getElementById('fact-client-solde-info');
   if(val && val !== '__new__') {
     const client = CLIENTS.find(c => String(c.id) === val);
     if(client) {
@@ -11306,8 +11339,74 @@ function onFactClientChange() {
       document.getElementById('fact-client-tel').value    = client.tel || '';
       document.getElementById('fact-client-email').value  = client.email || '';
       document.getElementById('fact-client-adresse').value= client.adresse || '';
+      if(soldeInfo) {
+        soldeInfo.style.display = 'block';
+        soldeInfo.textContent = `💰 Solde prépayé disponible : ${(client.solde||0).toLocaleString()} F`;
+      }
+    }
+  } else if(soldeInfo) {
+    soldeInfo.style.display = 'none';
+  }
+  onFactPayMethodChange();
+}
+
+// ✅ NOUVEAU : quand "Solde client" est choisi comme mode de paiement, prévenir
+// si le solde est insuffisant par rapport au total de la facture
+function onFactPayMethodChange() {
+  const warnId = 'fact-solde-warning';
+  document.getElementById(warnId)?.remove();
+  const payMethod = document.getElementById('fact-pay-method')?.value;
+  const isClient = document.getElementById('fact-type-client')?.checked;
+  const acompteEl = document.getElementById('fact-acompte');
+
+  if(payMethod !== 'solde_client' || !isClient) {
+    // ✅ On quitte le mode "Solde client" : redonner la main sur l'acompte manuel
+    if(acompteEl && acompteEl.dataset.autoFilled === '1') {
+      acompteEl.readOnly = false;
+      acompteEl.style.opacity = '';
+      acompteEl.value = '';
+      delete acompteEl.dataset.autoFilled;
+      calcFactAcompte();
+    }
+    return;
+  }
+
+  const val = document.getElementById('fact-client-select')?.value;
+  const client = (val && val !== '__new__') ? CLIENTS.find(c => String(c.id) === val) : null;
+  const payEl = document.getElementById('fact-pay-method');
+  const warn = document.createElement('div');
+  warn.id = warnId;
+  warn.style.cssText = 'font-size:11px;margin-top:4px;font-weight:600;';
+
+  if(!client) {
+    warn.style.color = 'var(--red)';
+    warn.textContent = '⚠️ Sélectionnez un client enregistré pour payer avec son solde';
+  } else {
+    const ttcStr = document.getElementById('fact-calc-ttc')?.textContent.replace(/[^0-9]/g,'') || '0';
+    const ttc = parseInt(ttcStr) || 0;
+    const solde = client.solde || 0;
+    // ✅ Automatique : pas besoin de taper le montant à la main — on pré-remplit
+    // l'acompte avec ce qui sera réellement déduit du solde, et on verrouille le champ.
+    const aDeduire = Math.min(solde, ttc);
+    if(acompteEl) {
+      acompteEl.value = aDeduire || '';
+      acompteEl.readOnly = true;
+      acompteEl.style.opacity = '0.75';
+      acompteEl.dataset.autoFilled = '1';
+      calcFactAcompte();
+    }
+    if(solde <= 0) {
+      warn.style.color = 'var(--red)';
+      warn.textContent = `⚠️ ${client.prenom} ${client.nom} n'a aucun solde disponible — pensez à faire un dépôt d'abord`;
+    } else if(solde < ttc) {
+      warn.style.color = 'var(--accent)';
+      warn.textContent = `ℹ️ Solde insuffisant : ${solde.toLocaleString()} F disponibles sur ${ttc.toLocaleString()} F — ${solde.toLocaleString()} F seront déduits automatiquement, il restera ${(ttc-solde).toLocaleString()} F à payer`;
+    } else {
+      warn.style.color = 'var(--green)';
+      warn.textContent = `✅ Solde suffisant — ${ttc.toLocaleString()} F seront déduits automatiquement du compte de ${client.prenom} ${client.nom}, rien d'autre à payer`;
     }
   }
+  payEl.parentNode.appendChild(warn);
 }
 
 function onFactFournChange() {
@@ -11380,6 +11479,7 @@ function calcFactTotaux() {
   document.getElementById('fact-calc-ttc').textContent = ttc.toLocaleString() + ' FCFA';
   // ✅ v36 : Mettre à jour le solde restant si un acompte est déjà saisi
   if(document.getElementById('fact-acompte')) calcFactAcompte();
+  if(typeof onFactPayMethodChange === 'function') onFactPayMethodChange();
 }
 
 // ✅ v36 : Calcul solde restant en temps réel
@@ -11403,7 +11503,17 @@ function calcFactAcompte() {
 }
 
 // ---------- Sauvegarder ----------
+let _saveFactureInProgress = false; // ✅ FIX ANTI-DOUBLON : empêche les double-clics sur "Enregistrer"
 async function saveFacture(andPrint) {
+  // ✅ FIX CRITIQUE ANTI-DOUBLON : sans ce verrou, cliquer plusieurs fois sur
+  // "Enregistrer" (ou "Enregistrer & Imprimer") — par exemple parce que le
+  // premier clic semblait ne pas répondre — relançait TOUT le traitement à
+  // chaque fois : nouvelle déduction de solde, nouvelle créance générée,
+  // nouveau comptage de commande... alors qu'il s'agissait de la même facture.
+  // Résultat observé : une même facture générait 5, 8, 9 fois la même créance.
+  if(_saveFactureInProgress) { showNotif('⏳ Enregistrement en cours, patientez...'); return; }
+  _saveFactureInProgress = true;
+  try {
   const isClient = document.getElementById('fact-type-client').checked;
   const type     = isClient ? 'client' : 'fournisseur';
   const num      = (document.getElementById('fact-num').value||'').trim();
@@ -11418,10 +11528,12 @@ async function saveFacture(andPrint) {
 
   // Tiers
   let tiers = '', tiersEmail='', tiersTel='', tiersAdresse='';
+  let clientObjRef = null; // ✅ référence au client réel (pour déduction du solde prépayé)
   if(isClient) {
     const sel = document.getElementById('fact-client-select').value;
     if(sel && sel !== '__new__') {
       const c = CLIENTS.find(x => String(x.id)===sel);
+      clientObjRef = c || null;
       // ✅ FIX : la facture n'affichait que le nom, sans le prénom du client
       tiers = c ? `${c.prenom||''} ${c.nom||''}`.trim() : '';
       tiersEmail = c?.email||''; tiersTel = c?.tel||''; tiersAdresse = c?.adresse||'';
@@ -11462,16 +11574,89 @@ async function saveFacture(andPrint) {
   const tva = Math.round(ttc * tvaRate / (1 + tvaRate)); // TVA extraite, calculée sur le net
   const ht  = ttc - tva;
   // ✅ v36 : Acompte partiel
-  const acompteVal = parseFloat(document.getElementById('fact-acompte')?.value) || 0;
-  const acomptePaye = Math.min(acompteVal, ttc);
+  // ✅ FIX CRITIQUE : si le champ "Acompte versé" a été pré-rempli automatiquement
+  // par le mode "Solde client" (voir onFactPayMethodChange), il ne faut SURTOUT PAS
+  // le compter comme un acompte "déjà payé par un autre moyen" ici — sinon le calcul
+  // de déduction plus bas croit qu'il ne reste "rien à déduire" (puisque le champ
+  // affiche déjà le montant total) et saute complètement la vraie déduction du solde.
+  // On remet donc acompteVal à 0 dans ce cas précis ; c'est la logique de déduction
+  // ci-dessous qui va recalculer et reporter le bon montant dans acomptePaye.
+  const acompteFieldEl = document.getElementById('fact-acompte');
+  const acompteAutoParSolde = payMethod === 'solde_client' && acompteFieldEl?.dataset.autoFilled === '1';
+  const acompteVal = acompteAutoParSolde ? 0 : (parseFloat(acompteFieldEl?.value) || 0);
+  let acomptePaye = Math.min(acompteVal, ttc);
+  const editId = document.getElementById('fact-edit-id').value;
+
+  // ✅ NOUVEAU : Paiement par solde prépayé client — déduit automatiquement
+  // du compte du client à la CRÉATION de la facture (pas ré-appliqué si on
+  // modifie une facture existante, pour éviter une double déduction).
+  let soldeDeduit = 0;
+  if(!editId && isClient && payMethod === 'solde_client' && clientObjRef) {
+    const soldeDispo = clientObjRef.solde || 0;
+    const resteAvantSolde = Math.max(0, ttc - acomptePaye);
+    soldeDeduit = Math.min(soldeDispo, resteAvantSolde);
+    // ✅ NOUVEAU : ce qui dépasse le solde disponible devient une créance
+    // (le client nous doit ce montant) — enregistrée sur sa fiche, pas juste
+    // sur la facture, pour qu'on la voie tant qu'elle n'est pas remboursée.
+    const creanceGeneree = Math.max(0, resteAvantSolde - soldeDeduit);
+    if(soldeDeduit > 0 || creanceGeneree > 0) {
+      clientObjRef.solde = soldeDispo - soldeDeduit;
+      clientObjRef.historiqueSolde = clientObjRef.historiqueSolde || [];
+      if(soldeDeduit > 0) {
+        clientObjRef.historiqueSolde.push({ date: new Date().toISOString(), type:'facture', montant: -soldeDeduit, ref: num, note: `Déduit pour facture ${num}` });
+      }
+      if(creanceGeneree > 0) {
+        clientObjRef.soldeDu = (clientObjRef.soldeDu || 0) + creanceGeneree;
+        clientObjRef.historiqueSolde.push({ date: new Date().toISOString(), type:'creance', montant: -creanceGeneree, ref: num, note: `Reste à payer sur facture ${num}` });
+      }
+      acomptePaye += soldeDeduit;
+      // ✅ FIX CRITIQUE : une déduction de solde est une opération financière —
+      // elle ne doit JAMAIS attendre le délai différé normal de pushClients (8s).
+      // Si une synchronisation (pullAll) survient pendant ce délai (changement
+      // d'onglet, retour au premier plan...), elle re-télécharge l'ancienne
+      // valeur du serveur et écrase la déduction locale avant qu'elle soit
+      // envoyée — la facture apparaît "payée" mais le solde ne bouge jamais.
+      // On force donc l'envoi immédiat avec flushAllPending().
+      if(KGSync.isConnected) {
+        KGSync.push.client(clientObjRef);
+        if(typeof KGSync.flushAllPending === 'function') {
+          await KGSync.flushAllPending().catch(e => console.error('flush solde client:', e));
+        }
+      }
+      if(typeof renderClients === 'function' && document.getElementById('clients-grid')) renderClients();
+      if(creanceGeneree > 0) {
+        showNotif(`💰 ${soldeDeduit.toLocaleString()} F déduits du solde de ${clientObjRef.prenom} ${clientObjRef.nom} — ⚠️ il reste ${creanceGeneree.toLocaleString()} F à payer, ajoutés à sa créance (total dû : ${clientObjRef.soldeDu.toLocaleString()} F)`);
+      } else {
+        showNotif(`💰 ${soldeDeduit.toLocaleString()} F déduits du solde de ${clientObjRef.prenom} ${clientObjRef.nom} (nouveau solde : ${clientObjRef.solde.toLocaleString()} F)`);
+      }
+    } else {
+      showNotif(`⚠️ ${clientObjRef.prenom} ${clientObjRef.nom} n'a pas de solde disponible — rien n'a été déduit`);
+    }
+  }
+
   const soldeRestant = ttc - acomptePaye;
   // Statut auto selon acompte
   let statutFinal = document.getElementById('fact-statut').value;
   if(acomptePaye >= ttc) statutFinal = 'payee';
   else if(acomptePaye > 0 && acomptePaye < ttc) statutFinal = 'partiel';
 
-  const editId = document.getElementById('fact-edit-id').value;
-  const factObj = { id: editId || ('F' + Date.now()), num, type, tiers, tiersEmail, tiersTel, tiersAdresse, date, echeance, statut: statutFinal, payMethod, notes, lignes, sousTotal, remise, ht, tva, ttc, tvaRate, acompte: acomptePaye, soldeRestant };
+  const factObj = { id: editId || ('F' + Date.now()), num, type, tiers, tiersEmail, tiersTel, tiersAdresse, date, echeance, statut: statutFinal, payMethod, notes, lignes, sousTotal, remise, ht, tva, ttc, tvaRate, acompte: acomptePaye, soldeRestant, soldeClientDeduit: soldeDeduit || undefined, clientId: clientObjRef ? clientObjRef.id : undefined };
+
+  // ✅ NOUVEAU : mettre à jour les stats "Commandes" / "Total dépensé" de la
+  // fiche client. Avant, ces compteurs n'étaient reliés qu'au module Rendez-
+  // vous — une facture liée à un client enregistré ne les faisait jamais
+  // bouger, la fiche client restait figée à "0 commandes / 0 F dépensé"
+  // même après plusieurs factures payées.
+  if(!editId && isClient && clientObjRef) {
+    clientObjRef.nbCmds = (clientObjRef.nbCmds || 0) + 1;
+    clientObjRef.totalDepense = (clientObjRef.totalDepense || 0) + ttc;
+    clientObjRef.dernierAchat = date;
+    if(KGSync.isConnected) {
+      KGSync.push.client(clientObjRef);
+      if(typeof KGSync.flushAllPending === 'function') await KGSync.flushAllPending().catch(()=>{});
+    }
+    if(typeof renderClients === 'function' && document.getElementById('clients-grid')) renderClients();
+  }
 
   if(editId) {
     const idx = FACTURES.findIndex(f => f.id === editId);
@@ -11486,6 +11671,9 @@ async function saveFacture(andPrint) {
   closeModal('addFacture');
   renderFactures();
   if(andPrint) setTimeout(() => printFacture(factObj.id), 200);
+  } finally {
+    _saveFactureInProgress = false;
+  }
 }
 
 // ---------- Éditer ----------
@@ -13616,6 +13804,7 @@ function openConfirmTicket() {
   ['mixed-cash','mixed-wave','mixed-orange'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   const rv = document.getElementById('mixed-pay-reste-val'); if(rv) { rv.textContent = '— FCFA'; rv.style.color = 'var(--red)'; }
   document.getElementById('ticket-client').value = '';
+  if(document.getElementById('ticket-client-id')) document.getElementById('ticket-client-id').value = '';
   // ✅ FIX : réinitialiser le type de service à "Sur place" par défaut
   if(document.getElementById('ticket-type-service')) document.getElementById('ticket-type-service').value = 'sur_place';
   // ✅ FIX SERVEURS : remplir le select avec la liste des serveurs depuis kg_sync
@@ -13721,6 +13910,62 @@ function calcMixedPay() {
 }
 
 let _validateOrderInProgress = false;
+// ✅ NOUVEAU : recherche/suggestion de client enregistré sur le champ "Client" du ticket
+function posShowClientDropdown() {
+  const dd = document.getElementById('ticket-client-dropdown');
+  const inp = document.getElementById('ticket-client');
+  if(!dd || !inp) return;
+  const q = (inp.value||'').toLowerCase().trim();
+  const matches = (typeof CLIENTS !== 'undefined' ? CLIENTS : []).filter(c => {
+    if(!q) return true;
+    return `${c.prenom} ${c.nom} ${c.tel||''}`.toLowerCase().includes(q);
+  }).slice(0, 30);
+  if(matches.length === 0) { dd.style.display = 'none'; return; }
+  dd.innerHTML = matches.map(c => `<div onclick="posPickClient('${c.id}')" style="padding:12px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;color:#fff;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''">
+      <span style="color:#fff;">👤 <strong style="color:#fff;">${window.escHtml(c.prenom)} ${window.escHtml(c.nom)}</strong></span>
+      <span style="color:var(--text2);font-size:11px;">${window.escHtml(c.tel||'')}${(c.solde||0)>0 ? ' · 💰 '+(c.solde).toLocaleString()+' F' : ''}</span>
+    </div>`).join('');
+  const rect = inp.getBoundingClientRect();
+  dd.style.display = 'block';
+  dd.style.left = rect.left + 'px';
+  dd.style.width = rect.width + 'px';
+  const ddMaxHeight = 220;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  if(spaceBelow < ddMaxHeight && spaceAbove > spaceBelow) {
+    dd.style.top = 'auto';
+    dd.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    dd.style.maxHeight = Math.min(ddMaxHeight, spaceAbove - 8) + 'px';
+  } else {
+    dd.style.bottom = 'auto';
+    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.maxHeight = Math.min(ddMaxHeight, spaceBelow - 8) + 'px';
+  }
+}
+function posFilterClients(q) { posShowClientDropdown(); }
+function posPickClient(clientId) {
+  const c = (typeof CLIENTS !== 'undefined' ? CLIENTS : []).find(x => String(x.id) === String(clientId));
+  if(!c) return;
+  document.getElementById('ticket-client').value = `${c.prenom} ${c.nom}`.trim();
+  document.getElementById('ticket-client-id').value = c.id;
+  const telEl = document.getElementById('ticket-telephone');
+  if(telEl && c.tel) telEl.value = c.tel;
+  const dd = document.getElementById('ticket-client-dropdown');
+  if(dd) dd.style.display = 'none';
+}
+// Fermer/repositionner le dropdown client comme les autres dropdowns de recherche
+document.addEventListener('click', function(e) {
+  if(!e.target.closest('#ticket-client') && !e.target.closest('#ticket-client-dropdown')) {
+    const dd = document.getElementById('ticket-client-dropdown');
+    if(dd) dd.style.display = 'none';
+  }
+});
+document.addEventListener('scroll', function(e) {
+  if(e.target.closest && e.target.closest('#ticket-client-dropdown')) return;
+  const dd = document.getElementById('ticket-client-dropdown');
+  if(dd) dd.style.display = 'none';
+}, true);
+
 async function validateOrder() {
   if(_validateOrderInProgress) { showNotif('⏳ Validation en cours, patientez...'); return; }
   if(!sessionCaisseActive) { showNotif('🔒 Impossible de valider — Ouvrez une caisse !'); _highlightOpenBtn(); return; }
@@ -13819,6 +14064,25 @@ async function validateOrder() {
   };
   VENTES_PAR_CAISSE[caisse].push(venteSaved);
   _saveVenteSupabase(caisse, venteSaved); // ✅ Persistance immédiate Supabase
+
+  // ✅ NOUVEAU : mettre à jour les stats "Commandes" / "Total dépensé" de la
+  // fiche client si un client enregistré a été sélectionné sur le ticket
+  // (voir posPickClient) — avant, seul le module Rendez-vous mettait à jour
+  // ces compteurs ; un ticket de caisse lié à un client ne les changeait jamais.
+  const _ticketClientId = document.getElementById('ticket-client-id')?.value;
+  if(_ticketClientId) {
+    const _clientLie = CLIENTS.find(c => String(c.id) === _ticketClientId);
+    if(_clientLie) {
+      _clientLie.nbCmds = (_clientLie.nbCmds || 0) + 1;
+      _clientLie.totalDepense = (_clientLie.totalDepense || 0) + totalTTC;
+      _clientLie.dernierAchat = venteSaved.date;
+      if(KGSync.isConnected) {
+        KGSync.push.client(_clientLie);
+        if(typeof KGSync.flushAllPending === 'function') KGSync.flushAllPending().catch(()=>{});
+      }
+      if(typeof renderClients === 'function' && document.getElementById('clients-grid')) renderClients();
+    }
+  }
 
   // Deduire les ingredients du stock (recette)
   // ✅ FIX DÉFINITIF : charger les recettes depuis menu_items Supabase AVANT déduction (await)
@@ -14118,6 +14382,7 @@ function loadRestaurantSettings() {
   applyRestaurantSettingsToUI();
   // ✅ Appliquer les noms de menu personnalisés dès le chargement
   if(typeof loadNavLabelsConfig === 'function') loadNavLabelsConfig();
+  if(typeof loadSystemConfig === 'function') loadSystemConfig();
 }
 
 function applyRestaurantSettingsToUI() {
@@ -14290,6 +14555,73 @@ async function saveRestaurantSettings() {
 
   // Effacer le message après 4s
   setTimeout(() => { if(statusEl) { statusEl.textContent = ''; } }, 4000);
+}
+
+// ══════════════════════════════════════════════════════
+//  ⚙️ CONFIGURATION SYSTÈME (toggles réels)
+// ══════════════════════════════════════════════════════
+let SYSTEM_CONFIG = { impression_auto_recus: true, alertes_stock_bas: true, rapport_quotidien: false };
+
+function renderSystemConfigToggles() {
+  ['impression_auto_recus','alertes_stock_bas','rapport_quotidien'].forEach(key => {
+    const wrap = document.getElementById('toggle-' + key);
+    if(!wrap) return;
+    const dot = wrap.querySelector('div');
+    const on = !!SYSTEM_CONFIG[key];
+    wrap.style.background = on ? 'var(--accent)' : 'var(--border)';
+    if(dot) { dot.style.left = on ? '22px' : '2px'; dot.style.background = on ? 'white' : 'var(--text2)'; }
+  });
+}
+
+async function loadSystemConfig() {
+  try {
+    const saved = JSON.parse(_lsGet('kg-system-config') || 'null');
+    if(saved) SYSTEM_CONFIG = { ...SYSTEM_CONFIG, ...saved };
+  } catch(e) {}
+  // Si connecté, la valeur Supabase fait foi (source de vérité multi-appareils)
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    try {
+      const sb = KGSync.getClient();
+      const rid = window._KG_RESTAURANT_ID;
+      if(sb && rid) {
+        const { data, error } = await sb.from('restaurants').select('system_config').eq('id', rid).single();
+        if(!error && data && data.system_config) {
+          SYSTEM_CONFIG = { ...SYSTEM_CONFIG, ...data.system_config };
+          try { _lsSet('kg-system-config', JSON.stringify(SYSTEM_CONFIG)); } catch(e2) {}
+        }
+      }
+    } catch(e) {}
+  }
+  renderSystemConfigToggles();
+}
+
+async function toggleSystemSetting(key) {
+  SYSTEM_CONFIG[key] = !SYSTEM_CONFIG[key];
+  renderSystemConfigToggles();
+  try { _lsSet('kg-system-config', JSON.stringify(SYSTEM_CONFIG)); } catch(e) {}
+
+  const labels = { impression_auto_recus: 'Impression auto reçus', alertes_stock_bas: 'Alertes stock bas', rapport_quotidien: 'Rapport quotidien' };
+  const state = SYSTEM_CONFIG[key] ? 'activé' : 'désactivé';
+
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    const sb = KGSync.getClient();
+    const rid = window._KG_RESTAURANT_ID;
+    if(sb && rid) {
+      const { error } = await sb.from('restaurants').update({ system_config: SYSTEM_CONFIG }).eq('id', rid);
+      if(error) {
+        // Rollback visuel si l'écriture échoue
+        SYSTEM_CONFIG[key] = !SYSTEM_CONFIG[key];
+        renderSystemConfigToggles();
+        showNotif('❌ Erreur de sauvegarde, réessayez');
+        return;
+      }
+    }
+  }
+  showNotif(`✅ ${labels[key]} ${state}`);
+
+  if(key === 'rapport_quotidien' && SYSTEM_CONFIG[key] && !RESTAURANT_INFO.email) {
+    showNotif('⚠️ Ajoutez un email dans les paramètres pour recevoir le rapport');
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -16799,6 +17131,14 @@ function cfSaveNewArticle() {
 function addCFArticleLine() {
   cfArticleLines.push({ id: Date.now(), article:'', qty:1, unit:'kg', prix:0 });
   renderCFArticles();
+  // ✅ FIX : faire défiler automatiquement vers la nouvelle ligne + focus, pour ne pas avoir à descendre à la main
+  requestAnimationFrame(() => {
+    const newIdx = cfArticleLines.length - 1;
+    const newLineEl = document.querySelector(`#cf-articles-list [data-line="${newIdx}"]`);
+    if(newLineEl) newLineEl.scrollIntoView({ behavior:'smooth', block:'center' });
+    const newInput = document.getElementById('cf-search-' + newIdx);
+    if(newInput) newInput.focus();
+  });
 }
 
 function renderCFArticles() {
@@ -16872,12 +17212,24 @@ function cfShowDropdown(i) {
   const dd = document.getElementById('cf-dropdown-' + i);
   const inp = document.getElementById('cf-search-' + i);
   if(!dd || !inp) return;
-  // Positionner le dropdown sous l'input avec position fixed
+  // Positionner le dropdown avec position fixed — sous l'input, ou au-dessus si pas assez de place en bas
   const rect = inp.getBoundingClientRect();
   dd.style.display = 'block';
-  dd.style.top = (rect.bottom + 4) + 'px';
   dd.style.left = rect.left + 'px';
   dd.style.width = rect.width + 'px';
+  const ddMaxHeight = 220; // doit correspondre au max-height défini dans le style du dropdown
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  if(spaceBelow < ddMaxHeight && spaceAbove > spaceBelow) {
+    // Pas assez de place en dessous : on affiche au-dessus du champ
+    dd.style.top = 'auto';
+    dd.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    dd.style.maxHeight = Math.min(ddMaxHeight, spaceAbove - 8) + 'px';
+  } else {
+    dd.style.bottom = 'auto';
+    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.maxHeight = Math.min(ddMaxHeight, spaceBelow - 8) + 'px';
+  }
 }
 
 function cfFilterArticles(i, q) {
@@ -16898,6 +17250,11 @@ document.addEventListener('click', function(e) {
     document.querySelectorAll('[id^="cf-dropdown-"]').forEach(d => d.style.display = 'none');
   }
 });
+// ✅ FIX : fermer le dropdown si on scrolle le formulaire (sinon il resterait mal positionné, hors-écran)
+document.addEventListener('scroll', function(e) {
+  if(e.target.closest && e.target.closest('[id^="cf-dropdown-"]')) return; // scroll interne au dropdown : on laisse
+  document.querySelectorAll('[id^="cf-dropdown-"]').forEach(d => d.style.display = 'none');
+}, true);
 
 function cfSelectStockItem(i, stockId) {
   // ✅ Quand on choisit un produit stock, pré-remplir l'unité automatiquement
@@ -20038,11 +20395,20 @@ function renderClients() {
         <div class="fourn-stat"><div class="fourn-stat-val">${c.nbCmds||c.orders||0}</div><div class="fourn-stat-lbl">Commandes</div></div>
         <div class="fourn-stat"><div class="fourn-stat-val">${((c.totalDepense||c.total||0)/1000).toFixed(0)}k F</div><div class="fourn-stat-lbl">Total dépensé</div></div>
       </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:${(c.solde||0)>0?'rgba(46,204,113,0.1)':'var(--surface2)'};border:1px solid ${(c.solde||0)>0?'rgba(46,204,113,0.3)':'var(--border)'};border-radius:8px;padding:8px 12px;margin-bottom:8px;">
+        <span style="font-size:12px;color:var(--text2);">💰 Solde prépayé</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;color:${(c.solde||0)>0?'var(--green)':'var(--text2)'};">${(c.solde||0).toLocaleString()} F</span>
+      </div>
+      ${(c.soldeDu||0) > 0 ? `<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.35);border-radius:8px;padding:8px 12px;margin-bottom:12px;">
+        <span style="font-size:12px;color:var(--red);font-weight:600;">⚠️ Reste à payer (créance)</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;color:var(--red);">${(c.soldeDu).toLocaleString()} F</span>
+      </div>` : ''}
       <div style="font-size:11px;color:var(--text2);margin-bottom:12px;">
         📅 Dernier achat : ${escHtml(c.dernierAchat||c.last)||'—'} · 📍 ${escHtml(c.adresse)||'—'}
         ${c.notes ? `<br>📝 ${escHtml(c.notes)}` : ''}
       </div>
       <div style="display:flex;gap:8px;">
+        <button class="caisse-btn" style="flex:1;font-size:12px;color:var(--green);border-color:var(--green);" onclick="openDepotClient(${cIdx})">💰 Déposer</button>
         <button class="caisse-btn" style="flex:1;font-size:12px;" onclick="openEditClient(${cIdx})">✏️ Modifier</button>
         <button class="ticket-btn" style="font-size:12px;" onclick="printClientHistory(${cIdx})">🖨️</button>
         <button class="caisse-btn danger" onclick="deleteClient(${cIdx})" style="font-size:12px;">🗑</button>
@@ -20105,7 +20471,7 @@ function saveClient() {
     if(KGSync.isConnected) KGSync.push.client(CLIENTS[editIdx]).catch(()=>{});
     showNotif(`✅ Client ${prenom} ${nom} modifié`);
   } else {
-    const newC = { id: 'local_' + Date.now(), nbCmds:0, totalDepense:0, dernierAchat:'—', color: colors[CLIENTS.length % colors.length], ...data };
+    const newC = { id: 'local_' + Date.now(), nbCmds:0, totalDepense:0, dernierAchat:'—', color: colors[CLIENTS.length % colors.length], solde:0, soldeDu:0, historiqueSolde:[], ...data };
     CLIENTS.push(newC);
     if(KGSync.isConnected) KGSync.push.client(newC).catch(()=>{});
     showNotif(`✅ Client ${prenom} ${nom} ajouté`);
@@ -20130,10 +20496,189 @@ function deleteClient(cIdx) {
   showNotif(`🗑️ ${c.prenom} ${c.nom} supprimé`);
 }
 
+// ✅ NOUVEAU : Solde prépayé client — dépôt d'argent + historique
+function openDepotClient(cIdx) {
+  const c = CLIENTS[cIdx];
+  if(!c) return;
+  document.getElementById('depot-client-idx').value = cIdx;
+  document.getElementById('depot-client-nom').textContent = `${c.prenom} ${c.nom}`;
+  document.getElementById('depot-client-solde-actuel').textContent = (c.solde||0).toLocaleString() + ' F';
+  const detteEl = document.getElementById('depot-client-dette');
+  if(detteEl) {
+    if((c.soldeDu||0) > 0) {
+      detteEl.style.display = 'block';
+      detteEl.textContent = `⚠️ Créance en cours : ${c.soldeDu.toLocaleString()} F — ce dépôt la remboursera en priorité`;
+    } else {
+      detteEl.style.display = 'none';
+    }
+  }
+  document.getElementById('depot-montant').value = '';
+  document.getElementById('depot-note').value = '';
+  showModal('depotClient');
+}
+
+function saveDepotClient() {
+  const cIdx = parseInt(document.getElementById('depot-client-idx').value);
+  const c = CLIENTS[cIdx];
+  if(!c) return;
+  const montant = parseFloat(document.getElementById('depot-montant').value) || 0;
+  if(montant <= 0) { showNotif('⚠️ Montant du dépôt invalide'); return; }
+  const note = document.getElementById('depot-note').value.trim();
+  c.historiqueSolde = c.historiqueSolde || [];
+
+  // ✅ NOUVEAU : si le client a une créance (reste à payer), le dépôt
+  // rembourse d'abord cette dette avant d'aller sur le solde prépayé.
+  let montantRestant = montant;
+  const detteAvant = c.soldeDu || 0;
+  let remboursementDette = 0;
+  if(detteAvant > 0) {
+    remboursementDette = Math.min(detteAvant, montantRestant);
+    c.soldeDu = detteAvant - remboursementDette;
+    montantRestant -= remboursementDette;
+    c.historiqueSolde.push({ date: new Date().toISOString(), type:'remboursement_creance', montant: remboursementDette, note: `Remboursement créance — ${note || 'Dépôt'}` });
+  }
+  if(montantRestant > 0) {
+    c.solde = (c.solde||0) + montantRestant;
+    c.historiqueSolde.push({ date: new Date().toISOString(), type:'depot', montant: montantRestant, note: note || 'Dépôt' });
+  }
+
+  // ✅ FIX CRITIQUE : même correctif que pour la déduction — envoi immédiat,
+  // pas de délai différé, pour éviter qu'une synchro écrase le dépôt avant
+  // qu'il soit envoyé au serveur.
+  if(KGSync.isConnected) {
+    KGSync.push.client(c);
+    if(typeof KGSync.flushAllPending === 'function') {
+      KGSync.flushAllPending().catch(e => console.error('flush dépôt client:', e));
+    }
+  }
+  closeModal('depotClient');
+  renderClients();
+  if(remboursementDette > 0) {
+    showNotif(`✅ ${montant.toLocaleString()} F reçus de ${c.prenom} ${c.nom} — ${remboursementDette.toLocaleString()} F ont remboursé sa créance${montantRestant>0 ? ` et ${montantRestant.toLocaleString()} F ajoutés au solde` : ''} (créance restante : ${(c.soldeDu||0).toLocaleString()} F, solde : ${(c.solde||0).toLocaleString()} F)`);
+  } else {
+    showNotif(`✅ ${montant.toLocaleString()} F déposés sur le compte de ${c.prenom} ${c.nom} — nouveau solde : ${c.solde.toLocaleString()} F`);
+  }
+}
+
 function printClientHistory(cIdx) {
   const c = CLIENTS[cIdx];
   if(!c) return;
-  showNotif(`🖨️ Fiche client ${c.prenom} ${c.nom} imprimée`);
+
+  const _logo = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.showLogo && TICKET_CONFIG.logo)
+    ? TICKET_CONFIG.logo
+    : ((typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.loginLogo) ? RESTAURANT_INFO.loginLogo : null);
+  const _logoHtml = _logo ? `<img src="${window.safeUrl(_logo)}" style="max-width:70px;max-height:50px;object-fit:contain;border-radius:6px;vertical-align:middle;margin-right:12px;">` : '';
+  const _nom = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.nom) ? RESTAURANT_INFO.nom : 'KEURGOUMAK';
+  const _adr = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.adresse) ? RESTAURANT_INFO.adresse : 'Louga, Sénégal';
+  const _tel = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.tel) ? RESTAURANT_INFO.tel : '';
+
+  const solde = c.solde || 0;
+  const soldeDu = c.soldeDu || 0;
+  const historique = (c.historiqueSolde || []).slice().sort((a,b) => new Date(b.date) - new Date(a.date));
+  const facturesClient = (typeof FACTURES !== 'undefined' ? FACTURES : []).filter(f => f.clientId === c.id).sort((a,b) => new Date(b.date) - new Date(a.date));
+
+  const _histLabels = { depot:'💰 Dépôt', facture:'📄 Facture', creance:'⚠️ Créance générée', remboursement_creance:'✅ Remb. créance' };
+  const histRows = historique.length ? historique.map(h => `
+    <tr>
+      <td>${new Date(h.date).toLocaleDateString('fr-FR')} ${new Date(h.date).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${_histLabels[h.type] || h.type}${h.ref ? ' ' + h.ref : ''}</td>
+      <td>${window.escHtml(h.note||'')}</td>
+      <td style="text-align:right;font-weight:700;color:${h.montant >= 0 ? '#16a34a' : '#dc2626'};">${h.montant >= 0 ? '+' : ''}${h.montant.toLocaleString()} F</td>
+    </tr>`).join('') : `<tr><td colspan="4" style="text-align:center;color:#888;padding:14px;">Aucun mouvement enregistré</td></tr>`;
+
+  const factRows = facturesClient.length ? facturesClient.map(f => `
+    <tr>
+      <td>${f.num}</td>
+      <td>${new Date(f.date).toLocaleDateString('fr-FR')}</td>
+      <td>${f.statut === 'payee' ? '✅ Payée' : f.statut === 'partiel' ? '🔵 Acompte partiel' : f.statut === 'annulee' ? '🚫 Annulée' : '⏳ En attente'}</td>
+      <td style="text-align:right;font-weight:700;">${(f.ttc||0).toLocaleString()} F</td>
+    </tr>`).join('') : `<tr><td colspan="4" style="text-align:center;color:#888;padding:14px;">Aucune facture enregistrée</td></tr>`;
+
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html lang="fr"><head>
+<meta charset="UTF-8">
+<title>Fiche client — ${window.escHtml(c.prenom)} ${window.escHtml(c.nom)}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',Georgia,serif;font-size:10pt;color:#111;background:#fff;padding:16mm 18mm;max-width:210mm;margin:0 auto;line-height:1.6;}
+  .header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1a1a2e;padding-bottom:12px;margin-bottom:14px;}
+  .header-left{display:flex;align-items:center;gap:12px;}
+  .header-title{font-size:16pt;font-weight:900;color:#1a1a2e;}
+  .header-sub{font-size:8.5pt;color:#555;margin-top:3px;}
+  .header-right{text-align:right;font-size:8.5pt;color:#555;line-height:1.7;}
+  .doc-title{text-align:center;font-size:15pt;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;margin:16px 0 4px;color:#1a1a2e;}
+  .doc-ref{text-align:center;font-size:9pt;color:#555;margin-bottom:16px;}
+  .client-box{border:1.5px solid #ddd;border-radius:6px;padding:14px 16px;background:#fafafa;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;}
+  .client-box h2{font-size:13pt;font-weight:800;color:#1a1a2e;}
+  .client-box p{font-size:9pt;color:#555;margin-top:3px;}
+  .kpi-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px;}
+  .kpi-box{border:1.5px solid #ddd;border-radius:6px;padding:12px;text-align:center;background:#fafafa;}
+  .kpi-box.solde{background:${solde>0?'#e8f9ee':'#fafafa'};border-color:${solde>0?'#16a34a':'#ddd'};}
+  .kpi-val{font-size:15pt;font-weight:900;color:#1a1a2e;}
+  .kpi-box.solde .kpi-val{color:${solde>0?'#16a34a':'#111'};}
+  .kpi-lbl{font-size:7.5pt;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-top:3px;}
+  .section-title{font-size:10pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#1a1a2e;border-left:4px solid #f5a623;padding-left:10px;margin:16px 0 10px;}
+  table{width:100%;border-collapse:collapse;margin-bottom:10px;}
+  th{background:#1a1a2e;color:#fff;font-size:8.5pt;text-transform:uppercase;padding:8px 10px;text-align:left;}
+  th:last-child, td:last-child{text-align:right;}
+  td{padding:7px 10px;font-size:9pt;border-bottom:1px solid #eee;}
+  tr:nth-child(even){background:#fafafa;}
+  .footer-doc{text-align:center;font-size:7.5pt;color:#aaa;border-top:1px solid #ddd;margin-top:18px;padding-top:8px;}
+  @media print{
+    *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+    @page{size:A4;margin:10mm;}
+    body{padding:0;font-size:9.5pt;}
+    .no-print{display:none!important;}
+  }
+</style>
+</head><body>
+<div class="no-print" style="text-align:center;margin-bottom:14px;">
+  <button onclick="window.print()" style="padding:9px 24px;background:#1a1a2e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;margin-right:8px;">🖨️ Imprimer / PDF</button>
+  <button onclick="window.close()" style="padding:9px 18px;background:#888;color:#fff;border:none;border-radius:6px;cursor:pointer;">✕ Fermer</button>
+</div>
+
+<div class="header">
+  <div class="header-left">${_logoHtml}
+    <div><div class="header-title">${window.escHtml(_nom)}</div><div class="header-sub">${window.escHtml(_adr)}${_tel ? ' · ' + window.escHtml(_tel) : ''}</div></div>
+  </div>
+  <div class="header-right">Édité le ${new Date().toLocaleDateString('fr-FR')}<br>à ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+</div>
+
+<div class="doc-title">Fiche client</div>
+<div class="doc-ref">Relevé de compte</div>
+
+<div class="client-box">
+  <div>
+    <h2>${window.escHtml(c.prenom)} ${window.escHtml(c.nom)}</h2>
+    <p>📞 ${window.escHtml(c.tel||'—')} ${c.email ? ' · ✉️ ' + window.escHtml(c.email) : ''}</p>
+    ${c.adresse ? `<p>📍 ${window.escHtml(c.adresse)}</p>` : ''}
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-box"><div class="kpi-val">${c.nbCmds||0}</div><div class="kpi-lbl">Commandes effectuées</div></div>
+  <div class="kpi-box"><div class="kpi-val">${(c.totalDepense||0).toLocaleString()} F</div><div class="kpi-lbl">Total dépensé</div></div>
+  <div class="kpi-box solde"><div class="kpi-val">${solde.toLocaleString()} F</div><div class="kpi-lbl">💰 Solde prépayé disponible</div></div>
+</div>
+${soldeDu > 0 ? `<div class="kpi-box" style="background:#fdecea;border-color:#dc2626;margin-bottom:18px;"><div class="kpi-val" style="color:#dc2626;">⚠️ Reste à payer : ${soldeDu.toLocaleString()} F</div></div>` : ''}
+
+<div class="section-title">Historique du compte prépayé</div>
+<table>
+  <thead><tr><th>Date</th><th>Type</th><th>Note</th><th>Montant</th></tr></thead>
+  <tbody>${histRows}</tbody>
+</table>
+
+<div class="section-title">Factures</div>
+<table>
+  <thead><tr><th>N°</th><th>Date</th><th>Statut</th><th>Montant TTC</th></tr></thead>
+  <tbody>${factRows}</tbody>
+</table>
+
+<div class="footer-doc">${window.escHtml(_nom)} — Document généré automatiquement le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+
+</body></html>`);
+  w.document.close();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -27227,6 +27772,7 @@ function closeModal(id) {
 // Modals protégés : clic extérieur ne ferme PAS (formulaires importants)
 const _MODALS_PROTEGES = [
   'modal-commandeFournisseur',
+  'modal-depotClient',
   'modal-receptionCommande',
   'modal-addDepense',
   'modal-addUser',
@@ -28717,9 +29263,19 @@ const KGSync = (() => {
         const sk = _shortKey(r.key);
         const isStatic = _STATIC_KEYS.includes(sk);
         const cachedTs = _cache[r.key];
-        if(!cachedTs || cachedTs !== r.updated_at) {
+        // ✅ FIX CRITIQUE : seules les clés "statiques" ont une copie de secours
+        // en localStorage (kg_val_*). Pour toutes les autres (clients_data,
+        // ventes, tickets, etc.), on ne DOIT JAMAIS "sauter" le fetch sur la
+        // seule foi du cache de timestamp — sinon, sur une session fraîche
+        // (nouvel onglet, redémarrage navigateur) où la mémoire est vide mais
+        // que rien n'a changé côté serveur depuis la dernière visite, ces
+        // données disparaissent silencieusement (ex: clients enregistrés = 0)
+        // jusqu'à un vidage manuel du cache.
+        if(!isStatic) {
           _keysToFetch.push(r.key);
-        } else if(isStatic) {
+        } else if(!cachedTs || cachedTs !== r.updated_at) {
+          _keysToFetch.push(r.key);
+        } else {
           console.log('[cache] ✅ Clé inchangée, skip fetch:', sk);
         }
       });
@@ -36045,6 +36601,7 @@ async function executeReset() {
             <option value="">— Sélectionner un client —</option>
             <option value="__new__">+ Saisie libre</option>
           </select>
+          <div id="fact-client-solde-info" style="display:none;font-size:11px;color:var(--green);margin-top:4px;font-weight:600;"></div>
         </div>
         <div class="form-group">
           <label class="form-label">Date d'échéance</label>
@@ -36111,13 +36668,14 @@ async function executeReset() {
     <div class="form-row" style="margin-top:14px;">
       <div class="form-group">
         <label class="form-label">Mode de paiement</label>
-        <select class="form-input" id="fact-pay-method">
+        <select class="form-input" id="fact-pay-method" onchange="onFactPayMethodChange()">
           <option value="especes">💵 Espèces</option>
           <option value="wave">Wave</option>
           <option value="orange">Orange Money</option>
           <option value="virement">🏦 Virement bancaire</option>
           <option value="cheque">📝 Chèque</option>
           <option value="carte">💳 Carte bancaire</option>
+          <option value="solde_client">💰 Solde client (prépayé)</option>
         </select>
       </div>
       <div class="form-group">
@@ -44452,6 +45010,7 @@ async function _validerClientEtCreerTicket() {
   if(document.getElementById('remise-cmd-input')) document.getElementById('remise-cmd-input').value = '';
   renderCart();
   if(document.getElementById('ticket-client')) document.getElementById('ticket-client').value = '';
+  if(document.getElementById('ticket-client-id')) document.getElementById('ticket-client-id').value = '';
   if(document.getElementById('ticket-telephone')) document.getElementById('ticket-telephone').value = '';
 
   showNotif(`⏳ Ticket ${ticketId} mis en attente · 🖨️ Ticket imprimé`);
