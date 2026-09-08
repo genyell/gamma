@@ -1044,6 +1044,8 @@ if(typeof jsQR === 'undefined') {
   .main {
     margin-left: 224px;
     height: 100vh;
+    height: calc(var(--vh, 1vh) * 100); /* ✅ FIX SAFARI : secours pour anciens Safari sans support dvh */
+    height: 100dvh; /* ✅ FIX SAFARI : s'ajuste correctement à la barre d'adresse qui apparaît/disparaît au scroll (évite le clignotement/coupure de contenu que 100vh seul provoque sur Safari) */
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1243,7 +1245,7 @@ if(typeof jsQR === 'undefined') {
   }
 
   /* POS / CAISSE */
-  .pos-layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; height: calc(100vh - 120px); }
+  .pos-layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; height: calc(100vh - 120px); height: calc((var(--vh, 1vh) * 100) - 120px); height: calc(100dvh - 120px); }
   .pos-left { display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
   .pos-right {
     background: var(--surface);
@@ -6778,6 +6780,7 @@ function _syncSportVentes()       { return []; }
       <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
         <button class="cat-btn active" id="ftab-client-btn"   onclick="switchFactureTab('client',this)">🧾 Factures Clients</button>
         <button class="cat-btn"        id="ftab-fourn-btn"    onclick="switchFactureTab('fournisseur',this)">🏭 Factures Fournisseurs</button>
+        <button class="cat-btn"        id="ftab-devis-btn"    onclick="switchFactureTab('devis',this)">📋 Devis</button>
         <div style="margin-left:auto;display:flex;gap:8px;">
           <button class="btn btn-ghost" onclick="exportFacturesCSV()" style="font-size:12px;">📥 Export CSV</button>
           <button class="btn btn-primary" onclick="openAddFacture()">+ Nouvelle facture</button>
@@ -11189,7 +11192,7 @@ let factLigneCount = 0;
 
 // ---------- Utilitaires ----------
 function genFactNum(type) {
-  const prefix = type === 'client' ? 'FAC' : 'ACH';
+  const prefix = type === 'devis' ? 'DEV' : (type === 'client' ? 'FAC' : 'ACH');
   const y = new Date().getFullYear();
   const existing = FACTURES.filter(f => f.num && f.num.startsWith(prefix + '-' + y));
   const seq = String(existing.length + 1).padStart(3, '0');
@@ -11203,6 +11206,9 @@ function factStatutBadge(statut) {
     attente: { bg:'rgba(245,166,35,0.15)',   color:'var(--accent)',  label:'⏳ En attente' },
     retard:  { bg:'rgba(231,76,60,0.15)',    color:'var(--red)',     label:'❌ En retard' },
     annulee: { bg:'rgba(138,138,158,0.15)', color:'var(--text2)',   label:'🚫 Annulée' },
+    accepte: { bg:'rgba(46,204,113,0.15)',   color:'var(--green)',   label:'✅ Accepté' },
+    refuse:  { bg:'rgba(231,76,60,0.15)',    color:'var(--red)',     label:'❌ Refusé' },
+    converti:{ bg:'rgba(0,201,177,0.15)',    color:'var(--teal)',    label:'📄 Converti en facture' },
   };
   const s = map[statut] || map.attente;
   return `<span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${s.bg};color:${s.color};">${window.escHtml(s.label)}</span>`;
@@ -11258,24 +11264,30 @@ function renderFactures() {
     return;
   }
   const payLabels = { especes:'💵 Espèces', wave:'Wave', orange:'Orange Money', virement:'🏦 Virement', cheque:'📝 Chèque', carte:'💳 Carte' };
+  const typeLabels = { client: '🧾 Client', fournisseur: '🏭 Fourn.', devis: '📋 Devis' };
   tbody.innerHTML = list.slice().reverse().map(f => `
     <tr>
       <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);">${f.num}</td>
-      <td><span style="font-size:12px;">${f.type==='client'?'🧾 Client':'🏭 Fourn.'}</span></td>
+      <td><span style="font-size:12px;">${typeLabels[f.type] || f.type}</span></td>
       <td style="font-weight:600;">${f.tiers}</td>
       <td style="color:var(--text2);font-size:12px;">${f.date}</td>
       <td style="color:${f.echeance && f.echeance < new Date().toISOString().split('T')[0] && f.statut!=='payee' ? 'var(--red)' : 'var(--text2)'};font-size:12px;">${f.echeance||'—'}</td>
       <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;">${f.ht.toLocaleString()} F</td>
       <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;">${f.tva.toLocaleString()} F</td>
       <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--accent);">${f.ttc.toLocaleString()} F</td>
-      <td>${f.acompte > 0 && f.statut !== 'payee' ? `<span style="font-size:11px;color:var(--teal);font-family:'JetBrains Mono',monospace;">+${f.acompte.toLocaleString()} F<br><span style="color:var(--red);">Solde: ${(f.soldeRestant||0).toLocaleString()} F</span></span>` : '—'}</td>
+      <td>${f.type!=='devis' && f.acompte > 0 && f.statut !== 'payee' ? `<span style="font-size:11px;color:var(--teal);font-family:'JetBrains Mono',monospace;">+${f.acompte.toLocaleString()} F<br><span style="color:var(--red);">Solde: ${(f.soldeRestant||0).toLocaleString()} F</span></span>` : '—'}</td>
       <td>${factStatutBadge(f.statut)}</td>
       <td style="text-align:center;">
         <div style="display:flex;gap:4px;justify-content:center;flex-wrap:nowrap;">
           <button onclick="printFacture('${f.id}')" title="Imprimer" style="background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.3);color:var(--teal);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">🖨️</button>
           <button onclick="editFacture('${f.id}')" title="Modifier" style="background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);color:var(--accent);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">✏️</button>
-          ${f.statut === 'partiel' ? `<button onclick="completerPaiementFacture('${f.id}')" title="Compléter le solde" style="background:rgba(0,201,177,0.18);border:1px solid rgba(0,201,177,0.5);color:var(--teal);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">💳 Solde</button>` : `<button onclick="toggleFactStatut('${f.id}')" title="Marquer payée/attente" style="background:rgba(46,204,113,0.12);border:1px solid rgba(46,204,113,0.3);color:var(--green);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">${f.statut==='payee'?'↩':'✅'}</button>`}
-          <button onclick="deleteFacture('${f.id}')" title="Supprimer" style="background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.3);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">🗑</button>
+          ${f.type==='devis' ? `
+            ${f.statut!=='converti' ? `<button onclick="toggleDevisStatut('${f.id}')" title="Marquer accepté/refusé" style="background:rgba(46,204,113,0.12);border:1px solid rgba(46,204,113,0.3);color:var(--green);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">${f.statut==='accepte'?'✅':(f.statut==='refuse'?'❌':'⏳')}</button>
+            <button onclick="convertDevisToFacture('${f.id}')" title="Convertir en facture" style="background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.3);color:var(--teal);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">📄</button>` : ''}
+          ` : `
+            ${f.statut === 'partiel' ? `<button onclick="completerPaiementFacture('${f.id}')" title="Compléter le solde" style="background:rgba(0,201,177,0.18);border:1px solid rgba(0,201,177,0.5);color:var(--teal);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">💳 Solde</button>` : `<button onclick="toggleFactStatut('${f.id}')" title="Marquer payée/attente" style="background:rgba(46,204,113,0.12);border:1px solid rgba(46,204,113,0.3);color:var(--green);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">${f.statut==='payee'?'↩':'✅'}</button>`}
+          `}
+          ${(currentUser && currentUser.role === 'administrateur') ? `<button onclick="deleteFacture('${f.id}')" title="Supprimer" style="background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.3);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">🗑</button>` : ''}
         </div>
       </td>
     </tr>
@@ -11308,7 +11320,9 @@ function openAddFacture(type) {
   document.getElementById('fact-client-libre').style.display = 'none';
   document.getElementById('fact-fourn-libre').style.display = 'none';
   // Type radio
-  document.getElementById(t === 'client' ? 'fact-type-client' : 'fact-type-fourn').checked = true;
+  const _typeRadioId = t === 'devis' ? 'fact-type-devis' : (t === 'client' ? 'fact-type-client' : 'fact-type-fourn');
+  const _typeRadioEl = document.getElementById(_typeRadioId);
+  if(_typeRadioEl) _typeRadioEl.checked = true;
   onFactTypeChange();
   // Lignes
   document.getElementById('fact-lignes').innerHTML = '';
@@ -11322,10 +11336,30 @@ function openAddFacture(type) {
 
 function onFactTypeChange() {
   const isClient = document.getElementById('fact-type-client').checked;
-  document.getElementById('fact-client-fields').style.display = isClient ? 'block' : 'none';
-  document.getElementById('fact-fourn-fields').style.display  = isClient ? 'none'  : 'block';
+  const isDevis  = document.getElementById('fact-type-devis')?.checked;
+  // ✅ Un devis cible un client, donc on réutilise les champs "client" ; on
+  // masque juste tout ce qui concerne le paiement (un devis n'est pas payé).
+  document.getElementById('fact-client-fields').style.display = (isClient || isDevis) ? 'block' : 'none';
+  document.getElementById('fact-fourn-fields').style.display  = (isClient || isDevis) ? 'none'  : 'block';
   document.getElementById('fact-type-client-lbl').style.borderColor = isClient ? 'var(--accent)' : 'var(--border)';
-  document.getElementById('fact-type-fourn-lbl').style.borderColor  = isClient ? 'var(--border)' : 'var(--accent)';
+  document.getElementById('fact-type-fourn-lbl').style.borderColor  = (!isClient && !isDevis) ? 'var(--accent)' : 'var(--border)';
+  const devisLbl = document.getElementById('fact-type-devis-lbl');
+  if(devisLbl) devisLbl.style.borderColor = isDevis ? 'var(--accent)' : 'var(--border)';
+  const payRow = document.getElementById('fact-payment-row');
+  const acompteSection = document.getElementById('fact-acompte-section');
+  const devisNote = document.getElementById('fact-devis-note');
+  if(payRow) payRow.style.display = isDevis ? 'none' : 'flex';
+  if(acompteSection) acompteSection.style.display = isDevis ? 'none' : 'block';
+  if(devisNote) devisNote.style.display = isDevis ? 'block' : 'none';
+  const title = document.getElementById('fact-modal-title');
+  if(title) title.textContent = isDevis ? '📋 Nouveau Devis' : (isClient ? '🧾 Nouvelle Facture Client' : '🏭 Nouvelle Facture Fournisseur');
+  // ✅ Renuméroter automatiquement si on change de type sur une NOUVELLE facture
+  // (pas en édition, pour ne jamais changer le numéro d'un document existant)
+  const editId = document.getElementById('fact-edit-id')?.value;
+  const numEl = document.getElementById('fact-num');
+  if(!editId && numEl) numEl.value = genFactNum(isDevis ? 'devis' : (isClient ? 'client' : 'fournisseur'));
+  // ✅ Les cases "Déduire du stock" n'ont pas de sens sur un devis (rien n'est vendu)
+  Object.keys(window._factLigneRecettes||{}).forEach(lid => factRenderStockOption(lid));
 }
 
 function onFactClientChange() {
@@ -11433,25 +11467,134 @@ function populateFactSelects() {
 }
 
 // ---------- Lignes articles ----------
+// ✅ NOUVEAU : mémorise, pour chaque ligne de facture, le plat du Menu choisi et
+// sa recette (ingrédients liés) — utilisé à l'enregistrement si la case
+// "Déduire du stock" est cochée pour cette ligne.
+window._factLigneRecettes = window._factLigneRecettes || {};
+
 function addFactLigne(desc='', qty=1, pu=0) {
   factLigneCount++;
   const id = factLigneCount;
   const div = document.createElement('div');
   div.id = 'fact-ligne-'+id;
-  div.style.cssText = 'display:grid;grid-template-columns:3fr 1fr 1.5fr auto;gap:8px;align-items:center;';
   div.innerHTML = `
-    <input class="form-input" placeholder="Description (ex: Yassa Poulet x2)" value="${window.escHtml(desc)}" style="padding:8px 10px;font-size:13px;" oninput="calcFactTotaux()">
-    <input class="form-input" type="number" min="1" value="${qty}" placeholder="Qté" style="padding:8px 10px;font-size:13px;font-family:'JetBrains Mono',monospace;" oninput="calcFactTotaux()">
-    <input class="form-input" type="number" min="0" value="${pu}" placeholder="Prix unitaire TTC" style="padding:8px 10px;font-size:13px;font-family:'JetBrains Mono',monospace;" oninput="calcFactTotaux()">
-    <button type="button" onclick="removeFactLigne(${id})" style="background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.3);color:var(--red);border-radius:6px;padding:8px 10px;cursor:pointer;font-size:16px;line-height:1;" title="Supprimer">×</button>
+    <div style="display:grid;grid-template-columns:3fr 1fr 1.5fr auto;gap:8px;align-items:center;">
+      <div style="position:relative;">
+        <input class="form-input" id="fact-search-${id}" placeholder="Description (ex: Yassa Poulet x2)" value="${window.escHtml(desc)}" style="padding:8px 10px;font-size:13px;width:100%;" autocomplete="off" oninput="factFilterArticles(${id}, this.value);calcFactTotaux()" onfocus="factShowDropdown(${id})">
+        <div id="fact-dropdown-${id}" style="display:none;position:fixed;z-index:99999;background:#1e1e2e;border:2px solid var(--primary);border-radius:10px;max-height:220px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.8);">
+          ${(typeof MENU!=='undefined'?MENU:[]).map(m => `<div onclick="factPickArticle(${id}, this)" data-mname="${window.escHtml(m.name||'')}" data-mprice="${m.price||0}" data-mid="${window.escHtml(m.sbId||m.id||'')}" style="padding:12px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;color:#fff;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''">
+            <span style="color:#fff;">${m.icon||'🍽️'} <strong style="color:#fff;">${window.escHtml(m.name||'')}</strong></span>
+            <span style="color:var(--text2);font-size:11px;background:rgba(255,255,255,0.05);padding:2px 8px;border-radius:100px;">${(m.price||0).toLocaleString('fr-FR')} F</span>
+          </div>`).join('') || '<div style="padding:12px 14px;color:var(--text2);font-size:12px;">Aucun article dans le menu</div>'}
+        </div>
+      </div>
+      <input class="form-input" type="number" min="1" value="${qty}" placeholder="Qté" style="padding:8px 10px;font-size:13px;font-family:'JetBrains Mono',monospace;" oninput="calcFactTotaux();factSyncStockQty(${id})">
+      <input class="form-input" id="fact-pu-${id}" type="number" min="0" value="${pu}" placeholder="Prix unitaire TTC" style="padding:8px 10px;font-size:13px;font-family:'JetBrains Mono',monospace;" oninput="calcFactTotaux()">
+      <button type="button" onclick="removeFactLigne(${id})" style="background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.3);color:var(--red);border-radius:6px;padding:8px 10px;cursor:pointer;font-size:16px;line-height:1;" title="Supprimer">×</button>
+    </div>
+    <div id="fact-stock-opt-${id}"></div>
   `;
   document.getElementById('fact-lignes').appendChild(div);
   calcFactTotaux();
 }
 
+// ✅ NOUVEAU : autocomplete "Description" sur les lignes de facture — même principe
+// que la recherche d'article dans "Commande fournisseur" (cfShowDropdown/cfFilterArticles),
+// mais alimenté par MENU (les plats/produits vendus au client) plutôt que STOCK_DATA.
+function factShowDropdown(id) {
+  document.querySelectorAll('[id^="fact-dropdown-"]').forEach(d => d.style.display = 'none');
+  const dd = document.getElementById('fact-dropdown-' + id);
+  const inp = document.getElementById('fact-search-' + id);
+  if(!dd || !inp) return;
+  const rect = inp.getBoundingClientRect();
+  dd.style.display = 'block';
+  dd.style.left = rect.left + 'px';
+  dd.style.width = rect.width + 'px';
+  const ddMaxHeight = 220;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  if(spaceBelow < ddMaxHeight && spaceAbove > spaceBelow) {
+    dd.style.top = 'auto';
+    dd.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    dd.style.maxHeight = Math.min(ddMaxHeight, spaceAbove - 8) + 'px';
+  } else {
+    dd.style.bottom = 'auto';
+    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.maxHeight = Math.min(ddMaxHeight, spaceBelow - 8) + 'px';
+  }
+}
+
+function factFilterArticles(id, q) {
+  const dd = document.getElementById('fact-dropdown-' + id);
+  if(!dd) return;
+  dd.style.display = 'block';
+  const _q = (q||'').toLowerCase().trim();
+  dd.querySelectorAll('div[data-mname]').forEach(item => {
+    const text = item.textContent.toLowerCase();
+    item.style.display = (!_q || text.includes(_q)) ? '' : 'none';
+  });
+}
+
+function factPickArticle(id, el) {
+  const name  = el.getAttribute('data-mname');
+  const price = parseFloat(el.getAttribute('data-mprice')) || 0;
+  const mid   = el.getAttribute('data-mid');
+  const inp = document.getElementById('fact-search-' + id);
+  const puInp = document.getElementById('fact-pu-' + id);
+  if(inp) inp.value = name;
+  if(puInp && !puInp.value) puInp.value = price; // ne pas écraser un prix déjà saisi manuellement
+  const dd = document.getElementById('fact-dropdown-' + id);
+  if(dd) dd.style.display = 'none';
+
+  // ✅ NOUVEAU : si ce plat est lié à une recette (stock + dépôt), proposer la
+  // déduction de stock optionnelle sur cette ligne.
+  const menuItem = (typeof MENU!=='undefined' ? MENU : []).find(m => (mid && (m.sbId===mid || m.id===mid)) || m.name === name);
+  if(menuItem && menuItem.recette && menuItem.recette.length) {
+    window._factLigneRecettes[id] = { itemId: menuItem.sbId||menuItem.id, itemName: menuItem.name, recette: menuItem.recette };
+  } else {
+    delete window._factLigneRecettes[id];
+  }
+  factRenderStockOption(id);
+  calcFactTotaux();
+}
+
+// ✅ NOUVEAU : quand le plat choisi est lié à une recette (stock + dépôt), affiche
+// une case à cocher optionnelle "Déduire du stock" sur cette ligne de facture.
+function factRenderStockOption(id) {
+  const opt = document.getElementById('fact-stock-opt-' + id);
+  const info = window._factLigneRecettes[id];
+  if(!opt) return;
+  const isDevis = document.getElementById('fact-type-devis')?.checked;
+  if(!info || !info.recette || !info.recette.length || isDevis) { opt.innerHTML = ''; return; }
+  const qtyInp = document.querySelector('#fact-ligne-' + id + ' input[type="number"]');
+  const qty = qtyInp ? (parseFloat(qtyInp.value) || 1) : 1;
+  opt.innerHTML = `
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 2px 2px;font-size:12px;color:var(--text2);cursor:pointer;">
+      <input type="checkbox" id="fact-stock-chk-${id}" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
+      📦 Déduire du stock/dépôt à l'enregistrement (${info.recette.length} ingrédient${info.recette.length>1?'s':''} × ${qty})
+    </label>
+  `;
+}
+
+// Recalcule juste le libellé "× qty" affiché si la quantité change après coup
+function factSyncStockQty(id) {
+  if(window._factLigneRecettes[id]) factRenderStockOption(id);
+}
+
+document.addEventListener('click', function(e) {
+  if(!e.target.closest('[id^="fact-search-"]') && !e.target.closest('[id^="fact-dropdown-"]')) {
+    document.querySelectorAll('[id^="fact-dropdown-"]').forEach(d => d.style.display = 'none');
+  }
+});
+document.addEventListener('scroll', function(e) {
+  if(e.target.closest && e.target.closest('[id^="fact-dropdown-"]')) return;
+  document.querySelectorAll('[id^="fact-dropdown-"]').forEach(d => d.style.display = 'none');
+}, true);
+
 function removeFactLigne(id) {
   const el = document.getElementById('fact-ligne-'+id);
   if(el) el.remove();
+  delete window._factLigneRecettes[id];
   calcFactTotaux();
 }
 
@@ -11514,8 +11657,10 @@ async function saveFacture(andPrint) {
   if(_saveFactureInProgress) { showNotif('⏳ Enregistrement en cours, patientez...'); return; }
   _saveFactureInProgress = true;
   try {
-  const isClient = document.getElementById('fact-type-client').checked;
-  const type     = isClient ? 'client' : 'fournisseur';
+  const isClientRadio = document.getElementById('fact-type-client').checked;
+  const isDevis  = document.getElementById('fact-type-devis')?.checked;
+  const isClient = isClientRadio || isDevis; // ✅ un devis cible un client → réutilise la collecte des champs client
+  const type     = isDevis ? 'devis' : (isClientRadio ? 'client' : 'fournisseur');
   const num      = (document.getElementById('fact-num').value||'').trim();
   const date     = document.getElementById('fact-date').value;
   const statut   = document.getElementById('fact-statut').value;
@@ -11557,6 +11702,7 @@ async function saveFacture(andPrint) {
 
   // Lignes
   const lignes = [];
+  const _stockDeductions = []; // ✅ NOUVEAU : lignes où "Déduire du stock" est cochée
   document.querySelectorAll('#fact-lignes > div').forEach(row => {
     const inputs = row.querySelectorAll('input');
     if(inputs.length < 3) return;
@@ -11564,6 +11710,13 @@ async function saveFacture(andPrint) {
     const qty  = parseFloat(inputs[1].value)||1;
     const pu   = parseFloat(inputs[2].value)||0;
     if(desc || pu > 0) lignes.push({ desc, qty, pu, total: qty*pu });
+    // ✅ NOUVEAU : ligne de facture liée à une recette + case "Déduire du stock" cochée
+    const _rowId = (row.id||'').replace('fact-ligne-', '');
+    const _info = _rowId && window._factLigneRecettes[_rowId];
+    const _chk  = _rowId && document.getElementById('fact-stock-chk-' + _rowId);
+    if(_info && _chk && _chk.checked) {
+      _stockDeductions.push({ id: _info.itemId, name: _info.itemName, qty, recette: _info.recette });
+    }
   });
   if(lignes.length === 0) { showNotif('⚠️ Ajoutez au moins une ligne article'); return; }
 
@@ -11585,13 +11738,14 @@ async function saveFacture(andPrint) {
   const acompteAutoParSolde = payMethod === 'solde_client' && acompteFieldEl?.dataset.autoFilled === '1';
   const acompteVal = acompteAutoParSolde ? 0 : (parseFloat(acompteFieldEl?.value) || 0);
   let acomptePaye = Math.min(acompteVal, ttc);
+  if(type === 'devis') acomptePaye = 0; // ✅ un devis n'a jamais d'acompte (champs masqués côté formulaire)
   const editId = document.getElementById('fact-edit-id').value;
 
   // ✅ NOUVEAU : Paiement par solde prépayé client — déduit automatiquement
   // du compte du client à la CRÉATION de la facture (pas ré-appliqué si on
   // modifie une facture existante, pour éviter une double déduction).
   let soldeDeduit = 0;
-  if(!editId && isClient && payMethod === 'solde_client' && clientObjRef) {
+  if(!editId && isClient && type !== 'devis' && payMethod === 'solde_client' && clientObjRef) {
     const soldeDispo = clientObjRef.solde || 0;
     const resteAvantSolde = Math.max(0, ttc - acomptePaye);
     soldeDeduit = Math.min(soldeDispo, resteAvantSolde);
@@ -11637,8 +11791,12 @@ async function saveFacture(andPrint) {
   const soldeRestant = ttc - acomptePaye;
   // Statut auto selon acompte
   let statutFinal = document.getElementById('fact-statut').value;
-  if(acomptePaye >= ttc) statutFinal = 'payee';
-  else if(acomptePaye > 0 && acomptePaye < ttc) statutFinal = 'partiel';
+  if(type !== 'devis') {
+    if(acomptePaye >= ttc) statutFinal = 'payee';
+    else if(acomptePaye > 0 && acomptePaye < ttc) statutFinal = 'partiel';
+  } else if(!statutFinal || statutFinal === 'payee' || statutFinal === 'partiel') {
+    statutFinal = 'attente'; // ✅ un devis démarre "en attente" (de réponse du client)
+  }
 
   const factObj = { id: editId || ('F' + Date.now()), num, type, tiers, tiersEmail, tiersTel, tiersAdresse, date, echeance, statut: statutFinal, payMethod, notes, lignes, sousTotal, remise, ht, tva, ttc, tvaRate, acompte: acomptePaye, soldeRestant, soldeClientDeduit: soldeDeduit || undefined, clientId: clientObjRef ? clientObjRef.id : undefined };
 
@@ -11647,7 +11805,7 @@ async function saveFacture(andPrint) {
   // vous — une facture liée à un client enregistré ne les faisait jamais
   // bouger, la fiche client restait figée à "0 commandes / 0 F dépensé"
   // même après plusieurs factures payées.
-  if(!editId && isClient && clientObjRef) {
+  if(!editId && isClient && type !== 'devis' && clientObjRef) {
     clientObjRef.nbCmds = (clientObjRef.nbCmds || 0) + 1;
     clientObjRef.totalDepense = (clientObjRef.totalDepense || 0) + ttc;
     clientObjRef.dernierAchat = date;
@@ -11661,10 +11819,19 @@ async function saveFacture(andPrint) {
   if(editId) {
     const idx = FACTURES.findIndex(f => f.id === editId);
     if(idx > -1) FACTURES[idx] = factObj; else FACTURES.push(factObj);
-    showNotif('✅ Facture mise à jour');
+    showNotif(type === 'devis' ? '✅ Devis mis à jour' : '✅ Facture mise à jour');
   } else {
     FACTURES.push(factObj);
-    showNotif('✅ Facture ' + num + ' créée');
+    showNotif((type === 'devis' ? '✅ Devis ' : '✅ Facture ') + num + ' créé' + (type === 'devis' ? '' : 'e'));
+    // ✅ NOUVEAU : déduction optionnelle du stock/dépôt pour les lignes de facture
+    // liées à un plat du Menu où la case "Déduire du stock" a été cochée. On ne le
+    // fait qu'à la CRÉATION (jamais à la modification) pour ne jamais déduire deux
+    // fois le même stock si la facture est réouverte/éditée ensuite.
+    if(_stockDeductions.length && type !== 'devis' && typeof deduireStockVente === 'function') {
+      deduireStockVente(_stockDeductions, null).then(() => {
+        showNotif(`📦 Stock déduit pour ${_stockDeductions.length} article(s) de la facture`);
+      }).catch(() => {});
+    }
   }
 
   saveFacturesLocal();
@@ -11683,7 +11850,7 @@ function editFacture(id) {
   openAddFacture(f.type);
   setTimeout(() => {
     document.getElementById('fact-edit-id').value = f.id;
-    document.getElementById('fact-modal-title').textContent = '✏️ Modifier Facture ' + f.num;
+    document.getElementById('fact-modal-title').textContent = (f.type==='devis'?'✏️ Modifier Devis ':'✏️ Modifier Facture ') + f.num;
     document.getElementById('fact-num').value   = f.num;
     document.getElementById('fact-date').value  = f.date;
     document.getElementById('fact-statut').value= f.statut;
@@ -11697,7 +11864,7 @@ function editFacture(id) {
     const rEl = document.getElementById('fact-remise');
     if(rEl) rEl.value = f.remise > 0 ? f.remise : '';
     calcFactAcompte();
-    if(f.type==='client') {
+    if(f.type==='client' || f.type==='devis') {
       document.getElementById('fact-echeance').value = f.echeance||'';
       document.getElementById('fact-client-select').value = '__new__';
       document.getElementById('fact-client-libre').style.display = 'block';
@@ -11730,6 +11897,45 @@ function toggleFactStatut(id) {
   showNotif('✅ Statut mis à jour → ' + (f.statut==='payee'?'Payée':'En attente'));
 }
 
+// ✅ NOUVEAU : cycle le statut d'un devis attente → accepté → refusé → attente
+function toggleDevisStatut(id) {
+  const f = FACTURES.find(x => x.id === id);
+  if(!f) return;
+  const cycle = { attente: 'accepte', accepte: 'refuse', refuse: 'attente' };
+  f.statut = cycle[f.statut] || 'accepte';
+  saveFacturesLocal();
+  renderFactures();
+  const labels = { attente:'En attente', accepte:'Accepté', refuse:'Refusé' };
+  showNotif('📋 Devis ' + f.num + ' → ' + (labels[f.statut]||f.statut));
+}
+
+// ✅ NOUVEAU : transforme un devis en vraie Facture Client (nouveau numéro FAC,
+// mêmes lignes/tiers/montants). Le devis original passe au statut "converti"
+// et ne peut plus être reconverti (évite les doublons de facture).
+function convertDevisToFacture(id) {
+  const d = FACTURES.find(x => x.id === id);
+  if(!d || d.type !== 'devis') return;
+  if(d.statut === 'converti') { showNotif('⚠️ Ce devis a déjà été converti'); return; }
+  if(!confirm(`Convertir le devis ${d.num} en facture client pour "${d.tiers}" ?`)) return;
+
+  const num = genFactNum('client');
+  const factObj = {
+    id: 'F' + Date.now(),
+    num, type: 'client',
+    tiers: d.tiers, tiersEmail: d.tiersEmail, tiersTel: d.tiersTel, tiersAdresse: d.tiersAdresse,
+    date: new Date().toISOString().split('T')[0],
+    echeance: d.echeance, statut: 'attente', payMethod: d.payMethod || 'especes',
+    notes: (d.notes ? d.notes + ' — ' : '') + `Converti depuis devis ${d.num}`,
+    lignes: d.lignes, sousTotal: d.sousTotal, remise: d.remise||0, ht: d.ht, tva: d.tva, ttc: d.ttc, tvaRate: d.tvaRate,
+    acompte: 0, soldeRestant: d.ttc, clientId: d.clientId, devisOrigine: d.num,
+  };
+  FACTURES.push(factObj);
+  d.statut = 'converti';
+  saveFacturesLocal();
+  renderFactures();
+  showNotif(`✅ Devis ${d.num} converti en facture ${num}`);
+}
+
 // ---------- Compléter le paiement (solde) ----------
 function completerPaiementFacture(id) {
   const f = FACTURES.find(x => x.id === id);
@@ -11754,6 +11960,12 @@ function completerPaiementFacture(id) {
 
 // ---------- Supprimer ----------
 function deleteFacture(id) {
+  // ✅ Sécurité : seul l'administrateur peut supprimer une facture, même si
+  // quelqu'un tente d'appeler cette fonction directement (ex: console navigateur)
+  if(!currentUser || currentUser.role !== 'administrateur') {
+    showNotif('⛔ Seul l\'administrateur peut supprimer une facture');
+    return;
+  }
   if(!confirm('Supprimer cette facture ?')) return;
   FACTURES = FACTURES.filter(f => f.id !== id);
   saveFacturesLocal();
@@ -11851,7 +12063,7 @@ function printFacture(id) {
   const tel      = RESTAURANT_INFO?.tel     || '';
   const email    = RESTAURANT_INFO?.email   || '';
   const ninea    = RESTAURANT_INFO?.ninea   || '';
-  const typeLabel= f.type === 'client' ? 'FACTURE CLIENT' : 'FACTURE FOURNISSEUR';
+  const typeLabel= f.type === 'devis' ? 'DEVIS' : (f.type === 'client' ? 'FACTURE CLIENT' : 'FACTURE FOURNISSEUR');
   const tvaLabel = Math.round((f.tvaRate||0.18)*100)+'%';
   const payLabels= { especes:'Espèces', wave:'Wave', orange:'Orange Money', virement:'Virement bancaire', cheque:'Chèque', carte:'Carte bancaire' };
 
@@ -12037,7 +12249,7 @@ function printFacture(id) {
     </div>
   </div>
   <div class="tiers-card">
-    <div class="tiers-label">${f.type==='client'?'Facturé à (Client)':'Fournisseur'}</div>
+    <div class="tiers-label">${(f.type==='client'||f.type==='devis')?'Facturé à (Client)':'Fournisseur'}</div>
     <div class="tiers-name">${f.tiers||'—'}</div>
     <div class="tiers-meta">
       ${f.tiersTel||''} ${f.tiersEmail?'· '+f.tiersEmail:''}<br>
@@ -16770,7 +16982,7 @@ function renderFournisseurs() {
           })()}
           ${c.statut === 'en_cours' ? `<button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;color:var(--red);border-color:var(--red);" onclick="annulerCommandeFourn(${cIdx_real})">🚫 Annuler</button>` : ''}
           <button class="caisse-btn" style="font-size:11px;padding:5px 10px;" onclick="printFactureFourn(${cIdx_real})">🖨️ Imprimer</button>
-          <button class="caisse-btn danger" onclick="deleteCommandeFourn(${cIdx_real})" style="font-size:11px;padding:5px;">🗑</button>
+          ${(currentUser && currentUser.role === 'administrateur') ? `<button class="caisse-btn danger" onclick="deleteCommandeFourn(${cIdx_real})" style="font-size:11px;padding:5px;">🗑</button>` : ''}
         </div>
       </div>
     `}).join('') || '<div style="text-align:center;padding:30px;color:var(--text2);">Aucune commande en cours</div>';
@@ -16995,12 +17207,17 @@ function saveFournisseur() {
   };
   if(editIdx >= 0 && FOURNISSEURS[editIdx]) {
     Object.assign(FOURNISSEURS[editIdx], data);
-    if(KGSync.isConnected) KGSync.push.fournisseur(FOURNISSEURS[editIdx]).catch(()=>{});
+    // ✅ FIX : KGSync.push.fournisseur() n'existe pas dans KGSync — cet appel
+    // levait une erreur silencieuse et la modification n'était donc JAMAIS
+    // envoyée au serveur (seulement visible localement jusqu'au prochain pull,
+    // qui écrasait alors avec l'ancienne version). Les fournisseurs sont
+    // sauvegardés en bloc via 'commandes_fourn_data', comme pour les clients.
+    if(KGSync.isConnected) KGSync.push.commandesFourn().catch(()=>{});
     showNotif(`✅ Fournisseur "${nom}" modifié`);
   } else {
     const newF = { id: 'local_' + Date.now(), nbCommandes:0, totalAchat:0, color: colors[FOURNISSEURS.length%colors.length], ...data };
     FOURNISSEURS.push(newF);
-    if(KGSync.isConnected) KGSync.push.fournisseur(newF).catch(()=>{});
+    if(KGSync.isConnected) KGSync.push.commandesFourn().catch(()=>{});
     showNotif(`✅ Fournisseur "${nom}" ajouté`);
   }
   closeModal('addFournisseur');
@@ -17029,6 +17246,19 @@ function deleteFournisseur(fIdx) {
     KGSync.getClient()?.from('fournisseurs').delete().eq('id', f.sbId).catch(()=>{});
   }
   FOURNISSEURS.splice(fIdx, 1);
+  // ✅ FIX : même bug que pour les clients / commandes fournisseurs — FOURNISSEURS
+  // est AUSSI sauvegardé en bloc dans le cache kg_sync 'commandes_fourn_data'
+  // ({ items: COMMANDES_FOURNISSEURS, fournisseurs: FOURNISSEURS }). Sans repousser
+  // ce bloc après la suppression, l'ancienne liste complète (avec le fournisseur
+  // supprimé) restait dans kg_sync et le restaurait au prochain pullAll/reconnexion.
+  if(KGSync.isConnected) KGSync.push.commandesFourn().catch(()=>{});
+  try {
+    const _ridDelF = window._KG_RESTAURANT_ID;
+    if(_ridDelF) {
+      localStorage.setItem('kg_val_' + _ridDelF + ':commandes_fourn_data',
+        JSON.stringify({ items: COMMANDES_FOURNISSEURS, fournisseurs: FOURNISSEURS }));
+    }
+  } catch(e) {}
   renderFournisseurs();
   showNotif(`🗑️ Fournisseur "${f.nom}" supprimé`);
 }
@@ -17637,6 +17867,11 @@ function annulerCommandeFourn(cIdx) {
 }
 
 function deleteCommandeFourn(cIdx) {
+  // ✅ Sécurité : seul l'administrateur peut supprimer une commande fournisseur
+  if(!currentUser || currentUser.role !== 'administrateur') {
+    showNotif('⛔ Seul l\'administrateur peut supprimer une commande');
+    return;
+  }
   const c = COMMANDES_FOURNISSEURS[cIdx];
   if(c && c.sbId && KGSync.isConnected) {
     KGSync.getClient()?.from('commandes_fournisseurs').delete().eq('id', c.sbId).catch(()=>{});
@@ -24458,6 +24693,24 @@ async function doLogout() {
   if(typeof RH_AVANCES  !== 'undefined') RH_AVANCES  = [];
   if(typeof FACTURES    !== 'undefined') FACTURES     = [];
   if(typeof INVENTAIRES !== 'undefined') INVENTAIRES  = [];
+  // ✅ FIX MULTI-RESTAURANT (suite) : ces tableaux n'étaient jamais vidés au logout —
+  // en changeant de restaurant dans le même onglet, ils pouvaient garder les données
+  // de l'ANCIEN restaurant affichées jusqu'à ce que pullAll() les écrase (et si ce
+  // pullAll échouait/tardait sur l'une de ces clés, l'ancien contenu restait visible
+  // ou le nouveau ne s'affichait jamais sans F5).
+  if(typeof USERS            !== 'undefined') USERS            = [];
+  if(typeof RDV_LIST         !== 'undefined') RDV_LIST         = [];
+  if(typeof RDV_SERVICES     !== 'undefined') RDV_SERVICES     = [];
+  if(typeof TICKETS_ARCHIVES !== 'undefined') TICKETS_ARCHIVES = [];
+  if(typeof TICKETS_ATTENTE  !== 'undefined') TICKETS_ATTENTE  = [];
+  if(typeof PREPARATIONS     !== 'undefined') PREPARATIONS     = [];
+  if(typeof PREP_JOURNAL     !== 'undefined') PREP_JOURNAL     = [];
+  if(typeof BANQUE_MOUVEMENTS!== 'undefined') BANQUE_MOUVEMENTS= [];
+  if(typeof MATERIEL_LIST    !== 'undefined') MATERIEL_LIST    = [];
+  if(typeof SP_MEMBRES       !== 'undefined') SP_MEMBRES       = [];
+  if(typeof SP_LOG_ACCES     !== 'undefined') SP_LOG_ACCES     = [];
+  if(typeof HOTEL_CHAMBRES   !== 'undefined') HOTEL_CHAMBRES   = [];
+  if(typeof HOTEL_RESERVATIONS !== 'undefined') HOTEL_RESERVATIONS = [];
   window._kgStockModifiedAt = null;
   window._kgPageJustLoaded  = true; // reset pour le prochain login
   window._lastCaisseReload  = null;
@@ -28426,7 +28679,19 @@ document.addEventListener('visibilitychange', () => {
   }
 
   document.body.appendChild(refreshBtn);
-  window.addEventListener('resize', _checkMobile);
+// ✅ FIX SAFARI : variable --vh de secours pour les navigateurs (anciens Safari
+// notamment) qui ne supportent pas encore l'unité 100dvh. Sans ça, 100vh seul sur
+// Safari mobile est calculé sur la hauteur MAXIMALE (barre d'adresse cachée),
+// alors que la zone réellement visible change pendant le scroll (barre d'adresse
+// qui apparaît/disparaît) → effet de coupure/clignotement du contenu.
+function _kgSetVhVar() {
+  document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+}
+_kgSetVhVar();
+window.addEventListener('resize', _kgSetVhVar);
+window.addEventListener('orientationchange', () => setTimeout(_kgSetVhVar, 200));
+
+window.addEventListener('resize', _checkMobile);
   // Vérifier après login
   const _origShowApp = window.showApp;
   if(typeof _origShowApp === 'function') {
@@ -30667,14 +30932,34 @@ const KGSync = (() => {
 })();
 
 // ✅ OPT EGRESS v1 : Couper le temps réel quand l'app est inactive
+// ✅ FIX SAFARI : Safari (iOS/macOS) déclenche parfois 'visibilitychange' de façon
+// intempestive (scroll, animation de la barre d'adresse, geste multitâche) sans que
+// l'app soit réellement passée en arrière-plan. Sans filtre, chaque faux déclenchement
+// relançait pullAll() + un re-rendu complet de l'écran → effet de clignotement
+// ("l'écran part et revient") observé uniquement sur Safari. On ignore désormais les
+// passages "caché" trop courts (< 1.5s) avant de considérer que l'app était vraiment
+// en arrière-plan.
+let _kgHiddenAt = null;
 document.addEventListener('visibilitychange', function() {
   if (document.hidden) {
-    // App en arrière-plan → couper le realtime (économie batterie/egress)
-    if (typeof KGSync !== 'undefined' && KGSync.isConnected) {
-      KGSync._stopRealtime();
-      console.log('⏸️ KGSync realtime coupé (app inactive)');
-    }
+    _kgHiddenAt = Date.now();
+    // ✅ Ne coupe le realtime qu'après un court délai : si la page redevient visible
+    // très vite (faux positif Safari), on n'a pas encore coupé/relancé quoi que ce soit.
+    setTimeout(function() {
+      if (document.hidden && _kgHiddenAt && (Date.now() - _kgHiddenAt) >= 1400) {
+        if (typeof KGSync !== 'undefined' && KGSync.isConnected) {
+          KGSync._stopRealtime();
+          console.log('⏸️ KGSync realtime coupé (app inactive)');
+        }
+      }
+    }, 1500);
   } else {
+    const _wasReallyHidden = _kgHiddenAt && (Date.now() - _kgHiddenAt) >= 1400;
+    _kgHiddenAt = null;
+    if (!_wasReallyHidden) {
+      console.log('👀 visibilitychange ignoré (basculement trop court, probable faux positif Safari)');
+      return;
+    }
     // App de nouveau active → pullAll immédiat pour avoir les dernières données
     // ✅ FIX iOS : forcer un pull immédiat peu importe l'heure (la clôture peut se faire à toute heure)
     if (typeof KGSync !== 'undefined' && KGSync.isConnected) {
@@ -36578,6 +36863,10 @@ async function executeReset() {
           <input type="radio" name="fact-type" id="fact-type-fourn" value="fournisseur" onchange="onFactTypeChange()" style="accent-color:var(--accent);">
           <div><div style="font-weight:700;font-size:14px;">🏭 Facture Fournisseur</div><div style="font-size:11px;color:var(--text2);">Achat auprès d'un fournisseur</div></div>
         </label>
+        <label style="flex:1;padding:12px;background:var(--surface2);border:2px solid var(--border);border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:border-color 0.2s;" id="fact-type-devis-lbl">
+          <input type="radio" name="fact-type" id="fact-type-devis" value="devis" onchange="onFactTypeChange()" style="accent-color:var(--accent);">
+          <div><div style="font-weight:700;font-size:14px;">📋 Devis</div><div style="font-size:11px;color:var(--text2);">Proposition avant facturation</div></div>
+        </label>
       </div>
     </div>
 
@@ -36665,7 +36954,7 @@ async function executeReset() {
       <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;"><span>Total net TTC</span><span id="fact-calc-ttc" style="font-family:'JetBrains Mono',monospace;color:var(--accent);">0 FCFA</span></div>
     </div>
 
-    <div class="form-row" style="margin-top:14px;">
+    <div class="form-row" style="margin-top:14px;" id="fact-payment-row">
       <div class="form-group">
         <label class="form-label">Mode de paiement</label>
         <select class="form-input" id="fact-pay-method" onchange="onFactPayMethodChange()">
@@ -36691,7 +36980,7 @@ async function executeReset() {
     </div>
 
     <!-- ✅ v36 : SECTION ACOMPTE PARTIEL -->
-    <div style="background:rgba(0,201,177,0.07);border:1px solid rgba(0,201,177,0.25);border-radius:10px;padding:14px;margin-bottom:10px;">
+    <div id="fact-acompte-section" style="background:rgba(0,201,177,0.07);border:1px solid rgba(0,201,177,0.25);border-radius:10px;padding:14px;margin-bottom:10px;">
       <div style="font-size:12px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">💳 Paiement partiel (acompte)</div>
       <div class="form-row" style="margin-bottom:0;">
         <div class="form-group">
@@ -36704,6 +36993,11 @@ async function executeReset() {
         </div>
       </div>
       <div style="font-size:11px;color:var(--text2);margin-top:4px;">💡 Si l'acompte = Total TTC → statut passe automatiquement à <strong>Payée</strong></div>
+    </div>
+
+    <!-- ✅ NOUVEAU : bandeau explicatif affiché uniquement pour un Devis -->
+    <div id="fact-devis-note" style="display:none;background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.3);border-radius:10px;padding:12px 14px;margin-bottom:10px;font-size:12px;color:var(--text2);">
+      📋 Un devis est une proposition — aucun paiement ni déduction de stock n'est enregistré ici. Une fois accepté par le client, utilisez <strong>"Convertir en facture"</strong> depuis la liste des devis.
     </div>
 
     <div class="form-group">
