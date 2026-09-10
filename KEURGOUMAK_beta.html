@@ -9904,6 +9904,9 @@ Revenez nous voir bient&#244;t.</textarea>
         <label class="form-label">Adresse client (optionnelle)</label>
         <input class="form-input" id="pos-facture-adresse" placeholder="Adresse...">
       </div>
+      <!-- ✅ NOUVEAU : détails par article (IMEI, n° de série...) — rempli dynamiquement
+           par openConfirmTicket() avec un champ par article du panier. -->
+      <div id="pos-facture-item-notes" style="margin-top:10px;"></div>
     </div>
 
     <div class="ticket-preview" id="ticket-preview">
@@ -11280,6 +11283,7 @@ function renderFactures() {
       <td style="text-align:center;">
         <div style="display:flex;gap:4px;justify-content:center;flex-wrap:nowrap;">
           <button onclick="printFacture('${f.id}')" title="Imprimer" style="background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.3);color:var(--teal);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">🖨️</button>
+          ${f.tiersTel ? `<button onclick="partagerFacture_WhatsApp('${f.id}')" title="Envoyer par WhatsApp" style="background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.35);color:#1da851;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">💬</button>` : ''}
           <button onclick="editFacture('${f.id}')" title="Modifier" style="background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);color:var(--accent);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">✏️</button>
           ${f.type==='devis' ? `
             ${f.statut!=='converti' ? `<button onclick="toggleDevisStatut('${f.id}')" title="Marquer accepté/refusé" style="background:rgba(46,204,113,0.12);border:1px solid rgba(46,204,113,0.3);color:var(--green);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">${f.statut==='accepte'?'✅':(f.statut==='refuse'?'❌':'⏳')}</button>
@@ -11472,7 +11476,14 @@ function populateFactSelects() {
 // "Déduire du stock" est cochée pour cette ligne.
 window._factLigneRecettes = window._factLigneRecettes || {};
 
-function addFactLigne(desc='', qty=1, pu=0) {
+function _factDropdownHTML(id) {
+  return (typeof MENU!=='undefined'?MENU:[]).map(m => `<div onclick="factPickArticle(${id}, this)" data-mname="${window.escHtml(m.name||'')}" data-mprice="${m.price||0}" data-mid="${window.escHtml(m.sbId||m.id||'')}" style="padding:12px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;color:#fff;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''">
+            <span style="color:#fff;">${m.icon||'🍽️'} <strong style="color:#fff;">${window.escHtml(m.name||'')}</strong></span>
+            <span style="color:var(--text2);font-size:11px;background:rgba(255,255,255,0.05);padding:2px 8px;border-radius:100px;">${(m.price||0).toLocaleString('fr-FR')} F</span>
+          </div>`).join('') || '<div style="padding:12px 14px;color:var(--text2);font-size:12px;">Aucun article dans le menu</div>';
+}
+
+function addFactLigne(desc='', qty=1, pu=0, note='') {
   factLigneCount++;
   const id = factLigneCount;
   const div = document.createElement('div');
@@ -11482,16 +11493,14 @@ function addFactLigne(desc='', qty=1, pu=0) {
       <div style="position:relative;">
         <input class="form-input" id="fact-search-${id}" placeholder="Description (ex: Yassa Poulet x2)" value="${window.escHtml(desc)}" style="padding:8px 10px;font-size:13px;width:100%;" autocomplete="off" oninput="factFilterArticles(${id}, this.value);calcFactTotaux()" onfocus="factShowDropdown(${id})">
         <div id="fact-dropdown-${id}" style="display:none;position:fixed;z-index:99999;background:#1e1e2e;border:2px solid var(--primary);border-radius:10px;max-height:220px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.8);">
-          ${(typeof MENU!=='undefined'?MENU:[]).map(m => `<div onclick="factPickArticle(${id}, this)" data-mname="${window.escHtml(m.name||'')}" data-mprice="${m.price||0}" data-mid="${window.escHtml(m.sbId||m.id||'')}" style="padding:12px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;color:#fff;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background=''">
-            <span style="color:#fff;">${m.icon||'🍽️'} <strong style="color:#fff;">${window.escHtml(m.name||'')}</strong></span>
-            <span style="color:var(--text2);font-size:11px;background:rgba(255,255,255,0.05);padding:2px 8px;border-radius:100px;">${(m.price||0).toLocaleString('fr-FR')} F</span>
-          </div>`).join('') || '<div style="padding:12px 14px;color:var(--text2);font-size:12px;">Aucun article dans le menu</div>'}
+          ${_factDropdownHTML(id)}
         </div>
       </div>
       <input class="form-input" type="number" min="1" value="${qty}" placeholder="Qté" style="padding:8px 10px;font-size:13px;font-family:'JetBrains Mono',monospace;" oninput="calcFactTotaux();factSyncStockQty(${id})">
       <input class="form-input" id="fact-pu-${id}" type="number" min="0" value="${pu}" placeholder="Prix unitaire TTC" style="padding:8px 10px;font-size:13px;font-family:'JetBrains Mono',monospace;" oninput="calcFactTotaux()">
       <button type="button" onclick="removeFactLigne(${id})" style="background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.3);color:var(--red);border-radius:6px;padding:8px 10px;cursor:pointer;font-size:16px;line-height:1;" title="Supprimer">×</button>
     </div>
+    <input class="form-input" id="fact-note-${id}" data-role="ligne-note" value="${window.escHtml(note)}" placeholder="📝 Détails de cet article — IMEI, n° de série, couleur... (optionnel)" style="margin-top:6px;padding:6px 10px;font-size:12px;width:100%;color:var(--text2);">
     <div id="fact-stock-opt-${id}"></div>
   `;
   document.getElementById('fact-lignes').appendChild(div);
@@ -11506,6 +11515,13 @@ function factShowDropdown(id) {
   const dd = document.getElementById('fact-dropdown-' + id);
   const inp = document.getElementById('fact-search-' + id);
   if(!dd || !inp) return;
+  // ✅ FIX : reconstruire la liste depuis le MENU actuel à chaque ouverture.
+  // Avant, la liste était figée au moment de la création de la ligne — si des
+  // articles étaient supprimés/ajoutés/renommés ensuite dans "Menu & Carte"
+  // pendant la même session, l'ancienne liste (avec doublons/articles
+  // supprimés) restait affichée dans la facture.
+  dd.innerHTML = _factDropdownHTML(id);
+  if(inp.value) factFilterArticles(id, inp.value);
   const rect = inp.getBoundingClientRect();
   dd.style.display = 'block';
   dd.style.left = rect.left + 'px';
@@ -11709,9 +11725,10 @@ async function saveFacture(andPrint) {
     const desc = inputs[0].value.trim();
     const qty  = parseFloat(inputs[1].value)||1;
     const pu   = parseFloat(inputs[2].value)||0;
-    if(desc || pu > 0) lignes.push({ desc, qty, pu, total: qty*pu });
-    // ✅ NOUVEAU : ligne de facture liée à une recette + case "Déduire du stock" cochée
     const _rowId = (row.id||'').replace('fact-ligne-', '');
+    const note = (document.getElementById('fact-note-' + _rowId)?.value || '').trim();
+    if(desc || pu > 0) lignes.push({ desc, qty, pu, total: qty*pu, note });
+    // ✅ NOUVEAU : ligne de facture liée à une recette + case "Déduire du stock" cochée
     const _info = _rowId && window._factLigneRecettes[_rowId];
     const _chk  = _rowId && document.getElementById('fact-stock-chk-' + _rowId);
     if(_info && _chk && _chk.checked) {
@@ -11882,9 +11899,34 @@ function editFacture(id) {
     // Lignes
     document.getElementById('fact-lignes').innerHTML = '';
     factLigneCount = 0;
-    (f.lignes||[]).forEach(l => addFactLigne(l.desc, l.qty, l.pu));
+    (f.lignes||[]).forEach(l => addFactLigne(l.desc, l.qty, l.pu, l.note||''));
     calcFactTotaux();
   }, 50);
+}
+
+// ✅ NOUVEAU : partager une facture/devis directement au numéro du client/fournisseur
+// via WhatsApp — même principe que pour les reçus caisse et les RDV.
+function partagerFacture_WhatsApp(id) {
+  const f = FACTURES.find(x => x.id === id);
+  if(!f) return;
+  const tel = f.tiersTel;
+  if(!tel) { showNotif('⚠️ Aucun numéro de téléphone enregistré pour "' + f.tiers + '"'); return; }
+
+  const typeLabel = f.type === 'devis' ? 'Devis' : (f.type === 'client' ? 'Facture' : 'Facture fournisseur');
+  const resto = RESTAURANT_INFO?.nom || 'KeurGoumak';
+  let msg = `Bonjour ${f.tiers},\n\n${typeLabel} *${f.num}* de *${resto}* :\n`;
+  (f.lignes||[]).forEach(l => { msg += `• ${l.qty}× ${l.desc}${l.note ? ' (' + l.note + ')' : ''} — ${(l.qty*l.pu).toLocaleString('fr-FR')} F\n`; });
+  msg += `\n*Total TTC : ${f.ttc.toLocaleString('fr-FR')} F*`;
+  if(f.type === 'devis') {
+    msg += `\n\nCe devis est valable ${f.echeance ? 'jusqu\'au ' + f.echeance : '30 jours'}. Merci de nous confirmer votre accord pour lancer la commande.`;
+  } else if(f.acompte > 0 && f.statut !== 'payee') {
+    msg += `\nAcompte versé : ${f.acompte.toLocaleString('fr-FR')} F — Solde restant : ${(f.soldeRestant||0).toLocaleString('fr-FR')} F`;
+    if(f.echeance) msg += `\nÉchéance : ${f.echeance}`;
+  }
+  msg += `\n\nMerci de votre confiance ! 🙏`;
+
+  const wa = `https://wa.me/${_normaliseTel(tel)}?text=${encodeURIComponent(msg)}`;
+  window.open(wa, '_blank');
 }
 
 // ---------- Toggle statut ----------
@@ -12072,7 +12114,7 @@ function printFacture(id) {
 
   const lignesHTML = (f.lignes||[]).map((l,i) => `
     <tr style="background:${i%2===0?'#f9fafb':'#fff'};">
-      <td style="padding:7px 10px;border:1px solid #e5e7eb;font-size:10pt;font-weight:500;">${window.escHtml(l.desc)}</td>
+      <td style="padding:7px 10px;border:1px solid #e5e7eb;font-size:10pt;font-weight:500;">${window.escHtml(l.desc)}${l.note ? `<br><span style="font-size:8.5pt;font-weight:400;color:#6b7280;">${window.escHtml(l.note)}</span>` : ''}</td>
       <td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:700;font-size:10pt;">${l.qty}</td>
       <td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:right;font-weight:600;font-size:10pt;">${l.pu.toLocaleString()} F</td>
       <td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:right;font-weight:900;font-size:11pt;color:#1a1a2e;">${(l.qty*l.pu).toLocaleString()} F</td>
@@ -12333,6 +12375,7 @@ ${f.notes ? `<div class="notes-block">📝 <strong>Notes / Conditions :</strong>
         <span style="color:#f5a623;font-weight:700;font-size:14px;">🧾 ${window.escHtml(typeLabel)} — ${f.num} · ${f.tiers}</span>
         <div style="display:flex;gap:8px;">
           <button onclick="kgSafePrintIframe('kg-facture-frame')" style="padding:7px 18px;background:linear-gradient(135deg,#f5a623,#e8440a);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">🖨️ Imprimer</button>
+          ${f.tiersTel ? `<button onclick="partagerFacture_WhatsApp('${f.id}')" style="padding:7px 18px;background:#25D366;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">💬 WhatsApp</button>` : ''}
           <button onclick="document.getElementById('kg-facture-overlay').remove()" style="padding:7px 16px;background:#444;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">✕ Fermer</button>
         </div>
       </div>
@@ -12603,7 +12646,25 @@ function _renderPOSGrid(cat, query) {
   }
   const grid = document.getElementById('pos-items-grid');
   if(items.length === 0) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text2);font-size:13px;">😕 Aucun article trouvé</div>';
+    // ✅ DIAGNOSTIC "aucun menu" au moment de vendre : distinguer les causes
+    // au lieu d'un message générique.
+    if(MENU.length === 0) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text2);font-size:13px;">
+        <div style="font-size:32px;margin-bottom:8px;">📭</div>
+        <div style="font-weight:700;margin-bottom:6px;color:var(--text);">Menu non chargé</div>
+        <div style="margin-bottom:14px;max-width:280px;margin-left:auto;margin-right:auto;">Vérifiez la connexion internet de cet appareil, puis réessayez.</div>
+        <button onclick="(async()=>{ showNotif('🔄 Rechargement du menu…'); try{ await KGSync.pullAll(); renderPOS(); showNotif('✅ Menu rechargé'); }catch(e){ showNotif('❌ Échec — vérifiez la connexion internet'); } })()"
+          style="padding:9px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🔄 Réessayer</button>
+      </div>`;
+    } else if(cat === 'all' && (!query || !query.trim()) && (typeof CATEGORIES !== 'undefined') && CATEGORIES.length > 0 && _gridVisibleCatIds.size === 0) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text2);font-size:13px;">
+        <div style="font-size:32px;margin-bottom:8px;">🔒</div>
+        <div style="font-weight:700;margin-bottom:6px;color:var(--text);">Aucune catégorie visible pour l'instant</div>
+        <div style="max-width:300px;margin:0 auto;">Les catégories de ce menu sont restreintes à des caisses précises. Ouvrez une session de caisse (bouton "🟢 Ouvrir caisse" ci-dessus) pour voir les articles.</div>
+      </div>`;
+    } else {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text2);font-size:13px;">😕 Aucun article trouvé</div>';
+    }
     return;
   }
   grid.innerHTML = items.map((item) => {
@@ -13912,7 +13973,7 @@ async function confirmerOuverture() {
     if(label) label.innerHTML = `<strong style="color:var(--green)">🟢 ${window.escHtml(caisse)} ouverte</strong> · ${window.escHtml(cashier)} · Fonds : <span style="font-family:'JetBrains Mono',monospace;color:var(--accent)">${fonds.toLocaleString()} F</span> · Depuis ${window.escHtml(sessionCaisseActive.heureOuverture)}`;
 
     // Journaliser
-    JOURNAL.unshift({ user:cashier, role:currentUser?.role||'caissier', action:`Ouverture ${caisse}`, module:caisse, date:now.toLocaleDateString('fr-FR').slice(0,8), heure:sessionCaisseActive.heureOuverture, ip:'—' });
+    JOURNAL.unshift({ user:cashier, role:_deriveJournalRole(cashier), action:`Ouverture ${caisse}`, module:caisse, date:now.toLocaleDateString('fr-FR').slice(0,8), heure:sessionCaisseActive.heureOuverture, ip:'—' });
     if(typeof _saveJournal === 'function') _saveJournal();
 
     closeModal('ouvertureCaisse');
@@ -14000,6 +14061,15 @@ function openConfirmTicket() {
     <div class="ticket-sep"></div>
     <div class="ticket-total"><span>TOTAL TTC</span><span>${totalTTC.toLocaleString()} FCFA</span></div>
   `;
+
+  // ✅ NOUVEAU : un champ "détails" optionnel par article (IMEI, n° série, couleur...)
+  // pour la facture générée depuis ce ticket — visible seulement si "Facture" est choisi.
+  const _itemNotesEl = document.getElementById('pos-facture-item-notes');
+  if(_itemNotesEl) {
+    _itemNotesEl.innerHTML = cart.map((item, idx) => `
+      <input class="form-input" id="pos-fact-note-${idx}" placeholder="📝 Détails — ${window.escHtml(item.name)} (IMEI, n° série...)" style="margin-top:6px;padding:6px 10px;font-size:12px;width:100%;color:var(--text2);">
+    `).join('');
+  }
 
   // Synchro mode de paiement
   confirmPayMethod = currentPayMethod;
@@ -14976,8 +15046,9 @@ function _initPhotosPreviews() {
 // du module Factures existant pour garder un numéro et un format cohérents.
 function _genererFactureDepuisVente(vente, caisse) {
   try {
-    const lignes = (vente.items||[]).map(it => ({
-      desc: it.name || 'Article', qty: it.qty || 1, pu: it.price || 0, total: (it.qty||1) * (it.price||0)
+    const lignes = (vente.items||[]).map((it, idx) => ({
+      desc: it.name || 'Article', qty: it.qty || 1, pu: it.price || 0, total: (it.qty||1) * (it.price||0),
+      note: document.getElementById('pos-fact-note-' + idx)?.value?.trim() || ''
     }));
     if(!lignes.length) {
       showNotif('⚠️ Impossible de générer une facture sans articles — ticket imprimé à la place');
@@ -16287,7 +16358,34 @@ function renderMenu(cat, subcat) {
   }
   const isManager = currentUser && (currentUser.role === 'gerant' || currentUser.role === 'superviseur' || currentUser.role === 'administrateur');
   if(items.length === 0) {
-    document.getElementById('menu-grid').innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px 16px;color:var(--text2);font-size:13px;">😕 Aucun produit ne correspond${currentMenuSearch ? ' à "' + currentMenuSearch.trim() + '"' : ''}</div>`;
+    // ✅ DIAGNOSTIC "aucun menu" : distinguer 3 cas différents pour guider
+    // l'utilisateur au lieu d'un message générique qui ne dit rien sur la cause.
+    let _msg;
+    if(MENU.length === 0) {
+      // Le menu n'a jamais été chargé (échec réseau au login, ou nouvel
+      // appareil sans cache local) → proposer un rechargement immédiat.
+      _msg = `<div style="grid-column:1/-1;text-align:center;padding:40px 16px;color:var(--text2);font-size:13px;">
+        <div style="font-size:32px;margin-bottom:8px;">📭</div>
+        <div style="font-weight:700;margin-bottom:6px;color:var(--text);">Menu non chargé</div>
+        <div style="margin-bottom:14px;max-width:280px;margin-left:auto;margin-right:auto;">Vérifiez la connexion internet de cet appareil, puis réessayez.</div>
+        <button onclick="(async()=>{ showNotif('🔄 Rechargement du menu…'); try{ await KGSync.pullAll(); renderMenu(); showNotif('✅ Menu rechargé'); }catch(e){ showNotif('❌ Échec — vérifiez la connexion internet'); } })()"
+          style="padding:9px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🔄 Réessayer</button>
+      </div>`;
+    } else if(!_bypassCatRestriction() && cat === 'all' && CATEGORIES.length > 0 && visibleCategories.length === 0) {
+      // Le menu EST chargé, mais toutes les catégories sont restreintes à
+      // d'autres caisses et aucune caisse active n'est détectée pour ce
+      // caissier (session de caisse pas encore ouverte) → tout est masqué
+      // "par prudence" (voir isCatVisibleForCaisse), ce qui ressemble à un
+      // menu vide alors que les produits existent bien.
+      _msg = `<div style="grid-column:1/-1;text-align:center;padding:40px 16px;color:var(--text2);font-size:13px;">
+        <div style="font-size:32px;margin-bottom:8px;">🔒</div>
+        <div style="font-weight:700;margin-bottom:6px;color:var(--text);">Aucune catégorie visible pour l'instant</div>
+        <div style="max-width:300px;margin:0 auto;">Les catégories de ce menu sont restreintes à des caisses précises. Ouvrez une session de caisse (ou vérifiez l'assignation de caisse de cet utilisateur) pour les voir apparaître.</div>
+      </div>`;
+    } else {
+      _msg = `<div style="grid-column:1/-1;text-align:center;padding:40px 16px;color:var(--text2);font-size:13px;">😕 Aucun produit ne correspond${currentMenuSearch ? ' à "' + currentMenuSearch.trim() + '"' : ''}</div>`;
+    }
+    document.getElementById('menu-grid').innerHTML = _msg;
     return;
   }
   document.getElementById('menu-grid').innerHTML = items.map(item => {
@@ -20613,12 +20711,18 @@ function renderClients() {
     return;
   }
   const typeLabels = { vip:'⭐ VIP', regulier:'🔄 Régulier', entreprise:'🏢 Entreprise', nouveau:'🆕 Nouveau' };
+  // 🔧 FIX PERF : CLIENTS.indexOf(c) refait un parcours complet du tableau
+  // pour CHAQUE carte affichée (coût O(n²) au total). Sur un restaurant avec
+  // beaucoup de clients, ça ralentit sensiblement l'affichage. On construit
+  // une correspondance objet → index en un seul passage (O(n)) avant le map.
+  const _idxMap = new Map();
+  CLIENTS.forEach((c, i) => _idxMap.set(c, i));
   grid.innerHTML = filtered.map(c => {
-    const cIdx = CLIENTS.indexOf(c);
+    const cIdx = _idxMap.get(c);
     return `
     <div class="client-card">
       <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:14px;">
-        <div class="client-avatar-big" style="background:${c.color}22;color:${c.color};">${(c.prenom[0]+c.nom[0]).toUpperCase()}</div>
+        <div class="client-avatar-big" style="background:${c.color||'#00c9b1'}22;color:${c.color||'#00c9b1'};">${(((c.prenom||'?')[0]||'?')+((c.nom||'?')[0]||'?')).toUpperCase()}</div>
         <div style="flex:1;">
           <div style="font-weight:700;font-size:15px;">${escHtml(c.prenom)} ${escHtml(c.nom)}</div>
           <div style="font-size:12px;color:var(--text2);">📱 ${escHtml(c.tel)||'—'}</div>
@@ -20676,8 +20780,8 @@ function openEditClient(cIdx) {
   if(!c) return;
   document.getElementById('addClientTitle').textContent = '✏️ Modifier le client';
   document.getElementById('client-edit-id').value = cIdx;
-  document.getElementById('client-prenom').value = c.prenom;
-  document.getElementById('client-nom').value = c.nom;
+  document.getElementById('client-prenom').value = c.prenom || '';
+  document.getElementById('client-nom').value = c.nom || '';
   document.getElementById('client-tel').value = c.tel||'';
   document.getElementById('client-email').value = c.email || '';
   document.getElementById('client-adresse').value = c.adresse || '';
@@ -20960,7 +21064,18 @@ function _reconcileClientStatsFromRdvOnce() {
   if(window._rdvClientStatsReconciled) return;
   window._rdvClientStatsReconciled = true;
   const _clientIds = new Set((RDV_LIST||[]).map(r => r.clientId).filter(id => id !== null && id !== undefined));
-  _clientIds.forEach(id => syncClientStatsFromRdv(id));
+  // 🔧 FIX LENTEUR ONGLET "Clients" : cette fonction est appelée en tout
+  // premier par renderClients() lui-même (voir plus bas). Avant, chaque
+  // syncClientStatsFromRdv() ci-dessous relançait EN PLUS un renderClients()
+  // complet — donc pour un restaurant qui a, disons, 150 clients liés à des
+  // RDV, ouvrir l'onglet "Clients" une seule fois déclenchait 150 rendus
+  // complets de toute la liste (plus les 150 requêtes réseau associées),
+  // ce qui bloquait/ralentissait fortement le navigateur. Les restaurants
+  // qui n'utilisent pas (ou peu) le module Réservations/RDV ne voyaient
+  // jamais le problème. On passe donc `skipRender=true` ici : le rendu final
+  // sera de toute façon fait une seule fois, juste après, par renderClients()
+  // qui a appelé cette fonction.
+  _clientIds.forEach(id => syncClientStatsFromRdv(id, true));
 }
 
 function initRdvView() {
@@ -22039,7 +22154,7 @@ function deleteRdv(id) {
 // Met à jour la fiche client (nb passages, total dépensé, dernier achat)
 // à partir des RDV "terminé" liés — c'est le lien concret entre l'agenda
 // et le module Clients.
-function syncClientStatsFromRdv(clientIdx) {
+function syncClientStatsFromRdv(clientIdx, skipRender) {
   const c = CLIENTS[clientIdx];
   if(!c) return;
   const clientRdvs = (RDV_LIST||[]).filter(r => r.clientId === clientIdx && r.statut !== 'annule');
@@ -22062,7 +22177,7 @@ function syncClientStatsFromRdv(clientIdx) {
     c.dernierAchat = last.date;
   }
   if(KGSync && KGSync.isConnected) KGSync.push.client(c).catch(()=>{});
-  if(document.getElementById('clients-grid')) renderClients();
+  if(!skipRender && document.getElementById('clients-grid')) renderClients();
 }
 
 function renderStats() {
@@ -22490,6 +22605,81 @@ function renderRapportX() {
   }
 }
 
+// ============================================================
+// 📝 REMPLISSAGE ROBUSTE D'IFRAME — doc.open()/write()/close()
+// Plus fiable que iframe.srcdoc sur les WebViews restreints (page elle-même
+// ouverte via content://downloads/..., navigateurs intégrés type TikTok/
+// WhatsApp, Samsung Internet…) : c'est une API DOM synchrone qui écrit
+// directement dans le document par défaut de l'iframe (déjà dans le DOM),
+// SANS navigation ni nouvelle origine — contrairement à un Blob URL, qui
+// peut casser l'accès contentWindow/print() sur les pages content://.
+// On garde srcdoc en secours si jamais doc.write() n'est pas accessible.
+// ============================================================
+function _kgFillIframe(iframe, html) {
+  if (!iframe) return false;
+  try {
+    const doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+      return true;
+    }
+  } catch(e) { /* on retente via srcdoc ci-dessous */ }
+  try { iframe.srcdoc = html; return true; } catch(e) {}
+  return false;
+}
+
+// ============================================================
+// 🔍 SURVEILLANCE APERÇU IFRAME — détecte l'aperçu blanc silencieux
+// Sur certains navigateurs (Samsung Internet, WebViews anciens, etc.),
+// le remplissage de l'iframe peut ne jamais rendre de contenu SANS lever
+// d'erreur JS : résultat, un aperçu vide et muet ("ça marche sur un autre
+// navigateur"). On vérifie après un court délai si l'iframe a bien du
+// contenu ; sinon on retente une fois avec doc.write(), puis on affiche un
+// message clair avec un raccourci vers "Télécharger PDF" (fiable car généré
+// nativement, indépendant du rendu HTML/CSS de l'iframe).
+// ============================================================
+function _kgWatchIframePreview(iframeId, pdfButtonSelector, attempt, html, retried) {
+  attempt = attempt || 0;
+  const iframe = document.getElementById(iframeId);
+  if (!iframe) return;
+  let doc = null;
+  try { doc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document); } catch(e) {}
+  const ready = doc && doc.readyState === 'complete' && doc.body && doc.body.innerHTML.trim().length > 0;
+  if (ready) return; // tout va bien, rien à faire
+  if (attempt < 6) { // ~1.5s de tentatives — le remplissage direct est synchrone, pas besoin d'attendre 4s
+    setTimeout(() => _kgWatchIframePreview(iframeId, pdfButtonSelector, attempt + 1, html, retried), 250);
+    return;
+  }
+  if (!retried && html) {
+    _kgFillIframe(iframe, html);
+    setTimeout(() => _kgWatchIframePreview(iframeId, pdfButtonSelector, 0, html, true), 250);
+    return;
+  }
+  // Toujours vide après les deux méthodes → ce navigateur ne rend pas l'aperçu.
+  const parent = iframe.parentElement;
+  if (!parent) return;
+  iframe.style.display = 'none';
+  const fallback = document.createElement('div');
+  fallback.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:40px 20px;text-align:center;color:#555;';
+  fallback.innerHTML = `
+    <div style="font-size:40px;">📄</div>
+    <div style="font-size:15px;font-weight:700;color:#222;">Aperçu indisponible sur ce navigateur</div>
+    <div style="font-size:13px;max-width:340px;">Certains navigateurs (Samsung Internet, versions anciennes...) n'affichent pas cet aperçu correctement. Le contenu est bien là — utilisez le bouton ci-dessous pour le récupérer.</div>
+  `;
+  if (pdfButtonSelector) {
+    const pdfBtn = parent.querySelector(pdfButtonSelector);
+    if (pdfBtn) {
+      const btnCopy = pdfBtn.cloneNode(true);
+      btnCopy.style.padding = '12px 26px';
+      btnCopy.style.fontSize = '14px';
+      fallback.appendChild(btnCopy);
+    }
+  }
+  parent.insertBefore(fallback, iframe);
+}
+
 // ===== IMPRESSION RAPPORT X — UNE SEULE CAISSE =====
 
 // ============================================================
@@ -22766,7 +22956,8 @@ async function printRapportXCaisse(name) {
     </div>`;
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
-  document.getElementById('rapportx-single-frame').srcdoc = html;
+  _kgFillIframe(document.getElementById('rapportx-single-frame'), html);
+  setTimeout(() => _kgWatchIframePreview('rapportx-single-frame', 'button[onclick^="_genererPdfNatif"]', 0, html), 100);
   } catch(_errRapportX) {
     // 🔒 FIABILITÉ : avant, toute erreur ici laissait une fenêtre ouverte avec
     // un aperçu totalement blanc, sans aucune indication du problème (bug
@@ -23243,9 +23434,11 @@ function printRapportX() {
     </div>`;
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
-  // Utiliser srcdoc (compatible mobile, pas de popup bloqué)
+  // ✅ Remplissage direct via doc.write() (compatible mobile, pas de popup
+  // bloqué, et fiable même sur les WebViews content:// où srcdoc échoue).
   const frame = document.getElementById('rapportx-print-frame');
-  frame.srcdoc = html;
+  _kgFillIframe(frame, html);
+  setTimeout(() => _kgWatchIframePreview('rapportx-print-frame', 'button[onclick^="_genererPdfNatif"]', 0, html), 100);
 }
 
 // ===== SHIFTS — données réelles uniquement =====
@@ -24686,6 +24879,15 @@ async function doLogout() {
   DEPENSES = [];
   CLIENTS = [];
   MENU = [];
+  // ✅ FIX FUITE LOGO MULTI-COMPTE : RESTAURANT_INFO/TICKET_CONFIG n'étaient
+  // jamais réinitialisés au logout. Comme le login suivant fait
+  // `RESTAURANT_INFO = {...RESTAURANT_INFO, nom:..., logo_url:...}` (spread de
+  // l'ANCIEN objet) et ne touche pas loginLogo, et que TICKET_CONFIG.logo n'était
+  // remis à jour que "si vide", le logo du compte précédent restait affiché
+  // indéfiniment après avoir changé de compte/restaurant sur le même navigateur —
+  // même si le reste des données (nom, adresse...) changeait bien.
+  RESTAURANT_INFO = { nom: 'Mon Restaurant', ninea: '', tel: '', email: '', adresse: 'Louga, Sénégal', devise: 'FCFA' };
+  if(typeof TICKET_CONFIG !== 'undefined') TICKET_CONFIG.logo = null;
   VENTES_PAR_CAISSE = {};
   if(typeof RH_EMPLOYES !== 'undefined') RH_EMPLOYES = [];
   if(typeof RH_PAIES    !== 'undefined') RH_PAIES    = [];
@@ -24849,6 +25051,22 @@ async function saveRolePerms(role) {
     }
   }
   showNotif('✅ Permissions ' + cfg.label + ' sauvegardées');
+}
+
+// ✅ FIX : le journal affichait "ADMINISTRATEUR" pour toutes les ouvertures/clôtures
+// de caisse, même quand elles étaient faites par un caissier nommé (ex: "Toutou 4",
+// "Caissier Nogaye"). Cause : ces caissiers n'ont pas de compte de connexion à eux —
+// ils choisissent juste leur nom à l'ouverture de caisse, alors que le compte
+// RÉELLEMENT connecté sur l'appareil (currentUser) est souvent celui de
+// l'administrateur, partagé par plusieurs caissiers qui se relaient dans la journée.
+// On affiche donc "Caissier" quand le nom saisi diffère du nom du compte connecté,
+// et le vrai rôle du compte connecté seulement quand c'est bien lui qui agit.
+function _deriveJournalRole(cashierName) {
+  const fullName = currentUser ? `${currentUser.prenom} ${currentUser.nom}`.trim() : '';
+  if(cashierName && fullName && cashierName.trim().toLowerCase() !== fullName.toLowerCase()) {
+    return 'caissier';
+  }
+  return (currentUser && currentUser.role) || 'caissier';
 }
 
 function renderJournalAcces() {
@@ -27111,7 +27329,7 @@ async function cloturerCaisse() {
     // 7. Journal
     JOURNAL.unshift({
       user:   cashier,
-      role:   (currentUser && currentUser.role) || 'caissier',
+      role:   _deriveJournalRole(cashier),
       action: 'Clôture ' + caisse + ' — ' + totalTTC.toLocaleString() + ' FCFA',
       module: caisse,
       date:   now.toLocaleDateString('fr-FR').slice(0,8),
@@ -29979,7 +30197,26 @@ const KGSync = (() => {
             }
           }
         } else if(key === 'clients_data' && data.items) {
-          CLIENTS = data.items;
+          // 🔧 FIX CRASH "Clients" : certaines fiches (import ancien/manuel)
+          // arrivent sans prenom/nom (ex: un seul champ "nom complet" ou
+          // "name"). renderClients() faisait alors c.prenom[0] sur
+          // `undefined` → TypeError → tout l'écran Clients plantait.
+          // On normalise ici les fiches dès leur réception, une fois pour
+          // toutes, plutôt que de compter uniquement sur le blindage à
+          // l'affichage.
+          CLIENTS = (Array.isArray(data.items) ? data.items : []).map(c => {
+            if(!c.prenom && !c.nom) {
+              const full = String(c.name || c.nomComplet || c.fullName || c.nom_complet || '').trim();
+              if(full) {
+                const parts = full.split(/\s+/);
+                c.prenom = parts[0];
+                c.nom = parts.slice(1).join(' ') || parts[0];
+              }
+            }
+            c.prenom = c.prenom || '?';
+            c.nom = c.nom || '?';
+            return c;
+          });
         } else if(key === 'commandes_fourn_data') {
           if(data.items)        COMMANDES_FOURNISSEURS = data.items;
           if(data.fournisseurs) FOURNISSEURS           = data.fournisseurs;
