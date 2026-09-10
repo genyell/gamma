@@ -20692,7 +20692,9 @@ function renderClients() {
   // vide silencieux alors que les clients existent bien côté serveur.
   if(CLIENTS.length === 0 && !renderClients._retried && typeof KGSync !== 'undefined' && KGSync.isConnected) {
     renderClients._retried = true;
-    KGSync.pullAll().then(() => {
+    // ✅ FIX LENTEUR/BLOCAGE : pull ciblé "clients_data" uniquement (léger,
+    // pas de retraitement ventes/menu/stock) au lieu d'un pullAll() complet.
+    KGSync.pullClientsOnly().then(() => {
       renderClients._retried = false;
       if(document.getElementById('clients-grid')) renderClients();
     }).catch(() => { renderClients._retried = false; });
@@ -29371,12 +29373,17 @@ const KGSync = (() => {
     }
   }
   // Wrapper throttlé (usage normal) — voir _doPushVentesNow() pour le flush immédiat
+  // ✅ FIX PERF/EGRESS : 5s → 15s. À 5s, chaque caisse active fait un aller-retour
+  // complet (SELECT de fusion + UPSERT de tout l'historique du jour) quasi en continu
+  // pendant le service, ce qui sature le réseau/CPU et fait grimper l'egress Supabase.
+  // 15s réduit ces transferts d'environ 3× sans perte de données (le flush immédiat
+  // via _doPushVentesNow() reste utilisé aux moments critiques : clôture, changement de caisse, etc.)
   async function pushVentes() {
     if(_pushVentesTimer) { _pushVentesPending = true; return; }
     _pushVentesTimer = setTimeout(() => {
       _pushVentesTimer = null;
       if(_pushVentesPending) { _pushVentesPending = false; pushVentes(); }
-    }, 5000);
+    }, 15000);
     await _doPushVentesNow();
   }
   async function pushStock()          { _invalidateCache('stock_data'); _debouncedUpsert('stock_data', () => ({ items: STOCK_DATA, entries: STOCK_ENTREES }), 1000); } // ✅ FIX STOCK LOCK : 3s→1s pour partir avant tout pullAll
@@ -30946,6 +30953,52 @@ const KGSync = (() => {
     }
   }
 
+  // ══════════════════════════════════════════════════════════════
+  // ✅ FIX LENTEUR/BLOCAGE ONGLET "CLIENTS" : avant, quand CLIENTS était
+  // vide à l'ouverture de l'onglet (ex: session fraîche, throttle 8s de
+  // _pullAll qui vient d'ignorer un appel), renderClients() relançait un
+  // _pullAll() COMPLET — qui retélécharge et retraite ventes du jour pour
+  // chaque caisse, menu, stock, factures, etc. en plus des clients — pour
+  // au final juste avoir besoin des clients. Ce traitement synchrone lourd
+  // bloquait tout le reste de la page pendant quelques secondes ("plante
+  // ralenti"). Cette fonction ne va chercher QUE 'clients_data' : beaucoup
+  // plus léger, et surtout PAS soumis au throttle global 8s de _pullAll
+  // (un besoin ponctuel et ciblé, pas une synchro périodique de fond).
+  // ══════════════════════════════════════════════════════════════
+  async function _pullClientsOnly() {
+    if(!client || !syncEnabled) return false;
+    const _rid = window._KG_RESTAURANT_ID;
+    if(!_rid) return false;
+    try {
+      const { data, error } = await client.from(TABLE)
+        .select('value')
+        .eq('key', _rkey('clients_data'))
+        .limit(1);
+      if(error) { console.warn('[pullClientsOnly] error:', error.message || JSON.stringify(error)); return false; }
+      const row = data && data[0];
+      if(!row) return false;
+      const parsed = dec(row.value);
+      if(!parsed || !Array.isArray(parsed.items)) return false;
+      CLIENTS = parsed.items.map(c => {
+        if(!c.prenom && !c.nom) {
+          const full = String(c.name || c.nomComplet || c.fullName || c.nom_complet || '').trim();
+          if(full) {
+            const parts = full.split(/\s+/);
+            c.prenom = parts[0];
+            c.nom = parts.slice(1).join(' ') || parts[0];
+          }
+        }
+        c.prenom = c.prenom || '?';
+        c.nom = c.nom || '?';
+        return c;
+      });
+      return true;
+    } catch(e) {
+      console.warn('[pullClientsOnly] exception:', e && (e.message || e));
+      return false;
+    }
+  }
+
   // ── Realtime ───────────────────────────────────────────────────
   let _rtChannel = null;
   function _isHeureActive() {
@@ -31101,6 +31154,7 @@ const KGSync = (() => {
     connect,
     disconnect: () => { _stopRealtime(); syncEnabled = false; client = null; setStatus('disconnected'); },
     pullAll:    _pullAll,
+    pullClientsOnly: _pullClientsOnly, // ✅ FIX LENTEUR ONGLET CLIENTS : pull ciblé, léger, sans throttle 8s
     flushAllPending: _flushAllPending, // ✅ FIX MULTI-RESTAURANT : à appeler avant tout changement de compte/restaurant
     retryFailedSyncs: _retryFailedSyncs, // ✅ FIX FIABILITÉ : renvoyer les données qui avaient définitivement échoué
     startRealtime: _startRealtime,
