@@ -96,47 +96,6 @@ window.safeUrl = function(u) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
-<!-- ✅ FIX "faut vider le cache pour que ça marche" : certains hébergeurs/navigateurs
-     gardent une vieille copie de cette page en cache après une mise à jour. Ces
-     balises demandent au navigateur de toujours revérifier la fraîcheur de la page
-     au lieu de servir une version périmée depuis le cache local. -->
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<meta name="kg-app-build" content="v49">
-<script>
-// ══════════════════════════════════════════════════════════════
-// ✅ FIX "faut vider le cache pour que ça marche" : détecte automatiquement
-// quand une nouvelle version de la page a été déployée sur le serveur, et
-// propose un simple bouton pour l'appliquer — sans que l'utilisateur ait à
-// connaître ou faire la manip "vider le cache du navigateur".
-// ══════════════════════════════════════════════════════════════
-(function() {
-  const _KG_BUILD = 'v49';
-  let _kgBannerShown = false;
-  async function _kgCheckForUpdate() {
-    if(_kgBannerShown) return;
-    try {
-      const res = await fetch(location.pathname + location.search + (location.search ? '&' : '?') + '_kgcheck=' + Date.now(), { cache: 'no-store' });
-      if(!res.ok) return;
-      const html = await res.text();
-      const m = html.match(/<meta\s+name=["']kg-app-build["']\s+content=["']([^"']+)["']/i);
-      if(m && m[1] && m[1] !== _KG_BUILD) {
-        _kgBannerShown = true;
-        const bar = document.createElement('div');
-        bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:999999;background:#1a1a2e;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:sans-serif;font-size:13px;box-shadow:0 -4px 16px rgba(0,0,0,0.3);';
-        bar.innerHTML = '<span>🆕 Nouvelle version disponible</span><button style="background:#f5781e;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:700;font-size:13px;cursor:pointer;">Actualiser</button>';
-        bar.querySelector('button').onclick = () => location.reload();
-        document.body.appendChild(bar);
-      }
-    } catch(e) { /* pas de réseau ou erreur silencieuse — on retentera plus tard */ }
-  }
-  // Premier check discret peu après le chargement, puis toutes les 5 minutes
-  // (utile pour les sessions laissées ouvertes longtemps pendant le service).
-  window.addEventListener('load', () => setTimeout(_kgCheckForUpdate, 4000));
-  setInterval(_kgCheckForUpdate, 5 * 60 * 1000);
-})();
-</script>
 <style>
   /* Sharp rendering on all screens */
   * {
@@ -6707,7 +6666,6 @@ function _syncSportVentes()       { return []; }
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(0,201,177,0.15),rgba(0,201,177,0.05));border-color:rgba(0,201,177,0.4);color:var(--teal);" onclick="_forceSyncClotures()" id="hist-sync-btn">🔄 Actualiser</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(232,69,32,0.15),rgba(245,158,42,0.05));border-color:rgba(232,69,32,0.4);color:#e84520;" onclick="ouvrirModalReconstruire()">🔧 Reconstruire clôture</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(26,219,106,0.15),rgba(0,229,200,0.05));border-color:rgba(26,219,106,0.4);color:var(--green);" onclick="ouvrirModalClotureManu()">➕ Ajouter clôture manuelle</button>
-          <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(231,76,60,0.15),rgba(231,76,60,0.05));border-color:rgba(231,76,60,0.4);color:var(--red);" onclick="_kgAuditClotures()">🔍 Vérifier fuites multi-comptes</button>
           </span>
         </div>
       </div>
@@ -11106,21 +11064,7 @@ function showView(id, el, pushState) {
     renderHistorique();
     // ✅ FIX v40 DÉFINITIF : recharger depuis clotures_data (clé/valeur JSON) — vraie source de vérité
     // La table SQL 'clotures' n'est jamais alimentée par l'app → ca_total=0 → BUG CA=0
-    //
-    // ✅ FIX LENTEUR "changer vers Historique prend du temps" : avant, CE bloc
-    // (retéléchargement du blob complet + fusion + dédoublonnage + tri) se
-    // relançait à CHAQUE clic sur l'onglet Historique, même en y retournant
-    // 5 secondes après. Plus l'historique grandit avec le temps (des mois de
-    // clôtures jamais purgées), plus cette opération devient lourde — et donc
-    // plus la navigation vers cet onglet ralentit avec l'ancienneté du compte.
-    // On ne la relance maintenant que si ça fait plus de 60s depuis la
-    // dernière fois (ou jamais fait) — sinon on garde juste les données déjà
-    // en mémoire. Le bouton "🔄 Actualiser" reste disponible pour forcer un
-    // rechargement immédiat à tout moment.
-    const _cloReloadCooldown = 60000;
-    const _cloNow = Date.now();
-    if(typeof KGSync !== 'undefined' && KGSync.isConnected && (_cloNow - (window._lastCloturesReloadTs || 0)) > _cloReloadCooldown) {
-      window._lastCloturesReloadTs = _cloNow;
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
       (async function _reloadClotures() {
         try {
           const _sb  = KGSync.getClient();
@@ -13080,73 +13024,17 @@ function changeQty(cartIdx, delta) {
   renderCart();
 }
 
-// ══════════════════════════════════════════════════════════════
-// ✅ FIX "rien ne s'affiche" : remplace window.prompt() par une fenêtre
-// maison en HTML/CSS. Sur certains navigateurs WebView restreints (page
-// ouverte via content://media/..., content://downloads/..., navigateurs
-// intégrés d'autres apps), window.prompt() est bloqué silencieusement —
-// exactement comme window.print() l'était (voir fix précédent). Une
-// fenêtre HTML classique, elle, fonctionne partout car elle ne dépend
-// d'aucune API navigateur spéciale, juste du DOM.
-// ══════════════════════════════════════════════════════════════
-function _kgCustomPrompt(title, defaultValue, onConfirm) {
-  const old = document.getElementById('kg-custom-prompt-overlay');
-  if(old) old.remove();
-  const overlay = document.createElement('div');
-  overlay.id = 'kg-custom-prompt-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;';
-  overlay.innerHTML = `
-    <div style="background:var(--surface,#fff);border-radius:14px;padding:20px;max-width:340px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,0.35);">
-      <div style="font-weight:700;margin-bottom:12px;font-size:14px;color:var(--text,#1a1a2e);">${window.escHtml(title)}</div>
-      <input id="kg-custom-prompt-input" type="text" inputmode="decimal" value="${window.escHtml(String(defaultValue))}" style="width:100%;padding:10px 12px;border:2px solid var(--accent,#f5781e);border-radius:8px;font-size:16px;margin-bottom:14px;box-sizing:border-box;font-family:'JetBrains Mono',monospace;" />
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button id="kg-custom-prompt-cancel" style="padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ccc);background:transparent;color:var(--text,#333);font-weight:600;cursor:pointer;">Annuler</button>
-        <button id="kg-custom-prompt-ok" style="padding:9px 18px;border-radius:8px;border:none;background:var(--accent,#f5781e);color:#fff;font-weight:700;cursor:pointer;">Valider</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  const input = overlay.querySelector('#kg-custom-prompt-input');
-  setTimeout(() => { input.focus(); input.select(); }, 50);
-  const close = (val) => { overlay.remove(); onConfirm(val); };
-  overlay.querySelector('#kg-custom-prompt-cancel').onclick = () => close(null);
-  overlay.querySelector('#kg-custom-prompt-ok').onclick = () => close(input.value);
-  overlay.addEventListener('click', e => { if(e.target === overlay) close(null); });
-  input.addEventListener('keydown', e => { if(e.key === 'Enter') close(input.value); if(e.key === 'Escape') close(null); });
-}
-
 // ── Saisie manuelle d'une quantité décimale (ex: 10.5 kg de fromage) ──
 // Tap sur le nombre au centre du panier (au lieu de cliquer 10 fois sur +).
 function editQtyManuelle(cartIdx) {
   if(cartIdx < 0 || cartIdx >= cart.length) return;
   const item = cart[cartIdx];
-  _kgCustomPrompt(`Quantité pour "${item.name}" (ex: 10.5) :`, item.qty, (input) => {
-    if(input === null) return;
-    const val = parseFloat(String(input).replace(',', '.'));
-    if(isNaN(val) || val <= 0) { showNotif('⚠️ Quantité invalide'); return; }
-    item.qty = val;
-    renderCart();
-  });
-}
-
-// ── Saisie manuelle du prix pour CETTE vente uniquement (ex: le prix a
-// augmenté chez le fournisseur mais vous ne voulez pas encore modifier le
-// prix dans le Menu & Carte) — tap sur le prix affiché dans le panier.
-// ⚠️ Ne modifie QUE la ligne de cette vente : le prix du produit dans le
-// menu reste inchangé, pour toutes les prochaines ventes.
-function editPrixManuel(cartIdx) {
-  if(cartIdx < 0 || cartIdx >= cart.length) return;
-  const item = cart[cartIdx];
-  const hasPromo = item.discount > 0;
-  const currentPrice = hasPromo ? (item.priceOriginal || item.price) : item.price;
-  _kgCustomPrompt(`Prix unitaire pour "${item.name}" (FCFA TTC) — pour cette vente seulement, le menu ne sera pas modifié :`, currentPrice, (input) => {
-    if(input === null) return;
-    const val = parseFloat(String(input).replace(',', '.').replace(/\s/g, ''));
-    if(isNaN(val) || val < 0) { showNotif('⚠️ Prix invalide'); return; }
-    item.price = val;
-    item.priceOriginal = val;
-    showNotif(`💰 Prix mis à jour pour cette vente : ${val.toLocaleString()} F`);
-    renderCart();
-  });
+  const input = prompt(`Quantité pour "${item.name}" (ex: 10.5) :`, item.qty);
+  if(input === null) return;
+  const val = parseFloat(String(input).replace(',', '.'));
+  if(isNaN(val) || val <= 0) { showNotif('⚠️ Quantité invalide'); return; }
+  item.qty = val;
+  renderCart();
 }
 
 function renderCart() {
@@ -13196,7 +13084,7 @@ function renderCart() {
         <div class="cart-item-name">${escHtml(item.name)}${hasPromo ? ` <span style="background:var(--red);color:white;border-radius:4px;font-size:10px;font-weight:700;padding:1px 5px;">-${item.discount}%</span>` : ''}</div>
         <div class="cart-item-price" style="display:flex;gap:6px;align-items:center;">
           ${hasPromo ? `<span style="text-decoration:line-through;color:var(--text2);font-size:11px;">${(prixOriginal * item.qty).toLocaleString()} F</span>` : ''}
-          <span onclick="editPrixManuel(${cartIdx})" title="Toucher pour changer le prix (pour cette vente seulement)" style="cursor:pointer;border-bottom:1px dashed var(--text2);color:${hasPromo ? 'var(--red)' : 'inherit'};font-weight:${hasPromo ? '700' : '400'};">${(prixFinal * item.qty).toLocaleString()} FCFA TTC</span>
+          <span style="color:${hasPromo ? 'var(--red)' : 'inherit'};font-weight:${hasPromo ? '700' : '400'};">${(prixFinal * item.qty).toLocaleString()} FCFA TTC</span>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
@@ -20809,7 +20697,7 @@ function renderClients() {
   // la fin de la synchro), retenter une fois un chargement direct depuis
   // Supabase avant de conclure "aucun client" — au lieu d'afficher un écran
   // vide silencieux alors que les clients existent bien côté serveur.
-  if(CLIENTS.length === 0 && !renderClients._retried && (renderClients._suppressRetryUntil||0) < Date.now() && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+  if(CLIENTS.length === 0 && !renderClients._retried && typeof KGSync !== 'undefined' && KGSync.isConnected) {
     renderClients._retried = true;
     // ✅ FIX LENTEUR/BLOCAGE : pull ciblé "clients_data" uniquement (léger,
     // pas de retraitement ventes/menu/stock) au lieu d'un pullAll() complet.
@@ -20950,21 +20838,8 @@ function deleteClient(cIdx) {
   // Le client disparaissait localement, puis réapparaissait dès la prochaine
   // synchro (le bloc distant contenait toujours l'ancienne liste complète).
   // Il faut re-pousser le tableau CLIENTS mis à jour après la suppression.
-  //
-  // ✅ FIX "ça revient après suppression" : push.clients() ne fait que
-  // PROGRAMMER un envoi dans 8s (debounce anti-egress). Si un pull (sync,
-  // changement d'onglet, retour en ligne, etc.) survient dans cette fenêtre
-  // de 8s, il retélécharge l'ANCIENNE liste (le serveur n'a pas encore reçu
-  // la suppression) et écrase le tableau local — le client "ressuscite".
-  // On force donc l'envoi immédiat avec flushAllPending() juste après.
   CLIENTS.splice(cIdx, 1);
-  renderClients._suppressRetryUntil = Date.now() + 10000; // ✅ évite qu'une resynchro immédiate ne fasse "revenir" une liste vidée par la suppression
-  if(KGSync.isConnected) {
-    KGSync.push.clients();
-    if(typeof KGSync.flushAllPending === 'function') {
-      KGSync.flushAllPending().catch(e => console.error('flush suppression client:', e));
-    }
-  }
+  if(KGSync.isConnected) KGSync.push.clients().catch(()=>{});
   renderClients();
   showNotif(`🗑️ ${c.prenom} ${c.nom} supprimé`);
 }
@@ -26001,18 +25876,7 @@ function refreshDashboard() {
     const _now = new Date();
     const _moisDebut = new Date(_now.getFullYear(), _now.getMonth(), 1).toISOString().slice(0,10);
     const _moisFin   = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).toISOString().slice(0,10);
-    // ✅ FIX LENTEUR TABLEAU DE BORD : avant, cette boucle parcourait TOUT
-    // l'historique des clôtures (des mois/années de données jamais purgées)
-    // à CHAQUE rafraîchissement du dashboard, même si seul le mois en cours
-    // nous intéresse ici. Comme HISTORIQUE_CLOTURES est normalement trié du
-    // plus récent au plus ancien, on arrête dès qu'on a dépassé une marge de
-    // clôtures plus anciennes que le mois en cours — au lieu de tout scanner
-    // à chaque fois. Le tri n'étant pas garanti à 100% (ex: clôture manuelle
-    // ajoutée hors ordre), une marge de sécurité de 40 évite de couper trop tôt.
-    const _dashCloArr = _dashHistoClotures || [];
-    let _consecutiveOld = 0;
-    for(let _hi = 0; _hi < _dashCloArr.length; _hi++) {
-      const h = _dashCloArr[_hi];
+    (_dashHistoClotures || []).forEach(h => {
       // Parser date clôture (dd/mm/yy ou yyyy-mm-dd)
       let hDate = '';
       if(h.date) {
@@ -26027,14 +25891,7 @@ function refreshDashboard() {
           }
         }
       }
-      if(!hDate || hDate < _moisDebut || hDate > _moisFin) {
-        if(hDate && hDate < _moisDebut) {
-          _consecutiveOld++;
-          if(_consecutiveOld > 40) break; // au-delà : quasi certainement que du hors-mois désormais
-        }
-        continue; // hors du mois en cours
-      }
-      _consecutiveOld = 0;
+      if(!hDate || hDate < _moisDebut || hDate > _moisFin) return; // hors du mois en cours
       // Parcourir les tickets de la clôture
       (Array.isArray(h.tickets) ? h.tickets : (Array.isArray(h.ventes) ? h.ventes : (Array.isArray(h.items) ? h.items : []))).forEach(v => {
         (v.items||[]).forEach(i => {
@@ -26049,7 +25906,7 @@ function refreshDashboard() {
           prodMap[key].total += (i.prix||i.price||0) * (i.qty||1);
         });
       });
-    }
+    });
     const tops = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).slice(0, 5);
     if(tops.length === 0) {
       topEl.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text2);font-size:11px;">Aucune vente enregistrée</div>';
@@ -29262,17 +29119,16 @@ const KGSync = (() => {
       syncEnabled = true;
       window._KG_SUPABASE_URL = url;
       window._KG_SUPABASE_KEY = key;
-      // ✅ FIX SÉCURITÉ CRITIQUE — FUITE MULTI-RESTAURANT : le code précédent allait
-      // chercher N'IMPORTE QUEL restaurant_id existant dans toute la table partagée
-      // "kg_sync" (tous restaurants confondus) et prenait le PREMIER trouvé au hasard
-      // comme identifiant temporaire "en attendant le vrai login". Si une synchro en
-      // arrière-plan (poll, retry, etc.) se déclenchait avant que le login réel ne
-      // remplace cette valeur, l'app lisait/écrivait des données sous l'identité d'un
-      // AUTRE restaurant — c'est ce qui causait le mélange de données entre comptes
-      // (ex: Cremamia dont les clôtures apparaissaient chez Sam's). Le restaurant_id
-      // ne doit JAMAIS être deviné : il ne doit être défini qu'après un login réel,
-      // à partir du profil authentifié de l'utilisateur (voir currentUser.restaurant_id
-      // plus loin dans le flux de connexion).
+      // Charger restaurant_id
+      try {
+        // Chercher restaurant_id dans toutes les clés (avant qu'on connaisse le préfixe)
+        const { data: rowsRid } = await client.from(TABLE).select('key,value').like('key', '%:restaurant_id');
+        if(rowsRid && rowsRid.length > 0) {
+          // Prendre le premier trouvé - sera écrasé par le login Supabase Auth
+          const d = dec(rowsRid[0].value);
+          if(d && d.id) window._KG_RESTAURANT_ID = d.id;
+        }
+      } catch(e2) { console.warn('KGSync: restaurant_id:', e2.message || e2); }
       console.log('✅ KGSync v36 connecté');
       // Ne pas faire pullAll ici — restaurant_id pas encore connu
       // pullAll sera appelé après le login Auth réussi
@@ -34824,29 +34680,7 @@ setTimeout(() => {
       if(typeof loadRestaurantSettings === 'function') loadRestaurantSettings();
       showNotif(`🎉 Bienvenue ${currentUser.prenom} ${currentUser.nom} !`);
     } catch(pullErr) {
-      // ✅ FIX "actualiser ne charge pas les données" : au F5, un seul pullAll()
-      // était tenté — s'il échouait (petit accroc réseau au moment précis du
-      // rechargement de page), rien ne réessayait automatiquement, et l'app
-      // restait avec les données locales potentiellement incomplètes/périmées
-      // jusqu'au prochain F5 manuel. Même filet de sécurité que le login normal :
-      // une seconde tentative automatique après 3s.
-      console.warn('[F5] pullAll échoué, retry dans 3s…', pullErr);
-      showNotif(`⚠️ Données chargées localement — nouvelle tentative dans 3s…`);
-      setTimeout(async () => {
-        try {
-          await KGSync.pullAll();
-          if(typeof refreshDashboard === 'function') refreshDashboard();
-          if(typeof loadLocData === 'function') loadLocData();
-          if(typeof renderLocReservations === 'function') renderLocReservations();
-          if(typeof refreshLocStats === 'function') refreshLocStats();
-          if(typeof loadRestaurantSettings === 'function') loadRestaurantSettings();
-          if(typeof showView === 'function') showView(getDefaultView(), null, false);
-          showNotif(`✅ Données rechargées`);
-        } catch(pullErr2) {
-          console.warn('[F5] pullAll retry échoué:', pullErr2);
-          showNotif(`⚠️ Impossible de charger les dernières données — vérifiez votre connexion`);
-        }
-      }, 3000);
+      showNotif(`⚠️ Données chargées localement`);
     }
     KGSync.startRealtime();
 
@@ -39370,111 +39204,6 @@ async function supprimerCloture(key) {
 
   if(typeof renderHistorique === 'function') renderHistorique();
   showNotif('✅ Clôture supprimée !');
-}
-
-// ══════════════════════════════════════════════════════════════
-// ✅ OUTIL ANTI-FUITE MULTI-COMPTES : détecte les clôtures dont AUCUN
-// article vendu ne correspond au menu actuel du restaurant — signe fort
-// qu'elles proviennent d'un AUTRE restaurant (contamination via le bug de
-// restaurant_id deviné au hasard, désormais corrigé). Ne supprime rien
-// automatiquement : liste les suspects et laisse l'admin confirmer.
-// ══════════════════════════════════════════════════════════════
-function _kgNormalizeName(s) {
-  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '').trim();
-}
-
-function _kgAuditClotures() {
-  if(!currentUser || currentUser.role !== 'administrateur') { showNotif('🔒 Réservé à l\'administrateur'); return; }
-  const menuNames = new Set((typeof MENU !== 'undefined' ? MENU : []).map(m => _kgNormalizeName(m.name)).filter(Boolean));
-  if(menuNames.size === 0) { showNotif('⚠️ Menu vide — impossible de comparer, chargez d\'abord votre menu'); return; }
-  const suspects = [];
-  (HISTORIQUE_CLOTURES || []).forEach((h, idx) => {
-    const tickets = h.tickets || [];
-    let totalItems = 0, matched = 0;
-    const sampleNames = [];
-    tickets.forEach(t => (t.items || []).forEach(it => {
-      totalItems++;
-      const n = _kgNormalizeName(it.nom);
-      if(n && menuNames.has(n)) matched++;
-      if(sampleNames.length < 4 && it.nom) sampleNames.push(it.nom);
-    }));
-    if(totalItems > 0 && matched === 0) suspects.push({ idx, h, sampleNames, totalItems });
-  });
-  if(suspects.length === 0) {
-    showNotif('✅ Aucune clôture suspecte détectée — tous les articles vendus correspondent à votre menu actuel');
-    return;
-  }
-  _kgShowAuditModal(suspects);
-}
-
-function _kgShowAuditModal(suspects) {
-  const old = document.getElementById('kg-audit-overlay');
-  if(old) old.remove();
-  const overlay = document.createElement('div');
-  overlay.id = 'kg-audit-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;';
-  const rowsHtml = suspects.map(s => `
-    <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--border,#e5e7eb);border-radius:8px;margin-bottom:8px;background:var(--surface2,#f9fafb);">
-      <input type="checkbox" class="kg-audit-chk" data-idx="${s.idx}" checked style="margin-top:3px;width:18px;height:18px;flex-shrink:0;">
-      <div style="flex:1;font-size:12px;">
-        <div style="font-weight:700;color:var(--text,#1a1a2e);">${window.escHtml(s.h.date)} ${window.escHtml(s.h.heure)} — ${window.escHtml(s.h.caisse)} — ${(s.h.ca || 0).toLocaleString()} F</div>
-        <div style="color:var(--text2,#666);margin-top:2px;">Articles non reconnus : ${s.sampleNames.map(n => window.escHtml(n)).join(', ')}${s.totalItems > s.sampleNames.length ? '…' : ''}</div>
-      </div>
-    </label>`).join('');
-  overlay.innerHTML = `
-    <div style="background:var(--surface,#fff);border-radius:14px;padding:20px;max-width:480px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,0.35);">
-      <div style="font-weight:800;font-size:16px;margin-bottom:4px;color:var(--red,#e74c3c);">⚠️ ${suspects.length} clôture(s) suspecte(s)</div>
-      <div style="font-size:12px;color:var(--text2,#666);margin-bottom:14px;">Ces clôtures ne contiennent QUE des articles absents de votre menu actuel — signe probable de contamination entre comptes. Décochez celles que vous voulez garder, puis validez.</div>
-      <div style="overflow-y:auto;flex:1;margin-bottom:14px;">${rowsHtml}</div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button id="kg-audit-cancel" style="padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ccc);background:transparent;color:var(--text,#333);font-weight:600;cursor:pointer;">Fermer</button>
-        <button id="kg-audit-delete" style="padding:9px 18px;border-radius:8px;border:none;background:var(--red,#e74c3c);color:#fff;font-weight:700;cursor:pointer;">🗑️ Supprimer la sélection</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  overlay.querySelector('#kg-audit-cancel').onclick = () => overlay.remove();
-  overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
-  overlay.querySelector('#kg-audit-delete').onclick = async () => {
-    const checked = Array.from(overlay.querySelectorAll('.kg-audit-chk:checked')).map(c => parseInt(c.dataset.idx));
-    overlay.remove();
-    if(checked.length === 0) return;
-    await _kgBulkDeleteClotures(checked);
-  };
-}
-
-async function _kgBulkDeleteClotures(indices) {
-  const sorted = indices.slice().sort((a, b) => b - a); // décroissant : ne décale pas les index restants
-  const deletedIds = [];
-  sorted.forEach(idx => {
-    const h = HISTORIQUE_CLOTURES[idx];
-    if(!h) return;
-    HISTORIQUE_CLOTURES.splice(idx, 1);
-    try {
-      const _k = (typeof _clotureKey === 'function') ? _clotureKey(h) : ('id:' + h.id);
-      CLOTURES_SUPPRIMEES.add(_k);
-    } catch(e) {}
-    if(h.id) deletedIds.push(h.id);
-  });
-  try { _lsSet('kg-clotures-supprimees', JSON.stringify([...CLOTURES_SUPPRIMEES])); } catch(e) {}
-  try {
-    const rid = window._KG_RESTAURANT_ID;
-    if(rid) {
-      localStorage.setItem('rid_' + rid + ':kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
-      localStorage.setItem('kg-historique-clotures-' + rid, JSON.stringify(HISTORIQUE_CLOTURES));
-    }
-    _lsSet('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
-  } catch(e) {}
-  try {
-    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
-      if(typeof KGSync.push.tombstonesClotures === 'function') await KGSync.push.tombstonesClotures();
-      for(const id of deletedIds) {
-        if(typeof KGSync.push.deleteClotureUnique === 'function') await KGSync.push.deleteClotureUnique(id);
-      }
-      await KGSync.push.clotures();
-    }
-  } catch(e) { console.warn('[_kgBulkDeleteClotures]', e); }
-  if(typeof renderHistorique === 'function') renderHistorique();
-  showNotif(`✅ ${sorted.length} clôture(s) suspecte(s) supprimée(s)`);
 }
 
 // ✅ Impression / PDF de la clôture actuellement affichée dans le modal
