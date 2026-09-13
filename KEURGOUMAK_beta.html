@@ -96,6 +96,47 @@ window.safeUrl = function(u) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
+<!-- ✅ FIX "faut vider le cache pour que ça marche" : certains hébergeurs/navigateurs
+     gardent une vieille copie de cette page en cache après une mise à jour. Ces
+     balises demandent au navigateur de toujours revérifier la fraîcheur de la page
+     au lieu de servir une version périmée depuis le cache local. -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="kg-app-build" content="v58">
+<script>
+// ══════════════════════════════════════════════════════════════
+// ✅ FIX "faut vider le cache pour que ça marche" : détecte automatiquement
+// quand une nouvelle version de la page a été déployée sur le serveur, et
+// propose un simple bouton pour l'appliquer — sans que l'utilisateur ait à
+// connaître ou faire la manip "vider le cache du navigateur".
+// ══════════════════════════════════════════════════════════════
+(function() {
+  const _KG_BUILD = 'v58';
+  let _kgBannerShown = false;
+  async function _kgCheckForUpdate() {
+    if(_kgBannerShown) return;
+    try {
+      const res = await fetch(location.pathname + location.search + (location.search ? '&' : '?') + '_kgcheck=' + Date.now(), { cache: 'no-store' });
+      if(!res.ok) return;
+      const html = await res.text();
+      const m = html.match(/<meta\s+name=["']kg-app-build["']\s+content=["']([^"']+)["']/i);
+      if(m && m[1] && m[1] !== _KG_BUILD) {
+        _kgBannerShown = true;
+        const bar = document.createElement('div');
+        bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:999999;background:#1a1a2e;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:sans-serif;font-size:13px;box-shadow:0 -4px 16px rgba(0,0,0,0.3);';
+        bar.innerHTML = '<span>🆕 Nouvelle version disponible</span><button style="background:#f5781e;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:700;font-size:13px;cursor:pointer;">Actualiser</button>';
+        bar.querySelector('button').onclick = () => location.reload();
+        document.body.appendChild(bar);
+      }
+    } catch(e) { /* pas de réseau ou erreur silencieuse — on retentera plus tard */ }
+  }
+  // Premier check discret peu après le chargement, puis toutes les 5 minutes
+  // (utile pour les sessions laissées ouvertes longtemps pendant le service).
+  window.addEventListener('load', () => setTimeout(_kgCheckForUpdate, 4000));
+  setInterval(_kgCheckForUpdate, 5 * 60 * 1000);
+})();
+</script>
 <style>
   /* Sharp rendering on all screens */
   * {
@@ -237,7 +278,7 @@ async function _pushClotureeSupabase(localKey, dataArray) {
     if(!sb || !rid) return;
     // Stocker dans kg_sync pour que la prochaine synchro récupère cloturee:true
     await sb.from('kg_sync').upsert(
-      { key: rid + ':' + localKey, value: JSON.stringify(dataArray), updated_at: new Date().toISOString() },
+      { key: rid + ':' + localKey, value: JSON.stringify(dataArray), restaurant_id: rid, updated_at: new Date().toISOString() },
       { onConflict: 'key' }
     );
   } catch(e) { console.warn('[cloturee push]', e); }
@@ -6666,6 +6707,7 @@ function _syncSportVentes()       { return []; }
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(0,201,177,0.15),rgba(0,201,177,0.05));border-color:rgba(0,201,177,0.4);color:var(--teal);" onclick="_forceSyncClotures()" id="hist-sync-btn">🔄 Actualiser</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(232,69,32,0.15),rgba(245,158,42,0.05));border-color:rgba(232,69,32,0.4);color:#e84520;" onclick="ouvrirModalReconstruire()">🔧 Reconstruire clôture</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(26,219,106,0.15),rgba(0,229,200,0.05));border-color:rgba(26,219,106,0.4);color:var(--green);" onclick="ouvrirModalClotureManu()">➕ Ajouter clôture manuelle</button>
+          <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(231,76,60,0.15),rgba(231,76,60,0.05));border-color:rgba(231,76,60,0.4);color:var(--red);" onclick="_kgAuditClotures()">🔍 Vérifier fuites multi-comptes</button>
           </span>
         </div>
       </div>
@@ -11064,7 +11106,21 @@ function showView(id, el, pushState) {
     renderHistorique();
     // ✅ FIX v40 DÉFINITIF : recharger depuis clotures_data (clé/valeur JSON) — vraie source de vérité
     // La table SQL 'clotures' n'est jamais alimentée par l'app → ca_total=0 → BUG CA=0
-    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    //
+    // ✅ FIX LENTEUR "changer vers Historique prend du temps" : avant, CE bloc
+    // (retéléchargement du blob complet + fusion + dédoublonnage + tri) se
+    // relançait à CHAQUE clic sur l'onglet Historique, même en y retournant
+    // 5 secondes après. Plus l'historique grandit avec le temps (des mois de
+    // clôtures jamais purgées), plus cette opération devient lourde — et donc
+    // plus la navigation vers cet onglet ralentit avec l'ancienneté du compte.
+    // On ne la relance maintenant que si ça fait plus de 60s depuis la
+    // dernière fois (ou jamais fait) — sinon on garde juste les données déjà
+    // en mémoire. Le bouton "🔄 Actualiser" reste disponible pour forcer un
+    // rechargement immédiat à tout moment.
+    const _cloReloadCooldown = 60000;
+    const _cloNow = Date.now();
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected && (_cloNow - (window._lastCloturesReloadTs || 0)) > _cloReloadCooldown) {
+      window._lastCloturesReloadTs = _cloNow;
       (async function _reloadClotures() {
         try {
           const _sb  = KGSync.getClient();
@@ -11831,8 +11887,27 @@ async function saveFacture(andPrint) {
   // même après plusieurs factures payées.
   if(!editId && isClient && type !== 'devis' && clientObjRef) {
     clientObjRef.nbCmds = (clientObjRef.nbCmds || 0) + 1;
-    clientObjRef.totalDepense = (clientObjRef.totalDepense || 0) + ttc;
+    // ✅ FIX "Total dépensé" trompeur : avant, on ajoutait le TTC complet de la
+    // facture même si le client n'avait encore rien payé (facture "en attente",
+    // 0 F encaissé) — la fiche client affichait alors un montant "dépensé" que
+    // le client n'avait jamais réellement payé. On n'ajoute désormais que ce
+    // qui est réellement encaissé à la création (acomptePaye), cohérent avec
+    // la même logique déjà appliquée côté RDV (syncClientStatsFromRdv).
+    clientObjRef.totalDepense = (clientObjRef.totalDepense || 0) + acomptePaye;
     clientObjRef.dernierAchat = date;
+    // ✅ FIX "Reste à payer" jamais affiché : soldeDu n'était alimenté que dans
+    // le cas très spécifique d'un paiement par solde prépayé insuffisant (voir
+    // bloc payMethod === 'solde_client' plus haut). Pour tout autre mode de
+    // paiement (espèces, mobile money, "en attente"...), une facture non
+    // intégralement payée ne faisait jamais apparaître de créance sur la fiche
+    // client. On généralise : toute part non couverte par acomptePaye (hors
+    // cas solde_client déjà traité au-dessus, pour ne pas compter deux fois)
+    // vient s'ajouter à la créance du client.
+    if(payMethod !== 'solde_client' && soldeRestant > 0) {
+      clientObjRef.soldeDu = (clientObjRef.soldeDu || 0) + soldeRestant;
+      clientObjRef.historiqueSolde = clientObjRef.historiqueSolde || [];
+      clientObjRef.historiqueSolde.push({ date: new Date().toISOString(), type:'creance', montant: -soldeRestant, ref: num, note: `Reste à payer sur facture ${num}` });
+    }
     if(KGSync.isConnected) {
       KGSync.push.client(clientObjRef);
       if(typeof KGSync.flushAllPending === 'function') await KGSync.flushAllPending().catch(()=>{});
@@ -11940,9 +12015,45 @@ function partagerFacture_WhatsApp(id) {
 function toggleFactStatut(id) {
   const f = FACTURES.find(x => x.id === id);
   if(!f) return;
-  f.statut = f.statut === 'payee' ? 'attente' : 'payee';
+  const wasPayee = f.statut === 'payee';
+  // ✅ FIX "créance jamais soldée" : marquer une facture "Payée" ne mettait à
+  // jour QUE le statut de la facture — la fiche client (soldeDu / Total
+  // dépensé) restait figée avec l'ancien "reste à payer", même après
+  // règlement effectif du client. On répercute désormais le paiement (ou son
+  // annulation, si on repasse la facture en "attente") sur le client lié.
+  const clientObjRef = f.clientId ? (CLIENTS||[]).find(c => c.id === f.clientId) : null;
+
+  if(!wasPayee) {
+    // attente/partiel → payée : le solde restant vient d'être réglé
+    const montantRegle = Math.max(0, f.soldeRestant != null ? f.soldeRestant : (f.ttc - (f.acompte||0)));
+    if(clientObjRef && montantRegle > 0) {
+      clientObjRef.soldeDu = Math.max(0, (clientObjRef.soldeDu||0) - montantRegle);
+      clientObjRef.totalDepense = (clientObjRef.totalDepense||0) + montantRegle;
+      clientObjRef.historiqueSolde = clientObjRef.historiqueSolde || [];
+      clientObjRef.historiqueSolde.push({ date: new Date().toISOString(), type:'creance_reglee', montant: montantRegle, ref: f.num, note: `Créance réglée — facture ${f.num} marquée payée` });
+      if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.client(clientObjRef).catch(()=>{});
+    }
+    f._montantReglePourStatut = montantRegle; // gardé pour pouvoir annuler proprement si on repasse en "attente"
+    f.acompte = f.ttc;
+    f.soldeRestant = 0;
+    f.statut = 'payee';
+  } else {
+    // payée → attente : on annule le règlement qu'on venait d'enregistrer
+    const montantAAnnuler = f._montantReglePourStatut || 0;
+    if(clientObjRef && montantAAnnuler > 0) {
+      clientObjRef.soldeDu = (clientObjRef.soldeDu||0) + montantAAnnuler;
+      clientObjRef.totalDepense = Math.max(0, (clientObjRef.totalDepense||0) - montantAAnnuler);
+      if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.client(clientObjRef).catch(()=>{});
+    }
+    f.soldeRestant = montantAAnnuler;
+    f.acompte = f.ttc - montantAAnnuler;
+    f.statut = 'attente';
+    delete f._montantReglePourStatut;
+  }
+
   saveFacturesLocal();
   renderFactures();
+  if(typeof renderClients === 'function' && document.getElementById('clients-grid')) renderClients();
   showNotif('✅ Statut mis à jour → ' + (f.statut==='payee'?'Payée':'En attente'));
 }
 
@@ -11998,11 +12109,23 @@ function completerPaiementFacture(id) {
     `Confirmer le paiement du solde complet ?`
   );
   if(!confirmation) return;
+  // ✅ FIX même bug que toggleFactStatut : "Compléter le solde" ne mettait à
+  // jour QUE la facture, jamais la fiche client — la créance restait affichée
+  // comme impayée malgré le règlement.
+  const clientObjRef = f.clientId ? (CLIENTS||[]).find(c => c.id === f.clientId) : null;
+  if(clientObjRef && solde > 0) {
+    clientObjRef.soldeDu = Math.max(0, (clientObjRef.soldeDu||0) - solde);
+    clientObjRef.totalDepense = (clientObjRef.totalDepense||0) + solde;
+    clientObjRef.historiqueSolde = clientObjRef.historiqueSolde || [];
+    clientObjRef.historiqueSolde.push({ date: new Date().toISOString(), type:'creance_reglee', montant: solde, ref: f.num, note: `Solde réglé — facture ${f.num}` });
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) KGSync.push.client(clientObjRef).catch(()=>{});
+  }
   f.acompte = f.ttc;
   f.soldeRestant = 0;
   f.statut = 'payee';
   saveFacturesLocal();
   renderFactures();
+  if(typeof renderClients === 'function' && document.getElementById('clients-grid')) renderClients();
   showNotif(`✅ Facture ${f.num} soldée — Paiement complet enregistré`);
 }
 
@@ -13024,17 +13147,73 @@ function changeQty(cartIdx, delta) {
   renderCart();
 }
 
+// ══════════════════════════════════════════════════════════════
+// ✅ FIX "rien ne s'affiche" : remplace window.prompt() par une fenêtre
+// maison en HTML/CSS. Sur certains navigateurs WebView restreints (page
+// ouverte via content://media/..., content://downloads/..., navigateurs
+// intégrés d'autres apps), window.prompt() est bloqué silencieusement —
+// exactement comme window.print() l'était (voir fix précédent). Une
+// fenêtre HTML classique, elle, fonctionne partout car elle ne dépend
+// d'aucune API navigateur spéciale, juste du DOM.
+// ══════════════════════════════════════════════════════════════
+function _kgCustomPrompt(title, defaultValue, onConfirm) {
+  const old = document.getElementById('kg-custom-prompt-overlay');
+  if(old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'kg-custom-prompt-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:var(--surface,#fff);border-radius:14px;padding:20px;max-width:340px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,0.35);">
+      <div style="font-weight:700;margin-bottom:12px;font-size:14px;color:var(--text,#1a1a2e);">${window.escHtml(title)}</div>
+      <input id="kg-custom-prompt-input" type="text" inputmode="decimal" value="${window.escHtml(String(defaultValue))}" style="width:100%;padding:10px 12px;border:2px solid var(--accent,#f5781e);border-radius:8px;font-size:16px;margin-bottom:14px;box-sizing:border-box;font-family:'JetBrains Mono',monospace;" />
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="kg-custom-prompt-cancel" style="padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ccc);background:transparent;color:var(--text,#333);font-weight:600;cursor:pointer;">Annuler</button>
+        <button id="kg-custom-prompt-ok" style="padding:9px 18px;border-radius:8px;border:none;background:var(--accent,#f5781e);color:#fff;font-weight:700;cursor:pointer;">Valider</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const input = overlay.querySelector('#kg-custom-prompt-input');
+  setTimeout(() => { input.focus(); input.select(); }, 50);
+  const close = (val) => { overlay.remove(); onConfirm(val); };
+  overlay.querySelector('#kg-custom-prompt-cancel').onclick = () => close(null);
+  overlay.querySelector('#kg-custom-prompt-ok').onclick = () => close(input.value);
+  overlay.addEventListener('click', e => { if(e.target === overlay) close(null); });
+  input.addEventListener('keydown', e => { if(e.key === 'Enter') close(input.value); if(e.key === 'Escape') close(null); });
+}
+
 // ── Saisie manuelle d'une quantité décimale (ex: 10.5 kg de fromage) ──
 // Tap sur le nombre au centre du panier (au lieu de cliquer 10 fois sur +).
 function editQtyManuelle(cartIdx) {
   if(cartIdx < 0 || cartIdx >= cart.length) return;
   const item = cart[cartIdx];
-  const input = prompt(`Quantité pour "${item.name}" (ex: 10.5) :`, item.qty);
-  if(input === null) return;
-  const val = parseFloat(String(input).replace(',', '.'));
-  if(isNaN(val) || val <= 0) { showNotif('⚠️ Quantité invalide'); return; }
-  item.qty = val;
-  renderCart();
+  _kgCustomPrompt(`Quantité pour "${item.name}" (ex: 10.5) :`, item.qty, (input) => {
+    if(input === null) return;
+    const val = parseFloat(String(input).replace(',', '.'));
+    if(isNaN(val) || val <= 0) { showNotif('⚠️ Quantité invalide'); return; }
+    item.qty = val;
+    renderCart();
+  });
+}
+
+// ── Saisie manuelle du prix pour CETTE vente uniquement (ex: le prix a
+// augmenté chez le fournisseur mais vous ne voulez pas encore modifier le
+// prix dans le Menu & Carte) — tap sur le prix affiché dans le panier.
+// ⚠️ Ne modifie QUE la ligne de cette vente : le prix du produit dans le
+// menu reste inchangé, pour toutes les prochaines ventes.
+function editPrixManuel(cartIdx) {
+  if(cartIdx < 0 || cartIdx >= cart.length) return;
+  const item = cart[cartIdx];
+  const hasPromo = item.discount > 0;
+  const currentPrice = hasPromo ? (item.priceOriginal || item.price) : item.price;
+  _kgCustomPrompt(`Prix unitaire pour "${item.name}" (FCFA TTC) — pour cette vente seulement, le menu ne sera pas modifié :`, currentPrice, (input) => {
+    if(input === null) return;
+    const val = parseFloat(String(input).replace(',', '.').replace(/\s/g, ''));
+    if(isNaN(val) || val < 0) { showNotif('⚠️ Prix invalide'); return; }
+    item.price = val;
+    item.priceOriginal = val;
+    showNotif(`💰 Prix mis à jour pour cette vente : ${val.toLocaleString()} F`);
+    renderCart();
+  });
 }
 
 function renderCart() {
@@ -13084,7 +13263,7 @@ function renderCart() {
         <div class="cart-item-name">${escHtml(item.name)}${hasPromo ? ` <span style="background:var(--red);color:white;border-radius:4px;font-size:10px;font-weight:700;padding:1px 5px;">-${item.discount}%</span>` : ''}</div>
         <div class="cart-item-price" style="display:flex;gap:6px;align-items:center;">
           ${hasPromo ? `<span style="text-decoration:line-through;color:var(--text2);font-size:11px;">${(prixOriginal * item.qty).toLocaleString()} F</span>` : ''}
-          <span style="color:${hasPromo ? 'var(--red)' : 'inherit'};font-weight:${hasPromo ? '700' : '400'};">${(prixFinal * item.qty).toLocaleString()} FCFA TTC</span>
+          <span onclick="editPrixManuel(${cartIdx})" title="Toucher pour changer le prix (pour cette vente seulement)" style="cursor:pointer;border-bottom:1px dashed var(--text2);color:${hasPromo ? 'var(--red)' : 'inherit'};font-weight:${hasPromo ? '700' : '400'};">${(prixFinal * item.qty).toLocaleString()} FCFA TTC</span>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
@@ -13320,13 +13499,20 @@ async function _clearVentesCaisseSupabase(caisse) {
     const sb  = KGSync.getClient();
     const rid = window._KG_RESTAURANT_ID;
     if(!sb || !rid) return;
-    // ✅ FIX : supprimer sur les 2 derniers jours (session peut démarrer la veille)
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    // ✅ FIX BUG "ventes qui reviennent toujours" : l'ancienne version ne
+    // supprimait que les 2 derniers jours (gte yesterday), alors que
+    // _loadVentesSupabase() recharge, lui, jusqu'à 30 jours en arrière.
+    // Toute vente antérieure à 2 jours au moment de la clôture n'était donc
+    // JAMAIS supprimée côté Supabase : elle restait orpheline dans la table
+    // et était réinjectée à chaque synchro suivante (ex: ventes du 28 août
+    // et du 03 sept. qui réapparaissaient à chaque clôture, indéfiniment).
+    // Une vraie clôture Z doit purger TOUT l'historique non clôturé de cette
+    // caisse, sans filtre de date, pour rester cohérente avec la fenêtre de
+    // lecture de 30 jours.
     const { error } = await sb.from('ventes_caisse')
       .delete()
       .eq('restaurant_id', rid)
-      .eq('caisse', caisse)
-      .gte('session_date', yesterday);
+      .eq('caisse', caisse);
     if(error) console.warn('[ventes_caisse] Erreur clear:', error);
     else console.log('[ventes_caisse] ✅ Ventes supprimées après clôture :', caisse);
   } catch(e) {
@@ -13375,6 +13561,43 @@ async function _saveVenteSupabase(caisse, vente, _retryCount) {
       serveur:       vente.serveur && vente.serveur.trim() ? vente.serveur.trim() : null
     }, { onConflict: 'restaurant_id,caisse,order_num' });
     if(error) throw error;
+    // ✅ FIX ARCHIVAGE PERMANENT : ventes_caisse est une table de travail vidée
+    // à chaque clôture de caisse — sans ça, aucune trace durable des ventes ne
+    // subsiste en base (la table "ventes" censée servir d'historique restait
+    // vide). On archive donc systématiquement chaque vente ici, en plus de
+    // l'écriture dans ventes_caisse. Best-effort : une erreur ici n'empêche
+    // jamais l'encaissement de continuer (ventes_caisse reste la source de
+    // vérité immédiate).
+    try {
+      const ticketNumParsed = parseInt(String(vente.orderNum || '').replace(/\D/g, ''), 10);
+      const { data: venteRow, error: errArch } = await sb.from('ventes').upsert({
+        restaurant_id: rid,
+        ticket_ref:    vente.orderNum || null,
+        ticket_number: Number.isFinite(ticketNumParsed) ? ticketNumParsed : null,
+        caisse_nom:    caisse,
+        total:         vente.total || 0,
+        sub:           vente.sousTotal != null ? vente.sousTotal : (vente.total || 0),
+        tva:           vente.tva || 0,
+        pay_method:    vente.payMethod || null,
+      }, { onConflict: 'restaurant_id,ticket_ref' }).select('id').single();
+      if(errArch) throw errArch;
+      if(venteRow && Array.isArray(vente.items) && vente.items.length) {
+        await sb.from('vente_items').delete().eq('vente_id', venteRow.id);
+        await sb.from('vente_items').insert(
+          vente.items.map(it => ({
+            vente_id: venteRow.id,
+            item_id:  it.id || null,
+            name:     it.name || 'Article',
+            price:    it.price || 0,
+            qty:      it.qty || 1,
+            icon:     it.icon || null,
+            category: it.category || null,
+          }))
+        );
+      }
+    } catch(eArch) {
+      console.warn('[ventes] Erreur archivage permanent (non bloquant):', eArch);
+    }
     // ✅ Succès — si une trace d'échec précédent existait pour ce ticket, la nettoyer
     try {
       const _fk = 'kg-ventes-save-failed';
@@ -13491,11 +13714,20 @@ async function _getAtomicTicketNumber(caisseKey, label) {
   if(_reallyOffline) {
     return { num: null, offline: true };
   }
+  // ✅ FIX COLLISION MULTI-RESTAURANTS : si l'app est en ligne mais que
+  // l'identifiant du restaurant n'a pas encore fini de charger (juste après
+  // ouverture de l'app), on NE DOIT PAS utiliser une clé 'default' partagée
+  // entre TOUS les restaurants — deux restaurants différents pourraient sinon
+  // recevoir le même numéro de ticket. On traite ce cas comme "pas encore prêt"
+  // et on demande à l'appelant de réessayer, exactement comme le cas hors-ligne.
+  if(!window._KG_RESTAURANT_ID) {
+    return { num: null, offline: true };
+  }
   const _timeouts = [5000, 8000, 12000]; // tentatives avec délai croissant
   for(let attempt = 0; attempt < _timeouts.length; attempt++) {
     try {
       const sb  = KGSync.getClient();
-      const rid = window._KG_RESTAURANT_ID || 'default';
+      const rid = window._KG_RESTAURANT_ID;
       const { data, error } = await _withTimeout(sb.rpc('get_next_ticket_number_caisse', {
         p_restaurant_id: rid,
         p_caisse_key:    caisseKey
@@ -13526,11 +13758,15 @@ async function _getAtomicTicketBlock(caisseKey, count, label) {
   if(_reallyOffline) {
     return { lastNum: null, offline: true };
   }
+  // ✅ FIX COLLISION MULTI-RESTAURANTS : voir _getAtomicTicketNumber plus haut.
+  if(!window._KG_RESTAURANT_ID) {
+    return { lastNum: null, offline: true };
+  }
   const _timeouts = [5000, 8000, 12000];
   for(let attempt = 0; attempt < _timeouts.length; attempt++) {
     try {
       const sb  = KGSync.getClient();
-      const rid = window._KG_RESTAURANT_ID || 'default';
+      const rid = window._KG_RESTAURANT_ID;
       const { data, error } = await _withTimeout(sb.rpc('get_next_ticket_number_caisse', {
         p_restaurant_id: rid,
         p_caisse_key:    caisseKey,
@@ -13551,7 +13787,7 @@ async function _getAtomicTicketBlock(caisseKey, count, label) {
 // sans appel réseau, tant qu'il en reste.
 const _ticketPool = {}; // { 'Caisse 1': { next: 12, max: 20 } }
 const _ticketPoolRefilling = {}; // évite de lancer 2 recharges en parallèle pour la même caisse
-const _TICKET_POOL_SIZE = 10;
+const _TICKET_POOL_SIZE = 20;
 const _TICKET_POOL_REFILL_THRESHOLD = 2; // recharger en avance quand il reste ce nombre de numéros
 
 function _refillTicketPool(caisse) {
@@ -13651,9 +13887,13 @@ async function _getNextTicketNumCaisse(caisseKey) {
   const _prefixMap = { caisse_4:'C4', caisse_5:'C5', caisse_6:'C6', caisse_7:'C7', caisse_8:'C8' };
   const _prefix = _prefixMap[caisseKey] || caisseKey.toUpperCase().replace('_','');
   try {
-    if (typeof KGSync !== 'undefined' && KGSync.isConnected) {
+    // ✅ FIX COLLISION MULTI-RESTAURANTS : ne jamais appeler la RPC avec une
+    // clé 'default' partagée si l'identifiant du restaurant n'est pas encore
+    // chargé — on tombe alors sur le fallback local ci-dessous (propre à
+    // cette caisse), le temps que _KG_RESTAURANT_ID soit disponible.
+    if (typeof KGSync !== 'undefined' && KGSync.isConnected && window._KG_RESTAURANT_ID) {
       const sb  = KGSync.getClient();
-      const rid = window._KG_RESTAURANT_ID || 'default';
+      const rid = window._KG_RESTAURANT_ID;
       // ✅ FIX PERF MULTI-CAISSES : clé propre à cette caisse (plus de 'global' partagé)
       // — l'unicité entre caisses est garantie par le préfixe (C4-017 ≠ C5-017), pas
       // par un compteur commun qui forçait toutes les caisses à se mettre en file.
@@ -15088,6 +15328,11 @@ function _genererFactureDepuisVente(vente, caisse) {
       notes: `Générée automatiquement depuis la vente ${vente.orderNum} (${caisse})` + (vente.payMethod === 'mixed' ? ` · Paiement mixte : ${vente.payLabel||''}` : ''),
       lignes, sousTotal, remise, ht, tva, ttc, tvaRate,
       acompte: ttc, soldeRestant: 0,
+      // ✅ FIX double comptage : cette facture est générée depuis une vente
+      // POS déjà comptée dans le CA normal — on la marque pour l'exclure des
+      // totaux de Comptabilité (calcCA / journal), qui ne doivent compter que
+      // les factures créées manuellement dans le module Factures.
+      origine: 'pos',
     };
 
     FACTURES.push(factObj);
@@ -15116,6 +15361,21 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
   if(!skipCuisine && typeof TICKET_CONFIG !== 'undefined' && Array.isArray(TICKET_CONFIG.caissesSansCuisine) && TICKET_CONFIG.caissesSansCuisine.includes(caisse)) {
     skipCuisine = true;
   }
+  // ✅ FIX LIBELLÉ BOUTON : le bouton affichait toujours "Imprimer (2 tickets)"
+  // même quand le bon de cuisine était désactivé (paramètres, caisse sans
+  // cuisine, ou aucun article de la catégorie cuisine) — l'utilisateur croyait
+  // alors qu'un 2e ticket allait sortir alors qu'un seul s'imprimait vraiment.
+  // On recalcule ici EXACTEMENT la même condition que celle qui affiche/masque
+  // le bloc .cuisine-ticket plus bas, pour que le bouton dise la vérité.
+  const _willPrintCuisine = (function() {
+    if(skipCuisine) return false;
+    if(typeof TICKET_CONFIG === 'undefined' || !TICKET_CONFIG.printCuisine) return false;
+    const _cats = TICKET_CONFIG.cuisineCategories || [];
+    return _cats.length > 0
+      ? vente.items.some(function(it){ return _cats.indexOf(it.cat) !== -1; })
+      : vente.items.length > 0;
+  })();
+  const _printBtnLabel = _willPrintCuisine ? '🖨️ Imprimer (2 tickets)' : '🖨️ Imprimer';
   const now      = new Date();
   // ✅ FIX : afficher la date/heure RÉELLE de la vente, pas l'heure de réouverture/réimpression du ticket
   let dateStr = '';
@@ -15988,7 +16248,7 @@ ${(function(){
 
 <!-- ══ BOUTONS ÉCRAN ══ -->
 <div class="no-print">
-  <button onclick="window.print(); try{ if(window.opener){ setTimeout(function(){ window.close(); }, 400); } else if(window.parent && window.parent !== window && window.parent.document.getElementById('kg-ticket-overlay')){ setTimeout(function(){ window.parent.document.getElementById('kg-ticket-overlay').remove(); }, 400); } }catch(e){}" style="background:#f5a623;color:#fff;">🖨️ Imprimer (2 tickets)</button>
+  <button onclick="window.print(); try{ if(window.opener){ setTimeout(function(){ window.close(); }, 400); } else if(window.parent && window.parent !== window && window.parent.document.getElementById('kg-ticket-overlay')){ setTimeout(function(){ window.parent.document.getElementById('kg-ticket-overlay').remove(); }, 400); } }catch(e){}" style="background:#f5a623;color:#fff;">${_printBtnLabel}</button>
   <button onclick="try{ if(window.opener){ window.close(); } else if(window.parent && window.parent !== window && window.parent.document.getElementById('kg-ticket-overlay')){ window.parent.document.getElementById('kg-ticket-overlay').remove(); } else { window.close(); } }catch(e){}" style="background:#444;color:#fff;">✕ Fermer</button>
 </div>
 
@@ -20697,7 +20957,7 @@ function renderClients() {
   // la fin de la synchro), retenter une fois un chargement direct depuis
   // Supabase avant de conclure "aucun client" — au lieu d'afficher un écran
   // vide silencieux alors que les clients existent bien côté serveur.
-  if(CLIENTS.length === 0 && !renderClients._retried && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+  if(CLIENTS.length === 0 && !renderClients._retried && (renderClients._suppressRetryUntil||0) < Date.now() && typeof KGSync !== 'undefined' && KGSync.isConnected) {
     renderClients._retried = true;
     // ✅ FIX LENTEUR/BLOCAGE : pull ciblé "clients_data" uniquement (léger,
     // pas de retraitement ventes/menu/stock) au lieu d'un pullAll() complet.
@@ -20838,8 +21098,21 @@ function deleteClient(cIdx) {
   // Le client disparaissait localement, puis réapparaissait dès la prochaine
   // synchro (le bloc distant contenait toujours l'ancienne liste complète).
   // Il faut re-pousser le tableau CLIENTS mis à jour après la suppression.
+  //
+  // ✅ FIX "ça revient après suppression" : push.clients() ne fait que
+  // PROGRAMMER un envoi dans 8s (debounce anti-egress). Si un pull (sync,
+  // changement d'onglet, retour en ligne, etc.) survient dans cette fenêtre
+  // de 8s, il retélécharge l'ANCIENNE liste (le serveur n'a pas encore reçu
+  // la suppression) et écrase le tableau local — le client "ressuscite".
+  // On force donc l'envoi immédiat avec flushAllPending() juste après.
   CLIENTS.splice(cIdx, 1);
-  if(KGSync.isConnected) KGSync.push.clients().catch(()=>{});
+  renderClients._suppressRetryUntil = Date.now() + 10000; // ✅ évite qu'une resynchro immédiate ne fasse "revenir" une liste vidée par la suppression
+  if(KGSync.isConnected) {
+    KGSync.push.clients();
+    if(typeof KGSync.flushAllPending === 'function') {
+      KGSync.flushAllPending().catch(e => console.error('flush suppression client:', e));
+    }
+  }
   renderClients();
   showNotif(`🗑️ ${c.prenom} ${c.nom} supprimé`);
 }
@@ -23748,7 +24021,7 @@ function _saveJournal() {
     const sb = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
     if(sb && rid) {
       sb.from('kg_sync').upsert(
-        { key: rid + ':journal_connexions', value: JSON.stringify({ items: toSave, updatedAt: new Date().toISOString() }), updated_at: new Date().toISOString() },
+        { key: rid + ':journal_connexions', value: JSON.stringify({ items: toSave, updatedAt: new Date().toISOString() }), restaurant_id: rid, updated_at: new Date().toISOString() },
         { onConflict: 'key' }
       ).then(() => {}).catch(e => console.warn('[journal] push Supabase:', e));
     }
@@ -25876,7 +26149,18 @@ function refreshDashboard() {
     const _now = new Date();
     const _moisDebut = new Date(_now.getFullYear(), _now.getMonth(), 1).toISOString().slice(0,10);
     const _moisFin   = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).toISOString().slice(0,10);
-    (_dashHistoClotures || []).forEach(h => {
+    // ✅ FIX LENTEUR TABLEAU DE BORD : avant, cette boucle parcourait TOUT
+    // l'historique des clôtures (des mois/années de données jamais purgées)
+    // à CHAQUE rafraîchissement du dashboard, même si seul le mois en cours
+    // nous intéresse ici. Comme HISTORIQUE_CLOTURES est normalement trié du
+    // plus récent au plus ancien, on arrête dès qu'on a dépassé une marge de
+    // clôtures plus anciennes que le mois en cours — au lieu de tout scanner
+    // à chaque fois. Le tri n'étant pas garanti à 100% (ex: clôture manuelle
+    // ajoutée hors ordre), une marge de sécurité de 40 évite de couper trop tôt.
+    const _dashCloArr = _dashHistoClotures || [];
+    let _consecutiveOld = 0;
+    for(let _hi = 0; _hi < _dashCloArr.length; _hi++) {
+      const h = _dashCloArr[_hi];
       // Parser date clôture (dd/mm/yy ou yyyy-mm-dd)
       let hDate = '';
       if(h.date) {
@@ -25891,7 +26175,14 @@ function refreshDashboard() {
           }
         }
       }
-      if(!hDate || hDate < _moisDebut || hDate > _moisFin) return; // hors du mois en cours
+      if(!hDate || hDate < _moisDebut || hDate > _moisFin) {
+        if(hDate && hDate < _moisDebut) {
+          _consecutiveOld++;
+          if(_consecutiveOld > 40) break; // au-delà : quasi certainement que du hors-mois désormais
+        }
+        continue; // hors du mois en cours
+      }
+      _consecutiveOld = 0;
       // Parcourir les tickets de la clôture
       (Array.isArray(h.tickets) ? h.tickets : (Array.isArray(h.ventes) ? h.ventes : (Array.isArray(h.items) ? h.items : []))).forEach(v => {
         (v.items||[]).forEach(i => {
@@ -25906,7 +26197,7 @@ function refreshDashboard() {
           prodMap[key].total += (i.prix||i.price||0) * (i.qty||1);
         });
       });
-    });
+    }
     const tops = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).slice(0, 5);
     if(tops.length === 0) {
       topEl.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text2);font-size:11px;">Aucune vente enregistrée</div>';
@@ -27065,9 +27356,9 @@ async function cloturerCaisse() {
                 VENTES_PAR_CAISSE[caisse].push({
                   orderNum:  v.ticket_ref   || ('#' + v.id),
                   sbId:      v.id,
-                  total:     v.total_ttc    || 0,
-                  sub:       v.total_ht     || 0,
-                  tva:       v.total_tva    || 0,
+                  total:     v.total    || 0,
+                  sub:       v.sub     || 0,
+                  tva:       v.tva     || 0,
                   payMethod: v.pay_method   || 'cash',
                   payLabel:  v.pay_method === 'wave' ? 'Wave' : v.pay_method === 'card' ? 'Carte bancaire' : v.pay_method === 'orange' ? 'Orange Money' : 'Espèces',
                   date:      new Date(v.created_at).toISOString().split('T')[0], // ✅ FIX tri chrono multi-jours
@@ -27436,6 +27727,20 @@ async function cloturerCaisse() {
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
       try {
         const _withTimeout = (p, ms) => Promise.race([p, new Promise((_,r) => setTimeout(() => r(new Error('timeout')), ms))]);
+        // ✅ Clôturer immédiatement les ventes archivées de cette caisse, en
+        // plus du filet de sécurité au prochain login — la clôture Z doit
+        // marquer l'historique tout de suite, pas seulement à la reconnexion.
+        try {
+          const _sbZ = KGSync.getClient();
+          const _ridZ = window._KG_RESTAURANT_ID;
+          if(_sbZ && _ridZ) {
+            await _withTimeout(_sbZ.from('ventes')
+              .update({ cloturee: true, date_cloture: new Date().toISOString() })
+              .eq('restaurant_id', _ridZ)
+              .eq('caisse_nom', caisse)
+              .eq('cloturee', false), 5000);
+          }
+        } catch(eZ) { console.warn('[ventes] clôture immédiate échouée (filet de sécurité au login prendra le relais):', eZ); }
         await _withTimeout(_clearVentesCaisseSupabase(caisse), 6000);
         // ✅ FIX GARANTIE ANTI-PERTE : sauver CETTE clôture dans sa propre case
         // indépendante, en plus du bloc partagé — ne peut jamais être écrasée
@@ -29119,16 +29424,17 @@ const KGSync = (() => {
       syncEnabled = true;
       window._KG_SUPABASE_URL = url;
       window._KG_SUPABASE_KEY = key;
-      // Charger restaurant_id
-      try {
-        // Chercher restaurant_id dans toutes les clés (avant qu'on connaisse le préfixe)
-        const { data: rowsRid } = await client.from(TABLE).select('key,value').like('key', '%:restaurant_id');
-        if(rowsRid && rowsRid.length > 0) {
-          // Prendre le premier trouvé - sera écrasé par le login Supabase Auth
-          const d = dec(rowsRid[0].value);
-          if(d && d.id) window._KG_RESTAURANT_ID = d.id;
-        }
-      } catch(e2) { console.warn('KGSync: restaurant_id:', e2.message || e2); }
+      // ✅ FIX SÉCURITÉ CRITIQUE — FUITE MULTI-RESTAURANT : le code précédent allait
+      // chercher N'IMPORTE QUEL restaurant_id existant dans toute la table partagée
+      // "kg_sync" (tous restaurants confondus) et prenait le PREMIER trouvé au hasard
+      // comme identifiant temporaire "en attendant le vrai login". Si une synchro en
+      // arrière-plan (poll, retry, etc.) se déclenchait avant que le login réel ne
+      // remplace cette valeur, l'app lisait/écrivait des données sous l'identité d'un
+      // AUTRE restaurant — c'est ce qui causait le mélange de données entre comptes
+      // (ex: Cremamia dont les clôtures apparaissaient chez Sam's). Le restaurant_id
+      // ne doit JAMAIS être deviné : il ne doit être défini qu'après un login réel,
+      // à partir du profil authentifié de l'utilisateur (voir currentUser.restaurant_id
+      // plus loin dans le flux de connexion).
       console.log('✅ KGSync v36 connecté');
       // Ne pas faire pullAll ici — restaurant_id pas encore connu
       // pullAll sera appelé après le login Auth réussi
@@ -29675,7 +29981,7 @@ const KGSync = (() => {
       if(!_rid) return;
       const key = _rid + ':_cloture_ping';
       const { error } = await client.from('kg_sync').upsert(
-        { key, value: JSON.stringify({ ts: Date.now(), by: (currentUser ? currentUser.prenom : 'system') }) },
+        { key, value: JSON.stringify({ ts: Date.now(), by: (currentUser ? currentUser.prenom : 'system') }), restaurant_id: _rid },
         { onConflict: 'key' }
       );
       if(error) console.warn('KGSync pushPing error:', error);
@@ -30080,6 +30386,9 @@ const KGSync = (() => {
             });
           });
             console.log('[pullAll] ✅ stockId recettes normalisés après rechargement STOCK_DATA');
+            // ✅ FIX AFFICHAGE : STOCK_DATA était rechargé sans jamais rafraîchir
+            // l'écran Stock — nécessitait un F5 après connexion/reconnexion.
+            if(typeof renderStock === 'function') { try { renderStock(); } catch(e) {} }
           } // fin else (_msSinceDeduct >= 30000)
         } else if(key === 'modules_caisses_data' && data.states) {
           // ✅ FIX v31 MULTI-NAVIGATEURS : restaurer les états des modules depuis Supabase
@@ -30210,6 +30519,10 @@ const KGSync = (() => {
               sessionCaisseActive = data.sessionActive;
             }
           }
+          // ✅ FIX AFFICHAGE : rafraîchir l'écran Caisses après rechargement,
+          // au lieu d'attendre un F5 après connexion/reconnexion.
+          if(typeof renderCaisses === 'function') { try { renderCaisses(); } catch(e) {} }
+          if(typeof refreshDashboard === 'function') { try { refreshDashboard(); } catch(e) {} }
         } else if(key === 'clients_data' && data.items) {
           // 🔧 FIX CRASH "Clients" : certaines fiches (import ancien/manuel)
           // arrivent sans prenom/nom (ex: un seul champ "nom complet" ou
@@ -30234,6 +30547,8 @@ const KGSync = (() => {
         } else if(key === 'commandes_fourn_data') {
           if(data.items)        COMMANDES_FOURNISSEURS = data.items;
           if(data.fournisseurs) FOURNISSEURS           = data.fournisseurs;
+          // ✅ FIX AFFICHAGE : rafraîchir l'écran Fournisseurs après rechargement.
+          if(typeof renderFournisseurs === 'function') { try { renderFournisseurs(); } catch(e) {} }
         } else if(key === 'clotures_data' && data.items) {
           // Fusion sécurisée — merge bi-directionnel
           const remote = Array.isArray(data.items) ? data.items : [];
@@ -30417,6 +30732,13 @@ const KGSync = (() => {
             });
           }
           MENU = _newMenu;
+          // ✅ FIX AFFICHAGE MENU APRÈS CONNEXION : avant ce fix, l'écran ne se
+          // mettait à jour que si une recette était rechargée depuis menu_items
+          // (cas rare). Après une déconnexion/reconnexion sur un AUTRE compte,
+          // MENU était bien rechargé en mémoire mais l'écran gardait l'affichage
+          // de l'ancien compte tant qu'aucun F5 n'était fait. On force donc ici
+          // un rafraîchissement systématique dès que MENU est mis à jour.
+          if(typeof renderMenu === 'function') { try { renderMenu(currentMenuCat || 'all'); } catch(e) {} }
 
           // ✅ FIX CRITIQUE : charger les recettes depuis menu_items Supabase directement
           // kg_sync/menu_data ne contient pas recette si le navigateur a été vidé
@@ -30476,6 +30798,8 @@ const KGSync = (() => {
           const myId = currentUser?.id;
           USERS = data.items;
           if(myId) { const me = USERS.find(u => u.id === myId); if(me) currentUser = me; }
+          // ✅ FIX AFFICHAGE : rafraîchir l'écran Utilisateurs après rechargement.
+          if(typeof renderUsersGrid === 'function') { try { renderUsersGrid(); } catch(e) {} }
         } else if(key === 'restaurant_info' && data.info) {
           RESTAURANT_INFO = { ...RESTAURANT_INFO, ...data.info };
           try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
@@ -30527,6 +30851,8 @@ const KGSync = (() => {
           if(Array.isArray(data.items) && data.items.length > 0) {
             FACTURES = data.items;
             try { _lsSet('kg-factures', JSON.stringify(FACTURES)); } catch(e) {}
+            // ✅ FIX AFFICHAGE : rafraîchir l'écran Factures après rechargement.
+            if(typeof renderFactures === 'function') { try { renderFactures(); } catch(e) {} }
           }
         } else if(key === 'inventaires_data' && data.items) {
           // ✅ FIX v39 : Inventaires synchronisés via kg_sync
@@ -30557,6 +30883,10 @@ const KGSync = (() => {
           if(Array.isArray(data.paies))   { RH_PAIES   = data.paies;   try { _lsSet('kg-rh-paies',   JSON.stringify(RH_PAIES));   } catch(e) {} }
           if(Array.isArray(data.conges))  { RH_CONGES  = data.conges;  try { _lsSet('kg-rh-conges',  JSON.stringify(RH_CONGES));  } catch(e) {} }
           if(Array.isArray(data.avances)) { RH_AVANCES = data.avances; try { _lsSet('kg-rh-avances', JSON.stringify(RH_AVANCES)); } catch(e) {} }
+          // ✅ FIX AFFICHAGE : rafraîchir les écrans RH après rechargement.
+          if(typeof renderEmployes === 'function') { try { renderEmployes(); } catch(e) {} }
+          if(typeof renderConges   === 'function') { try { renderConges();   } catch(e) {} }
+          if(typeof renderAvances  === 'function') { try { renderAvances();  } catch(e) {} }
         } else if(key === 'sport_data') {
           // ✅ FIX v40 SPORT : Restaurer membres et entrées sport
           try {
@@ -33765,6 +34095,21 @@ function _getAllVentesForCompta() {
     ventes.push({ date: dateE, total: e.montant||0, tva: 0, source:'sport' });
   });
 
+  // ✅ FIX MAJEUR : les Factures clients (module "Factures") n'étaient JAMAIS
+  // incluses ici — le Tableau de bord financier, le Bilan et la TVA de la
+  // Comptabilité ignoraient donc totalement l'argent encaissé via une facture,
+  // même marquée "Payée". On les ajoute : pour une facture soldée, le TTC
+  // complet ; pour une facture à acompte partiel, uniquement la part déjà
+  // réellement encaissée (l'acompte), pas le solde restant dû.
+  (typeof FACTURES !== 'undefined' ? FACTURES : [])
+    .filter(f => f.type === 'client' && (f.statut === 'payee' || f.statut === 'partiel') && f.origine !== 'pos')
+    .forEach(f => {
+      const montant = f.statut === 'payee' ? (f.ttc||0) : (f.acompte||0);
+      if(montant <= 0) return;
+      const dateF = (f.date||'').slice(0,10);
+      ventes.push({ date: dateF, total: montant, tva: Math.round(montant*18/118), source: 'facture' });
+    });
+
   return ventes;
 }
 
@@ -33788,7 +34133,7 @@ function calcDepenses() {
 
 function calcAchats() {
   // ✅ v12 : Inclure livree ET livree_partielle, fallback date amélioré
-  return (typeof COMMANDES_FOURNISSEURS !== 'undefined' ? COMMANDES_FOURNISSEURS : [])
+  const achatsCmd = (typeof COMMANDES_FOURNISSEURS !== 'undefined' ? COMMANDES_FOURNISSEURS : [])
     .filter(c => {
       const statut = c.statut || '';
       const estLivree = statut === 'livree' || statut === 'livree_partielle';
@@ -33796,6 +34141,18 @@ function calcAchats() {
       return estLivree && inPeriode(dateRef);
     })
     .reduce((s, c) => s + (c.total || c.montant || 0), 0);
+
+  // ✅ FIX même trou que côté clients : les Factures fournisseurs (module
+  // "Factures", type 'fournisseur') n'étaient jamais comptées dans les achats
+  // — donc absentes des charges, de la TVA déductible et du passif du bilan,
+  // même une fois marquées "Payée". On ajoute : le TTC complet si payée,
+  // uniquement l'acompte réellement versé si acompte partiel.
+  const achatsFact = (typeof FACTURES !== 'undefined' ? FACTURES : [])
+    .filter(f => f.type === 'fournisseur' && (f.statut === 'payee' || f.statut === 'partiel'))
+    .filter(f => inPeriode((f.date||'').slice(0,10)))
+    .reduce((s, f) => s + (f.statut === 'payee' ? (f.ttc||0) : (f.acompte||0)), 0);
+
+  return achatsCmd + achatsFact;
 }
 
 // ✅ v12 : TVA déductible sur dépenses (dépenses avec avec_tva=true)
@@ -33874,6 +34231,16 @@ function renderComptaTableau() {
   const caPiscine  = _allVentes.filter(v => v.source==='piscine').reduce((s,v)=>s+(v.total||0),0);
   const caManege   = _allVentes.filter(v => v.source==='manege').reduce((s,v)=>s+(v.total||0),0);
   const caSport    = _allVentes.filter(v => v.source==='sport').reduce((s,v)=>s+(v.total||0),0);
+  const caFactures = _allVentes.filter(v => v.source==='facture').reduce((s,v)=>s+(v.total||0),0);
+  // ✅ NOUVEAU : nombre de factures comptées (pas seulement le montant), pour
+  // répondre à "combien on a de facture" directement depuis la Comptabilité.
+  const nbFactClients = _allVentes.filter(v => v.source==='facture').length;
+  const { debut: _pDebut, fin: _pFin } = getComptaPeriode();
+  const facturesFournPeriode = (typeof FACTURES !== 'undefined' ? FACTURES : [])
+    .filter(f => f.type === 'fournisseur' && (f.statut === 'payee' || f.statut === 'partiel'))
+    .filter(f => inPeriode((f.date||'').slice(0,10)));
+  const nbFactFournisseurs = facturesFournPeriode.length;
+  const caFacturesFourn = facturesFournPeriode.reduce((s,f) => s + (f.statut === 'payee' ? (f.ttc||0) : (f.acompte||0)), 0);
   const ca = _allVentes.reduce((s,v)=>s+(v.total||0),0);
 
   const charges  = depenses + achats + salaires + avances;
@@ -33912,11 +34279,13 @@ function renderComptaTableau() {
       (caPiscine>0  ? row('🏊 Piscine', caPiscine, 'var(--green)') : '') +
       (caManege>0   ? row('🎠 Manège Enfants', caManege, 'var(--green)') : '') +
       (caSport>0    ? row('💪 Salle de Sport', caSport, 'var(--green)') : '') +
+      (caFactures>0 ? row('🧾 Factures clients (' + nbFactClients + ')', caFactures, 'var(--green)') : '') +
       row('TVA collectée (18%)', tva, 'var(--teal)') +
       `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;font-weight:600;border-top:1px solid var(--border);margin-top:4px;"><span>Total produits</span><span style="font-family:'JetBrains Mono',monospace;color:var(--green);">${fmtF(ca)}</span></div>` +
       `<div style="font-size:11px;color:var(--red);text-transform:uppercase;letter-spacing:1px;padding:10px 0 4px;">CHARGES</div>` +
       row('Dépenses opérationnelles', depenses, 'var(--red)') +
       row('Achats fournisseurs', achats, 'var(--red)') +
+      (nbFactFournisseurs>0 ? row('　↳ dont Factures fournisseurs (' + nbFactFournisseurs + ')', caFacturesFourn, 'var(--red)') : '') +
       row('Charges de personnel', salaires, 'var(--red)') +
       (avances > 0 ? row('Avances sur salaires', avances, 'var(--red)') : '') +
       `<div style="margin-top:8px;"></div>` +
@@ -34092,22 +34461,29 @@ function buildJournalEntries() {
     });
 
   // ✅ Factures clients encaissées → recettes
+  // ✅ FIX : le statut réel utilisé partout ailleurs dans l'app est 'partiel'
+  // (sans e) — 'partielle' ne correspondait à rien, donc aucune facture à
+  // acompte partiel n'apparaissait jamais dans ce journal.
   (typeof FACTURES !== 'undefined' ? FACTURES : [])
-    .filter(f => f.type === 'client' && (f.statut === 'payee' || f.statut === 'partielle') && (f.ttc||0) > 0)
+    .filter(f => f.type === 'client' && (f.statut === 'payee' || f.statut === 'partiel') && f.origine !== 'pos' && (f.ttc||0) > 0)
     .forEach(f => {
       const dateF = (f.date || '').slice(0,10);
       if(!inPeriode(dateF)) return;
-      const montant = f.statut === 'partielle' ? (f.acompte||0) : (f.ttc||0);
+      const montant = f.statut === 'partiel' ? (f.acompte||0) : (f.ttc||0);
       entries.push({ date: dateF, libelle: '🧾 Facture ' + (f.num||'—') + ' — ' + (f.tiers||'—'), categorie: 'recette', debit: 0, credit: montant });
     });
 
   // ✅ Factures fournisseurs réglées → charges
+  // ✅ FIX : inclure aussi l'acompte partiel (statut 'partiel'), pas seulement
+  // les factures intégralement payées — cohérent avec calcAchats() et avec
+  // le traitement des factures clients juste au-dessus.
   (typeof FACTURES !== 'undefined' ? FACTURES : [])
-    .filter(f => f.type === 'fournisseur' && f.statut === 'payee' && (f.ttc||0) > 0)
+    .filter(f => f.type === 'fournisseur' && (f.statut === 'payee' || f.statut === 'partiel') && (f.ttc||0) > 0)
     .forEach(f => {
       const dateF = (f.date || '').slice(0,10);
       if(!inPeriode(dateF)) return;
-      entries.push({ date: dateF, libelle: '🧾 Facture fourn. ' + (f.num||'—') + ' — ' + (f.tiers||'—'), categorie: 'achat', debit: f.ttc||0, credit: 0 });
+      const montant = f.statut === 'partiel' ? (f.acompte||0) : (f.ttc||0);
+      entries.push({ date: dateF, libelle: '🧾 Facture fourn. ' + (f.num||'—') + ' — ' + (f.tiers||'—'), categorie: 'achat', debit: montant, credit: 0 });
     });
 
   // Sort by date descending
@@ -34680,7 +35056,29 @@ setTimeout(() => {
       if(typeof loadRestaurantSettings === 'function') loadRestaurantSettings();
       showNotif(`🎉 Bienvenue ${currentUser.prenom} ${currentUser.nom} !`);
     } catch(pullErr) {
-      showNotif(`⚠️ Données chargées localement`);
+      // ✅ FIX "actualiser ne charge pas les données" : au F5, un seul pullAll()
+      // était tenté — s'il échouait (petit accroc réseau au moment précis du
+      // rechargement de page), rien ne réessayait automatiquement, et l'app
+      // restait avec les données locales potentiellement incomplètes/périmées
+      // jusqu'au prochain F5 manuel. Même filet de sécurité que le login normal :
+      // une seconde tentative automatique après 3s.
+      console.warn('[F5] pullAll échoué, retry dans 3s…', pullErr);
+      showNotif(`⚠️ Données chargées localement — nouvelle tentative dans 3s…`);
+      setTimeout(async () => {
+        try {
+          await KGSync.pullAll();
+          if(typeof refreshDashboard === 'function') refreshDashboard();
+          if(typeof loadLocData === 'function') loadLocData();
+          if(typeof renderLocReservations === 'function') renderLocReservations();
+          if(typeof refreshLocStats === 'function') refreshLocStats();
+          if(typeof loadRestaurantSettings === 'function') loadRestaurantSettings();
+          if(typeof showView === 'function') showView(getDefaultView(), null, false);
+          showNotif(`✅ Données rechargées`);
+        } catch(pullErr2) {
+          console.warn('[F5] pullAll retry échoué:', pullErr2);
+          showNotif(`⚠️ Impossible de charger les dernières données — vérifiez votre connexion`);
+        }
+      }, 3000);
     }
     KGSync.startRealtime();
 
@@ -35881,7 +36279,7 @@ async function loadAndRenderTicketsArchives() {
         // Les items sont chargés à la demande quand l'utilisateur ouvre un ticket
         // Tentative 1 : colonne cloturee=true
         const { data: d1, error: e1 } = await _cl.from('ventes')
-          .select('id, ticket_ref, created_at, caisse_nom, cashier_nom, total_ttc, pay_method, restaurant_id')
+          .select('id, ticket_ref, created_at, caisse_nom, total, pay_method, restaurant_id')
           .eq('restaurant_id', rid)
           .eq('cloturee', true)
           .order('created_at', { ascending: false })
@@ -35891,7 +36289,7 @@ async function loadAndRenderTicketsArchives() {
         // Tentative 2 : ventes antérieures à aujourd'hui
         if(!fetched || fetched.length === 0) {
           const { data: d2, error: e2 } = await _cl.from('ventes')
-            .select('id, ticket_ref, created_at, caisse_nom, cashier_nom, total_ttc, pay_method, restaurant_id')
+            .select('id, ticket_ref, created_at, caisse_nom, total, pay_method, restaurant_id')
             .eq('restaurant_id', rid)
             .lt('created_at', today + 'T00:00:00')
             .order('created_at', { ascending: false })
@@ -35903,7 +36301,7 @@ async function loadAndRenderTicketsArchives() {
         const closedCaisses = (typeof CAISSES !== 'undefined' ? CAISSES : []).filter(c => c.status === 'closed').map(c => c.name);
         if(closedCaisses.length) {
           const { data: d3 } = await _cl.from('ventes')
-            .select('id, ticket_ref, created_at, caisse_nom, cashier_nom, total_ttc, pay_method, restaurant_id')
+            .select('id, ticket_ref, created_at, caisse_nom, total, pay_method, restaurant_id')
             .eq('restaurant_id', rid)
             .gte('created_at', today + 'T00:00:00')
             .in('caisse_nom', closedCaisses)
@@ -35918,8 +36316,8 @@ async function loadAndRenderTicketsArchives() {
             numero: v.ticket_ref || ('#' + v.id),
             date: v.created_at,
             caisse: v.caisse_nom || '',
-            caissier: v.cashier_nom || '',
-            total: v.total_ttc || 0,
+            caissier: '',
+            total: v.total || 0,
             mode: v.pay_method || 'cash',
             items: (v.vente_items || []).map(i => ({
               nom: i.nom_produit || '',
@@ -39206,6 +39604,111 @@ async function supprimerCloture(key) {
   showNotif('✅ Clôture supprimée !');
 }
 
+// ══════════════════════════════════════════════════════════════
+// ✅ OUTIL ANTI-FUITE MULTI-COMPTES : détecte les clôtures dont AUCUN
+// article vendu ne correspond au menu actuel du restaurant — signe fort
+// qu'elles proviennent d'un AUTRE restaurant (contamination via le bug de
+// restaurant_id deviné au hasard, désormais corrigé). Ne supprime rien
+// automatiquement : liste les suspects et laisse l'admin confirmer.
+// ══════════════════════════════════════════════════════════════
+function _kgNormalizeName(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '').trim();
+}
+
+function _kgAuditClotures() {
+  if(!currentUser || currentUser.role !== 'administrateur') { showNotif('🔒 Réservé à l\'administrateur'); return; }
+  const menuNames = new Set((typeof MENU !== 'undefined' ? MENU : []).map(m => _kgNormalizeName(m.name)).filter(Boolean));
+  if(menuNames.size === 0) { showNotif('⚠️ Menu vide — impossible de comparer, chargez d\'abord votre menu'); return; }
+  const suspects = [];
+  (HISTORIQUE_CLOTURES || []).forEach((h, idx) => {
+    const tickets = h.tickets || [];
+    let totalItems = 0, matched = 0;
+    const sampleNames = [];
+    tickets.forEach(t => (t.items || []).forEach(it => {
+      totalItems++;
+      const n = _kgNormalizeName(it.nom);
+      if(n && menuNames.has(n)) matched++;
+      if(sampleNames.length < 4 && it.nom) sampleNames.push(it.nom);
+    }));
+    if(totalItems > 0 && matched === 0) suspects.push({ idx, h, sampleNames, totalItems });
+  });
+  if(suspects.length === 0) {
+    showNotif('✅ Aucune clôture suspecte détectée — tous les articles vendus correspondent à votre menu actuel');
+    return;
+  }
+  _kgShowAuditModal(suspects);
+}
+
+function _kgShowAuditModal(suspects) {
+  const old = document.getElementById('kg-audit-overlay');
+  if(old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'kg-audit-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  const rowsHtml = suspects.map(s => `
+    <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--border,#e5e7eb);border-radius:8px;margin-bottom:8px;background:var(--surface2,#f9fafb);">
+      <input type="checkbox" class="kg-audit-chk" data-idx="${s.idx}" checked style="margin-top:3px;width:18px;height:18px;flex-shrink:0;">
+      <div style="flex:1;font-size:12px;">
+        <div style="font-weight:700;color:var(--text,#1a1a2e);">${window.escHtml(s.h.date)} ${window.escHtml(s.h.heure)} — ${window.escHtml(s.h.caisse)} — ${(s.h.ca || 0).toLocaleString()} F</div>
+        <div style="color:var(--text2,#666);margin-top:2px;">Articles non reconnus : ${s.sampleNames.map(n => window.escHtml(n)).join(', ')}${s.totalItems > s.sampleNames.length ? '…' : ''}</div>
+      </div>
+    </label>`).join('');
+  overlay.innerHTML = `
+    <div style="background:var(--surface,#fff);border-radius:14px;padding:20px;max-width:480px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,0.35);">
+      <div style="font-weight:800;font-size:16px;margin-bottom:4px;color:var(--red,#e74c3c);">⚠️ ${suspects.length} clôture(s) suspecte(s)</div>
+      <div style="font-size:12px;color:var(--text2,#666);margin-bottom:14px;">Ces clôtures ne contiennent QUE des articles absents de votre menu actuel — signe probable de contamination entre comptes. Décochez celles que vous voulez garder, puis validez.</div>
+      <div style="overflow-y:auto;flex:1;margin-bottom:14px;">${rowsHtml}</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="kg-audit-cancel" style="padding:9px 16px;border-radius:8px;border:1px solid var(--border,#ccc);background:transparent;color:var(--text,#333);font-weight:600;cursor:pointer;">Fermer</button>
+        <button id="kg-audit-delete" style="padding:9px 18px;border-radius:8px;border:none;background:var(--red,#e74c3c);color:#fff;font-weight:700;cursor:pointer;">🗑️ Supprimer la sélection</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#kg-audit-cancel').onclick = () => overlay.remove();
+  overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
+  overlay.querySelector('#kg-audit-delete').onclick = async () => {
+    const checked = Array.from(overlay.querySelectorAll('.kg-audit-chk:checked')).map(c => parseInt(c.dataset.idx));
+    overlay.remove();
+    if(checked.length === 0) return;
+    await _kgBulkDeleteClotures(checked);
+  };
+}
+
+async function _kgBulkDeleteClotures(indices) {
+  const sorted = indices.slice().sort((a, b) => b - a); // décroissant : ne décale pas les index restants
+  const deletedIds = [];
+  sorted.forEach(idx => {
+    const h = HISTORIQUE_CLOTURES[idx];
+    if(!h) return;
+    HISTORIQUE_CLOTURES.splice(idx, 1);
+    try {
+      const _k = (typeof _clotureKey === 'function') ? _clotureKey(h) : ('id:' + h.id);
+      CLOTURES_SUPPRIMEES.add(_k);
+    } catch(e) {}
+    if(h.id) deletedIds.push(h.id);
+  });
+  try { _lsSet('kg-clotures-supprimees', JSON.stringify([...CLOTURES_SUPPRIMEES])); } catch(e) {}
+  try {
+    const rid = window._KG_RESTAURANT_ID;
+    if(rid) {
+      localStorage.setItem('rid_' + rid + ':kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
+      localStorage.setItem('kg-historique-clotures-' + rid, JSON.stringify(HISTORIQUE_CLOTURES));
+    }
+    _lsSet('kg-historique-clotures', JSON.stringify(HISTORIQUE_CLOTURES));
+  } catch(e) {}
+  try {
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      if(typeof KGSync.push.tombstonesClotures === 'function') await KGSync.push.tombstonesClotures();
+      for(const id of deletedIds) {
+        if(typeof KGSync.push.deleteClotureUnique === 'function') await KGSync.push.deleteClotureUnique(id);
+      }
+      await KGSync.push.clotures();
+    }
+  } catch(e) { console.warn('[_kgBulkDeleteClotures]', e); }
+  if(typeof renderHistorique === 'function') renderHistorique();
+  showNotif(`✅ ${sorted.length} clôture(s) suspecte(s) supprimée(s)`);
+}
+
 // ✅ Impression / PDF de la clôture actuellement affichée dans le modal
 function imprimerCloture() {
   const h = window._currentClotureDetail;
@@ -39344,7 +39847,7 @@ function voirDetailCloture(idx) {
                 numero: v.ticket_ref || ('#' + v.id),
                 date:   v.created_at,
                 mode:   v.pay_method || 'cash',
-                total:  v.total_ttc  || 0,
+                total:  v.total  || 0,
                 items:  (v.vente_items || []).map(i => ({
                   nom:       i.nom_produit         || '',
                   icon:      i.icon_produit         || '🍽️',
@@ -39519,7 +40022,7 @@ async function toggleCommandesOuvertes() {
   const newVal = !_qrCommandesOuvertes;
   const key = _qrRid + ':commandes_ouvertes';
   const { error } = await _qrSb.from('kg_sync').upsert(
-    { key, value: { ouvert: newVal }, updated_at: new Date().toISOString() },
+    { key, value: { ouvert: newVal }, restaurant_id: _qrRid, updated_at: new Date().toISOString() },
     { onConflict: 'key' }
   );
   if(error) {
@@ -40807,7 +41310,7 @@ async function sauvegarderServeurs(liste) {
   const sb = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
   if(!sb || !rid) return;
   await sb.from('kg_sync').upsert(
-    { key: rid + ':serveurs', value: JSON.stringify(liste), updated_at: new Date().toISOString() },
+    { key: rid + ':serveurs', value: JSON.stringify(liste), restaurant_id: rid, updated_at: new Date().toISOString() },
     { onConflict: 'key' }
   );
 }
@@ -41210,7 +41713,7 @@ async function _saveStatsServeurs(entries, totalCmds, periode) {
     const key = rid + ':stats_serveurs:' + dateRef;
 
     await sb.from('kg_sync').upsert(
-      { key, value: JSON.stringify(statsPayload), updated_at: new Date().toISOString() },
+      { key, value: JSON.stringify(statsPayload), restaurant_id: rid, updated_at: new Date().toISOString() },
       { onConflict: 'key' }
     );
     console.log('[stats_serveurs] ✅ Sauvegardé pour', dateRef, '—', entries.length, 'serveur(s)');
@@ -41271,7 +41774,7 @@ async function sauvegarderLivreurs(liste) {
   const sb = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
   if(!sb || !rid) return;
   await sb.from('kg_sync').upsert(
-    { key: rid + ':livreurs', value: JSON.stringify(liste), updated_at: new Date().toISOString() },
+    { key: rid + ':livreurs', value: JSON.stringify(liste), restaurant_id: rid, updated_at: new Date().toISOString() },
     { onConflict: 'key' }
   );
 }
@@ -41505,7 +42008,7 @@ async function _sauvegarderRecuClient(orderId, livreurNom, livreurTel) {
 
   // Stocker dans kg_sync avec clé unique par commande
   await _qrSb.from('kg_sync').upsert(
-    { key: _qrRid + ':recu:' + orderId, value: JSON.stringify(recuData), updated_at: now.toISOString() },
+    { key: _qrRid + ':recu:' + orderId, value: JSON.stringify(recuData), restaurant_id: _qrRid, updated_at: now.toISOString() },
     { onConflict: 'key' }
   );
 }
@@ -42119,7 +42622,7 @@ async function setQRMenuRupture(itemId, en_rupture) {
       const rid = window._KG_RESTAURANT_ID;
       if(client && rid) {
         await client.from('kg_sync').upsert(
-          { key: rid + ':menu_data', value: JSON.stringify({ items: MENU }), updated_at: new Date().toISOString() },
+          { key: rid + ':menu_data', value: JSON.stringify({ items: MENU }), restaurant_id: rid, updated_at: new Date().toISOString() },
           { onConflict: 'key' }
         );
       }
@@ -42195,7 +42698,7 @@ async function pousserAnnonces() {
   if(!sb) return;
   try {
     await sb.from('kg_sync').upsert(
-      { key: _annKey(), value: JSON.stringify(_annonces), updated_at: new Date().toISOString() },
+      { key: _annKey(), value: JSON.stringify(_annonces), restaurant_id: window._KG_RESTAURANT_ID || null, updated_at: new Date().toISOString() },
       { onConflict: 'key' }
     );
   } catch(e) { console.warn('Annonces push error:', e); }
