@@ -103,7 +103,7 @@ window.safeUrl = function(u) {
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="kg-app-build" content="v58">
+<meta name="kg-app-build" content="v59">
 <script>
 // ══════════════════════════════════════════════════════════════
 // ✅ FIX "faut vider le cache pour que ça marche" : détecte automatiquement
@@ -112,7 +112,7 @@ window.safeUrl = function(u) {
 // connaître ou faire la manip "vider le cache du navigateur".
 // ══════════════════════════════════════════════════════════════
 (function() {
-  const _KG_BUILD = 'v58';
+  const _KG_BUILD = 'v59';
   let _kgBannerShown = false;
   async function _kgCheckForUpdate() {
     if(_kgBannerShown) return;
@@ -21076,13 +21076,25 @@ function saveClient() {
   };
   if(editIdx >= 0 && CLIENTS[editIdx]) {
     Object.assign(CLIENTS[editIdx], data);
-    if(KGSync.isConnected) KGSync.push.client(CLIENTS[editIdx]).catch(()=>{});
     showNotif(`✅ Client ${prenom} ${nom} modifié`);
   } else {
     const newC = { id: 'local_' + Date.now(), nbCmds:0, totalDepense:0, dernierAchat:'—', color: colors[CLIENTS.length % colors.length], solde:0, soldeDu:0, historiqueSolde:[], ...data };
     CLIENTS.push(newC);
-    if(KGSync.isConnected) KGSync.push.client(newC).catch(()=>{});
     showNotif(`✅ Client ${prenom} ${nom} ajouté`);
+  }
+  // ✅ FIX "le client créé disparaît" : même bug que celui déjà corrigé pour
+  // la suppression, mais à l'envers. pushClients() ne fait que PROGRAMMER un
+  // envoi dans 8s (debounce). Si une synchro (pull) survient dans cette
+  // fenêtre, elle retélécharge l'ANCIENNE liste (sans le nouveau client) et
+  // écrase le tableau local — le client fraîchement créé disparaît. On force
+  // donc l'envoi immédiat et on protège la fenêtre de 10s comme pour la
+  // suppression.
+  renderClients._suppressRetryUntil = Date.now() + 10000;
+  if(KGSync.isConnected) {
+    KGSync.push.clients();
+    if(typeof KGSync.flushAllPending === 'function') {
+      KGSync.flushAllPending().catch(e => console.error('flush création/modif client:', e));
+    }
   }
   closeModal('addClient');
   renderClients();
@@ -30531,6 +30543,16 @@ const KGSync = (() => {
           // On normalise ici les fiches dès leur réception, une fois pour
           // toutes, plutôt que de compter uniquement sur le blindage à
           // l'affichage.
+          // ✅ FIX "client créé disparaît" (racine) : contrairement à
+          // clotures_data juste en dessous, ce bloc écrasait TOUJOURS la
+          // liste locale, y compris un client tout juste créé et encore en
+          // attente d'envoi (debounce de 8s). On préserve ici tout client
+          // local ("local_...") absent de la réponse serveur, au lieu de le
+          // perdre silencieusement.
+          const _localOnlyClients = (Array.isArray(CLIENTS) ? CLIENTS : []).filter(c =>
+            c && typeof c.id === 'string' && c.id.startsWith('local_') &&
+            !(Array.isArray(data.items) && data.items.some(r => r.id === c.id))
+          );
           CLIENTS = (Array.isArray(data.items) ? data.items : []).map(c => {
             if(!c.prenom && !c.nom) {
               const full = String(c.name || c.nomComplet || c.fullName || c.nom_complet || '').trim();
@@ -30543,7 +30565,8 @@ const KGSync = (() => {
             c.prenom = c.prenom || '?';
             c.nom = c.nom || '?';
             return c;
-          });
+          }).concat(_localOnlyClients);
+          if(_localOnlyClients.length && KGSync.isConnected) KGSync.push.clients();
         } else if(key === 'commandes_fourn_data') {
           if(data.items)        COMMANDES_FOURNISSEURS = data.items;
           if(data.fournisseurs) FOURNISSEURS           = data.fournisseurs;
