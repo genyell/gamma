@@ -103,7 +103,7 @@ window.safeUrl = function(u) {
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="kg-app-build" content="v59">
+<meta name="kg-app-build" content="v67">
 <script>
 // ══════════════════════════════════════════════════════════════
 // ✅ FIX "faut vider le cache pour que ça marche" : détecte automatiquement
@@ -112,7 +112,7 @@ window.safeUrl = function(u) {
 // connaître ou faire la manip "vider le cache du navigateur".
 // ══════════════════════════════════════════════════════════════
 (function() {
-  const _KG_BUILD = 'v59';
+  const _KG_BUILD = 'v67';
   let _kgBannerShown = false;
   async function _kgCheckForUpdate() {
     if(_kgBannerShown) return;
@@ -10226,6 +10226,32 @@ Revenez nous voir bient&#244;t.</textarea>
 </div>
 
 <!-- ================================================================ -->
+<!-- MODAL RETRAIT SOLDE CLIENT (le client récupère son argent)        -->
+<!-- ================================================================ -->
+<div class="modal-overlay" id="modal-retraitClient">
+  <div class="modal" style="width:440px;">
+    <div class="modal-title">📤 Retirer de l'argent</div>
+    <input type="hidden" id="retrait-client-idx" value="">
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+      <div style="font-size:12px;color:var(--text2);">Client</div>
+      <div style="font-weight:700;font-size:15px;" id="retrait-client-nom">—</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:6px;">Solde prépayé disponible</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;color:var(--green);" id="retrait-client-solde-actuel">0 F</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Montant à retirer (FCFA)</label>
+      <input class="form-input" type="number" id="retrait-montant" min="0" placeholder="Ex: 50000" style="font-family:'JetBrains Mono',monospace;font-size:16px;">
+    </div>
+    <div class="form-group"><label class="form-label">Note (optionnel)</label><input class="form-input" id="retrait-note" placeholder="Ex: Remboursement demandé par le client"></div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">💡 Ce montant sera déduit du solde prépayé du client — pensez à lui remettre l'argent en caisse.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('retraitClient')">Annuler</button>
+      <button class="btn btn-primary" style="background:var(--red);" onclick="saveRetraitClient()">💾 Confirmer le retrait</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
 <!-- MODAL FOURNISSEUR AJOUTER                                        -->
 <!-- ================================================================ -->
 <div class="modal-overlay" id="modal-addFournisseur">
@@ -11341,7 +11367,13 @@ function renderFactures() {
       <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;">${f.ht.toLocaleString()} F</td>
       <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;">${f.tva.toLocaleString()} F</td>
       <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--accent);">${f.ttc.toLocaleString()} F</td>
-      <td>${f.type!=='devis' && f.acompte > 0 && f.statut !== 'payee' ? `<span style="font-size:11px;color:var(--teal);font-family:'JetBrains Mono',monospace;">+${f.acompte.toLocaleString()} F<br><span style="color:var(--red);">Solde: ${(f.soldeRestant||0).toLocaleString()} F</span></span>` : '—'}</td>
+      <td>${
+        f.type!=='devis' && f.statut === 'payee'
+          ? `<span style="font-size:11px;color:var(--green);font-family:'JetBrains Mono',monospace;">✅ ${(f.acompte||f.ttc||0).toLocaleString()} F réglés</span>`
+          : (f.type!=='devis' && f.acompte > 0
+              ? `<span style="font-size:11px;color:var(--teal);font-family:'JetBrains Mono',monospace;">+${f.acompte.toLocaleString()} F<br><span style="color:var(--red);">Solde: ${(f.soldeRestant||0).toLocaleString()} F</span></span>`
+              : '—')
+      }</td>
       <td>${factStatutBadge(f.statut)}</td>
       <td style="text-align:center;">
         <div style="display:flex;gap:4px;justify-content:center;flex-wrap:nowrap;">
@@ -11643,16 +11675,35 @@ function factRenderStockOption(id) {
   const opt = document.getElementById('fact-stock-opt-' + id);
   const info = window._factLigneRecettes[id];
   if(!opt) return;
+  // ✅ FIX : ce bloc est reconstruit à chaque changement de quantité
+  // (factSyncStockQty) — sans ça, cocher "Déduire du stock" puis changer la
+  // quantité décochait silencieusement la case et réinitialisait le dépôt
+  // choisi.
+  const _prevChecked = document.getElementById('fact-stock-chk-' + id)?.checked || false;
+  const _prevDepot = document.getElementById('fact-stock-depot-' + id)?.value || '';
   const isDevis = document.getElementById('fact-type-devis')?.checked;
   if(!info || !info.recette || !info.recette.length || isDevis) { opt.innerHTML = ''; return; }
   const qtyInp = document.querySelector('#fact-ligne-' + id + ' input[type="number"]');
   const qty = qtyInp ? (parseFloat(qtyInp.value) || 1) : 1;
+  // ✅ FIX "ne précise pas quel dépôt" : une facture n'est liée à aucune
+  // caisse, donc rien ne permettait de déduire de quel dépôt sortait le
+  // stock quand le restaurant en a plusieurs — la déduction retombait
+  // silencieusement sur le Stock général ou le dépôt fixé sur la recette,
+  // sans que l'utilisateur puisse le voir ni le choisir pour CETTE facture.
+  const _depotOptions = (typeof DEPOTS !== 'undefined' && DEPOTS.length)
+    ? `<option value="">📦 Stock général</option>` + DEPOTS.map(d => `<option value="${d.id}">${d.icon||'🏭'} ${window.escHtml(d.nom)}</option>`).join('')
+    : '';
   opt.innerHTML = `
     <label style="display:flex;align-items:center;gap:8px;padding:6px 2px 2px;font-size:12px;color:var(--text2);cursor:pointer;">
       <input type="checkbox" id="fact-stock-chk-${id}" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
       📦 Déduire du stock/dépôt à l'enregistrement (${info.recette.length} ingrédient${info.recette.length>1?'s':''} × ${qty})
     </label>
+    ${_depotOptions ? `<select id="fact-stock-depot-${id}" class="form-input" style="margin-top:6px;font-size:12px;padding:6px 8px;">${_depotOptions}</select>` : ''}
   `;
+  const _chkEl = document.getElementById('fact-stock-chk-' + id);
+  if(_chkEl) _chkEl.checked = _prevChecked;
+  const _depotEl = document.getElementById('fact-stock-depot-' + id);
+  if(_depotEl && _prevDepot) _depotEl.value = _prevDepot;
 }
 
 // Recalcule juste le libellé "× qty" affiché si la quantité change après coup
@@ -11795,7 +11846,8 @@ async function saveFacture(andPrint) {
     const _info = _rowId && window._factLigneRecettes[_rowId];
     const _chk  = _rowId && document.getElementById('fact-stock-chk-' + _rowId);
     if(_info && _chk && _chk.checked) {
-      _stockDeductions.push({ id: _info.itemId, name: _info.itemName, qty, recette: _info.recette });
+      const _depotSel = document.getElementById('fact-stock-depot-' + _rowId);
+      _stockDeductions.push({ id: _info.itemId, name: _info.itemName, qty, recette: _info.recette, forcedDepotId: _depotSel && _depotSel.value ? _depotSel.value : null });
     }
   });
   if(lignes.length === 0) { showNotif('⚠️ Ajoutez au moins une ligne article'); return; }
@@ -21015,8 +21067,9 @@ function renderClients() {
         📅 Dernier achat : ${escHtml(c.dernierAchat||c.last)||'—'} · 📍 ${escHtml(c.adresse)||'—'}
         ${c.notes ? `<br>📝 ${escHtml(c.notes)}` : ''}
       </div>
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="caisse-btn" style="flex:1;font-size:12px;color:var(--green);border-color:var(--green);" onclick="openDepotClient(${cIdx})">💰 Déposer</button>
+        ${(c.solde||0) > 0 ? `<button class="caisse-btn" style="flex:1;font-size:12px;color:var(--red);border-color:var(--red);" onclick="openRetraitClient(${cIdx})">📤 Retirer</button>` : ''}
         <button class="caisse-btn" style="flex:1;font-size:12px;" onclick="openEditClient(${cIdx})">✏️ Modifier</button>
         <button class="ticket-btn" style="font-size:12px;" onclick="printClientHistory(${cIdx})">🖨️</button>
         <button class="caisse-btn danger" onclick="deleteClient(${cIdx})" style="font-size:12px;">🗑</button>
@@ -21164,11 +21217,43 @@ function saveDepotClient() {
   let montantRestant = montant;
   const detteAvant = c.soldeDu || 0;
   let remboursementDette = 0;
+  let facturesReglees = [];
   if(detteAvant > 0) {
     remboursementDette = Math.min(detteAvant, montantRestant);
     c.soldeDu = detteAvant - remboursementDette;
     montantRestant -= remboursementDette;
+    // ✅ FIX "Total dépensé bloqué" : l'acompte initial à la création d'une
+    // facture compte dans totalDepense, mais un remboursement de créance fait
+    // plus tard via "Déposer" n'y était jamais ajouté — le total affiché sur
+    // la fiche client restait figé au premier versement, même après que le
+    // client ait fini de tout payer.
+    c.totalDepense = (c.totalDepense || 0) + remboursementDette;
     c.historiqueSolde.push({ date: new Date().toISOString(), type:'remboursement_creance', montant: remboursementDette, note: `Remboursement créance — ${note || 'Dépôt'}` });
+
+    // ✅ FIX "factures pas à jour après un dépôt" : rembourser la créance
+    // globale du client ne touchait jamais les factures individuelles
+    // impayées/partielles — elles restaient affichées avec leur ancien
+    // solde. On applique maintenant le remboursement sur ses factures
+    // ouvertes (les plus anciennes d'abord), comme un vrai encaissement.
+    if(typeof FACTURES !== 'undefined' && Array.isArray(FACTURES)) {
+      let pool = remboursementDette;
+      const facturesOuvertes = FACTURES
+        .filter(f => f.type === 'client' && f.clientId === c.id && (f.statut === 'attente' || f.statut === 'partiel'))
+        .sort((a,b) => new Date(a.date) - new Date(b.date));
+      for(const f of facturesOuvertes) {
+        if(pool <= 0) break;
+        const soldeAvant = f.soldeRestant != null ? f.soldeRestant : Math.max(0, (f.ttc||0) - (f.acompte||0));
+        if(soldeAvant <= 0) continue;
+        const payThis = Math.min(pool, soldeAvant);
+        f.acompte = (f.acompte||0) + payThis;
+        f.soldeRestant = soldeAvant - payThis;
+        f.statut = f.soldeRestant <= 0 ? 'payee' : 'partiel';
+        pool -= payThis;
+        facturesReglees.push({ num: f.num, montant: payThis });
+      }
+      if(facturesReglees.length && typeof KGSync !== 'undefined' && typeof KGSync.push?.factures === 'function') KGSync.push.factures();
+      if(typeof renderFactures === 'function') { try { renderFactures(); } catch(e) {} }
+    }
   }
   if(montantRestant > 0) {
     c.solde = (c.solde||0) + montantRestant;
@@ -21193,6 +21278,45 @@ function saveDepotClient() {
   }
 }
 
+// ✅ NOUVEAU : Retrait du solde prépayé — le client récupère son argent
+function openRetraitClient(cIdx) {
+  const c = CLIENTS[cIdx];
+  if(!c || (c.solde||0) <= 0) return;
+  document.getElementById('retrait-client-idx').value = cIdx;
+  document.getElementById('retrait-client-nom').textContent = `${c.prenom} ${c.nom}`;
+  document.getElementById('retrait-client-solde-actuel').textContent = (c.solde||0).toLocaleString() + ' F';
+  document.getElementById('retrait-montant').value = '';
+  document.getElementById('retrait-montant').max = c.solde;
+  document.getElementById('retrait-note').value = '';
+  showModal('retraitClient');
+}
+
+function saveRetraitClient() {
+  const cIdx = parseInt(document.getElementById('retrait-client-idx').value);
+  const c = CLIENTS[cIdx];
+  if(!c) return;
+  const montant = parseFloat(document.getElementById('retrait-montant').value) || 0;
+  if(montant <= 0) { showNotif('⚠️ Montant du retrait invalide'); return; }
+  const soldeActuel = c.solde || 0;
+  if(montant > soldeActuel) { showNotif(`⚠️ Retrait refusé : le solde prépayé (${soldeActuel.toLocaleString()} F) est inférieur au montant demandé`); return; }
+  const note = document.getElementById('retrait-note').value.trim();
+  c.historiqueSolde = c.historiqueSolde || [];
+  c.solde = soldeActuel - montant;
+  c.historiqueSolde.push({ date: new Date().toISOString(), type:'retrait', montant: -montant, note: note || 'Retrait — argent rendu au client' });
+
+  // Même correctif que pour le dépôt : envoi immédiat, pas de délai différé,
+  // pour éviter qu'une synchro écrase le retrait avant qu'il soit envoyé.
+  if(KGSync.isConnected) {
+    KGSync.push.client(c);
+    if(typeof KGSync.flushAllPending === 'function') {
+      KGSync.flushAllPending().catch(e => console.error('flush retrait client:', e));
+    }
+  }
+  closeModal('retraitClient');
+  renderClients();
+  showNotif(`📤 ${montant.toLocaleString()} F retirés du compte de ${c.prenom} ${c.nom} — nouveau solde : ${c.solde.toLocaleString()} F`);
+}
+
 function printClientHistory(cIdx) {
   const c = CLIENTS[cIdx];
   if(!c) return;
@@ -21210,7 +21334,7 @@ function printClientHistory(cIdx) {
   const historique = (c.historiqueSolde || []).slice().sort((a,b) => new Date(b.date) - new Date(a.date));
   const facturesClient = (typeof FACTURES !== 'undefined' ? FACTURES : []).filter(f => f.clientId === c.id).sort((a,b) => new Date(b.date) - new Date(a.date));
 
-  const _histLabels = { depot:'💰 Dépôt', facture:'📄 Facture', creance:'⚠️ Créance générée', remboursement_creance:'✅ Remb. créance' };
+  const _histLabels = { depot:'💰 Dépôt', facture:'📄 Facture', creance:'⚠️ Créance générée', remboursement_creance:'✅ Remb. créance', retrait:'📤 Retrait' };
   const histRows = historique.length ? historique.map(h => `
     <tr>
       <td>${new Date(h.date).toLocaleDateString('fr-FR')} ${new Date(h.date).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td>
@@ -24357,8 +24481,35 @@ async function _kgForceLogout() {
 // La détection est faite directement dans le canal Realtime KGSync
 // Ces fonctions sont conservées pour compatibilité avec doLogin/doLogout
 function _kgStartSessionWatch() {
-  // Rien à faire — détection via Realtime dans KGSync._startRealtime()
   console.log('[Session unique] 👁 Surveillance via Realtime (0 polling)');
+  // ✅ FIX "compte utilisable dans plusieurs navigateurs" : le broadcast
+  // temps réel peut être manqué (onglet en arrière-plan, coupure réseau
+  // au moment précis de la nouvelle connexion, appareil qui économise la
+  // batterie, etc.) — dans ce cas, l'ancien appareil ne reçoit jamais le
+  // signal et reste connecté indéfiniment avec le même compte. On ajoute
+  // donc un filet de sécurité : toutes les 3 minutes, on vérifie
+  // directement en base si notre token est toujours le token actif.
+  // Coût réseau minime (une lecture d'une ligne kg_sync, quelques dizaines
+  // d'octets, toutes les 3 min).
+  _kgStopSessionWatch();
+  _kgSessionWatchInterval = setInterval(async () => {
+    try {
+      if(!currentUser || !window._KG_RESTAURANT_ID) return;
+      if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
+      const sb = KGSync.getClient();
+      if(!sb) return;
+      const key = window._KG_RESTAURANT_ID + ':_active_session_' + currentUser.id;
+      const { data } = await sb.from('kg_sync').select('value').eq('key', key).single();
+      if(data) {
+        let stored = null;
+        try { stored = JSON.parse(data.value); } catch(e) {}
+        if(stored && stored.token && stored.token !== window._KG_SESSION_TOKEN) {
+          console.warn('[Session unique] ⚠️ Vérification périodique — autre appareil détecté — déconnexion');
+          _kgForceLogout();
+        }
+      }
+    } catch(e) { /* silencieux — ne pas gêner l'utilisateur pour une vérification best-effort */ }
+  }, 180000); // 3 minutes
 }
 function _kgStopSessionWatch() {
   if(_kgSessionWatchInterval) { clearInterval(_kgSessionWatchInterval); _kgSessionWatchInterval = null; }
@@ -29524,6 +29675,25 @@ const KGSync = (() => {
       // pour qu'une facture (ou toute autre donnée) créée sur l'appareil ne disparaisse
       // jamais silencieusement faute d'avoir atteint Supabase.
       console.warn('KGSync upsert error:', key, '(tentative ' + (_retryCount+1) + '/4):', e);
+      // ✅ FIX v68 SESSION EXPIRÉE : un 401/403 (ou message JWT) veut dire que le
+      // token utilisé pour cette requête est périmé/invalide. Avant, on retentait
+      // bêtement avec exactement le même token → boucle de 401 en rafale jusqu'à
+      // abandon définitif, sans jamais rien resynchroniser. Ici on tente d'abord
+      // un refresh explicite de la session ; la requête suivante repartira avec
+      // un token frais si le refresh a réussi.
+      const _code = String(e && (e.code || e.status || '') || '');
+      const _msg  = String(e && (e.message || e) || '');
+      if(_code === '401' || _code === '403' || _msg.includes('JWT') || _msg.includes('PGRST301') || _msg.includes('Invalid API key')) {
+        try {
+          const _sb = client;
+          if(_sb && _sb.auth && typeof _sb.auth.refreshSession === 'function') {
+            _sb.auth.refreshSession().then(({ data, error }) => {
+              if(error) console.warn('KGSync: échec refresh session après 401 pour "' + key + '":', error.message || error);
+              else console.log('KGSync: session rafraîchie après 401 — nouvelle tentative pour "' + key + '"');
+            }).catch(() => {});
+          }
+        } catch(_eRefresh) {}
+      }
       if(_retryCount < 3) {
         setTimeout(() => upsert(key, data, _retryCount + 1), 1500 * (_retryCount + 1));
       } else {
@@ -32092,7 +32262,8 @@ async function deduireStockVente(items, caisseName) {
             const consommation = ligne.qty * (item.qty || 1);
             // ✅ FIX ISOLATION DÉPÔT : même logique que la boucle principale — si la caisse
             // a un dépôt lié et que l'ingrédient y est suivi, on déduit UNIQUEMENT le dépôt.
-            const _depotCibleLC = _resoudreDepotVente(_depotCaisseVente, ligne.depotId);
+            const _depotForceItem = item.forcedDepotId ? DEPOTS.find(d => d.id === item.forcedDepotId) : null;
+            const _depotCibleLC = _resoudreDepotVente(_depotForceItem || _depotCaisseVente, ligne.depotId);
             const depotArtLC = _depotCibleLC ? _getOrCreateDepotArticle(_depotCibleLC, stockItem) : null;
             if(depotArtLC) {
               depotArtLC.qty = Math.max(0, Math.round((Number(depotArtLC.qty||0) - consommation) * 1000) / 1000);
@@ -32159,7 +32330,8 @@ async function deduireStockVente(items, caisseName) {
         return;
       }
       const consommation = ligne.qty * (item.qty || 1);
-      const _depotCible = _resoudreDepotVente(_depotCaisseVente, ligne.depotId);
+      const _depotForceItem2 = item.forcedDepotId ? DEPOTS.find(d => d.id === item.forcedDepotId) : null;
+      const _depotCible = _resoudreDepotVente(_depotForceItem2 || _depotCaisseVente, ligne.depotId);
       const depotArt = _depotCible ? _getOrCreateDepotArticle(_depotCible, stockItem) : null;
       // ✅ FIX ISOLATION DÉPÔT : si la caisse est reliée à un dépôt ET que l'ingrédient y est
       // suivi, on déduit UNIQUEMENT ce dépôt (le stock général représente ce qui n'a pas
@@ -46995,7 +47167,7 @@ function ouvrirModalClotureManu() {
     <div style="font-size:17px;font-weight:800;margin-bottom:18px;">➕ Ajouter une clôture manuelle</div>
     <div style="display:grid;gap:12px;">
       <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">CAISSE</label>
-        <select id="cm-caisse" class="form-input">${window.escHtml(caisseOptions)}</select></div>
+        <select id="cm-caisse" class="form-input">${caisseOptions}</select></div>
       <div><label style="font-size:12px;color:var(--text2);font-weight:700;display:block;margin-bottom:4px;">CAISSIER</label>
         <input id="cm-caissier" class="form-input" placeholder="Nom du caissier" type="text"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
