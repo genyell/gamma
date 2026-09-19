@@ -6407,6 +6407,8 @@ function _syncSportVentes()       { return []; }
         <button class="cat-btn" id="ctab-regulier" onclick="filterClientsCat('regulier',this)">🔄 Réguliers</button>
         <button class="btn btn-primary" style="margin-left:auto;" onclick="openAddClient()">+ Nouveau client</button>
       </div>
+      <!-- ✅ NOUVEAU : bandeau récapitulatif total créances / total dépôts clients -->
+      <div id="clients-summary" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;"></div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;" id="clients-grid"></div>
     </div>
 
@@ -11405,6 +11407,7 @@ function openAddFacture(type) {
   document.getElementById('fact-fourn-echeance').value = '';
   document.getElementById('fact-statut').value = 'attente';
   document.getElementById('fact-pay-method').value = 'especes';
+  delete document.getElementById('fact-pay-method').dataset.userTouched;
   // ✅ FIX : par défaut, respecter le réglage "Assujetti à la TVA" des Paramètres
   document.getElementById('fact-tva-rate').value = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.tvaActive === false) ? '0' : '18';
   document.getElementById('fact-notes').value = '';
@@ -11488,6 +11491,25 @@ function onFactClientChange() {
 function onFactPayMethodChange() {
   const warnId = 'fact-solde-warning';
   document.getElementById(warnId)?.remove();
+  const payEl0 = document.getElementById('fact-pay-method');
+  const isClient0 = document.getElementById('fact-type-client')?.checked;
+  // ✅ FIX "devrait choisir solde client automatiquement" : avant, même si le
+  // client sélectionné avait de quoi payer ou au moins avancer une partie de
+  // la facture, le mode de paiement restait sur "Espèces" par défaut tant que
+  // l'utilisateur n'allait pas lui-même le changer manuellement dans le menu
+  // déroulant. On bascule maintenant automatiquement sur "💰 Solde client" dès
+  // qu'un client réglé ici a un solde prépayé disponible (> 0 F) — qu'il
+  // couvre la totalité ou seulement une avance sur la facture — sauf si
+  // l'utilisateur a lui-même choisi un autre mode pour CETTE facture
+  // (dataset.userTouched, posé par le sélecteur au clic), auquel cas on
+  // respecte son choix sans le forcer.
+  if(payEl0 && isClient0 && payEl0.dataset.userTouched !== '1' && payEl0.value !== 'solde_client') {
+    const val0 = document.getElementById('fact-client-select')?.value;
+    const client0 = (val0 && val0 !== '__new__') ? CLIENTS.find(c => String(c.id) === val0) : null;
+    if(client0 && (client0.solde || 0) > 0) {
+      payEl0.value = 'solde_client';
+    }
+  }
   const payMethod = document.getElementById('fact-pay-method')?.value;
   const isClient = document.getElementById('fact-type-client')?.checked;
   const acompteEl = document.getElementById('fact-acompte');
@@ -12006,6 +12028,9 @@ function editFacture(id) {
     document.getElementById('fact-date').value  = f.date;
     document.getElementById('fact-statut').value= f.statut;
     document.getElementById('fact-pay-method').value = f.payMethod||'especes';
+    // ✅ Facture existante : on respecte le mode de paiement déjà enregistré,
+    // l'auto-sélection "Solde client" ne doit s'appliquer qu'aux nouvelles factures.
+    document.getElementById('fact-pay-method').dataset.userTouched = '1';
     document.getElementById('fact-notes').value = f.notes||'';
     document.getElementById('fact-tva-rate').value = String(Math.round((f.tvaRate||0.18)*100));
     // ✅ v36 : Restaurer l'acompte
@@ -16841,7 +16866,20 @@ function renderOrders(status) {
       });
     });
   });
-  allOrders.sort((a, b) => (b.dateTime||'').localeCompare(a.dateTime||''));
+  // ✅ FIX "tickets pas ordonnés" : dateTime n'a que la précision de la minute
+  // (pas les secondes), donc plusieurs commandes passées la même minute avaient
+  // exactement la même clé de tri. Le tri restait alors dans l'ordre d'insertion
+  // (du plus ancien au plus récent) au lieu du plus récent en premier — ex: 282,
+  // 283, 284 affichés dans cet ordre au lieu de 284, 283, 282. On départage
+  // maintenant les égalités avec le numéro de ticket (séquentiel, croissant à
+  // chaque vente), le plus élevé (= le plus récent) en premier.
+  allOrders.sort((a, b) => {
+    const dtCmp = (b.dateTime||'').localeCompare(a.dateTime||'');
+    if(dtCmp !== 0) return dtCmp;
+    const na = parseInt(String(a.id).replace(/[^0-9]/g,''), 10) || 0;
+    const nb = parseInt(String(b.id).replace(/[^0-9]/g,''), 10) || 0;
+    return nb - na;
+  });
 
   // Mettre à jour les compteurs des tabs
   const _tabAll = document.getElementById('tab-all');
@@ -17853,15 +17891,18 @@ function cfPickArticle(i, el) {
   cfSelectStockItem(i, sid);
 }
 
-function cfShowDropdown(i) {
-  // Fermer les autres dropdowns
-  document.querySelectorAll('[id^="cf-dropdown-"]').forEach(d => d.style.display = 'none');
+// ✅ FIX v68 DÉCALAGE DROPDOWN : la position (top/left/bottom) était calculée
+// une seule fois, à l'ouverture (focus). Si la mise en page bougeait ensuite
+// (ligne ajoutée, article créé au-dessus, scroll léger) pendant que le menu
+// restait ouvert, il gardait ses anciennes coordonnées → décalage visible,
+// menu qui déborde sur d'autres champs. On sort donc le calcul de position
+// dans sa propre fonction, appelée aussi bien à l'ouverture qu'à chaque
+// frappe, pour que le menu suive toujours son champ.
+function cfPositionDropdown(i) {
   const dd = document.getElementById('cf-dropdown-' + i);
   const inp = document.getElementById('cf-search-' + i);
-  if(!dd || !inp) return;
-  // Positionner le dropdown avec position fixed — sous l'input, ou au-dessus si pas assez de place en bas
+  if(!dd || !inp || dd.style.display === 'none') return;
   const rect = inp.getBoundingClientRect();
-  dd.style.display = 'block';
   dd.style.left = rect.left + 'px';
   dd.style.width = rect.width + 'px';
   const ddMaxHeight = 220; // doit correspondre au max-height défini dans le style du dropdown
@@ -17879,10 +17920,22 @@ function cfShowDropdown(i) {
   }
 }
 
+function cfShowDropdown(i) {
+  // Fermer les autres dropdowns
+  document.querySelectorAll('[id^="cf-dropdown-"]').forEach(d => d.style.display = 'none');
+  const dd = document.getElementById('cf-dropdown-' + i);
+  const inp = document.getElementById('cf-search-' + i);
+  if(!dd || !inp) return;
+  dd.style.display = 'block';
+  cfPositionDropdown(i);
+}
+
 function cfFilterArticles(i, q) {
   const dd = document.getElementById('cf-dropdown-' + i);
   if(!dd) return;
   dd.style.display = 'block';
+  // ✅ Recalculer la position à chaque frappe, pas seulement à l'ouverture
+  cfPositionDropdown(i);
   const items = dd.querySelectorAll('div');
   const _q = q.toLowerCase().trim();
   items.forEach(item => {
@@ -21005,6 +21058,29 @@ function renderClients() {
   if(typeof _reconcileClientStatsFromRdvOnce === 'function') _reconcileClientStatsFromRdvOnce();
   const grid = document.getElementById('clients-grid');
   if(!grid) return;
+  // ✅ NOUVEAU : bandeau récapitulatif — total des créances (reste à payer par
+  // les clients) et total des dépôts (soldes prépayés) sur TOUS les clients,
+  // pas seulement ceux affichés après recherche/filtre, pour une vue globale.
+  const summaryEl = document.getElementById('clients-summary');
+  if(summaryEl) {
+    const totalCreances = CLIENTS.reduce((s,c) => s + (c.soldeDu||0), 0);
+    const totalDepots    = CLIENTS.reduce((s,c) => s + Math.max(0, c.solde||0), 0);
+    summaryEl.innerHTML = `
+      <div style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.35);border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:12px;color:var(--red);font-weight:600;">⚠️ Total créances (reste à payer)</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px;">${CLIENTS.filter(c=>(c.soldeDu||0)>0).length} client(s) concerné(s)</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:20px;color:var(--red);">${totalCreances.toLocaleString()} F</div>
+      </div>
+      <div style="background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.3);border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:12px;color:var(--green);font-weight:600;">💰 Total dépôts clients (solde prépayé)</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px;">${CLIENTS.filter(c=>(c.solde||0)>0).length} client(s) concerné(s)</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:20px;color:var(--green);">${totalDepots.toLocaleString()} F</div>
+      </div>`;
+  }
   // 🔒 FIX FIABILITÉ : si la liste est vide (ex: juste après connexion, avant
   // la fin de la synchro), retenter une fois un chargement direct depuis
   // Supabase avant de conclure "aucun client" — au lieu d'afficher un écran
@@ -24796,6 +24872,18 @@ async function doLogin() {
     }
     showNotif(`🎉 Bienvenue ${currentUser.prenom} ${currentUser.nom} ! (${getRoleLabel(currentUser.role)})`);
     // ✅ SESSION UNIQUE : enregistrer ce token + démarrer surveillance
+    // ✅ FIX "pas de déconnexion sur l'autre appareil" : le canal Realtime est ouvert
+    // dès le chargement de la page (avant login), quand l'ID du restaurant n'est pas
+    // encore connu → il utilisait le canal générique "kg_broadcast_v1_default" au lieu
+    // du canal propre au restaurant, et n'était recréé avec le bon ID que par hasard
+    // (ex: mise en arrière-plan de l'onglet). Deux appareils pouvaient donc se
+    // retrouver sur des canaux différents et ne jamais se voir l'un l'autre. On force
+    // maintenant la reconnexion au bon canal ICI, systématiquement après chaque login,
+    // avant d'enregistrer le token — pour que la détection "autre appareil" soit fiable
+    // dès la connexion, au lieu de dépendre du filet de sécurité (vérif. toutes les 3 min).
+    if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.startRealtime === 'function') {
+      try { KGSync.startRealtime(); } catch(_eRt) {}
+    }
     await _kgRegisterSessionToken(currentUser.id, window._KG_RESTAURANT_ID);
     _kgStartSessionWatch();
 
@@ -31509,6 +31597,18 @@ const KGSync = (() => {
       if(!row) return false;
       const parsed = dec(row.value);
       if(!parsed || !Array.isArray(parsed.items)) return false;
+      // ✅ FIX "1er client créé disparaît" : ce pull ciblé se déclenche quand
+      // CLIENTS est vide à l'ouverture de l'onglet (typiquement un restaurant
+      // tout neuf, 0 client). S'il reste en vol pendant que l'utilisateur crée
+      // son tout premier client (push encore en cours côté serveur), sa
+      // réponse — encore "0 client" — écrasait la liste locale et faisait
+      // disparaître le client fraîchement créé. Même protection que pour le
+      // handler temps réel : on préserve tout client local ("local_...")
+      // absent de la réponse serveur au lieu de le perdre silencieusement.
+      const _localOnlyClients = (Array.isArray(CLIENTS) ? CLIENTS : []).filter(c =>
+        c && typeof c.id === 'string' && c.id.startsWith('local_') &&
+        !parsed.items.some(r => r.id === c.id)
+      );
       CLIENTS = parsed.items.map(c => {
         if(!c.prenom && !c.nom) {
           const full = String(c.name || c.nomComplet || c.fullName || c.nom_complet || '').trim();
@@ -31521,7 +31621,8 @@ const KGSync = (() => {
         c.prenom = c.prenom || '?';
         c.nom = c.nom || '?';
         return c;
-      });
+      }).concat(_localOnlyClients);
+      if(_localOnlyClients.length && KGSync.isConnected) KGSync.push.clients();
       return true;
     } catch(e) {
       console.warn('[pullClientsOnly] exception:', e && (e.message || e));
@@ -37848,7 +37949,7 @@ async function executeReset() {
     <div class="form-row" style="margin-top:14px;" id="fact-payment-row">
       <div class="form-group">
         <label class="form-label">Mode de paiement</label>
-        <select class="form-input" id="fact-pay-method" onchange="onFactPayMethodChange()">
+        <select class="form-input" id="fact-pay-method" onchange="this.dataset.userTouched='1';onFactPayMethodChange()">
           <option value="especes">💵 Espèces</option>
           <option value="wave">Wave</option>
           <option value="orange">Orange Money</option>
