@@ -2594,7 +2594,7 @@ if(typeof jsQR === 'undefined') {
 
     /* Afficher un mini header de marque en haut du formulaire sur mobile */
     .login-right::after {
-      content: 'KEURGOUMAK';
+      content: 'KEURGOUMAKK';
       position: absolute;
       top: 24px; left: 28px;
       font-family: 'Space Grotesk', 'Syne', sans-serif;
@@ -5310,7 +5310,7 @@ function _syncSportVentes()       { return []; }
         <div id="login-logo-img-wrap" style="display:none;margin-bottom:12px;">
           <img id="login-logo-img" src="" alt="Logo" style="max-height:80px;max-width:180px;object-fit:contain;border-radius:8px;">
         </div>
-        <div class="login-brand" id="login-brand-text" style="font-size:18px;letter-spacing:0;white-space:nowrap;">KEURGOUMAK</div>
+        <div class="login-brand" id="login-brand-text" style="font-size:18px;letter-spacing:0;white-space:nowrap;">KEURGOUMAKK</div>
         <div class="login-tagline">La plateforme de gestion tout-en-un pour votre commerce 🇸🇳</div>
         <div style="margin-top:28px;font-size:13px;color:rgba(255,255,255,0.65);line-height:1.8;">
           Plateforme complète de gestion pour votre activité. Caisses, commandes, stocks, personnel — tout en un seul endroit.
@@ -5350,7 +5350,7 @@ function _syncSportVentes()       { return []; }
       <div style="position:relative;z-index:1;margin-top:auto;padding-top:20px;">
         <div class="login-version-badge">
           <div class="login-version-dot"></div>
-          <span class="login-version-text">KEURGOUMAK POS v3.0</span>
+          <span class="login-version-text">KEURGOUMAKK POS v3.0</span>
         </div>
       </div>
     </div>
@@ -11308,6 +11308,27 @@ function factStatutBadge(statut) {
   return `<span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${s.bg};color:${s.color};">${window.escHtml(s.label)}</span>`;
 }
 
+// ---------- Auto-détection des factures en retard ----------
+// ✅ NOUVEAU : une facture client/fournisseur "En attente" dont la date
+// d'échéance est dépassée passe automatiquement au statut "❌ En retard",
+// sans que quelqu'un ait besoin de le faire à la main. On ne touche pas aux
+// factures déjà payées, annulées, ou aux devis (accepté/refusé/converti).
+function _autoMarkFacturesRetard() {
+  const today = new Date().toISOString().split('T')[0];
+  let changed = false;
+  FACTURES.forEach(f => {
+    if(f.type === 'devis') return; // les devis ont leurs propres statuts (accepté/refusé/converti)
+    if(f.statut !== 'attente') return; // ne pas écraser payée / partiel / annulée / déjà en retard
+    if(!f.echeance) return; // pas de date d'échéance définie → rien à comparer
+    if(f.echeance < today) {
+      f.statut = 'retard';
+      changed = true;
+    }
+  });
+  if(changed) saveFacturesLocal();
+  return changed;
+}
+
 // ---------- Tabs ----------
 function switchFactureTab(tab, el) {
   factCurrentTab = tab;
@@ -11339,6 +11360,7 @@ function refreshFactKPIs() {
 
 // ---------- Render liste ----------
 function renderFactures() {
+  _autoMarkFacturesRetard();
   refreshFactKPIs();
   const q       = (document.getElementById('fact-search')?.value||'').toLowerCase();
   const statut  = document.getElementById('fact-filtre-statut')?.value||'';
@@ -12244,6 +12266,9 @@ async function loadFacturesLocal() {
           if(Array.isArray(items) && items.length > 0) {
             FACTURES = items;
             try { _lsSet("kg-factures", JSON.stringify(FACTURES)); } catch(e) {}
+            // ✅ Recalcule "en retard" dès que les factures sont chargées, peu importe
+            // quel écran l'utilisateur ouvre en premier — pas seulement l'onglet Factures.
+            if(typeof _autoMarkFacturesRetard === 'function') _autoMarkFacturesRetard();
             return;
           }
         }
@@ -12252,10 +12277,15 @@ async function loadFacturesLocal() {
   }
   try {
     const sess = JSON.parse(_lsGet("kg-session") || "null");
-    if(sess && Array.isArray(sess.FACTURES) && sess.FACTURES.length) { FACTURES = sess.FACTURES; return; }
+    if(sess && Array.isArray(sess.FACTURES) && sess.FACTURES.length) {
+      FACTURES = sess.FACTURES;
+      if(typeof _autoMarkFacturesRetard === 'function') _autoMarkFacturesRetard();
+      return;
+    }
     const d = JSON.parse(_lsGet("kg-factures")||"null");
     if(Array.isArray(d)) FACTURES = d;
   } catch(e){}
+  if(typeof _autoMarkFacturesRetard === 'function') _autoMarkFacturesRetard();
 }
 
 
@@ -15012,7 +15042,7 @@ function applyRestaurantSettingsToUI() {
   }
   // 🔒 Nom dans page de connexion — TOUJOURS KEURGOUMAK (ne change pas avec les paramètres)
   const brandTxtName = document.getElementById('login-brand-text');
-  if(brandTxtName) brandTxtName.textContent = 'KEURGOUMAK';
+  if(brandTxtName) brandTxtName.textContent = 'KEURGOUMAKK';
   // ✅ FIX v41 : Appliquer le logo de connexion s'il existe
   _applyLoginLogo();
 }
@@ -15047,7 +15077,7 @@ function _applyLoginLogo() {
   const brandTxt = document.getElementById('login-brand-text');
   if(imgWrap)  imgWrap.style.display = 'none';
   if(img)      img.src = '';
-  if(brandTxt) { brandTxt.style.display = ''; brandTxt.textContent = 'KEURGOUMAK'; }
+  if(brandTxt) { brandTxt.style.display = ''; brandTxt.textContent = 'KEURGOUMAKK'; }
 }
 
 function uploadLoginLogo(input) {
@@ -21148,7 +21178,7 @@ function renderClients() {
         ${(c.solde||0) > 0 ? `<button class="caisse-btn" style="flex:1;font-size:12px;color:var(--red);border-color:var(--red);" onclick="openRetraitClient(${cIdx})">📤 Retirer</button>` : ''}
         <button class="caisse-btn" style="flex:1;font-size:12px;" onclick="openEditClient(${cIdx})">✏️ Modifier</button>
         <button class="ticket-btn" style="font-size:12px;" onclick="printClientHistory(${cIdx})">🖨️</button>
-        <button class="caisse-btn danger" onclick="deleteClient(${cIdx})" style="font-size:12px;">🗑</button>
+        ${(currentUser && currentUser.role === 'administrateur') ? `<button class="caisse-btn danger" onclick="deleteClient(${cIdx})" style="font-size:12px;">🗑</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -21232,6 +21262,12 @@ function saveClient() {
 function deleteClient(cIdx) {
   const c = CLIENTS[cIdx];
   if(!c) return;
+  // ✅ Suppression client réservée à l'administrateur (protection au niveau de
+  // la fonction elle-même, pas seulement du bouton caché dans l'interface).
+  if(!(currentUser && currentUser.role === 'administrateur')) {
+    showNotif('⛔ Seul un administrateur peut supprimer un client');
+    return;
+  }
   // ✅ FIX : les clients sont stockés comme UN SEUL bloc côté Supabase
   // (clients_data → {items: CLIENTS}), pas en lignes individuelles. L'ancien
   // code appelait `KGSync.push.deleteClient(...)`, une fonction qui n'existe
@@ -25349,6 +25385,15 @@ function openUserMenuOrUtilisateurs() {
 //  FIN DÉCONNEXION AUTOMATIQUE
 // ═══════════════════════════════════════════════════════════════
 
+// ✅ FIX "ça plante à la déconnexion" : petit utilitaire pour ne jamais laisser
+// un appel réseau bloquer indéfiniment (même logique que pour la connexion).
+function _kgWithTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT: ' + (label||'opération') + ' (' + ms + 'ms)')), ms))
+  ]);
+}
+
 async function doLogout() {
   if(!currentUser) return;
   // ✅ FIX : arrêter la vérification périodique des tickets en attente
@@ -25359,15 +25404,15 @@ async function doLogout() {
   // VENTES_PAR_CAISSE était vidée avant que le push différé n'ait eu le temps de partir,
   // et le push finissait par envoyer un tableau vide (ou rien), donc à la reconnexion
   // l'ancienne valeur (non modifiée) revenait.
-  try { if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.push?.flushVentes === 'function') await KGSync.push.flushVentes(); } catch(e) { console.warn('[doLogout] flush ventes:', e); }
+  try { if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.push?.flushVentes === 'function') await _kgWithTimeout(KGSync.push.flushVentes(), 6000, 'flush ventes'); } catch(e) { console.warn('[doLogout] flush ventes:', e); }
   // ✅ FIX MULTI-RESTAURANT : vider aussi TOUS les autres envois différés en attente
   // (stock, caisses, clients, menu, dépenses, fournisseurs, etc.) avant de changer de
   // compte — sinon ils pouvaient partir après coup sous l'identifiant du NOUVEAU
   // restaurant/compte connecté, mélangeant les données des deux.
-  try { if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.flushAllPending === 'function') await KGSync.flushAllPending(); } catch(e) { console.warn('[doLogout] flush pending:', e); }
+  try { if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.flushAllPending === 'function') await _kgWithTimeout(KGSync.flushAllPending(), 6000, 'flush pending'); } catch(e) { console.warn('[doLogout] flush pending:', e); }
   // ✅ SESSION UNIQUE : arrêter la surveillance + libérer le token
   _kgStopSessionWatch();
-  await _kgUnregisterSessionToken();
+  try { await _kgWithTimeout(_kgUnregisterSessionToken(), 6000, 'unregister session'); } catch(e) { console.warn('[doLogout] unregister session:', e); }
   // Arrêter la surveillance d'inactivité
   if(typeof window._kgStopAutoLogout === 'function') window._kgStopAutoLogout();
   const _kgBanner = document.getElementById('kg-autologout-banner');
@@ -25375,7 +25420,7 @@ async function doLogout() {
   JOURNAL.unshift({ user:`${currentUser.prenom} ${currentUser.nom}`, role:currentUser.role, action:'Déconnexion', module:'Système', date:new Date().toLocaleDateString('fr').slice(0,8), heure:new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'}), ip:'—' });
   // ✅ FIX JOURNAL : sauvegarder avant déconnexion
   _saveJournal();
-  try { const sb = KGSync.getClient(); if(sb) await sb.auth.signOut(); } catch(e) {}
+  try { const sb = KGSync.getClient(); if(sb) await _kgWithTimeout(sb.auth.signOut(), 6000, 'auth signOut'); } catch(e) {}
   // ✅ FIX F5 : supprimer le profil mis en cache au logout
   try { _lsRemove('kg-current-user'); } catch(e) {}
   clearSession();
@@ -29652,16 +29697,29 @@ const KGSync = (() => {
         }
       });
       // Test de connexion via SELECT (évite le DataCloneError du upsert sur Android)
-      const { data: testData, error: testError } = await client
-        .from(TABLE)
-        .select('key')
-        .limit(1);
+      // ✅ FIX "Connexion au serveur en cours..." bloqué indéfiniment : cette requête
+      // n'avait aucun délai limite. Si le serveur mettait du temps à répondre (base
+      // surchargée, réseau lent/instable), l'écran de login restait figé pour
+      // toujours sur "Connexion en cours..." sans jamais afficher d'erreur ni
+      // permettre de réessayer. On borne maintenant l'attente à 12 secondes : au-delà,
+      // on considère la connexion comme échouée et on laisse l'utilisateur réessayer.
+      const _connectTestPromise = client.from(TABLE).select('key').limit(1);
+      const _connectTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('TIMEOUT: le serveur ne répond pas (12s)')), 12000)
+      );
+      const { data: testData, error: testError } = await Promise.race([_connectTestPromise, _connectTimeout])
+        .catch(e => ({ data: null, error: e }));
       if(testError) {
         const msg = testError.message || JSON.stringify(testError);
         const code = String(testError.code || testError.status || '');
         // Erreur fatale = clé invalide
         if(code === '401' || code === '403' || msg.includes('JWT') || msg.includes('Invalid API key')) {
           throw new Error('Clé API invalide: ' + msg);
+        }
+        // ✅ Timeout : le serveur ne répond pas du tout, ce n'est pas une "connexion
+        // partielle OK" — on doit vraiment échouer pour que l'utilisateur puisse réessayer.
+        if(msg.startsWith('TIMEOUT:')) {
+          throw new Error(msg);
         }
         // Table manquante → connexion partielle OK
         if(msg.includes('does not exist') || code === '42P01') {
@@ -29792,9 +29850,19 @@ const KGSync = (() => {
           _failed[key] = { ts: Date.now() };
           _lsSet(_fk, JSON.stringify(_failed));
         } catch(_e2) {}
-        if(typeof showNotif === 'function') {
+        // ✅ FIX "erreur après déconnexion" : cette tentative de sauvegarde peut avoir
+        // démarré AVANT la déconnexion et n'échouer définitivement qu'après (ses
+        // relances s'étalent sur ~9s en arrière-plan). La donnée est déjà mise de
+        // côté ci-dessus pour être renvoyée à la prochaine connexion — mais si
+        // personne n'est plus connecté, afficher l'avertissement maintenant n'a
+        // aucun sens pour la personne regardant l'écran de connexion (ce n'est
+        // même pas forcément la même personne). On ne montre le toast que si un
+        // utilisateur est toujours connecté.
+        if(typeof showNotif === 'function' && currentUser) {
           const _labels = { factures_data: 'Factures', stock_data: 'Stock', clients_data: 'Clients', caisses_data: 'Caisses' };
-          showNotif('⚠️ ' + (_labels[key] || key) + ' : échec de sauvegarde réseau — sera renvoyé automatiquement à la reconnexion.');
+          const _venteMatch = /^ventes_(.+)$/.exec(key);
+          const _label = _labels[key] || (_venteMatch ? ('Ventes ' + _venteMatch[1].replace(/_/g, ' ')) : key);
+          showNotif('⚠️ ' + _label + ' : échec de sauvegarde réseau — sera renvoyé automatiquement à la reconnexion.');
         }
       }
     }
