@@ -3093,6 +3093,22 @@ if(typeof jsQR === 'undefined') {
   /* Login blobs more subtle */
   .login-bg-blob { opacity: 0.12; }
 
+  /* ⚡ PERF SAISIE LOGIN : la carte floutait (backdrop-filter) trois grosses
+     bulles animées en continu → le navigateur recalculait le flou à chaque
+     image, ce qui ralentissait la frappe dans email / mot de passe.
+     On supprime le flou d'arrière-plan et on fige les bulles (flou statique = rendu une seule fois). */
+  .login-split {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    animation: none !important;
+  }
+  .login-bg-blob {
+    animation: none !important;
+    opacity: 0.12 !important;
+    will-change: auto !important;
+  }
+  .login-input { transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease !important; }
+
   /* Feat items on login */
   .login-feat-item {
     border-radius: 8px;
@@ -24786,15 +24802,22 @@ async function doLogin() {
     sb.from('users').update({ last_login: new Date().toISOString() }).eq('id', profile.id).then(() => {}).catch(() => {});
 
     // Charger users du restaurant
-    const { data: allUsers } = await sb.from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('restaurant_id', profile.restaurant_id);
+    // ⚡ PERF : les 4 requêtes sont lancées en parallèle (au lieu d'une après l'autre)
+    const [_q1,_q2,_q3,_q4] = await Promise.all([
+      sb.from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('restaurant_id', profile.restaurant_id),
+      sb.from('roles_config').select('role_key, perms').eq('restaurant_id', profile.restaurant_id),
+      sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url,ticket_config,rdv_msg_config').eq('id', profile.restaurant_id).single(),
+      sb.from('caisses').select('id,restaurant_id,name,fonds_initial,cloturee,date_cloture').eq('restaurant_id', profile.restaurant_id).order('name')
+    ]);
+    const { data: allUsers } = _q1;
     if(allUsers) USERS = allUsers.map(u => ({ ...u, caisse: u.caisse_assignee || 'Toutes', login: u.email || u.id, tel: u.tel || '—', lastLogin: '—' }));
 
     // ✅ Charger permissions personnalisées des rôles depuis Supabase
-    const { data: rolesData } = await sb.from('roles_config').select('role_key, perms').eq('restaurant_id', profile.restaurant_id);
+    const { data: rolesData } = _q2;
     if(rolesData && rolesData.length) { rolesData.forEach(r => { if(ROLES_CONFIG[r.role_key]) ROLES_CONFIG[r.role_key].perms = r.perms; }); }
 
     // Charger infos restaurant
-    const { data: resto } = await sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url,ticket_config,rdv_msg_config').eq('id', profile.restaurant_id).single();
+    const { data: resto } = _q3;
     if(resto) {
       RESTAURANT_INFO = { ...RESTAURANT_INFO, nom: resto.nom, ninea: resto.ninea||'', tel: resto.tel||'', email: resto.email||'', adresse: resto.adresse||'', devise: resto.devise||'FCFA', cover_url: resto.cover_url||'', logo_url: resto.logo_url||'', wave_payment_url: resto.wave_payment_url||resto.wave_numero||'', orange_payment_url: resto.orange_payment_url||resto.orange_numero||'' };
       // ✅ FIX: restaurer la config ticket depuis Supabase
@@ -24848,7 +24871,7 @@ async function doLogin() {
     }
 
     // Charger caisses
-    const { data: caissesSb } = await sb.from('caisses').select('id,restaurant_id,name,fonds_initial,cloturee,date_cloture').eq('restaurant_id', profile.restaurant_id).order('name');
+    const { data: caissesSb } = _q4;
     // ✅ FIX v15 FINAL : lire les clôtures Z du jour avant d'écraser les statuts
     const _loginToday = new Date().toISOString().split('T')[0];
     let _loginCloZ = [];
@@ -35373,14 +35396,21 @@ setTimeout(() => {
     // ✅ FIX JOURNAL : charger l'historique du journal de connexions
     _loadJournal();
 
-    const { data: allUsers } = await sb.from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('restaurant_id', profile.restaurant_id);
+    // ⚡ PERF : les 4 requêtes sont lancées en parallèle (au lieu d'une après l'autre)
+    const [_q1,_q2,_q3,_q4] = await Promise.all([
+      sb.from('users').select('id,restaurant_id,prenom,nom,email,role,caisse_assignee,status,color').eq('restaurant_id', profile.restaurant_id),
+      sb.from('roles_config').select('role_key, perms').eq('restaurant_id', profile.restaurant_id),
+      sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url,ticket_config,rdv_msg_config').eq('id', profile.restaurant_id).single(),
+      sb.from('caisses').select('id,restaurant_id,name,fonds_initial,cloturee,date_cloture').eq('restaurant_id', profile.restaurant_id).order('name')
+    ]);
+    const { data: allUsers } = _q1;
     if(allUsers) USERS = allUsers.map(u => ({ ...u, caisse: u.caisse_assignee || 'Toutes', login: u.email || u.id, tel: u.tel || '—', lastLogin: '—' }));
 
     // ✅ Charger permissions personnalisées des rôles depuis Supabase
-    const { data: rolesData } = await sb.from('roles_config').select('role_key, perms').eq('restaurant_id', profile.restaurant_id);
+    const { data: rolesData } = _q2;
     if(rolesData && rolesData.length) { rolesData.forEach(r => { if(ROLES_CONFIG[r.role_key]) ROLES_CONFIG[r.role_key].perms = r.perms; }); }
 
-    const { data: resto } = await sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url,ticket_config,rdv_msg_config').eq('id', profile.restaurant_id).single();
+    const { data: resto } = _q3;
     if(resto) {
       RESTAURANT_INFO = { ...RESTAURANT_INFO, nom: resto.nom, ninea: resto.ninea||'', tel: resto.tel||'', email: resto.email||'', adresse: resto.adresse||'', devise: resto.devise||'FCFA', cover_url: resto.cover_url||'', logo_url: resto.logo_url||'', wave_payment_url: resto.wave_payment_url||resto.wave_numero||'', orange_payment_url: resto.orange_payment_url||resto.orange_numero||'' };
       // ✅ FIX: restaurer la config ticket depuis Supabase
@@ -35397,7 +35427,7 @@ setTimeout(() => {
       }
     }
 
-    const { data: caissesSb } = await sb.from('caisses').select('id,restaurant_id,name,fonds_initial,cloturee,date_cloture').eq('restaurant_id', profile.restaurant_id).order('name');
+    const { data: caissesSb } = _q4;
 
     // ✅ FIX v15 FINAL — F5 : lire clôtures Z avant d'écraser les statuts caisses
     const _f5Today = new Date().toISOString().split('T')[0];
