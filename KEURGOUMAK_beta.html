@@ -2013,7 +2013,11 @@ if(typeof jsQR === 'undefined') {
        limiter le rendu baveux/imprécis du blur quand le zoom du navigateur
        n'est pas à 100% (comportement connu de Chrome/Safari avec filter:blur
        + zoom non-entier). Sans garantie à 100%, mais aide dans la plupart des cas. */
-    will-change: filter, transform;
+    /* ✅ FIX PERFORMANCE : seul "transform" est réellement animé (voir
+       orbFloat) — garder "filter" dans will-change forçait le navigateur à
+       re-rasteriser le flou en continu pour rien, coûteux sur petits
+       téléphones. */
+    will-change: transform;
     transform: translateZ(0);
     backface-visibility: hidden;
   }
@@ -2165,10 +2169,14 @@ if(typeof jsQR === 'undefined') {
     -webkit-text-fill-color: transparent;
     letter-spacing: 2px;
     text-transform: uppercase;
-    filter: drop-shadow(0 0 20px rgba(249,115,22,0.5));
+    /* ✅ FIX PERFORMANCE "clavier lent au login" : ce filtre était animé en
+       boucle infinie (voir @keyframes brandShimmer ci-dessous, désormais
+       inutilisée) — animer "filter" force le navigateur à recalculer le flou
+       à chaque frame, ce qui est coûteux et pouvait ralentir la saisie au
+       clavier sur les téléphones d'entrée de gamme. La lueur reste, juste figée. */
+    filter: drop-shadow(0 0 22px rgba(249,115,22,0.55));
     display: block;
     margin-bottom: 6px;
-    animation: brandShimmer 4s ease-in-out infinite alternate;
   }
 
   @keyframes brandShimmer {
@@ -2680,6 +2688,11 @@ if(typeof jsQR === 'undefined') {
     );
   }
 
+  /* Thème clair : pied de page "Connexion sécurisée SSL" + séparateur lisibles */
+  [data-theme="light"] .kg-ssl-text { color: #4b5563 !important; }
+  [data-theme="light"] .kg-ssl-icon { opacity: 0.8 !important; }
+  [data-theme="light"] .kg-sep-label { color: #6b7280 !important; }
+  [data-theme="light"] .kg-sep-line { background: rgba(0,0,0,0.15) !important; }
   [data-theme="light"] .login-title { color: #0d1117; }
   [data-theme="light"] .login-subtitle { color: #4b5563; }
   [data-theme="light"] .login-label { color: #374151; }
@@ -5404,10 +5417,10 @@ function _syncSportVentes()       { return []; }
       </form>
 
       <!-- Séparateur -->
-      <div style="display:flex;align-items:center;gap:12px;margin-top:24px;margin-bottom:4px;">
-        <div style="flex:1;height:1px;background:rgba(255,255,255,0.06);"></div>
-        <span style="font-size:10px;color:rgba(255,255,255,0.2);letter-spacing:2px;font-weight:700;">ACCÈS RAPIDE</span>
-        <div style="flex:1;height:1px;background:rgba(255,255,255,0.06);"></div>
+      <div class="kg-login-sep" style="display:flex;align-items:center;gap:12px;margin-top:24px;margin-bottom:4px;">
+        <div class="kg-sep-line" style="flex:1;height:1px;background:rgba(255,255,255,0.06);"></div>
+        <span class="kg-sep-label" style="font-size:10px;color:rgba(255,255,255,0.2);letter-spacing:2px;font-weight:700;">ACCÈS RAPIDE</span>
+        <div class="kg-sep-line" style="flex:1;height:1px;background:rgba(255,255,255,0.06);"></div>
       </div>
 
       <!-- Comptes disponibles masqués -->
@@ -5415,8 +5428,8 @@ function _syncSportVentes()       { return []; }
 
       <!-- Footer sécurité -->
       <div style="margin-top:24px;display:flex;align-items:center;gap:8px;justify-content:center;">
-        <span style="font-size:12px;opacity:0.25;">🛡️</span>
-        <span style="font-size:10.5px;color:rgba(255,255,255,0.2);letter-spacing:0.3px;">Connexion sécurisée SSL · Données chiffrées</span>
+        <span class="kg-ssl-icon" style="font-size:12px;opacity:0.25;">🛡️</span>
+        <span class="kg-ssl-text" style="font-size:10.5px;color:rgba(255,255,255,0.2);letter-spacing:0.3px;">Connexion sécurisée SSL · Données chiffrées</span>
       </div>
     </div>
   </div>
@@ -5625,7 +5638,7 @@ function _syncSportVentes()       { return []; }
         <div class="user-name" id="sb-name">Amadou Diallo</div>
         <div class="user-role" id="sb-role">Gérant · <span class="dot dot-green"></span></div>
       </div>
-      <div title="Se déconnecter" onclick="event.stopPropagation();doLogout()" style="color:#f5a623;cursor:pointer;padding:7px 9px;border-radius:8px;background:rgba(245,158,42,0.12);border:1px solid rgba(245,158,42,0.25);display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;" onmouseover="this.style.background='rgba(245,158,42,0.25)'" onmouseout="this.style.background='rgba(245,158,42,0.12)'"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f5a623" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
+      <div title="Se déconnecter" onclick="event.stopPropagation();doLogout()" style="color:#ff6b5e;cursor:pointer;padding:6px 8px;min-width:54px;border-radius:10px;background:rgba(231,76,60,0.14);border:1px solid rgba(231,76,60,0.4);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:all 0.2s;flex-shrink:0;" onmouseover="this.style.background='rgba(231,76,60,0.3)'" onmouseout="this.style.background='rgba(231,76,60,0.14)'"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff6b5e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg><span style="font-size:9.5px;font-weight:700;letter-spacing:0.3px;line-height:1;">Quitter</span></div>
     </div>
   </div>
 </nav>
@@ -24687,6 +24700,11 @@ function _clearLoginAttempts(email) {
   try { localStorage.removeItem(_loginAttemptsKey(email)); } catch(e) {}
 }
 
+// Mode local supprimé : on nettoie d'anciens drapeaux éventuels et on garde
+// un stub pour les appels restants.
+try { localStorage.removeItem('kg-local-mode-active'); } catch(e) {}
+function isKgLocalMode() { return false; }
+
 async function doLogin() {
   const email = document.getElementById('login-user').value.trim();
   const pwd   = document.getElementById('login-pass').value;
@@ -24937,6 +24955,7 @@ async function doLogin() {
     // maintenant — sans ça elle restait invisible ailleurs tant qu'aucune nouvelle
     // modification ne relançait un push pour cette même clé.
     try { if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.retryFailedSyncs === 'function') KGSync.retryFailedSyncs(); } catch(_e1b) {}
+    try { if(typeof _kgRetryPendingTicketDeletes === 'function') _kgRetryPendingTicketDeletes(); } catch(_e1c) {}
 
     // ✅ FIX STOCK/FOURN VIDE : charger depuis cache localStorage IMMÉDIATEMENT
     // Sans attendre pullAll → affichage instantané dès la connexion
@@ -35252,6 +35271,7 @@ window.addEventListener('online',  () => {
     // ✅ FIX FIABILITÉ : au retour en ligne, renvoyer toute donnée (factures, stock,
     // clients...) dont l'écriture avait définitivement échoué pendant la coupure.
     try { if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.retryFailedSyncs === 'function') KGSync.retryFailedSyncs(); } catch(e) {}
+    try { if(typeof _kgRetryPendingTicketDeletes === 'function') _kgRetryPendingTicketDeletes(); } catch(e) {}
   }, 1500);
 });
 window.addEventListener('offline', () => checkOnlineStatus());
@@ -35311,6 +35331,12 @@ setTimeout(() => {
         }
       } catch(e) {}
     }
+
+    // ✅ MODE LOCAL : tout ce qui suit (restauration de session via Supabase)
+    // ne doit JAMAIS s'exécuter en mode local — la restauration depuis le
+    // cache local ci-dessus suffit, et on évite tout appel réseau inutile
+    // (ou pire, l'écrasement des données locales par une réponse Supabase).
+    if(isKgLocalMode()) return;
 
     const sb = KGSync.getClient();
     if(!sb) return;
@@ -46188,12 +46214,43 @@ async function _pushTicketAttenteSupabase(ticket) {
   } catch(e) { console.warn('[tickets_attente push]', e); }
 }
 
+// ✅ FIX "ticket validé hors connexion réapparaît ailleurs" : avant, si la
+// suppression échouait (pas de réseau, timeout, etc.), l'erreur était juste
+// loggée et oubliée — le ticket restait donc en base pour toujours et
+// continuait d'apparaître "en attente" sur tous les autres appareils, même si
+// celui qui l'a encaissé ne le voit plus (supprimé localement). On met
+// maintenant en file d'attente toute suppression qui échoue, pour la
+// retenter automatiquement dès que la connexion revient.
+function _kgQueueTicketDelete(ticketId) {
+  try {
+    const q = JSON.parse(_lsGet('kg-tickets-delete-pending') || '[]');
+    if(!q.includes(ticketId)) q.push(ticketId);
+    _lsSet('kg-tickets-delete-pending', JSON.stringify(q));
+  } catch(e) {}
+}
+function _kgDequeueTicketDelete(ticketId) {
+  try {
+    const q = JSON.parse(_lsGet('kg-tickets-delete-pending') || '[]');
+    const filtered = q.filter(id => id !== ticketId);
+    _lsSet('kg-tickets-delete-pending', JSON.stringify(filtered));
+  } catch(e) {}
+}
+async function _kgRetryPendingTicketDeletes() {
+  let q = [];
+  try { q = JSON.parse(_lsGet('kg-tickets-delete-pending') || '[]'); } catch(e) {}
+  if(!q.length) return;
+  if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
+  for(const ticketId of q.slice()) {
+    await _deleteTicketAttenteSupabase(ticketId);
+  }
+}
+
 // ── Supprimer ticket encaissé → Supabase ──
 async function _deleteTicketAttenteSupabase(ticketId) {
   try {
     const sb  = KGSync?.getClient?.();
     const rid = window._KG_RESTAURANT_ID;
-    if(!sb || !rid) return;
+    if(!sb || !rid) { _kgQueueTicketDelete(ticketId); return; }
     // ✅ FIX : vérifier l'erreur de suppression. Sans ça, si une règle de
     // sécurité (RLS) côté Supabase bloque le DELETE (autorisant par ex.
     // INSERT/SELECT mais pas DELETE), la ligne reste en base pour toujours.
@@ -46205,12 +46262,17 @@ async function _deleteTicketAttenteSupabase(ticketId) {
       .eq('id', ticketId)
       .eq('restaurant_id', rid);
     if(_delErr) {
-      console.error('[tickets_attente delete] ÉCHEC suppression Supabase — le ticket va réapparaître ailleurs :', _delErr);
+      console.error('[tickets_attente delete] ÉCHEC suppression Supabase — mis en file pour réessai :', _delErr);
+      _kgQueueTicketDelete(ticketId);
       return;
     }
     if(_delCount === 0) {
-      console.error('[tickets_attente delete] 0 ligne supprimée côté Supabase (RLS bloque probablement le DELETE) — le ticket va réapparaître ailleurs. ticketId=', ticketId);
+      console.warn('[tickets_attente delete] 0 ligne supprimée (déjà supprimé ailleurs, ou pas encore synchronisé) — mis en file pour réessai. ticketId=', ticketId);
+      _kgQueueTicketDelete(ticketId);
+      return;
     }
+    // ✅ Succès : on retire de la file d'attente si ce ticket y était
+    _kgDequeueTicketDelete(ticketId);
     // ✅ FIX : même signal qu'à la création — pour que la suppression/l'encaissement
     // d'un ticket disparaisse en direct de la liste sur les autres appareils.
     try {
@@ -46221,7 +46283,10 @@ async function _deleteTicketAttenteSupabase(ticketId) {
         });
       }
     } catch(e) {}
-  } catch(e) { console.warn('[tickets_attente delete]', e); }
+  } catch(e) {
+    console.warn('[tickets_attente delete]', e);
+    _kgQueueTicketDelete(ticketId);
+  }
 }
 
 // ── Charger tickets en attente depuis Supabase au démarrage ──
