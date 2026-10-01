@@ -15,7 +15,8 @@
   + '@media print{'
   + '*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}'
   + 'html,body{text-rendering:geometricPrecision;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}'
-  + 'body{color:#000;}'
+  + 'html:root,html:root[data-theme]{color-scheme:light!important;--bg:#fff!important;--surface:#fff!important;--surface2:#f4f5f8!important;--surface3:#e8eaef!important;--border:#d1d5db!important;--border2:#9ca3af!important;--text:#111!important;--text2:#333!important;--text3:#111!important;}'
+  + 'html,html:root body,html:root[data-theme] body{background:#fff!important;background-image:none!important;color:#000!important;}'
   + 'img,svg,canvas{image-rendering:-webkit-optimize-contrast;image-rendering:high-quality;max-width:100%;}'
   + 'tr,img{page-break-inside:avoid;break-inside:avoid;}'
   + 'thead{display:table-header-group;}'
@@ -275,8 +276,16 @@ window.safeUrl = function(u) {
     if(pk !== key) {
       const val = _realGet(pk);
       if(val !== null) return val;
-      // Migration : si données existent sous l'ancienne clé non-préfixée, les lire
-      return _realGet(key);
+      // ✅ FIX FUITE MULTI-RESTAURANT : l'ancien code relisait la clé brute (non préfixée)
+      // sans jamais la supprimer → TOUS les restaurants suivants du même navigateur la
+      // recevaient aussi. On la "consomme" : le 1er restaurant qui la lit la migre sous
+      // sa propre clé puis elle est supprimée — aucun autre restaurant ne peut la relire.
+      const _raw = _realGet(key);
+      if(_raw !== null) {
+        try { _realSet(pk, _raw); _realRemove(key); } catch(e) {}
+        return _raw;
+      }
+      return null;
     }
     return _realGet(key);
   };
@@ -24410,6 +24419,7 @@ async function _pullJournalRemote() {
     if(!sb || !rid) return false;
     const { data } = await sb.from('kg_sync').select('value').eq('key', rid + ':journal_connexions').maybeSingle();
     if(!data || !data.value) return false;
+    if(window._KG_RESTAURANT_ID !== rid) return false; // changement de restaurant entre-temps
     JOURNAL = _jMerge(JOURNAL, _jParse(data.value));
     try { localStorage.setItem('kg_journal_' + rid, JSON.stringify(JOURNAL)); } catch(e) {}
     const tb = document.getElementById('journal-table');
@@ -24421,7 +24431,8 @@ async function _pullJournalRemote() {
 function _saveJournal() {
   try {
     const rid = window._KG_RESTAURANT_ID;
-    const key = rid ? 'kg_journal_' + rid : 'kg_journal';
+    if(!rid) return; // ✅ pas de restaurant connu → ne rien écrire (évite la clé globale partagée)
+    const key = 'kg_journal_' + rid;
     // Horodater les toutes dernières entrées ajoutées (tri fiable entre appareils)
     for(let i = 0; i < Math.min(3, JOURNAL.length); i++) {
       if(!JOURNAL[i].ts) JOURNAL[i].ts = new Date().toISOString();
@@ -24450,10 +24461,16 @@ function _saveJournal() {
 function _loadJournal() {
   try {
     const rid = window._KG_RESTAURANT_ID;
-    const cacheKey = rid ? 'kg_val_' + rid + ':journal_connexions' : null;
-    const raws = [cacheKey ? localStorage.getItem(cacheKey) : null,
-                  rid ? localStorage.getItem('kg_journal_' + rid) : null,
-                  localStorage.getItem('kg_journal')].filter(Boolean);
+    // ✅ FIX FUITE MULTI-RESTAURANT : le journal en mémoire d'un autre restaurant ne doit
+    // JAMAIS être fusionné avec celui du restaurant qui se connecte (et surtout pas
+    // renvoyé vers son serveur). On repart de zéro à chaque changement de restaurant.
+    if(window._kgJournalRid !== rid) { JOURNAL = []; window._kgJournalRid = rid; }
+    // Ancienne clé globale non isolée : source de contamination → supprimée
+    try { localStorage.removeItem('kg_journal'); } catch(e) {}
+    if(!rid) { return; }
+    const cacheKey = 'kg_val_' + rid + ':journal_connexions';
+    const raws = [localStorage.getItem(cacheKey),
+                  localStorage.getItem('kg_journal_' + rid)].filter(Boolean);
     let items = [];
     raws.forEach(r => { items = _jMerge(items, _jParse(r)); });
     if(items.length) { JOURNAL = _jMerge(JOURNAL, items); }
@@ -25661,6 +25678,10 @@ async function doLogout() {
   // pullAll échouait/tardait sur l'une de ces clés, l'ancien contenu restait visible
   // ou le nouveau ne s'affichait jamais sans F5).
   if(typeof USERS            !== 'undefined') USERS            = [];
+  // ✅ FIX FUITE JOURNAL : le journal d'accès (connexions, ouvertures/clôtures de caisse)
+  // n'était pas vidé → il apparaissait dans le restaurant suivant (et y était même re-sauvegardé).
+  JOURNAL = []; window._kgJournalRid = null;
+  if(window._kgJournalTimer) { clearInterval(window._kgJournalTimer); window._kgJournalTimer = null; }
   if(typeof RDV_LIST         !== 'undefined') RDV_LIST         = [];
   if(typeof RDV_SERVICES     !== 'undefined') RDV_SERVICES     = [];
   if(typeof TICKETS_ARCHIVES !== 'undefined') TICKETS_ARCHIVES = [];
@@ -47154,154 +47175,6 @@ function imprimerTicketAttente(ticketId) {
       filter: grayscale(100%) contrast(200%) !important;
     }
   }
-</style><style id="kg-theme-polish">
-/* DESIGN "TERANGA" : un seul accent (safran) sur les actions, le reste neutre.
-   Titres Bricolage Grotesque, texte Plus Jakarta Sans, montants JetBrains Mono.
-   Rayons : 14px cartes, 10px champs/boutons. */
-:root{--kg-display:'Bricolage Grotesque','Plus Jakarta Sans',system-ui,sans-serif;
---kg-btn:#f2a93b;--kg-btn-hover:#e39a2a;--kg-btn-ink:#1c1405;--kg-r-card:14px;--kg-r-ctl:10px;color-scheme:dark;
---bg:#14171f;--surface:#1b1f29;--surface2:#232835;--surface3:#2c3242;--border:#2d3342;--border2:#3a4155;
---text:#eceef3;--text2:#9ba3b4;--text3:#c5cad6;--accent:#f2a93b;--accent2:#d98e1f;--accent3:#f7c46b;
---gradient-accent:#f2a93b;--gradient-accent-soft:rgba(242,169,59,.12);--gradient-surface:#1b1f29;--gradient-sidebar:#10131a;
---shadow-sm:0 1px 2px rgba(0,0,0,.25);--shadow-md:0 4px 12px rgba(0,0,0,.28);--shadow-lg:0 10px 28px rgba(0,0,0,.32);--shadow-xl:0 18px 44px rgba(0,0,0,.38);
---glow-accent:none;--glow-green:none;--glow-teal:none;--glow-purple:none;}
-[data-theme="light"]{color-scheme:light;--bg:#f3f4f6;--surface:#fff;--surface2:#f4f5f8;--surface3:#e8eaef;--border:#e2e5ea;--border2:#cfd4dc;
---text:#161a23;--text2:#4d5566;--text3:#232937;--accent:#9a5b00;--accent2:#7c4800;--accent3:#b8730a;
---gradient-accent:#f2a93b;--gradient-accent-soft:rgba(242,169,59,.16);--gradient-surface:#fff;--gradient-sidebar:#1b2130;
---shadow-sm:0 1px 2px rgba(22,26,35,.05);--shadow-md:0 2px 8px rgba(22,26,35,.07);--shadow-lg:0 8px 24px rgba(22,26,35,.09);--shadow-xl:0 16px 40px rgba(22,26,35,.11);}
-[data-theme="blue"]{--kg-btn:#4338ca;--kg-btn-hover:#3730a3;--kg-btn-ink:#fff;color-scheme:light;
---bg:#f5f7ff;--surface:#fff;--surface2:#f1f3fb;--surface3:#e6e9f7;--border:#e3e7f5;--border2:#cdd3ec;
---text:#111633;--text2:#52597f;--text3:#1c2247;--accent:#4338ca;--accent2:#3730a3;--accent3:#6366f1;
---gradient-accent:#4338ca;--gradient-accent-soft:rgba(67,56,202,.09);--gradient-surface:#fff;--gradient-sidebar:#fff;
---shadow-sm:0 1px 2px rgba(17,22,51,.05);--shadow-md:0 2px 8px rgba(17,22,51,.07);--shadow-lg:0 8px 24px rgba(17,22,51,.09);--shadow-xl:0 16px 40px rgba(17,22,51,.11);}
-body,[data-theme="light"] body,[data-theme="blue"] body{background:var(--bg)!important;background-image:none!important;}
-.sidebar{background:#10131a!important;box-shadow:none!important;}
-[data-theme="light"] .sidebar{background:#1b2130!important;}
-[data-theme="blue"] .sidebar{background:#fff!important;border-right:1px solid var(--border)!important;}
-.nav-item.active,[data-theme="light"] .nav-item.active{background:rgba(242,169,59,.12)!important;color:#f7c46b!important;box-shadow:inset 3px 0 0 #f2a93b!important;}
-[data-theme="blue"] .nav-item.active{background:#eef0ff!important;color:#3730a3!important;box-shadow:inset 3px 0 0 #4338ca!important;}
-.card,.stat-card{background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:var(--kg-r-card)!important;box-shadow:var(--shadow-sm)!important;}
-.card:hover,.stat-card:hover{transform:none!important;box-shadow:var(--shadow-sm)!important;}
-.form-input,.login-input{border-radius:var(--kg-r-ctl)!important;}
-.btn{border-radius:var(--kg-r-ctl)!important;}
-.btn-primary,.btn-validate,.btn-print,.login-btn{background:var(--kg-btn)!important;background-image:none!important;color:var(--kg-btn-ink)!important;box-shadow:none!important;border:none!important;font-weight:700!important;}
-.btn-primary:hover,.btn-validate:hover,.btn-print:hover,.login-btn:hover{background:var(--kg-btn-hover)!important;transform:none!important;box-shadow:none!important;}
-/* Étiquettes en casse normale */
-'
-        +'.r,
-'
-        +'th,
-'
-    + '.logo,
-.articles-title,
-.band-lbl,
-.bottom-band-txt,
-.caisse-info-label,
-.card-title,
-.client-label,
-.cmd-band-lbl,
-.cuisine-header-title,
-.cuisine-items-title,
-.cuisine-pay-mixed-label,
-.cuisine-pay-title,
-.detail-label,
-.doc-label,
-.doc-title,
-.doc-type,
-.fact-type,
-.form-label,
-.fourn-stat-lbl,
-.hd-logo,
-.header-left h1,
-.header-logo,
-.header-name,
-.header-tagline,
-.identity-col h3,
-.info-lbl,
-.inv-header-row,
-.inv-kpi-lbl,
-.kpi-lbl,
-.login-brand,
-.login-btn,
-.login-label,
-.login-version-text,
-.logo-name,
-.logo-sub,
-.membre-type,
-.meta-lbl,
-.montant-label,
-.montant-lbl,
-.nav-section,
-.partie-bloc h3,
-.partie-box h4,
-.pay-label,
-.pay-title,
-.qr-label,
-.quick-title,
-.recap-label,
-.recu-label,
-.role-badge,
-.sec,
-.section-hd td,
-.section-title,
-.sig-block .sig-title,
-.sign-label,
-.st,
-.stat-label,
-.stock-header-row,
-.ticket-band-label,
-.tiers-label,
-.titre-doc,
-.top-band-title,
-.top-sub,
-.total-box h4,
-.total-final-label,
-.total-label,
-th,
-thead th{text-transform:none!important;letter-spacing:normal!important;}
-.role-badge{font-size:12px!important;font-weight:600!important;padding:3px 10px!important;}
-/* ── Compléments : ce qui est écrit directement dans le code des écrans ── */
-.stat-card::before,.stat-card::after,.card::before,[data-theme="light"] .card::before,[data-theme="blue"] .card::before{display:none!important;}
-[style*="text-transform"],.card-title,.card-title *,.stat-label,th,label{text-transform:none!important;letter-spacing:normal!important;}
-[style*="letter-spacing"]{letter-spacing:normal!important;}
-.card-title{font-family:var(--kg-display)!important;font-size:16px!important;font-weight:700!important;color:var(--text)!important;}
-.card-title span{font-family:'Plus Jakarta Sans',sans-serif!important;font-size:12px!important;font-weight:500!important;color:var(--text2)!important;}
-.stat-card [class*="label"],.stat-card [class*="title"]{font-size:12.5px!important;color:var(--text2)!important;font-weight:600!important;}
-.bar{background:var(--kg-btn)!important;box-shadow:none!important;filter:none!important;}
-.bar-wrap:last-child .bar{background:var(--kg-btn-hover)!important;}
-.top-fill{background:var(--kg-btn)!important;box-shadow:none!important;}
-.chart-week-trend{box-shadow:none!important;}
-.stat-card{padding-top:16px;}
-/* Titres */
-.caisse-num,
-.card-title,
-.cart-title,
-.login-brand,
-.login-title,
-.logo-name,
-.modal-title,
-.topbar-title,[style*="Syne"]{font-family:var(--kg-display)!important;letter-spacing:-0.01em;}
-.logo-name,.topbar-title,.login-brand,.login-right::after,[data-theme="light"] .logo-name,[data-theme="light"] .topbar-title,[data-theme="blue"] .logo-text{background:none!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;filter:none!important;text-shadow:none!important;font-family:var(--kg-display)!important;}
-.logo-name,[data-theme="light"] .sidebar .logo-name{color:#f8fafc!important;-webkit-text-fill-color:#f8fafc!important;}
-[data-theme="blue"] .logo-name,[data-theme="blue"] .logo-text{color:#312e81!important;-webkit-text-fill-color:#312e81!important;}
-.topbar-title,[data-theme="light"] .topbar-title{color:var(--text)!important;-webkit-text-fill-color:var(--text)!important;}
-.login-brand,.login-right::after{color:var(--accent)!important;-webkit-text-fill-color:var(--accent)!important;}
-.login-left .login-brand{color:#f7c46b!important;-webkit-text-fill-color:#f7c46b!important;}
-.login-title{font-family:var(--kg-display)!important;font-size:30px!important;font-weight:700!important;letter-spacing:-0.02em!important;color:var(--text)!important;}
-.login-subtitle,.login-label{color:var(--text2)!important;}
-/* Connexion */
-#login-screen,[data-theme="light"] #login-screen,[data-theme="blue"] #login-screen{background:var(--bg)!important;}
-#login-screen::before,.login-bg,.login-bg-blob,.login-split::before,.login-right::before{display:none!important;}
-.login-split,[data-theme="light"] .login-split,[data-theme="blue"] .login-split{background:var(--surface)!important;border:1px solid var(--border)!important;box-shadow:var(--shadow-lg)!important;backdrop-filter:none!important;}
-.login-left,[data-theme="light"] .login-left,[data-theme="blue"] .login-left{background:#1b2130!important;}
-.login-right{background:transparent!important;}
-.login-input{background:var(--surface2)!important;border:1px solid var(--border2)!important;box-shadow:none!important;}
-.login-input:focus{border-color:var(--kg-btn)!important;box-shadow:0 0 0 3px rgba(242,169,59,.22)!important;}
-[data-theme="blue"] .login-input:focus{box-shadow:0 0 0 3px rgba(67,56,202,.18)!important;}
-.kg-ssl-text{color:var(--text2)!important;}.kg-ssl-icon{opacity:.7!important;}
-:focus-visible{outline:2px solid var(--kg-btn);outline-offset:2px;}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}}
-@media (hover:hover){*{scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}}
 </style>
 </head><body>
 
