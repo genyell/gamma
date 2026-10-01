@@ -1,10 +1,64 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
 <!-- ✅ Génération PDF native (texte + tableaux dessinés directement, pas de capture d'écran)
      — build UMD officiel de jsPDF, qui expose de façon garantie window.jspdf.jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" integrity="sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+/* ═══ QUALITÉ D'IMPRESSION GLOBALE (reçus, factures, tickets, rapports…) ═══
+   - couleurs/fonds imprimés fidèlement, texte net et plus foncé
+   - attend le chargement des polices avant d'ouvrir la boîte d'impression
+   - s'applique automatiquement à toutes les fenêtres d'impression ouvertes par l'app */
+(function(){
+  var KG_PQ_CSS = '@page{margin:8mm;}'
+  + '@media print{'
+  + '*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}'
+  + 'html,body{text-rendering:geometricPrecision;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}'
+  + 'body{color:#000;}'
+  + 'img,svg,canvas{image-rendering:-webkit-optimize-contrast;image-rendering:high-quality;max-width:100%;}'
+  + 'tr,img{page-break-inside:avoid;break-inside:avoid;}'
+  + 'thead{display:table-header-group;}'
+  + '.meta-lbl,.section-title,.footer-gen{color:#333!important;}'
+  + '.doc-num{color:#111!important;}'
+  + '[style*="color:#888"],[style*="color:#999"],[style*="color:#aaa"],[style*="color:#777"],[style*="color:#666"],[style*="color:#bbb"]{color:#2b2b2b!important;}'
+  + 'tbody td,tbody th{border-bottom-color:#9ca3af!important;}'
+  + '.total-amount{color:#000!important;}'
+  + '}';
+  var KG_PQ_JS = '<script>(function(){var p=window.print;window.print=function(){var a=arguments;var go=function(){p.apply(window,a);};'
+  + 'try{if(document.fonts&&document.fonts.ready){document.fonts.ready.then(function(){setTimeout(go,250);});return;}}catch(e){}'
+  + 'setTimeout(go,250);};})();<\/script>';
+  var KG_PQ_HTML = '<style id="kg-print-quality">'+KG_PQ_CSS+'</style>'+KG_PQ_JS;
+
+  function inject(html){
+    if(typeof html!=='string' || html.indexOf('kg-print-quality')!==-1) return html;
+    if(!/<html|<!doctype|<head|<body/i.test(html)) return html;
+    if(/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, function(m){return m+KG_PQ_HTML;});
+    if(/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, function(m){return m+'<head>'+KG_PQ_HTML+'</head>';});
+    return KG_PQ_HTML+html;
+  }
+  function patchDoc(w){
+    try{
+      var d=w.document; if(!d || d.__kgPQ) return; d.__kgPQ=true;
+      var ow=d.write.bind(d), owl=d.writeln.bind(d);
+      d.write=function(){ var a=Array.prototype.slice.call(arguments); if(a.length) a[0]=inject(a[0]); return ow.apply(null,a); };
+      d.writeln=function(){ var a=Array.prototype.slice.call(arguments); if(a.length) a[0]=inject(a[0]); return owl.apply(null,a); };
+    }catch(e){}
+  }
+  var _open=window.open;
+  window.open=function(){
+    var w=_open.apply(window,arguments);
+    if(w) patchDoc(w);
+    return w;
+  };
+  // Impression directe depuis la page principale
+  try{
+    var st=document.createElement('style'); st.id='kg-print-quality-main';
+    st.textContent='@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}html,body{text-rendering:geometricPrecision;-webkit-font-smoothing:antialiased;}}';
+    document.head.appendChild(st);
+  }catch(e){}
+})();
+</script>
 <script>
 // 🔒 SÉCURITÉ : échappement HTML anti-XSS pour tout texte saisi par un
 // utilisateur (nom d'article, client, employé, note...) avant insertion
@@ -249,20 +303,21 @@ window.safeUrl = function(u) {
       // ✅ FIX BUG THÈME : lire aussi la clé préfixée par restaurant_id
       // setTheme() sauvegarde avec préfixe rid_XXX:kg-theme (car rid est connu après login)
       // mais au chargement initial, rid n'est pas encore chargé → chercher dans toutes les clés
-      var _t = localStorage.getItem('kg-theme') || 'light';
+      var _t = localStorage.getItem('kg-theme-v2') || 'light';
       // Chercher une clé préfixée rid_ plus récente
       try {
         for(var i = 0; i < localStorage.length; i++) {
           var _k = localStorage.key(i);
-          if(_k && _k.indexOf('rid_') === 0 && _k.indexOf(':kg-theme') !== -1) {
+          if(_k && _k.indexOf('rid_') === 0 && _k.indexOf(':kg-theme-v2') !== -1) {
             var _tv = localStorage.getItem(_k);
-            if(_tv === 'light' || _tv === 'dark' || _tv === 'auto') { _t = _tv; break; }
+            if(_tv === 'light' || _tv === 'dark' || _tv === 'blue' || _tv === 'auto') { _t = _tv; break; }
           }
         }
       } catch(e2) {}
-      if(_t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      if(_t === 'light' || _t === 'blue') document.documentElement.setAttribute('data-theme', _t);
+      else if(_t === 'auto' && !(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.setAttribute('data-theme', 'light');
       else document.documentElement.removeAttribute('data-theme');
-    } catch(e) { document.documentElement.removeAttribute('data-theme'); }
+    } catch(e) { document.documentElement.setAttribute('data-theme', 'light'); }
   })();
   // Détecter mobile via userAgent ET largeur écran
   (function(){
@@ -2738,7 +2793,9 @@ if(typeof jsQR === 'undefined') {
   .role-badge {
     padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.5px;
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; line-height: 1.3;
   }
+  .role-badge img, .role-badge svg { width: 14px; height: 14px; flex-shrink: 0; vertical-align: middle; }
   .role-gerant { background: rgba(245,166,35,0.15); color: var(--accent); border: 1px solid rgba(245,166,35,0.3); }
   .role-superviseur { background: rgba(124,92,191,0.15); color: var(--purple); border: 1px solid rgba(124,92,191,0.3); }
   .role-caissier { background: rgba(0,201,177,0.15); color: var(--teal); border: 1px solid rgba(0,201,177,0.3); }
@@ -5387,8 +5444,8 @@ function _syncSportVentes()       { return []; }
     <!-- DROITE -->
     <div class="login-right">
 
-      <div class="login-title">Bienvenue 👋</div>
-      <div class="login-subtitle">Connectez-vous à votre espace de performance</div>
+      <div class="login-title">Connexion</div>
+      <div class="login-subtitle">Accédez à votre caisse, vos ventes et vos stocks.</div>
 
       <!-- Alerte erreur -->
       <div class="login-error" id="login-error" style="display:none;"></div>
@@ -5428,7 +5485,7 @@ function _syncSportVentes()       { return []; }
         </div>
 
         <button type="submit" class="login-btn" id="login-btn">
-          Se connecter →
+          Se connecter
         </button>
       </form>
 
@@ -5445,7 +5502,7 @@ function _syncSportVentes()       { return []; }
       <!-- Footer sécurité -->
       <div style="margin-top:24px;display:flex;align-items:center;gap:8px;justify-content:center;">
         <span class="kg-ssl-icon" style="font-size:12px;opacity:0.25;">🛡️</span>
-        <span class="kg-ssl-text" style="font-size:10.5px;color:rgba(255,255,255,0.2);letter-spacing:0.3px;">Connexion sécurisée SSL · Données chiffrées</span>
+        <span class="kg-ssl-text" style="font-size:10.5px;color:rgba(255,255,255,0.2);letter-spacing:0.3px;">Connexion sécurisée</span>
       </div>
     </div>
   </div>
@@ -12895,6 +12952,33 @@ function filterPOSSearch(query) {
   _renderPOSGrid(_posCurCat, query);
 }
 
+// ⚡ Rechargement automatique du menu s'il est vide (échec réseau passager au login) :
+// jusqu'à 4 tentatives espacées, sans attendre que l'utilisateur clique sur « Réessayer ».
+var _kgMenuRetry = { n: 0, busy: false };
+function _kgAutoRetryMenu() {
+  if(_kgMenuRetry.busy || _kgMenuRetry.n >= 4) return;
+  if(typeof KGSync === 'undefined' || typeof currentUser === 'undefined' || !currentUser) return;
+  _kgMenuRetry.busy = true;
+  const delay = [300, 1500, 3500, 7000][_kgMenuRetry.n];
+  _kgMenuRetry.n++;
+  setTimeout(async () => {
+    window._lastPullAllTs = 0; // sinon le throttle de 8 s ignore la tentative
+    try { await KGSync.pullAll(); } catch(e) { console.warn('[menu] auto-retry:', e); }
+    _kgMenuRetry.busy = false;
+    if(MENU.length > 0) {
+      _kgMenuRetry.n = 0;
+      const vis = id => { const el = document.getElementById(id); return el && el.offsetParent !== null; };
+      try { if(vis('pos-items-grid') && typeof renderPOS === 'function') renderPOS(); } catch(e) {}
+      try { if(vis('menu-grid') && typeof renderMenu === 'function') renderMenu(); } catch(e) {}
+    } else {
+      // toujours vide : on réaffiche (ce qui relance une tentative) tant qu'il en reste
+      const vis = id => { const el = document.getElementById(id); return el && el.offsetParent !== null; };
+      try { if(vis('pos-items-grid') && typeof renderPOS === 'function') renderPOS(); } catch(e) {}
+      try { if(vis('menu-grid') && typeof renderMenu === 'function') renderMenu(); } catch(e) {}
+    }
+  }, delay);
+}
+
 function _renderPOSGrid(cat, query) {
   // ✅ Filtrer les articles selon les catégories visibles pour la caisse active
   const _gridActiveCaisse = getActiveCaisseName();
@@ -12915,10 +12999,11 @@ function _renderPOSGrid(cat, query) {
     // ✅ DIAGNOSTIC "aucun menu" au moment de vendre : distinguer les causes
     // au lieu d'un message générique.
     if(MENU.length === 0) {
+      _kgAutoRetryMenu();
       grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text2);font-size:13px;">
         <div style="font-size:32px;margin-bottom:8px;">📭</div>
         <div style="font-weight:700;margin-bottom:6px;color:var(--text);">Menu non chargé</div>
-        <div style="margin-bottom:14px;max-width:280px;margin-left:auto;margin-right:auto;">Vérifiez la connexion internet de cet appareil, puis réessayez.</div>
+        <div style="margin-bottom:14px;max-width:280px;margin-left:auto;margin-right:auto;">Nouvelle tentative automatique en cours… Sinon, vérifiez la connexion internet puis réessayez.</div>
         <button onclick="(async()=>{ showNotif('🔄 Rechargement du menu…'); try{ await KGSync.pullAll(); renderPOS(); showNotif('✅ Menu rechargé'); }catch(e){ showNotif('❌ Échec — vérifiez la connexion internet'); } })()"
           style="padding:9px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🔄 Réessayer</button>
       </div>`;
@@ -16765,12 +16850,13 @@ function renderMenu(cat, subcat) {
     // l'utilisateur au lieu d'un message générique qui ne dit rien sur la cause.
     let _msg;
     if(MENU.length === 0) {
+      _kgAutoRetryMenu();
       // Le menu n'a jamais été chargé (échec réseau au login, ou nouvel
       // appareil sans cache local) → proposer un rechargement immédiat.
       _msg = `<div style="grid-column:1/-1;text-align:center;padding:40px 16px;color:var(--text2);font-size:13px;">
         <div style="font-size:32px;margin-bottom:8px;">📭</div>
         <div style="font-weight:700;margin-bottom:6px;color:var(--text);">Menu non chargé</div>
-        <div style="margin-bottom:14px;max-width:280px;margin-left:auto;margin-right:auto;">Vérifiez la connexion internet de cet appareil, puis réessayez.</div>
+        <div style="margin-bottom:14px;max-width:280px;margin-left:auto;margin-right:auto;">Nouvelle tentative automatique en cours… Sinon, vérifiez la connexion internet puis réessayez.</div>
         <button onclick="(async()=>{ showNotif('🔄 Rechargement du menu…'); try{ await KGSync.pullAll(); renderMenu(); showNotif('✅ Menu rechargé'); }catch(e){ showNotif('❌ Échec — vérifiez la connexion internet'); } })()"
           style="padding:9px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🔄 Réessayer</button>
       </div>`;
@@ -24287,20 +24373,76 @@ let USERS = [];
 let JOURNAL = [];
 
 // ── Fonctions sauvegarde/chargement journal ──
+// ── Journal partagé entre tous les appareils ──
+// Avant : chaque appareil réécrivait TOUTE la liste avec sa copie locale, donc la
+// dernière connexion écrasait celles des autres utilisateurs. Maintenant : on
+// FUSIONNE toujours avec la version du serveur avant d'enregistrer.
+function _jKey(j) { return [j.user, j.action, j.date, j.heure, j.module].join('|'); }
+function _jTs(j) {
+  if(j.ts) { const t = Date.parse(j.ts); if(t) return t; }
+  const m = String(j.date||'').match(/(\d{2})\/(\d{2})/);
+  const h = String(j.heure||'').match(/(\d{1,2})\D(\d{2})/);
+  if(!m) return 0;
+  const now = new Date();
+  let d = new Date(now.getFullYear(), +m[2]-1, +m[1], h ? +h[1] : 0, h ? +h[2] : 0);
+  if(d > now) d = new Date(now.getFullYear()-1, +m[2]-1, +m[1], h ? +h[1] : 0, h ? +h[2] : 0);
+  return d.getTime();
+}
+function _jMerge(a, b) {
+  const map = new Map();
+  [].concat(a||[], b||[]).forEach(j => {
+    if(!j || !j.user) return;
+    const k = _jKey(j);
+    const old = map.get(k);
+    if(!old || (!old.ts && j.ts)) map.set(k, j);
+  });
+  return Array.from(map.values()).sort((x, y) => _jTs(y) - _jTs(x)).slice(0, 200);
+}
+function _jParse(raw) {
+  try { const d = JSON.parse(raw); return d.items || (Array.isArray(d) ? d : []); } catch(e) { return []; }
+}
+
+// Récupère le journal du serveur, le fusionne avec le local, met à jour l'affichage
+async function _pullJournalRemote() {
+  try {
+    const rid = window._KG_RESTAURANT_ID;
+    const sb = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+    if(!sb || !rid) return false;
+    const { data } = await sb.from('kg_sync').select('value').eq('key', rid + ':journal_connexions').maybeSingle();
+    if(!data || !data.value) return false;
+    JOURNAL = _jMerge(JOURNAL, _jParse(data.value));
+    try { localStorage.setItem('kg_journal_' + rid, JSON.stringify(JOURNAL)); } catch(e) {}
+    const tb = document.getElementById('journal-table');
+    if(tb && tb.offsetParent !== null && typeof renderJournalAcces === 'function') renderJournalAcces();
+    return true;
+  } catch(e) { console.warn('[journal] pull:', e); return false; }
+}
+
 function _saveJournal() {
   try {
     const rid = window._KG_RESTAURANT_ID;
     const key = rid ? 'kg_journal_' + rid : 'kg_journal';
-    // Garder max 200 entrées
-    const toSave = JOURNAL.slice(0, 200);
-    localStorage.setItem(key, JSON.stringify(toSave));
-    // Push vers Supabase en arrière-plan
+    // Horodater les toutes dernières entrées ajoutées (tri fiable entre appareils)
+    for(let i = 0; i < Math.min(3, JOURNAL.length); i++) {
+      if(!JOURNAL[i].ts) JOURNAL[i].ts = new Date().toISOString();
+    }
+    JOURNAL = _jMerge(JOURNAL, []);
+    localStorage.setItem(key, JSON.stringify(JOURNAL));
     const sb = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
     if(sb && rid) {
-      sb.from('kg_sync').upsert(
-        { key: rid + ':journal_connexions', value: JSON.stringify({ items: toSave, updatedAt: new Date().toISOString() }), restaurant_id: rid, updated_at: new Date().toISOString() },
-        { onConflict: 'key' }
-      ).then(() => {}).catch(e => console.warn('[journal] push Supabase:', e));
+      (async () => {
+        try {
+          // 1) relire le serveur, 2) fusionner, 3) réécrire la liste complète
+          const { data } = await sb.from('kg_sync').select('value').eq('key', rid + ':journal_connexions').maybeSingle();
+          if(data && data.value) JOURNAL = _jMerge(JOURNAL, _jParse(data.value));
+          const toSave = JOURNAL.slice(0, 200);
+          localStorage.setItem(key, JSON.stringify(toSave));
+          await sb.from('kg_sync').upsert(
+            { key: rid + ':journal_connexions', value: JSON.stringify({ items: toSave, updatedAt: new Date().toISOString() }), restaurant_id: rid, updated_at: new Date().toISOString() },
+            { onConflict: 'key' }
+          );
+        } catch(e) { console.warn('[journal] push Supabase:', e); }
+      })();
     }
   } catch(e) { console.warn('[journal] save:', e); }
 }
@@ -24308,20 +24450,16 @@ function _saveJournal() {
 function _loadJournal() {
   try {
     const rid = window._KG_RESTAURANT_ID;
-    // Essayer Supabase d'abord via kg_sync cache
     const cacheKey = rid ? 'kg_val_' + rid + ':journal_connexions' : null;
-    const raw = (cacheKey ? localStorage.getItem(cacheKey) : null)
-             || (rid ? localStorage.getItem('kg_journal_' + rid) : null)
-             || localStorage.getItem('kg_journal');
-    if(raw) {
-      const d = JSON.parse(raw);
-      const items = d.items || (Array.isArray(d) ? d : []);
-      if(items.length) {
-        JOURNAL = items;
-        console.log('[journal] ✅ Chargé :', JOURNAL.length, 'entrées');
-      }
-    }
+    const raws = [cacheKey ? localStorage.getItem(cacheKey) : null,
+                  rid ? localStorage.getItem('kg_journal_' + rid) : null,
+                  localStorage.getItem('kg_journal')].filter(Boolean);
+    let items = [];
+    raws.forEach(r => { items = _jMerge(items, _jParse(r)); });
+    if(items.length) { JOURNAL = _jMerge(JOURNAL, items); }
   } catch(e) { console.warn('[journal] load:', e); }
+  // Puis récupérer en arrière-plan les entrées des autres appareils
+  _pullJournalRemote();
 }
 
 let currentUser = null;
@@ -24923,6 +25061,7 @@ async function doLogin() {
       sessionCaisseActive = null;
     }
     // ✅ FIX JOURNAL : charger l'historique avant d'ajouter la nouvelle entrée
+    _kgMenuRetry.n = 0; _kgMenuRetry.busy = false;
     _loadJournal();
     JOURNAL.unshift({ user:`${currentUser.prenom} ${currentUser.nom}`, role:currentUser.role, action:'Connexion', module:'Système', date:new Date().toLocaleDateString('fr-FR').slice(0,8), heure:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}), ip:'—' });
     _saveJournal();
@@ -24931,7 +25070,7 @@ async function doLogin() {
     document.getElementById('login-screen').style.opacity = '0';
     document.getElementById('login-screen').style.transform = 'scale(1.02)';
     setTimeout(() => { document.getElementById('login-screen').style.display = 'none'; document.getElementById('app-shell').style.display = 'block'; }, 400);
-    btn.textContent = 'Se connecter →'; btn.classList.remove('loading');
+    btn.textContent = 'Se connecter'; btn.classList.remove('loading');
     // ✅ FIX v15 LOGO : charger le vrai logo restaurant après login
     if(typeof loadRestaurantSettings === 'function') loadRestaurantSettings();
     // ✅ FIX iPhone : appliquer logo_url Supabase directement au sidebar (localStorage non fiable sur iOS)
@@ -24977,6 +25116,7 @@ async function doLogin() {
     // lors d'une session précédente (coupure réseau juste avant fermeture), la renvoyer
     // maintenant — sans ça elle restait invisible ailleurs tant qu'aucune nouvelle
     // modification ne relançait un push pour cette même clé.
+    try { if(typeof MENU !== 'undefined' && MENU.length === 0 && typeof _kgAutoRetryMenu === 'function') _kgAutoRetryMenu(); } catch(_e1m) {}
     try { if(typeof KGSync !== 'undefined' && KGSync.isConnected && typeof KGSync.retryFailedSyncs === 'function') KGSync.retryFailedSyncs(); } catch(_e1b) {}
     try { if(typeof _kgRetryPendingTicketDeletes === 'function') _kgRetryPendingTicketDeletes(); } catch(_e1c) {}
 
@@ -25155,7 +25295,7 @@ async function doLogin() {
     errEl2.style.display = 'block';
     document.getElementById('login-user').classList.add('error');
     document.getElementById('login-pass').classList.add('error');
-    btn.textContent = 'Se connecter →'; btn.classList.remove('loading');
+    btn.textContent = 'Se connecter'; btn.classList.remove('loading');
   }
 }
 
@@ -25561,7 +25701,17 @@ function switchUTab(tab) {
   });
   if(tab==='liste') renderUsersGrid();
   if(tab==='roles') renderRolesGrid();
-  if(tab==='journal') renderJournalAcces();
+  if(window._kgJournalTimer) { clearInterval(window._kgJournalTimer); window._kgJournalTimer = null; }
+  if(tab==='journal') {
+    renderJournalAcces();
+    _pullJournalRemote();
+    // actualisation automatique toutes les 15 s tant que l'onglet est ouvert
+    window._kgJournalTimer = setInterval(() => {
+      const tb = document.getElementById('journal-table');
+      if(!tb || tb.offsetParent === null) { clearInterval(window._kgJournalTimer); window._kgJournalTimer = null; return; }
+      _pullJournalRemote();
+    }, 15000);
+  }
 }
 
 function renderUsersGrid() {
@@ -28934,8 +29084,8 @@ function setTheme(theme) {
     if(prefersDark) root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', 'light');
   }
-  localStorage.setItem('kg-theme', theme);
-  try { Object.getPrototypeOf(localStorage).__kgOrigSet?.call(localStorage, 'kg-theme', theme); } catch(e) {}
+  localStorage.setItem('kg-theme-v2', theme);
+  try { Object.getPrototypeOf(localStorage).__kgOrigSet?.call(localStorage, 'kg-theme-v2', theme); } catch(e) {}
   ['dark','light','blue','auto'].forEach(t => {
     const btn = document.getElementById('tbtn-' + t);
     if(btn) btn.classList.toggle('active', t === theme);
@@ -28945,10 +29095,10 @@ function setTheme(theme) {
 function initTheme() {
   let saved = 'light';
   try {
-    saved = localStorage.getItem('kg-theme') || 'light';
+    saved = localStorage.getItem('kg-theme-v2') || 'light';
     for(let i = 0; i < localStorage.length; i++) {
       const _k = localStorage.key(i);
-      if(_k && _k.startsWith('rid_') && _k.endsWith(':kg-theme')) {
+      if(_k && _k.startsWith('rid_') && _k.endsWith(':kg-theme-v2')) {
         const _tv = localStorage.getItem(_k);
         if(['light','dark','blue','auto'].includes(_tv)) { saved = _tv; break; }
       }
@@ -28956,7 +29106,7 @@ function initTheme() {
   } catch(e) { saved = 'light'; }
   setTheme(saved);
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    try { if(localStorage.getItem('kg-theme') === 'auto') setTheme('auto'); } catch(e){}
+    try { if(localStorage.getItem('kg-theme-v2') === 'auto') setTheme('auto'); } catch(e){}
   });
 }
 
@@ -30433,7 +30583,7 @@ const KGSync = (() => {
         .select('key, updated_at')
         .neq('key', '_ping')
         .eq('restaurant_id', _rid);
-      if(metaErr) { console.warn('KGSync pullAll meta error:', metaErr.message || JSON.stringify(metaErr)); return; }
+      if(metaErr) { console.warn('KGSync pullAll meta error:', metaErr.message || JSON.stringify(metaErr)); window._lastPullAllTs = 0; return; }
       if(!metaRows || metaRows.length === 0) {
         console.log('KGSync: aucune donnée distante — ventes locales conservées');
         return;
@@ -30456,7 +30606,7 @@ const KGSync = (() => {
         // jusqu'à un vidage manuel du cache.
         if(!isStatic) {
           _keysToFetch.push(r.key);
-        } else if(!cachedTs || cachedTs !== r.updated_at) {
+        } else if(!cachedTs || cachedTs !== r.updated_at || !localStorage.getItem('kg_val_' + r.key)) {
           _keysToFetch.push(r.key);
         } else {
           console.log('[cache] ✅ Clé inchangée, skip fetch:', sk);
@@ -30481,7 +30631,7 @@ const KGSync = (() => {
         const { data: freshRows, error: fetchErr } = await client.from(TABLE)
           .select('key, value, updated_at')
           .in('key', _keysToFetch);
-        if(fetchErr) { console.warn('KGSync pullAll fetch error:', fetchErr.message || JSON.stringify(fetchErr)); return; }
+        if(fetchErr) { console.warn('KGSync pullAll fetch error:', fetchErr.message || JSON.stringify(fetchErr)); window._lastPullAllTs = 0; return; }
         if(freshRows) {
           freshRows.forEach(r => {
             rows.push(r);
@@ -31677,6 +31827,7 @@ const KGSync = (() => {
         if(typeof renderCaisses === 'function') try { renderCaisses(); } catch(e) {}
       }, 500);
     } catch(e) {
+      window._lastPullAllTs = 0; // échec : autoriser une nouvelle tentative immédiate
       console.warn('KGSync pullAll exception:', e && (e.message || e.hint || e.code || JSON.stringify(e)));
     }
   }
@@ -36394,13 +36545,13 @@ function renderDepenses() {
         ${lignesHTML ? `<div style="margin-top:4px;line-height:1.9;display:flex;flex-wrap:wrap;">${lignesHTML}</div>` : ''}
         <div style="margin-top:5px;font-size:11px;color:var(--text2);">
           💳 ${d.mode}
-          ${!isFP ? ` &nbsp;·&nbsp; <span style="color:var(--red);">−${d.montant.toLocaleString()} F impact CA</span>` : ''}
+          ${!isFP ? ` &nbsp;·&nbsp; <span style="color:var(--red);">−${_fmtMontant(d.montant)} F impact CA</span>` : ''}
         </div>
       </div>
 
       <!-- Colonne droite : montant + actions -->
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;padding-left:10px;min-width:90px;">
-        <div style="font-size:15px;font-weight:800;color:var(--red);white-space:nowrap;">${d.montant.toLocaleString()} F</div>
+        <div style="font-size:15px;font-weight:800;color:var(--red);white-space:nowrap;">${_fmtMontant(d.montant)} F</div>
         <div style="display:flex;gap:5px;">
           <button onclick="imprimerDepense('${d.id}')" style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;color:var(--text2);cursor:pointer;font-size:13px;padding:5px 9px;" title="Imprimer / PDF">🖨️</button>
           ${(currentUser && currentUser.role === 'administrateur') ? `<button onclick="modifierDepense('${d.id}')" style="background:rgba(37,99,235,0.1);border:1px solid rgba(37,99,235,0.3);border-radius:8px;color:#3b82f6;cursor:pointer;font-size:13px;padding:5px 9px;" title="Modifier cette dépense">✏️</button>` : ''}
@@ -36412,6 +36563,12 @@ function renderDepenses() {
   }).join('');
 }
 
+// Formate un montant avec séparateur de milliers visible (ex: 101 052 201)
+function _fmtMontant(v){
+  var n = Math.round(Number(v)||0);
+  var neg = n < 0; n = Math.abs(n);
+  return (neg?'-':'') + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
+}
 function imprimerDepense(depId) {
   const d = DEPENSES.find(x => x.id === depId || x.sbId === depId);
   if(!d) { showNotif('⚠️ Dépense introuvable'); return; }
@@ -36434,6 +36591,7 @@ function imprimerDepense(depId) {
   const restEmail  = RI.email  || '';
   const restNinea  = RI.ninea  || '';
   const restDevise = RI.devise || 'F CFA';
+  const restDeviseCourt = String(restDevise).replace(/\s*\(.*?\)\s*/g,'').trim() || restDevise;
   const logoData   = RI.logo_url || RI.loginLogo
     || (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.showLogo && TICKET_CONFIG.logo)
     || null;
@@ -36453,19 +36611,19 @@ function imprimerDepense(depId) {
       <tr style="background:${i%2===0?'#fafafa':'#fff'};">
         <td style="padding:10px 14px;border-bottom:1px solid #eee;font-size:13px;">${l.libelle||'—'}</td>
         <td style="padding:10px 14px;border-bottom:1px solid #eee;text-align:center;font-size:13px;color:#555;">${l.qty||1}</td>
-        <td style="padding:10px 14px;border-bottom:1px solid #eee;text-align:right;font-size:13px;color:#555;">${((l.montant||0)/(l.qty||1)).toLocaleString()} ${restDevise}</td>
-        <td style="padding:10px 14px;border-bottom:1px solid #eee;text-align:right;font-size:13px;font-weight:600;">${(l.montant||0).toLocaleString()} ${restDevise}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #eee;text-align:right;font-size:13px;color:#555;">${_fmtMontant(((l.montant||0)/(l.qty||1)))} ${restDeviseCourt}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #eee;text-align:right;font-size:13px;font-weight:600;">${_fmtMontant((l.montant||0))} ${restDeviseCourt}</td>
       </tr>`).join('')
     : `<tr><td colspan="4" style="padding:14px;text-align:center;color:#888;font-style:italic;font-size:13px;">${d.libelle||'Dépense'}</td></tr>`;
 
   const tvaHTML = d.avec_tva ? `
     <tr>
       <td colspan="3" style="text-align:right;padding:8px 14px;color:#666;font-size:12px;">Montant HT</td>
-      <td style="text-align:right;padding:8px 14px;font-size:12px;">${(d.montant_ht||0).toLocaleString()} ${restDevise}</td>
+      <td style="text-align:right;padding:8px 14px;font-size:12px;">${_fmtMontant((d.montant_ht||0))} ${restDeviseCourt}</td>
     </tr>
     <tr>
       <td colspan="3" style="text-align:right;padding:8px 14px;color:#7c3aed;font-size:12px;">TVA (18%)</td>
-      <td style="text-align:right;padding:8px 14px;font-size:12px;color:#7c3aed;">${(d.montant_tva||0).toLocaleString()} ${restDevise}</td>
+      <td style="text-align:right;padding:8px 14px;font-size:12px;color:#7c3aed;">${_fmtMontant((d.montant_tva||0))} ${restDeviseCourt}</td>
     </tr>` : '';
 
   const now = new Date();
@@ -36476,11 +36634,16 @@ function imprimerDepense(depId) {
     ? `<img src="${window.safeUrl(logoData)}" style="height:54px;object-fit:contain;margin-bottom:8px;" alt="Logo">`
     : `<div style="width:52px;height:52px;background:linear-gradient(135deg,#f59e0a,#e84520);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 8px;">💸</div>`;
 
+  // Espacement des lignes selon le nombre de lignes (confortable, 1 page si possible)
+  const _nLig = Math.max(ligs.length, 1);
+  const _padLig = _nLig <= 12 ? 11 : _nLig <= 16 ? 8 : _nLig <= 22 ? 6 : _nLig <= 30 ? 4 : 3;
+
   const win = window.open('', '_blank', 'width=620,height=820');
   win.document.write(`<!DOCTYPE html><html lang="fr"><head>
   <meta charset="UTF-8">
   <title>Reçu Dépense — ${window.escHtml(d.libelle)}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     *{margin:0;padding:0;box-sizing:border-box;}
     body{font-family:'Inter',sans-serif;background:#f0f2f5;color:#1a1a2e;min-height:100vh;padding:24px;}
@@ -36522,7 +36685,7 @@ function imprimerDepense(depId) {
     /* ── Total ── */
     .total-band{background:linear-gradient(135deg,#fff8f0,#fff3f3);border-top:2px solid #f59e0a;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;}
     .total-label{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666;}
-    .total-amount{font-size:26px;font-weight:800;color:#e84520;letter-spacing:-.5px;}
+    .total-amount{font-size:26px;font-weight:800;color:#e84520;letter-spacing:0;word-spacing:.15em;white-space:nowrap;}
     .total-devise{font-size:13px;font-weight:600;color:#e84520;margin-left:4px;}
 
     /* ── NINEA / Infos légales ── */
@@ -36540,9 +36703,45 @@ function imprimerDepense(depId) {
     @media print{
       body{background:#fff;padding:0;}
       .page{box-shadow:none;border-radius:0;max-width:100%;}
+      /* Lisibilité à l'impression : le fond sombre de l'en-tête n'est pas imprimé par défaut,
+         ce qui rendait le texte blanc (nom, adresse, téléphone) invisible. */
+      .header{background:#fff!important;color:#111!important;border-bottom:3px solid #1a1a2e;}
+      .header-nom{color:#111!important;}
+      .header-infos{color:#111!important;font-size:13px!important;font-weight:600;}
+      .header-infos span{margin:0 8px!important;}
+      .doc-label,.meta-val{color:#111!important;}
+      .legal{background:#fff!important;border-top:1px solid #999!important;}
+      .legal-item{color:#111!important;font-size:13px!important;}
+      .legal-item strong{color:#000!important;font-weight:700;}
       .no-print{display:none!important;}
       .header::after{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
       thead tr{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#1a1a2e!important;}
+      /* ── Une seule page A4, pleine largeur, lisible (sans réduction de taille) ── */
+      @page{size:A4;margin:0;}
+      html,body{height:auto!important;min-height:0!important;width:100%!important;}
+      body{padding:10mm 12mm!important;}
+      .page{width:100%!important;max-width:100%!important;margin:0!important;break-inside:avoid;page-break-inside:avoid;page-break-after:avoid;}
+      .header{padding:16px 24px 12px!important;}
+      .header img,.header-logo img{height:46px!important;margin-bottom:5px!important;}
+      .header-nom{font-size:22px!important;}
+      .header-infos{font-size:11.5px!important;line-height:1.6!important;}
+      .doc-title{padding:14px 24px!important;}
+      .doc-label{font-size:13px!important;}
+      .meta-cell{padding:11px 24px!important;}
+      .meta-lbl{font-size:10px!important;}
+      .meta-val{font-size:13px!important;}
+      .section-title{padding:12px 24px 8px!important;font-size:10px!important;}
+      thead th{padding:10px 14px!important;font-size:10.5px!important;}
+      tbody td{padding:${_padLig}px 14px!important;font-size:13px!important;color:#111!important;line-height:1.2;}
+      tbody td:nth-child(n+2){white-space:nowrap!important;}
+      .total-band{padding:16px 24px!important;}
+      .total-amount{font-size:26px!important;white-space:nowrap;}
+      .total-devise{font-size:12px!important;}
+      .total-label{font-size:12px!important;}
+      .legal{padding:12px 24px!important;}
+      .legal-item{font-size:11.5px!important;}
+      .footer{padding:12px 24px!important;}
+      .footer-gen{margin-bottom:0!important;font-size:10.5px!important;}
     }
   </style>
 </head><body>
@@ -36600,7 +36799,7 @@ function imprimerDepense(depId) {
     ${isFP ? '' : `
     <div class="meta-cell">
       <div class="meta-lbl">Impact Caisse</div>
-      <div class="meta-val accent">− ${(d.montant||0).toLocaleString()} ${restDevise} déduit du CA</div>
+      <div class="meta-val accent">− ${_fmtMontant((d.montant||0))} ${restDevise} déduit du CA</div>
     </div>
     `}
   </div>
@@ -36626,7 +36825,7 @@ function imprimerDepense(depId) {
   <div class="total-band">
     <div class="total-label">Montant total</div>
     <div>
-      <span class="total-amount">${(d.montant||0).toLocaleString()}</span>
+      <span class="total-amount">${_fmtMontant((d.montant||0))}</span>
       <span class="total-devise">${restDevise}</span>
     </div>
   </div>
@@ -46955,7 +47154,156 @@ function imprimerTicketAttente(ticketId) {
       filter: grayscale(100%) contrast(200%) !important;
     }
   }
-</style></head><body>
+</style><style id="kg-theme-polish">
+/* DESIGN "TERANGA" : un seul accent (safran) sur les actions, le reste neutre.
+   Titres Bricolage Grotesque, texte Plus Jakarta Sans, montants JetBrains Mono.
+   Rayons : 14px cartes, 10px champs/boutons. */
+:root{--kg-display:'Bricolage Grotesque','Plus Jakarta Sans',system-ui,sans-serif;
+--kg-btn:#f2a93b;--kg-btn-hover:#e39a2a;--kg-btn-ink:#1c1405;--kg-r-card:14px;--kg-r-ctl:10px;color-scheme:dark;
+--bg:#14171f;--surface:#1b1f29;--surface2:#232835;--surface3:#2c3242;--border:#2d3342;--border2:#3a4155;
+--text:#eceef3;--text2:#9ba3b4;--text3:#c5cad6;--accent:#f2a93b;--accent2:#d98e1f;--accent3:#f7c46b;
+--gradient-accent:#f2a93b;--gradient-accent-soft:rgba(242,169,59,.12);--gradient-surface:#1b1f29;--gradient-sidebar:#10131a;
+--shadow-sm:0 1px 2px rgba(0,0,0,.25);--shadow-md:0 4px 12px rgba(0,0,0,.28);--shadow-lg:0 10px 28px rgba(0,0,0,.32);--shadow-xl:0 18px 44px rgba(0,0,0,.38);
+--glow-accent:none;--glow-green:none;--glow-teal:none;--glow-purple:none;}
+[data-theme="light"]{color-scheme:light;--bg:#f3f4f6;--surface:#fff;--surface2:#f4f5f8;--surface3:#e8eaef;--border:#e2e5ea;--border2:#cfd4dc;
+--text:#161a23;--text2:#4d5566;--text3:#232937;--accent:#9a5b00;--accent2:#7c4800;--accent3:#b8730a;
+--gradient-accent:#f2a93b;--gradient-accent-soft:rgba(242,169,59,.16);--gradient-surface:#fff;--gradient-sidebar:#1b2130;
+--shadow-sm:0 1px 2px rgba(22,26,35,.05);--shadow-md:0 2px 8px rgba(22,26,35,.07);--shadow-lg:0 8px 24px rgba(22,26,35,.09);--shadow-xl:0 16px 40px rgba(22,26,35,.11);}
+[data-theme="blue"]{--kg-btn:#4338ca;--kg-btn-hover:#3730a3;--kg-btn-ink:#fff;color-scheme:light;
+--bg:#f5f7ff;--surface:#fff;--surface2:#f1f3fb;--surface3:#e6e9f7;--border:#e3e7f5;--border2:#cdd3ec;
+--text:#111633;--text2:#52597f;--text3:#1c2247;--accent:#4338ca;--accent2:#3730a3;--accent3:#6366f1;
+--gradient-accent:#4338ca;--gradient-accent-soft:rgba(67,56,202,.09);--gradient-surface:#fff;--gradient-sidebar:#fff;
+--shadow-sm:0 1px 2px rgba(17,22,51,.05);--shadow-md:0 2px 8px rgba(17,22,51,.07);--shadow-lg:0 8px 24px rgba(17,22,51,.09);--shadow-xl:0 16px 40px rgba(17,22,51,.11);}
+body,[data-theme="light"] body,[data-theme="blue"] body{background:var(--bg)!important;background-image:none!important;}
+.sidebar{background:#10131a!important;box-shadow:none!important;}
+[data-theme="light"] .sidebar{background:#1b2130!important;}
+[data-theme="blue"] .sidebar{background:#fff!important;border-right:1px solid var(--border)!important;}
+.nav-item.active,[data-theme="light"] .nav-item.active{background:rgba(242,169,59,.12)!important;color:#f7c46b!important;box-shadow:inset 3px 0 0 #f2a93b!important;}
+[data-theme="blue"] .nav-item.active{background:#eef0ff!important;color:#3730a3!important;box-shadow:inset 3px 0 0 #4338ca!important;}
+.card,.stat-card{background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:var(--kg-r-card)!important;box-shadow:var(--shadow-sm)!important;}
+.card:hover,.stat-card:hover{transform:none!important;box-shadow:var(--shadow-sm)!important;}
+.form-input,.login-input{border-radius:var(--kg-r-ctl)!important;}
+.btn{border-radius:var(--kg-r-ctl)!important;}
+.btn-primary,.btn-validate,.btn-print,.login-btn{background:var(--kg-btn)!important;background-image:none!important;color:var(--kg-btn-ink)!important;box-shadow:none!important;border:none!important;font-weight:700!important;}
+.btn-primary:hover,.btn-validate:hover,.btn-print:hover,.login-btn:hover{background:var(--kg-btn-hover)!important;transform:none!important;box-shadow:none!important;}
+/* Étiquettes en casse normale */
+'
+        +'.r,
+'
+        +'th,
+'
+    + '.logo,
+.articles-title,
+.band-lbl,
+.bottom-band-txt,
+.caisse-info-label,
+.card-title,
+.client-label,
+.cmd-band-lbl,
+.cuisine-header-title,
+.cuisine-items-title,
+.cuisine-pay-mixed-label,
+.cuisine-pay-title,
+.detail-label,
+.doc-label,
+.doc-title,
+.doc-type,
+.fact-type,
+.form-label,
+.fourn-stat-lbl,
+.hd-logo,
+.header-left h1,
+.header-logo,
+.header-name,
+.header-tagline,
+.identity-col h3,
+.info-lbl,
+.inv-header-row,
+.inv-kpi-lbl,
+.kpi-lbl,
+.login-brand,
+.login-btn,
+.login-label,
+.login-version-text,
+.logo-name,
+.logo-sub,
+.membre-type,
+.meta-lbl,
+.montant-label,
+.montant-lbl,
+.nav-section,
+.partie-bloc h3,
+.partie-box h4,
+.pay-label,
+.pay-title,
+.qr-label,
+.quick-title,
+.recap-label,
+.recu-label,
+.role-badge,
+.sec,
+.section-hd td,
+.section-title,
+.sig-block .sig-title,
+.sign-label,
+.st,
+.stat-label,
+.stock-header-row,
+.ticket-band-label,
+.tiers-label,
+.titre-doc,
+.top-band-title,
+.top-sub,
+.total-box h4,
+.total-final-label,
+.total-label,
+th,
+thead th{text-transform:none!important;letter-spacing:normal!important;}
+.role-badge{font-size:12px!important;font-weight:600!important;padding:3px 10px!important;}
+/* ── Compléments : ce qui est écrit directement dans le code des écrans ── */
+.stat-card::before,.stat-card::after,.card::before,[data-theme="light"] .card::before,[data-theme="blue"] .card::before{display:none!important;}
+[style*="text-transform"],.card-title,.card-title *,.stat-label,th,label{text-transform:none!important;letter-spacing:normal!important;}
+[style*="letter-spacing"]{letter-spacing:normal!important;}
+.card-title{font-family:var(--kg-display)!important;font-size:16px!important;font-weight:700!important;color:var(--text)!important;}
+.card-title span{font-family:'Plus Jakarta Sans',sans-serif!important;font-size:12px!important;font-weight:500!important;color:var(--text2)!important;}
+.stat-card [class*="label"],.stat-card [class*="title"]{font-size:12.5px!important;color:var(--text2)!important;font-weight:600!important;}
+.bar{background:var(--kg-btn)!important;box-shadow:none!important;filter:none!important;}
+.bar-wrap:last-child .bar{background:var(--kg-btn-hover)!important;}
+.top-fill{background:var(--kg-btn)!important;box-shadow:none!important;}
+.chart-week-trend{box-shadow:none!important;}
+.stat-card{padding-top:16px;}
+/* Titres */
+.caisse-num,
+.card-title,
+.cart-title,
+.login-brand,
+.login-title,
+.logo-name,
+.modal-title,
+.topbar-title,[style*="Syne"]{font-family:var(--kg-display)!important;letter-spacing:-0.01em;}
+.logo-name,.topbar-title,.login-brand,.login-right::after,[data-theme="light"] .logo-name,[data-theme="light"] .topbar-title,[data-theme="blue"] .logo-text{background:none!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;filter:none!important;text-shadow:none!important;font-family:var(--kg-display)!important;}
+.logo-name,[data-theme="light"] .sidebar .logo-name{color:#f8fafc!important;-webkit-text-fill-color:#f8fafc!important;}
+[data-theme="blue"] .logo-name,[data-theme="blue"] .logo-text{color:#312e81!important;-webkit-text-fill-color:#312e81!important;}
+.topbar-title,[data-theme="light"] .topbar-title{color:var(--text)!important;-webkit-text-fill-color:var(--text)!important;}
+.login-brand,.login-right::after{color:var(--accent)!important;-webkit-text-fill-color:var(--accent)!important;}
+.login-left .login-brand{color:#f7c46b!important;-webkit-text-fill-color:#f7c46b!important;}
+.login-title{font-family:var(--kg-display)!important;font-size:30px!important;font-weight:700!important;letter-spacing:-0.02em!important;color:var(--text)!important;}
+.login-subtitle,.login-label{color:var(--text2)!important;}
+/* Connexion */
+#login-screen,[data-theme="light"] #login-screen,[data-theme="blue"] #login-screen{background:var(--bg)!important;}
+#login-screen::before,.login-bg,.login-bg-blob,.login-split::before,.login-right::before{display:none!important;}
+.login-split,[data-theme="light"] .login-split,[data-theme="blue"] .login-split{background:var(--surface)!important;border:1px solid var(--border)!important;box-shadow:var(--shadow-lg)!important;backdrop-filter:none!important;}
+.login-left,[data-theme="light"] .login-left,[data-theme="blue"] .login-left{background:#1b2130!important;}
+.login-right{background:transparent!important;}
+.login-input{background:var(--surface2)!important;border:1px solid var(--border2)!important;box-shadow:none!important;}
+.login-input:focus{border-color:var(--kg-btn)!important;box-shadow:0 0 0 3px rgba(242,169,59,.22)!important;}
+[data-theme="blue"] .login-input:focus{box-shadow:0 0 0 3px rgba(67,56,202,.18)!important;}
+.kg-ssl-text{color:var(--text2)!important;}.kg-ssl-icon{opacity:.7!important;}
+:focus-visible{outline:2px solid var(--kg-btn);outline-offset:2px;}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}}
+@media (hover:hover){*{scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}}
+</style>
+</head><body>
 
 <div class="no-print">
   <button onclick="window.print()" style="background:#000;color:#fff;font-weight:800;">🖨️ Imprimer</button>
