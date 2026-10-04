@@ -237,6 +237,7 @@ window.safeUrl = function(u) {
     'kg_depenses','kg_cloture_timestamps','kg_tickets_attente',
     'kg_loc_caisse_state','kg_manege_caisse_state','kg_pisc_caisse_state',
     'kg_sport_caisse_state','kg_terrain_caisse_state',
+    'kg_loc_reservations','kg_bill_requests','commandes_fourn_data',
   ];
   // Clés préfixes (commencent par) aussi isolées
   const _KG_PREFIXES = [
@@ -12964,6 +12965,69 @@ function filterPOSSearch(query) {
 // ⚡ Rechargement automatique du menu s'il est vide (échec réseau passager au login) :
 // jusqu'à 4 tentatives espacées, sans attendre que l'utilisateur clique sur « Réessayer ».
 var _kgMenuRetry = { n: 0, busy: false };
+// ✅ SECOURS : si menu_data (serveur) est vide mais que les articles existent dans la table
+// menu_items, on reconstruit le menu depuis cette table.
+async function _kgRebuildMenuFromTable(report) {
+  if(window._kgMenuRebuilding) return false;
+  const say = m => { try { if(report) report.push(m); console.log('[menu]', m); } catch(e) {} };
+  try {
+    const rid = window._KG_RESTAURANT_ID;
+    if(!rid) { say('❌ restaurant_id inconnu (session non chargée)'); return false; }
+    if(typeof KGSync === 'undefined' || !KGSync.isConnected) { say('❌ Serveur non connecté (synchronisation inactive)'); return false; }
+    const sb = KGSync.getClient(); if(!sb) { say('❌ Client serveur indisponible'); return false; }
+    window._kgMenuRebuilding = true;
+    let { data, error } = await sb.from('menu_items').select('*').eq('restaurant_id', rid);
+    if(error) { say('❌ Lecture menu_items : ' + (error.message || JSON.stringify(error))); return false; }
+    say('menu_items : ' + (data ? data.length : 0) + ' ligne(s) trouvée(s)');
+    if(!data || !data.length) return false;
+    data = data.slice().sort((x, y) => (x.sort_order || 0) - (y.sort_order || 0));
+    const items = data.filter(r => r.actif !== false).map(r => ({
+      id: r.id, sbId: r.id, name: r.name, cat: r.category || r.cat, category: r.category || r.cat,
+      price: r.price_ttc != null ? r.price_ttc : r.price, price_ttc: r.price_ttc != null ? r.price_ttc : r.price,
+      desc: r.description || '', icon: r.image_url || r.icon || '🍽️', image_url: r.image_url || null,
+      tag: r.tag || null, promo_pct: r.promo_pct || 0, recette: r.recette || [], en_rupture: !!r.en_rupture
+    }));
+    say('articles actifs : ' + items.length);
+    if(!items.length) return false;
+    MENU = items; window._kgMenuSawItems = true;
+    return true;
+  } catch(e) { say('❌ Exception : ' + (e && e.message || e)); return false; }
+  finally { window._kgMenuRebuilding = false; }
+}
+
+// 🔍 Diagnostic affiché à l'écran (pas besoin de la console)
+async function _kgDiagMenu() {
+  const L = [];
+  try {
+    const rid = window._KG_RESTAURANT_ID;
+    L.push('Restaurant ID : ' + (rid || 'INCONNU'));
+    L.push('Connecté au serveur : ' + ((typeof KGSync !== 'undefined' && KGSync.isConnected) ? 'oui' : 'NON'));
+    L.push('Utilisateur : ' + ((typeof currentUser !== 'undefined' && currentUser) ? (currentUser.prenom + ' ' + currentUser.nom + ' / ' + currentUser.role) : 'aucun'));
+    L.push('Catégories en mémoire : ' + ((typeof CATEGORIES !== 'undefined') ? CATEGORIES.length : '?'));
+    L.push('Articles en mémoire : ' + MENU.length);
+    L.push('En ligne (navigateur) : ' + (navigator.onLine ? 'oui' : 'NON'));
+    const sb = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
+    if(sb && rid) {
+      const r1 = await sb.from('kg_sync').select('key, updated_at, value').eq('restaurant_id', rid).like('key', '%menu_data');
+      if(r1.error) L.push('menu_data : ERREUR ' + (r1.error.message || ''));
+      else if(!r1.data.length) L.push('menu_data : ABSENT sur le serveur');
+      else r1.data.forEach(x => { let n = '?'; try { n = (JSON.parse(x.value).items || []).length; } catch(e) {} L.push('menu_data : ' + n + ' article(s), maj ' + x.updated_at); });
+      const r2 = await sb.from('menu_items').select('id, actif').eq('restaurant_id', rid);
+      if(r2.error) L.push('menu_items : ERREUR ' + (r2.error.message || ''));
+      else L.push('menu_items : ' + r2.data.length + ' ligne(s), dont ' + r2.data.filter(x => x.actif !== false).length + ' actives');
+    }
+  } catch(e) { L.push('Exception : ' + (e && e.message || e)); }
+  const old = document.getElementById('kg-diag-menu'); if(old) old.remove();
+  const d = document.createElement('div'); d.id = 'kg-diag-menu';
+  d.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#000b;display:flex;align-items:center;justify-content:center;padding:16px;';
+  d.innerHTML = '<div style="background:#fff;color:#111;border-radius:14px;padding:18px;max-width:520px;width:100%;max-height:90vh;overflow:auto;font-size:14px;line-height:1.5;">'
+    + '<div style="font-weight:800;font-size:16px;margin-bottom:8px;">🔍 Diagnostic du menu</div>'
+    + '<pre style="white-space:pre-wrap;font-family:inherit;margin:0 0 12px;">' + L.join('\n').replace(/</g, '&lt;') + '</pre>'
+    + '<button onclick="document.getElementById(\'kg-diag-menu\').remove()" style="padding:9px 18px;background:#1a1a2e;color:#fff;border:0;border-radius:8px;font-weight:700;cursor:pointer;">Fermer</button></div>';
+  document.body.appendChild(d);
+  return L;
+}
+window._kgDiagMenu = _kgDiagMenu;
 function _kgAutoRetryMenu() {
   if(_kgMenuRetry.busy || _kgMenuRetry.n >= 4) return;
   if(typeof KGSync === 'undefined' || typeof currentUser === 'undefined' || !currentUser) return;
@@ -12973,6 +13037,7 @@ function _kgAutoRetryMenu() {
   setTimeout(async () => {
     window._lastPullAllTs = 0; // sinon le throttle de 8 s ignore la tentative
     try { await KGSync.pullAll(); } catch(e) { console.warn('[menu] auto-retry:', e); }
+    if(MENU.length === 0) { try { await _kgRebuildMenuFromTable(); } catch(e) {} }
     _kgMenuRetry.busy = false;
     if(MENU.length > 0) {
       _kgMenuRetry.n = 0;
@@ -13013,8 +13078,9 @@ function _renderPOSGrid(cat, query) {
         <div style="font-size:32px;margin-bottom:8px;">📭</div>
         <div style="font-weight:700;margin-bottom:6px;color:var(--text);">Menu non chargé</div>
         <div style="margin-bottom:14px;max-width:280px;margin-left:auto;margin-right:auto;">Nouvelle tentative automatique en cours… Sinon, vérifiez la connexion internet puis réessayez.</div>
-        <button onclick="(async()=>{ showNotif('🔄 Rechargement du menu…'); try{ await KGSync.pullAll(); renderPOS(); showNotif('✅ Menu rechargé'); }catch(e){ showNotif('❌ Échec — vérifiez la connexion internet'); } })()"
+        <button onclick="(async()=>{ showNotif('🔄 Rechargement du menu…'); try{ await KGSync.pullAll(); if(!MENU.length) await _kgRebuildMenuFromTable(); renderPOS(); showNotif('✅ Menu rechargé'); }catch(e){ showNotif('❌ Échec — vérifiez la connexion internet'); } })()"
           style="padding:9px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🔄 Réessayer</button>
+        <button onclick="_kgDiagMenu()" style="margin-left:8px;padding:9px 16px;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🔍 Diagnostic</button>
       </div>`;
     } else if(cat === 'all' && (!query || !query.trim()) && (typeof CATEGORIES !== 'undefined') && CATEGORIES.length > 0 && _gridVisibleCatIds.size === 0) {
       grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text2);font-size:13px;">
@@ -16866,8 +16932,9 @@ function renderMenu(cat, subcat) {
         <div style="font-size:32px;margin-bottom:8px;">📭</div>
         <div style="font-weight:700;margin-bottom:6px;color:var(--text);">Menu non chargé</div>
         <div style="margin-bottom:14px;max-width:280px;margin-left:auto;margin-right:auto;">Nouvelle tentative automatique en cours… Sinon, vérifiez la connexion internet puis réessayez.</div>
-        <button onclick="(async()=>{ showNotif('🔄 Rechargement du menu…'); try{ await KGSync.pullAll(); renderMenu(); showNotif('✅ Menu rechargé'); }catch(e){ showNotif('❌ Échec — vérifiez la connexion internet'); } })()"
+        <button onclick="(async()=>{ showNotif('🔄 Rechargement du menu…'); try{ await KGSync.pullAll(); if(!MENU.length) await _kgRebuildMenuFromTable(); renderMenu(); showNotif('✅ Menu rechargé'); }catch(e){ showNotif('❌ Échec — vérifiez la connexion internet'); } })()"
           style="padding:9px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🔄 Réessayer</button>
+        <button onclick="_kgDiagMenu()" style="margin-left:8px;padding:9px 16px;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🔍 Diagnostic</button>
       </div>`;
     } else if(!_bypassCatRestriction() && cat === 'all' && CATEGORIES.length > 0 && visibleCategories.length === 0) {
       // Le menu EST chargé, mais toutes les catégories sont restreintes à
@@ -25624,6 +25691,11 @@ async function doLogout() {
   try { _lsRemove('kg-current-user'); } catch(e) {}
   clearSession();
   currentUser = null;
+  // ✅ FIX FUITE CLÔTURES : états de clôture/réservations/demandes d'addition gardés en mémoire
+  try { if(typeof CLOTURES_SUPPRIMEES !== 'undefined' && CLOTURES_SUPPRIMEES.clear) CLOTURES_SUPPRIMEES.clear(); } catch(e) {}
+  try { _CLOTURE_EN_COURS = false; _CLOTURE_TIMESTAMP = 0; } catch(e) {}
+  try { window._BILL_REQUESTS = []; } catch(e) {}
+  try { if(typeof LOC_RESERVATIONS !== 'undefined') LOC_RESERVATIONS = []; } catch(e) {}
   sessionCaisseActive = null;
   cart = [];
   // ✅ FIX FIABILITE CLOTURES : Relancer les clôtures en attente de sync
@@ -25655,6 +25727,7 @@ async function doLogout() {
   try { if(DEPENSES && DEPENSES.length) _lsSet('kg_depenses', JSON.stringify(DEPENSES)); } catch(e) {}
   DEPENSES = [];
   CLIENTS = [];
+  window._kgMenuSawItems = false;
   MENU = [];
   // ✅ FIX FUITE LOGO MULTI-COMPTE : RESTAURANT_INFO/TICKET_CONFIG n'étaient
   // jamais réinitialisés au logout. Comme le login suivant fait
@@ -29151,6 +29224,15 @@ function saveSession() {
     }
   }, 4000); // ✅ 4s debounce — regroupe toutes les actions rapides en 1 seul push
 }
+// ✅ v73 : signature rapide d'une donnée (FNV-1a) pour ne renvoyer à Supabase que ce qui a changé.
+// Avant : toutes les 30 s, le bloc complet des clôtures (jusqu'à ~850 Ko) était retéléchargé
+// puis réécrit en entier, même sans aucun changement — d'où la surcharge CPU/disque du serveur.
+function _kgSig(v) {
+  let h = 2166136261, s = '';
+  try { s = JSON.stringify(v); } catch(e) { return null; }
+  for(let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return s.length + ':' + (h >>> 0);
+}
 function _saveSessionImmediate() {
   try {
     if(!currentUser) return;
@@ -29247,10 +29329,18 @@ function _saveSessionImmediate() {
         try {
           // Push uniquement les données critiques non-couvertes par le debounce
           if(HISTORIQUE_CLOTURES && HISTORIQUE_CLOTURES.length > 0) {
-            KGSync.push.clotures().catch(e => console.warn('push.clotures saveSession:', e));
+            const _sigClo = _kgSig(HISTORIQUE_CLOTURES);
+            if(_sigClo && _sigClo !== window._kgLastCloPushSig) {
+              KGSync.push.clotures().then(() => { window._kgLastCloPushSig = _kgSig(HISTORIQUE_CLOTURES); })
+                .catch(e => console.warn('push.clotures saveSession:', e));
+            }
           }
           if(typeof DEPENSES !== 'undefined' && DEPENSES.length > 0) {
-            KGSync.push.depenses().catch(e => console.warn('push.depenses saveSession:', e));
+            const _sigDep = _kgSig(DEPENSES);
+            if(_sigDep && _sigDep !== window._kgLastDepPushSig) {
+              KGSync.push.depenses().then(() => { window._kgLastDepPushSig = _kgSig(DEPENSES); })
+                .catch(e => console.warn('push.depenses saveSession:', e));
+            }
           }
           // ✅ FIX v16 : pousser les données des modules actifs pour que les autres
           // navigateurs (dashboard, etc.) les reçoivent en temps réel
@@ -29541,6 +29631,7 @@ TICKETS_ARCHIVES = [];
         }
       });
       MENU = _lsMenu;
+      if(_lsMenu.length) window._kgMenuSawItems = true;
     }
 
     applySession();
@@ -30386,6 +30477,19 @@ const KGSync = (() => {
   }
   // ✅ FIX iOS : cache mémoire en complément localStorage (Safari navigation privée bloque localStorage)
   const _memCache = {};
+  // ✅ v70 : cache mémoire des VALEURS des clés non statiques (vide à chaque ouverture/F5).
+  // Permet de ne retélécharger que les clés dont updated_at a changé (le trigger SQL
+  // trg_kg_sync_updated_at met updated_at = NOW() à chaque écriture).
+  const _pullValMem = {};
+  // ✅ v71 : backoff exponentiel après erreur de _pullAll (30 s, 1 min, 2 min, 4 min, max 5 min)
+  // au lieu de réessayer immédiatement (ce qui entretenait la saturation du serveur).
+  let _pullFailN = 0, _pullBlockedUntil = 0;
+  function _pullFail() {
+    _pullFailN++;
+    const _d = Math.min(30000 * Math.pow(2, _pullFailN - 1), 300000);
+    _pullBlockedUntil = Date.now() + _d;
+    console.warn('[pullAll] ⏳ échec #' + _pullFailN + ' — prochaine tentative auto dans ' + Math.round(_d/1000) + 's');
+  }
   function _invalidateCache(...keys) {
     try {
       const _rid = window._KG_RESTAURANT_ID;
@@ -30396,13 +30500,22 @@ const KGSync = (() => {
       keys.forEach(k => {
         const fullKey = _rid + ':' + k;
         delete _cache[fullKey];
-        _memCache[fullKey] = null; // ✅ invalider aussi le cache mémoire (iOS Safari)
+        _memCache[fullKey] = null; delete _pullValMem[fullKey]; // ✅ invalider aussi le cache mémoire (iOS Safari)
         try { localStorage.removeItem('kg_val_' + fullKey); } catch(e) {}
       });
       try { localStorage.setItem(_CACHE_KEY, JSON.stringify(_cache)); } catch(e) {}
     } catch(e) {}
   }
   async function pushMenu() {
+    // ✅ FIX EFFACEMENT DU MENU : ne JAMAIS écrire un menu vide sur le serveur tant que
+    // cette session n'a pas vu d'articles. Avant, un push déclenché alors que MENU était
+    // encore vide (après déconnexion, réseau lent…) remplaçait menu_data par « items: [] »
+    // → « Menu non chargé » en permanence, même après rechargement.
+    if(Array.isArray(MENU) && MENU.length > 0) window._kgMenuSawItems = true;
+    if((!Array.isArray(MENU) || MENU.length === 0) && !window._kgMenuSawItems) {
+      console.warn('[pushMenu] menu vide non envoyé (protection anti-effacement)');
+      return;
+    }
     // ✅ FIX ANTI-DOUBLON v42 : dédupliquer MENU par sbId/id avant push dans kg_sync
     const _seen = new Map();
     const _dedupMenu = [];
@@ -30563,6 +30676,10 @@ const KGSync = (() => {
   async function _pullAll() {
     // ✅ FIX EGRESS : throttle global — 1 pull max toutes les 8 secondes
     const _nowTs = Date.now();
+    if(window._lastPullAllTs && _nowTs < _pullBlockedUntil) {
+      console.log('[pullAll] ⏸️ backoff actif — encore ' + Math.round((_pullBlockedUntil - _nowTs)/1000) + 's');
+      return;
+    }
     if((_nowTs - (window._lastPullAllTs || 0)) < 8000) {
       console.log('[egress] _pullAll ignoré — throttle 8s');
       return;
@@ -30604,7 +30721,7 @@ const KGSync = (() => {
         .select('key, updated_at')
         .neq('key', '_ping')
         .eq('restaurant_id', _rid);
-      if(metaErr) { console.warn('KGSync pullAll meta error:', metaErr.message || JSON.stringify(metaErr)); window._lastPullAllTs = 0; return; }
+      if(metaErr) { console.warn('KGSync pullAll meta error:', metaErr.message || JSON.stringify(metaErr)); _pullFail(); return; }
       if(!metaRows || metaRows.length === 0) {
         console.log('KGSync: aucune donnée distante — ventes locales conservées');
         return;
@@ -30626,7 +30743,8 @@ const KGSync = (() => {
         // données disparaissent silencieusement (ex: clients enregistrés = 0)
         // jusqu'à un vidage manuel du cache.
         if(!isStatic) {
-          _keysToFetch.push(r.key);
+          const _pm = _pullValMem[r.key];
+          if(!(_pm && _pm.u === r.updated_at)) _keysToFetch.push(r.key);
         } else if(!cachedTs || cachedTs !== r.updated_at || !localStorage.getItem('kg_val_' + r.key)) {
           _keysToFetch.push(r.key);
         } else {
@@ -30647,15 +30765,40 @@ const KGSync = (() => {
         }
       });
 
+      // ✅ v70 : clés non statiques inchangées -> valeur déjà en mémoire (0 download)
+      {
+        const _toFetchSet = new Set(_keysToFetch);
+        const _metaKeys = new Set();
+        metaRows.forEach(r => {
+          _metaKeys.add(r.key);
+          if(_STATIC_KEYS.includes(_shortKey(r.key)) || _toFetchSet.has(r.key)) return;
+          const _pm = _pullValMem[r.key];
+          if(_pm) rows.push({ key: r.key, value: _pm.v, updated_at: r.updated_at });
+        });
+        // nettoyer les clés supprimées côté serveur
+        Object.keys(_pullValMem).forEach(k => { if(k.indexOf(_prefix) === 0 && !_metaKeys.has(k)) delete _pullValMem[k]; });
+      }
+
       // Fetch uniquement les clés qui ont changé
       if(_keysToFetch.length > 0) {
-        const { data: freshRows, error: fetchErr } = await client.from(TABLE)
-          .select('key, value, updated_at')
-          .in('key', _keysToFetch);
-        if(fetchErr) { console.warn('KGSync pullAll fetch error:', fetchErr.message || JSON.stringify(fetchErr)); window._lastPullAllTs = 0; return; }
+        // ✅ v72 : téléchargement par lots de 20 clés (au lieu d'un seul IN de ~250 clés)
+        // -> requêtes plus courtes, moins de timeouts sur l'instance Micro. Un lot en erreur
+        // arrête tout (fetchErr) et déclenche le backoff comme avant.
+        let freshRows = [], fetchErr = null;
+        for(let _i = 0; _i < _keysToFetch.length; _i += 20) {
+          const _res = await client.from(TABLE)
+            .select('key, value, updated_at')
+            .in('key', _keysToFetch.slice(_i, _i + 20));
+          if(_res.error) { fetchErr = _res.error; break; }
+          if(_res.data) freshRows.push(..._res.data);
+        }
+        if(fetchErr) { console.warn('KGSync pullAll fetch error:', fetchErr.message || JSON.stringify(fetchErr)); _pullFail(); return; }
         if(freshRows) {
           freshRows.forEach(r => {
             rows.push(r);
+            if(!_STATIC_KEYS.includes(_shortKey(r.key)) && typeof r.value === 'string' && r.value.length < 3000000) {
+              _pullValMem[r.key] = { u: r.updated_at, v: r.value };
+            }
             // Mettre à jour le cache
             _cache[r.key] = r.updated_at;
             const sk = _shortKey(r.key);
@@ -30671,6 +30814,7 @@ const KGSync = (() => {
       }
       // ══════════════════════════════════════════════════════
 
+      _pullFailN = 0; _pullBlockedUntil = 0; // ✅ v71 : fetch réussi
       if(!rows || rows.length === 0) {
         console.log('KGSync: aucune donnée distante — ventes locales conservées');
         return;
@@ -31293,7 +31437,15 @@ const KGSync = (() => {
               }
             });
           }
-          MENU = _newMenu;
+          if(_newMenu.length === 0 && Array.isArray(MENU) && MENU.length > 0) {
+            // Le serveur renvoie un menu vide alors qu'on en a un : on garde le local et on répare le serveur
+            console.warn('[pullAll] menu_data distant vide → menu local conservé et renvoyé');
+            window._kgMenuSawItems = true;
+            try { setTimeout(() => { if(typeof pushMenu === 'function') pushMenu(); }, 1500); } catch(e) {}
+          } else {
+            MENU = _newMenu;
+            if(_newMenu.length) window._kgMenuSawItems = true;
+          }
           // ✅ FIX AFFICHAGE MENU APRÈS CONNEXION : avant ce fix, l'écran ne se
           // mettait à jour que si une recette était rechargée depuis menu_items
           // (cas rare). Après une déconnexion/reconnexion sur un AUTRE compte,
@@ -31848,7 +32000,7 @@ const KGSync = (() => {
         if(typeof renderCaisses === 'function') try { renderCaisses(); } catch(e) {}
       }, 500);
     } catch(e) {
-      window._lastPullAllTs = 0; // échec : autoriser une nouvelle tentative immédiate
+      _pullFail(); // ✅ v71 : échec -> backoff (avant : nouvelle tentative immédiate)
       console.warn('KGSync pullAll exception:', e && (e.message || e.hint || e.code || JSON.stringify(e)));
     }
   }
@@ -46501,6 +46653,7 @@ async function _deleteTicketAttenteSupabase(ticketId) {
     const sb  = KGSync?.getClient?.();
     const rid = window._KG_RESTAURANT_ID;
     if(!sb || !rid) { _kgQueueTicketDelete(ticketId); return; }
+    try { await _kgSyncTicketTombstones(sb, rid); } catch(e) {}
     // ✅ FIX : vérifier l'erreur de suppression. Sans ça, si une règle de
     // sécurité (RLS) côté Supabase bloque le DELETE (autorisant par ex.
     // INSERT/SELECT mais pas DELETE), la ligne reste en base pour toujours.
@@ -46557,11 +46710,54 @@ async function _actualiserCommandesManuel(btn) {
   }
 }
 
+// ✅ FIX "ticket validé ailleurs reste en attente sur les autres appareils" :
+// la suppression de la ligne côté serveur peut échouer en silence (réseau coupé, règle
+// de sécurité qui bloque le DELETE…). On partage donc AUSSI la liste des tickets déjà
+// encaissés/supprimés (clé kg_sync « tickets_valides_data »). Chaque appareil fusionne
+// cette liste avec la sienne à chaque actualisation : un ticket encaissé n'importe où
+// (même hors connexion, dès que la connexion revient) disparaît partout.
+async function _kgSyncTicketTombstones(sb, rid) {
+  const key = rid + ':tickets_valides_data';
+  let local = [];
+  try { local = JSON.parse(_lsGet('kg-tickets-valides') || '[]'); } catch(e) {}
+  const { data, error } = await sb.from('kg_sync').select('value').eq('key', key).maybeSingle();
+  if(error) return;
+  let remote = [];
+  try {
+    if(data && data.value) {
+      const v = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+      remote = Array.isArray(v) ? v : (v && v.ids) || [];
+    }
+  } catch(e) {}
+  const rs = new Set(remote), ls = new Set(local);
+  const missingLocal  = remote.filter(id => !ls.has(id));
+  const missingRemote = local.filter(id => !rs.has(id));
+  if(missingLocal.length) {
+    try { _lsSet('kg-tickets-valides', JSON.stringify([...local, ...missingLocal].slice(-300))); } catch(e) {}
+  }
+  if(missingRemote.length) {
+    const merged = [...remote, ...missingRemote].slice(-300);
+    const { error: upErr } = await sb.from('kg_sync').upsert(
+      { key: key, value: JSON.stringify(merged), restaurant_id: rid, updated_at: new Date().toISOString() },
+      { onConflict: 'key' });
+    if(!upErr) {
+      try {
+        if(typeof KGSync !== 'undefined' && KGSync._rtChannel) {
+          KGSync._rtChannel.send({ type: 'broadcast', event: 'sync', payload: { key: rid + ':_ticket_attente_ping', ts: Date.now() } });
+        }
+      } catch(e) {}
+    }
+  }
+}
+
 async function _pullTicketsAttenteSupabase() {
   try {
     const sb  = (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null;
     const rid = window._KG_RESTAURANT_ID;
     if(!sb || !rid) return;
+    // Relancer les suppressions restées en file (validées hors connexion) + partager la liste des tickets encaissés
+    try { await _kgRetryPendingTicketDeletes(); } catch(e) {}
+    try { await _kgSyncTicketTombstones(sb, rid); } catch(e) { console.warn('[tickets_attente tombstones]', e); }
     // ✅ FIX : ne plus filtrer par date du jour — un ticket mis en attente avant
     // minuit et pas encore payé restait "en attente" mais disparaissait silencieusement
     // du prochain rechargement une fois la date changée. Un ticket en attente le reste
