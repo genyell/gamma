@@ -7575,6 +7575,7 @@ Revenez nous voir bient&#244;t.</textarea>
         </div>
         <button class="btn btn-ghost" onclick="renderAttentePaiementModule()">🔄 Actualiser</button>
       </div>
+      <div id="attente-paiement-total" style="display:none;margin-bottom:14px;padding:14px 18px;border-radius:14px;background:linear-gradient(135deg,rgba(245,166,35,0.18),rgba(245,166,35,0.06));border:1px solid rgba(245,166,35,0.45);align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;"></div>
       <div id="attente-paiement-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;min-height:80px;"></div>
     </div>
 
@@ -13957,7 +13958,7 @@ async function _saveVenteSupabase(caisse, vente, _retryCount) {
   }
 }
 
-async function _loadVentesSupabase(caisse) {
+async function _loadVentesSupabase(caisse, sinceMs) {
   try {
     if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
     const sb  = KGSync.getClient();
@@ -13968,7 +13969,7 @@ async function _loadVentesSupabase(caisse) {
     // de l'affichage les ventes plus anciennes non clôturées — alors qu'elles
     // restaient bien enregistrées côté Supabase. On élargit à 30 jours.
     const yesterday = new Date(Date.now() - 30*86400000).toISOString().split('T')[0];
-    const { data, error } = await sb.from('ventes_caisse')
+    let { data, error } = await sb.from('ventes_caisse')
       .select('*')
       .eq('restaurant_id', rid)
       .eq('caisse', caisse)
@@ -13976,6 +13977,9 @@ async function _loadVentesSupabase(caisse) {
       .order('created_at', { ascending: true });
     if(error) { console.warn('[ventes_caisse] Erreur load:', error); return; }
     if(!data) return;
+    // ✅ v87 : à la clôture, ne reprendre que les ventes faites APRÈS la dernière clôture de cette caisse
+    // (évite de recompter d'éventuelles ventes anciennes restées orphelines côté serveur)
+    if(sinceMs) data = data.filter(r => !r.created_at || new Date(r.created_at).getTime() >= sinceMs);
     // ✅ FIX v8 : FUSION intelligente — ne jamais écraser les ventes locales non encore pushées
     // On construit d'abord la liste distante, puis on ajoute les ventes locales absentes de Supabase
     const _remoteVentes = data.map(row => ({
@@ -27872,6 +27876,17 @@ function confirmerCloturerCaisse() {
   cloturerCaisse();
 }
 
+// ✅ v87 : heure (ms) de la dernière clôture de cette caisse, lue dans l'identifiant « CLOT-<ms>-xxxx »
+function _kgDerniereClotureMs(caisse) {
+  let max = 0;
+  (HISTORIQUE_CLOTURES || []).forEach(h => {
+    if(h && h.caisse === caisse && typeof h.id === 'string') {
+      const m = /^CLOT-(\d{11,})-/.exec(h.id);
+      if(m) max = Math.max(max, parseInt(m[1], 10));
+    }
+  });
+  return max;
+}
 async function cloturerCaisse() {
   // ── Intercepter Caisse 8 (Salle de Sport) → modal clôture dédié ──
   const _fcCheck = _currentFCaisse || (sessionCaisseActive && sessionCaisseActive.caisse) || '';
@@ -27942,6 +27957,25 @@ async function cloturerCaisse() {
           ? _cashierFromVentes
           : 'Caissier ' + caisse; // Fallback lisible : "Caissier Caisse 2"
     const now      = new Date();
+
+    // ✅ v87 : AVANT, on ne regardait le serveur que si la liste de CET appareil était vide. Si l'appareil
+    // qui clôture n'avait qu'une partie des tickets, la clôture était partielle, puis TOUTES les ventes du
+    // serveur étaient effacées. Maintenant on fusionne toujours avec le serveur (ventes faites depuis la
+    // dernière clôture) avant de compter. Caisses 5 à 8 (modules) : inchangé.
+    // ✅ v88 : envoyer d'abord au serveur les tickets de cet appareil qui n'y sont pas encore (max 10 s)
+    try { if(typeof window.kgEnvoyerVentesEnAttente === 'function') await Promise.race([window.kgEnvoyerVentesEnAttente(caisse), new Promise(r => setTimeout(r, 10000))]); } catch(eEnv) { console.warn('[v88] envoi avant clôture:', eEnv); }
+    if(ventes.length > 0 && !/^Caisse [5-9]$|^Caisse 1[0-9]$/.test(caisse) && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+      try {
+        const _n0 = ventes.length, _ca0 = ventes.reduce((a, v) => a + (v.total || 0), 0);
+        await _loadVentesSupabase(caisse, _kgDerniereClotureMs(caisse));
+        ventes = (VENTES_PAR_CAISSE[caisse] || []);
+        const _n1 = ventes.length, _ca1 = ventes.reduce((a, v) => a + (v.total || 0), 0);
+        if(_n1 > _n0) {
+          console.warn('[cloturerCaisse v87] ' + (_n1 - _n0) + ' ticket(s) du serveur absents de cet appareil ajoutés (' + (_ca1 - _ca0) + ' F)');
+          showNotif('ℹ️ ' + (_n1 - _n0) + ' ticket(s) absent(s) de cet appareil ajoutés à la clôture (+' + (_ca1 - _ca0).toLocaleString('fr-FR') + ' F)');
+        }
+      } catch(eMerge) { console.warn('[cloturerCaisse v87] fusion serveur ignorée :', eMerge); }
+    }
 
     // ✅ FIX v8 : Essayer d'abord _loadVentesSupabase (table ventes_caisse) — plus fiable pour C1/C2/C3
     if(ventes.length === 0) {
@@ -47913,6 +47947,19 @@ function renderAttentePaiementModule() {
     ? TICKETS_ATTENTE
     : TICKETS_ATTENTE.filter(t => t.caisse === _apUserCaisse);
 
+  // ✅ v86 : total d'argent à encaisser, affiché en haut
+  const _apTotalEl = document.getElementById('attente-paiement-total');
+  if(_apTotalEl) {
+    if(attenteList.length === 0) { _apTotalEl.style.display = 'none'; }
+    else {
+      const _apSum = attenteList.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
+      _apTotalEl.style.display = 'flex';
+      _apTotalEl.innerHTML = `<div><div style="font-size:12px;color:var(--text2);font-weight:600;letter-spacing:.5px;text-transform:uppercase;">💰 Total à encaisser</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px;">${attenteList.length} ticket${attenteList.length > 1 ? 's' : ''} en attente</div></div>
+        <div style="font-size:30px;font-weight:900;color:var(--accent);font-family:'JetBrains Mono',monospace,sans-serif;white-space:nowrap;">${_apSum.toLocaleString('fr-FR')} F</div>`;
+    }
+  }
+
   if(attenteList.length === 0) {
     list.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2);">
       <div style="font-size:40px;margin-bottom:12px;">✅</div>
@@ -48707,6 +48754,149 @@ function exportHotelHistoriqueCSV() {
       else note('⚠️ Allègement annulé, rien n\'a été supprimé' + (r && r.err ? ' (' + r.err + ')' : ''));
     }catch(e){ console.warn(e); note('⚠️ Allègement annulé, rien n\'a été supprimé'); }
   };
+})();
+</script>
+
+<script>
+// ============================================================================
+// ✅ v88 : TICKETS NON ENVOYÉS AU SERVEUR — détection, renvoi automatique, récupération
+// Avant : un ticket dont l'envoi échouait 4 fois était mis dans une file locale (kg-ventes-save-failed)
+// que PERSONNE ne relisait. Il restait vendu et imprimé, visible sur l'appareil du caissier, mais absent
+// du serveur, donc absent de la clôture faite depuis un autre appareil.
+// ============================================================================
+(function(){
+  var FK = 'kg-ventes-save-failed', _busy = false, _derniere = { recentes: [], anciennes: [] };
+  function rid(){ return window._KG_RESTAURANT_ID || ''; }
+  function sb(){ try { return (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null; } catch(e){ return null; } }
+  function msDe(v){
+    var d = String(v && v.date || '').slice(0,10), t = String(v && v.time || '');
+    if(/^\d{4}-\d{2}-\d{2}$/.test(d) && /^\d{1,2}:\d{2}/.test(t)){
+      var x = new Date(d + 'T' + (t.length < 5 ? '0' + t : t).slice(0,5) + ':00').getTime();
+      return isNaN(x) ? NaN : x;
+    }
+    return NaN;
+  }
+  // Pur : sépare les tickets récents (à renvoyer tout seuls) des anciens (antérieurs à la dernière clôture
+  // de leur caisse : ils appartiennent à un service déjà clôturé → on ne les remet JAMAIS dans la caisse du jour).
+  window.kgClasserVentes = function(cands, derniereCloture){
+    var rec = [], anc = [];
+    cands.forEach(function(c){
+      var last = derniereCloture(c.caisse) || 0;
+      (isFinite(c.ms) && c.ms > last ? rec : anc).push(c);
+    });
+    return { recentes: rec, anciennes: anc };
+  };
+  function masques(){ try { return JSON.parse(localStorage.getItem('kg-unsent-hidden:' + rid()) || '{}'); } catch(e){ return {}; } }
+  function supprimees(caisse){
+    var set = new Set();
+    try { var raw = JSON.parse(localStorage.getItem('kg_deleted_orders_' + rid()) || '{}'); (raw[caisse] || []).forEach(function(n){ set.add(n); }); } catch(e){}
+    try { if(window._KG_DELETED_ORDERS && window._KG_DELETED_ORDERS[caisse]) window._KG_DELETED_ORDERS[caisse].forEach(function(n){ set.add(n); }); } catch(e){}
+    return set;
+  }
+  async function candidats(seulementCaisse){
+    var client = sb(), out = [], vus = {};
+    var add = function(caisse, vente, ms, source){
+      if(!vente || !vente.orderNum) return;
+      var k = caisse + '|' + vente.orderNum; if(vus[k]) return; vus[k] = 1;
+      out.push({ caisse: caisse, vente: vente, ms: ms, source: source });
+    };
+    // a) file des échecs définitifs
+    try { JSON.parse(_lsGet(FK) || '[]').forEach(function(f){ if(f && f.vente && (!seulementCaisse || f.caisse === seulementCaisse)) add(f.caisse, f.vente, isFinite(msDe(f.vente)) ? msDe(f.vente) : f.ts, 'file'); }); } catch(e){}
+    // b) tickets présents sur cet appareil mais absents du serveur
+    if(client && typeof VENTES_PAR_CAISSE !== 'undefined'){
+      var caisses = Object.keys(VENTES_PAR_CAISSE).filter(function(c){ return (VENTES_PAR_CAISSE[c] || []).length && (!seulementCaisse || c === seulementCaisse); });
+      for(var i = 0; i < caisses.length; i++){
+        var c = caisses[i];
+        try {
+          var since = new Date(Date.now() - 30*86400000).toISOString().split('T')[0];
+          var r = await client.from('ventes_caisse').select('order_num').eq('restaurant_id', rid()).eq('caisse', c).gte('session_date', since);
+          if(r.error || !r.data) continue;           // en cas de doute, on ne touche à rien
+          var surServeur = new Set(r.data.map(function(x){ return x.order_num; })), del = supprimees(c);
+          VENTES_PAR_CAISSE[c].forEach(function(v){ if(v && v.orderNum && !surServeur.has(v.orderNum) && !del.has(v.orderNum)) add(c, v, msDe(v), 'local'); });
+        } catch(e){ console.warn('[v88] comparaison serveur', c, e); }
+      }
+    }
+    return out;
+  }
+  async function scanner(seulementCaisse){
+    if(!rid() || !sb() || typeof _saveVenteSupabase !== 'function') return _derniere;
+    var cl = await candidats(seulementCaisse);
+    _derniere = window.kgClasserVentes(cl, typeof _kgDerniereClotureMs === 'function' ? _kgDerniereClotureMs : function(){ return 0; });
+    var cache = masques(); // anciens tickets que le gérant a déjà traités (masqués, jamais supprimés)
+    _derniere.anciennes = _derniere.anciennes.filter(function(c){ return !cache[c.caisse + '|' + c.vente.orderNum]; });
+    majPastille();
+    return _derniere;
+  }
+  // Renvoie les tickets récents (idempotent : même clé = mise à jour, jamais de doublon)
+  window.kgEnvoyerVentesEnAttente = async function(seulementCaisse){
+    if(_busy) return _derniere; _busy = true;
+    try {
+      var d = await scanner(seulementCaisse);
+      for(var i = 0; i < d.recentes.length; i++){
+        try { await _saveVenteSupabase(d.recentes[i].caisse, d.recentes[i].vente, 3); } catch(e){}   // 3 = dernier essai, sans boucle de réessais
+      }
+      if(d.recentes.length) d = await scanner(seulementCaisse);
+      return d;
+    } finally { _busy = false; }
+  };
+  // ----- pastille d'alerte -----
+  function majPastille(){
+    var n1 = _derniere.recentes.length, n2 = _derniere.anciennes.length, el = document.getElementById('kg-unsent-pill');
+    if(!n1 && !n2){ if(el) el.style.display = 'none'; return; }
+    if(!el){
+      el = document.createElement('div'); el.id = 'kg-unsent-pill';
+      el.style.cssText = 'position:fixed;left:12px;bottom:84px;z-index:99999;padding:9px 14px;border-radius:22px;font:700 12px/1.2 sans-serif;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:pointer;max-width:80vw;';
+      el.onclick = function(){ window.kgOuvrirVentesNonEnvoyees(); };
+      document.body.appendChild(el);
+    }
+    el.style.display = 'block';
+    el.style.background = n1 ? '#d93025' : '#b26a00';
+    el.textContent = n1 ? ('⚠️ ' + n1 + ' ticket(s) non envoyé(s) au serveur') : ('📦 ' + n2 + ' ancien(s) ticket(s) jamais envoyé(s)');
+  }
+  function majPastilleApres(){ _derniere.anciennes = []; majPastille(); }
+  function csv(l){
+    var q = function(x){ return '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"'; };
+    var rows = [['caisse','ticket','date','heure','total','paiement','client','caissier','articles']];
+    l.forEach(function(c){ var v = c.vente;
+      rows.push([c.caisse, v.orderNum, v.date || '', v.time || '', v.total || 0, v.payLabel || v.payMethod || '', v.client || '', v.cashier || '',
+        (v.items || []).map(function(i){ return (i.qty || 1) + 'x ' + (i.name || i.nom || ''); }).join(' ; ')]); });
+    return rows.map(function(r){ return r.map(q).join(';'); }).join('\n');
+  }
+  window.kgOuvrirVentesNonEnvoyees = async function(){
+    var d = await window.kgEnvoyerVentesEnAttente();
+    var anc = d.anciennes, rec = d.recentes;
+    if(!anc.length && !rec.length){ if(typeof showNotif === 'function') showNotif('✅ Tous les tickets sont bien enregistrés sur le serveur'); return; }
+    var tot = function(l){ return l.reduce(function(a, c){ return a + (Number(c.vente.total) || 0); }, 0); };
+    var old = document.getElementById('kg-unsent-modal'); if(old) old.remove();
+    var m = document.createElement('div'); m.id = 'kg-unsent-modal';
+    m.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px;';
+    var lignes = anc.concat(rec).map(function(c){ return c.caisse + ' · ' + c.vente.orderNum + ' · ' + (c.vente.date || '') + ' ' + (c.vente.time || '') + ' · ' + (Number(c.vente.total) || 0).toLocaleString('fr-FR') + ' F'; }).join('\n');
+    m.innerHTML = '<div style="background:#fff;color:#111;border-radius:14px;max-width:560px;width:100%;max-height:85vh;overflow:auto;padding:16px;font:14px/1.4 sans-serif;">'
+      + '<div style="font-weight:800;font-size:16px;margin-bottom:6px;">Tickets non enregistrés sur le serveur</div>'
+      + (rec.length ? '<div style="color:#d93025;margin-bottom:6px;">⚠️ ' + rec.length + ' récent(s) (' + tot(rec).toLocaleString('fr-FR') + ' F) : l\'envoi a été retenté et a échoué. Vérifiez la connexion.</div>' : '')
+      + (anc.length ? '<div style="margin-bottom:6px;">📦 ' + anc.length + ' ancien(s) (' + tot(anc).toLocaleString('fr-FR') + ' F) : ils datent d\'avant la dernière clôture de leur caisse, ils ne sont donc PAS remis dans la caisse du jour. Téléchargez la liste pour les retrouver.</div>' : '')
+      + '<pre style="background:#f3f3f3;padding:8px;border-radius:8px;font-size:12px;white-space:pre-wrap;">' + lignes.replace(/</g, '&lt;') + '</pre>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;"><button id="kg-um-csv" style="padding:10px 14px;border-radius:10px;border:0;background:#f5a623;font-weight:800;">⬇️ Télécharger (CSV)</button>'
+      + (anc.length ? '<button id="kg-um-hide" style="padding:10px 14px;border-radius:10px;border:1px solid #bbb;background:#fff;">✔️ Déjà traités (masquer)</button>' : '')
+      + '<button id="kg-um-x" style="padding:10px 14px;border-radius:10px;border:1px solid #bbb;background:#fff;">Fermer</button></div></div>';
+    document.body.appendChild(m);
+    m.querySelector('#kg-um-x').onclick = function(){ m.remove(); };
+    var hb = m.querySelector('#kg-um-hide');
+    if(hb) hb.onclick = function(){
+      if(!confirm('Masquer ces ' + anc.length + ' ancien(s) ticket(s) ? Ils ne sont pas supprimés, seulement cachés de cette alerte. Téléchargez le CSV avant.')) return;
+      var c = masques(); anc.forEach(function(x){ c[x.caisse + '|' + x.vente.orderNum] = Date.now(); });
+      try { localStorage.setItem('kg-unsent-hidden:' + rid(), JSON.stringify(c)); } catch(e){}
+      m.remove(); majPastilleApres();
+    };
+    m.querySelector('#kg-um-csv').onclick = function(){
+      var b = new Blob(['\ufeff' + csv(anc.concat(rec))], { type: 'text/csv;charset=utf-8' }), a = document.createElement('a');
+      a.href = URL.createObjectURL(b); a.download = 'tickets_non_envoyes_' + new Date().toISOString().slice(0,10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+    };
+  };
+  // Déclenchement : 25 s après l'ouverture, puis toutes les 2 min, et au retour du réseau
+  setTimeout(function(){ window.kgEnvoyerVentesEnAttente().catch(function(){}); }, 25000);
+  setInterval(function(){ window.kgEnvoyerVentesEnAttente().catch(function(){}); }, 120000);
+  window.addEventListener('online', function(){ setTimeout(function(){ window.kgEnvoyerVentesEnAttente().catch(function(){}); }, 3000); });
 })();
 </script>
 </body>
