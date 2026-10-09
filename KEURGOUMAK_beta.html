@@ -6842,6 +6842,7 @@ function _syncSportVentes()       { return []; }
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(232,69,32,0.15),rgba(245,158,42,0.05));border-color:rgba(232,69,32,0.4);color:#e84520;" onclick="ouvrirModalReconstruire()">🔧 Reconstruire clôture</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(26,219,106,0.15),rgba(0,229,200,0.05));border-color:rgba(26,219,106,0.4);color:var(--green);" onclick="ouvrirModalClotureManu()">➕ Ajouter clôture manuelle</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(124,92,255,0.15),rgba(124,92,255,0.05));border-color:rgba(124,92,255,0.4);color:#7c5cff;" onclick="kgAllegerBase()" id="hist-lite-btn">⚡ Alléger la base</button>
+          <button class="cat-btn" style="padding:6px 12px;font-size:11px;" onclick="kgOuvrirVentesNonEnvoyees()">📦 Tickets non envoyés</button>
           <button class="cat-btn" style="padding:6px 12px;font-size:11px;background:linear-gradient(135deg,rgba(231,76,60,0.15),rgba(231,76,60,0.05));border-color:rgba(231,76,60,0.4);color:var(--red);" onclick="_kgAuditClotures()">🔍 Vérifier fuites multi-comptes</button>
           </span>
         </div>
@@ -13872,14 +13873,94 @@ function _withTimeout(promise, ms, label) {
   ]);
 }
 
+// ============================================================================
+// ✅ v89 : ENVOI FIABLE DES TICKETS (aucun échec silencieux, aucune alerte)
+// Cause constatée : l'autorisation Supabase de l'appareil du caissier a expiré (erreurs 401 dans les
+// journaux). L'ancien code retentait 4 fois en 9 s avec le MÊME jeton périmé, puis abandonnait dans une
+// file que personne ne relisait. Maintenant :
+//  1) le ticket est écrit dans une « boîte d'envoi » locale AVANT tout envoi (survit à un rechargement) ;
+//  2) en cas d'erreur d'autorisation, la session est rafraîchie puis l'envoi est retenté ;
+//  3) on ne renonce jamais : nouvel essai toutes les 60 s au plus, au retour du réseau, au réveil de
+//     l'onglet et à chaque ouverture de l'appli, jusqu'à confirmation du serveur ;
+//  4) la session est entretenue en continu pour ne pas expirer.
+// ============================================================================
+const _KG_OUTBOX_KEY = 'kg-outbox-ventes';
+const _kgRetryTimers = {};
+function _kgOutboxRead() { try { return JSON.parse(_lsGet(_KG_OUTBOX_KEY) || '[]'); } catch(e) { return []; } }
+function _kgOutboxWrite(l) { try { _lsSet(_KG_OUTBOX_KEY, JSON.stringify(l)); } catch(e) {} }
+function _kgOutboxAdd(caisse, vente) {
+  if(!vente || !vente.orderNum) return;
+  const l = _kgOutboxRead();
+  if(l.some(e => e.caisse === caisse && e.vente && e.vente.orderNum === vente.orderNum)) return;
+  l.push({ caisse: caisse, vente: vente, ts: Date.now() });
+  _kgOutboxWrite(l);
+}
+function _kgOutboxRemove(caisse, orderNum) {
+  const k = caisse + '|' + orderNum;
+  if(_kgRetryTimers[k]) { clearTimeout(_kgRetryTimers[k]); delete _kgRetryTimers[k]; }
+  _kgOutboxWrite(_kgOutboxRead().filter(e => !(e.caisse === caisse && e.vente && e.vente.orderNum === orderNum)));
+}
+// Un ticket resté en attente pendant qu'une clôture de sa caisse a eu lieu appartient à un service déjà
+// clôturé : on ne le remet JAMAIS dans la caisse du jour, on le met de côté pour récupération manuelle.
+function _kgOutboxPeriime(caisse, orderNum) {
+  const e = _kgOutboxRead().find(x => x.caisse === caisse && x.vente && x.vente.orderNum === orderNum);
+  if(!e || typeof _kgDerniereClotureMs !== 'function') return false;
+  if(_kgDerniereClotureMs(caisse) > e.ts) {
+    try {
+      const fk = 'kg-ventes-save-failed', f = JSON.parse(_lsGet(fk) || '[]');
+      if(!f.some(x => x.vente && x.vente.orderNum === orderNum && x.caisse === caisse)) f.push({ caisse: caisse, vente: e.vente, ts: e.ts });
+      _lsSet(fk, JSON.stringify(f));
+    } catch(_e) {}
+    _kgOutboxRemove(caisse, orderNum);
+    return true;
+  }
+  return false;
+}
+async function _kgEnsureSession(force) {
+  try {
+    if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
+    const sb = KGSync.getClient();
+    if(!sb || !sb.auth) return;
+    const r = await _withTimeout(sb.auth.getSession(), 10000, 'getSession');
+    const sess = r && r.data && r.data.session;
+    const exp = sess && sess.expires_at ? sess.expires_at * 1000 : 0;
+    if(force || !sess || (exp - Date.now()) < 10 * 60 * 1000) {
+      const rr = await _withTimeout(sb.auth.refreshSession(), 15000, 'refreshSession');
+      if(rr && rr.error) console.warn('[v89] refresh session:', rr.error.message || rr.error);
+    }
+  } catch(e) { console.warn('[v89] session:', e && e.message || e); }
+}
+let _kgFlushBusy = false;
+async function _kgFlushOutbox() {
+  if(_kgFlushBusy || !window._KG_RESTAURANT_ID) return;
+  if(!_kgOutboxRead().length) return;
+  if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
+  _kgFlushBusy = true;
+  try {
+    await _kgEnsureSession(false);
+    for(const e of _kgOutboxRead()) {
+      if(!e || !e.vente) continue;
+      if(_kgOutboxPeriime(e.caisse, e.vente.orderNum)) continue;
+      await _saveVenteSupabase(e.caisse, e.vente, 0);
+    }
+  } finally { _kgFlushBusy = false; }
+}
+window._kgFlushOutbox = _kgFlushOutbox;
+setInterval(() => { _kgFlushOutbox().catch(() => {}); }, 30000);
+setInterval(() => { _kgEnsureSession(false).catch(() => {}); }, 3 * 60 * 1000);
+setTimeout(() => { _kgFlushOutbox().catch(() => {}); }, 8000);
+window.addEventListener('online', () => { setTimeout(() => { _kgEnsureSession(true).then(_kgFlushOutbox).catch(() => {}); }, 2000); });
+document.addEventListener('visibilitychange', () => { if(!document.hidden) { _kgEnsureSession(false).then(_kgFlushOutbox).catch(() => {}); } });
+
 async function _saveVenteSupabase(caisse, vente, _retryCount) {
   _retryCount = _retryCount || 0;
+  if(_retryCount === 0) _kgOutboxAdd(caisse, vente); // ✅ v89 : écrit localement AVANT l'envoi
   try {
     if(typeof KGSync === 'undefined' || !KGSync.isConnected) throw new Error('KGSync non connecté');
     const sb  = KGSync.getClient();
     const rid = window._KG_RESTAURANT_ID;
     if(!sb || !rid) throw new Error('client/restaurant_id manquant');
-    const { error } = await sb.from('ventes_caisse').upsert({
+    const { error } = await _withTimeout(sb.from('ventes_caisse').upsert({
       restaurant_id: rid,
       caisse:        caisse,
       order_num:     vente.orderNum,
@@ -13893,7 +13974,7 @@ async function _saveVenteSupabase(caisse, vente, _retryCount) {
       pay_methods:   vente.payMethods ? JSON.stringify(vente.payMethods) : null,
       session_date:  (vente.date || new Date().toISOString()).split('T')[0],
       serveur:       vente.serveur && vente.serveur.trim() ? vente.serveur.trim() : null
-    }, { onConflict: 'restaurant_id,caisse,order_num' });
+    }, { onConflict: 'restaurant_id,caisse,order_num' }), 20000, 'ventes_caisse');
     if(error) throw error;
     // ✅ FIX ARCHIVAGE PERMANENT : ventes_caisse est une table de travail vidée
     // à chaque clôture de caisse — sans ça, aucune trace durable des ventes ne
@@ -13932,6 +14013,7 @@ async function _saveVenteSupabase(caisse, vente, _retryCount) {
     } catch(eArch) {
       console.warn('[ventes] Erreur archivage permanent (non bloquant):', eArch);
     }
+    try { _kgOutboxRemove(caisse, vente.orderNum); } catch(_eOb) {} // ✅ v89 : confirmé par le serveur
     // ✅ Succès — si une trace d'échec précédent existait pour ce ticket, la nettoyer
     try {
       const _fk = 'kg-ventes-save-failed';
@@ -13943,18 +14025,17 @@ async function _saveVenteSupabase(caisse, vente, _retryCount) {
     // ✅ FIX FIABILITÉ : ne plus abandonner en silence — réessayer automatiquement,
     // puis garder une trace locale + alerter visiblement si ça échoue quand même,
     // pour qu'un ticket physiquement imprimé ne disparaisse jamais sans avertissement.
-    if(_retryCount < 3) {
-      setTimeout(() => _saveVenteSupabase(caisse, vente, _retryCount + 1), 1500 * (_retryCount + 1));
-    } else {
-      console.error('[ventes_caisse] ÉCHEC DÉFINITIF après 4 tentatives — ticket ' + vente.orderNum + ' à risque de perte réseau !');
-      try {
-        const _fk = 'kg-ventes-save-failed';
-        const _failed = JSON.parse(_lsGet(_fk) || '[]');
-        _failed.push({ caisse, vente, ts: Date.now() });
-        _lsSet(_fk, JSON.stringify(_failed));
-      } catch(_e2) {}
-      if(typeof showNotif === 'function') showNotif('⚠️ Ticket ' + vente.orderNum + ' : échec de sauvegarde réseau — vérifiez votre connexion et resynchronisez.');
+    // ✅ v89 : plus d'abandon, plus d'alerte. Erreur d'autorisation (401/JWT/RLS) → on rafraîchit la session d'abord.
+    const _em = String((e && (e.message || e.code || e.status)) || e || '');
+    if(/401|403|JWT|PGRST301|42501|row-level security|Invalid API key/i.test(_em + ' ' + String(e && e.code || ''))) {
+      try { await _kgEnsureSession(true); } catch(_eS) {}
     }
+    if(_kgOutboxPeriime(caisse, vente.orderNum)) return; // service déjà clôturé : mis de côté, pas renvoyé
+    const _delais = [1500, 3000, 6000, 12000, 30000];
+    const _d = _retryCount < _delais.length ? _delais[_retryCount] : 60000;
+    const _k = caisse + '|' + vente.orderNum;
+    if(_kgRetryTimers[_k]) clearTimeout(_kgRetryTimers[_k]);
+    _kgRetryTimers[_k] = setTimeout(() => { delete _kgRetryTimers[_k]; _saveVenteSupabase(caisse, vente, _retryCount + 1); }, _d);
   }
 }
 
@@ -47243,7 +47324,7 @@ async function _validerClientEtCreerTicket() {
   if(document.getElementById('ticket-client-id')) document.getElementById('ticket-client-id').value = '';
   if(document.getElementById('ticket-telephone')) document.getElementById('ticket-telephone').value = '';
 
-  showNotif(`⏳ Ticket ${ticketId} mis en attente · 🖨️ Ticket imprimé`);
+  showNotif(`⏳ Ticket #${numero} mis en attente · 🖨️ Ticket imprimé`);
 
   // Mettre à jour les compteurs
   _updateAttenteCounter();
@@ -47491,7 +47572,7 @@ function supprimerTicketAttente(ticketId) {
     showNotif('🔒 Seul le gérant, superviseur ou administrateur peut supprimer un ticket.');
     return;
   }
-  if(!confirm('Supprimer ce ticket en attente ?')) return;
+  if(!confirm('Supprimer ce ticket en attente ?' + ((typeof _kgNoteResume === 'function') ? _kgNoteResume(ticketId) : ''))) return;
   _loadTicketsAttente();
   TICKETS_ATTENTE = TICKETS_ATTENTE.filter(t => t.id !== ticketId);
   _saveTicketsAttente();
@@ -47672,8 +47753,9 @@ function imprimerTicketAttente(ticketId) {
 <div class="meta-block">
   <div class="meta-row"><span class="meta-lbl">Client</span><span class="meta-val">${ticket.client||'—'}</span></div>
   ${ticket.telephone ? `<div class="meta-row tel-row"><span class="meta-lbl">📞 Tél</span><span class="meta-val">${window.escHtml(ticket.telephone)}</span></div>` : ''}
+  ${(typeof _kgLivPrintRow === 'function') ? _kgLivPrintRow(ticket) : ''}
   <div class="meta-row"><span class="meta-lbl">Date</span><span class="meta-val">${ticket.date||'—'} ${ticket.time||''}</span></div>
-  ${ticket.serveur ? `<div class="meta-row" style="background:#f5f5f5;border-radius:4px;padding:4px 6px;margin:2px 0;"><span class="meta-lbl" style="font-weight:800;font-size:12px;">👤 SERVEUR</span><span class="meta-val" style="font-weight:900;font-size:14px;text-transform:uppercase;letter-spacing:1px;">${window.escHtml(ticket.serveur)}</span></div>` : ''}
+  ${(ticket.serveur && ticket.serveur !== ticket.cashier) ? `<div class="meta-row" style="background:#f5f5f5;border-radius:4px;padding:4px 6px;margin:2px 0;"><span class="meta-lbl" style="font-weight:800;font-size:12px;">👤 SERVEUR</span><span class="meta-val" style="font-weight:900;font-size:14px;text-transform:uppercase;letter-spacing:1px;">${window.escHtml(ticket.serveur)}</span></div>` : ''}
   ${showCashier ? `<div class="meta-row"><span class="meta-lbl">Caissier</span><span class="meta-val">${ticket.cashier||'—'}</span></div>` : ''}
   <div class="meta-row"><span class="meta-lbl">Caisse</span><span class="meta-val">${ticket.caisse||'—'}</span></div>
 </div>
@@ -47826,7 +47908,7 @@ function rouvrirTicketAttente(ticketId) {
   if(typeof renderCart === 'function') renderCart();
   if(typeof applyRemiseGlobale === 'function') applyRemiseGlobale();
 
-  showNotif(`✏️ Ticket ${ticketId} rechargé — modifiez et revalidez`);
+  showNotif(`✏️ Ticket #${ticket.numero || ticketId} rechargé — modifiez et revalidez`);
 }
 
 // ── Surcharger renderOrders pour inclure les tickets en attente ──
@@ -47974,13 +48056,16 @@ function renderAttentePaiementModule() {
     <div class="order-item" style="border-left:3px solid var(--accent);background:rgba(245,158,42,0.04);">
       <div class="order-num" style="color:var(--accent);">${t.numero ? ('#'+t.numero) : t.id}</div>
       <div class="order-info">
-        <div class="order-name">${window.escHtml(t.client)}${t.telephone ? ` <span style="font-size:16px;color:var(--text);font-weight:700;">📞 ${window.escHtml(t.telephone)}</span>` : ''} <span style="font-size:10px;color:var(--teal);margin-left:6px;">[${window.escHtml(t.caisse)}]</span></div>
+        <div class="order-name">${window.escHtml(t.client)}${t.telephone ? ` <span style="font-size:16px;color:var(--text);font-weight:700;">📞 ${window.escHtml(t.telephone)}</span>` : ''} ${(typeof _kgLivChip === 'function') ? _kgLivChip(t) : ''} <span style="font-size:10px;color:var(--teal);margin-left:6px;">[${window.escHtml(t.caisse)}]</span></div>
         <div class="order-items-list">${(t.items||[]).map(i => `${i.icon||''} ${i.name||i.nom||''} x${i.qty||1}`).join(', ')}</div>
+        ${(typeof _kgNoteLine === 'function') ? _kgNoteLine(t) : ''}
       </div>
       <div class="order-time">${t.time}</div>
       <div class="order-price" style="color:var(--accent);">${t.total.toLocaleString()} F</div>
       <div class="badge" style="background:rgba(245,158,42,0.15);color:var(--accent);border:1px solid rgba(245,158,42,0.4);font-size:10px;white-space:nowrap;">⏳ En attente</div>
       <div style="display:flex;gap:5px;margin-left:6px;">
+        <button onclick="kgNoteAttente('${t.id}')" title="Note : pourquoi ce ticket n'est pas validé" style="font-size:12px;padding:5px 9px;background:rgba(220,53,69,0.10);border:1px solid rgba(220,53,69,0.45);border-radius:6px;cursor:pointer;color:#b42318;font-weight:700;white-space:nowrap;">📝 Note</button>
+        <button onclick="kgChoisirLivreurAttente('${t.id}')" title="Assigner le livreur" style="font-size:12px;padding:5px 9px;background:rgba(46,204,113,0.14);border:1px solid rgba(46,204,113,0.5);border-radius:6px;cursor:pointer;color:#16a34a;font-weight:700;white-space:nowrap;">🛵 Livreur</button>
         <button onclick="imprimerTicketAttente('${t.id}')" title="Imprimer ticket d'attente" style="font-size:11px;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2);">🖨️</button>
         ${(currentUser && currentUser.role==='administrateur') ? `<button onclick="rouvrirTicketAttente('${t.id}')" title="Modifier / supprimer des produits (admin uniquement)" style="font-size:11px;padding:5px 8px;background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.35);border-radius:6px;cursor:pointer;color:var(--teal);font-weight:700;">✏️</button>` : ''}
         <button onclick="ouvrirPaiementAttente('${t.id}')" style="font-size:11px;padding:5px 10px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:6px;cursor:pointer;color:#fff;font-weight:700;">💳 Encaisser</button>
@@ -48793,27 +48878,52 @@ function exportHotelHistoriqueCSV() {
     try { if(window._KG_DELETED_ORDERS && window._KG_DELETED_ORDERS[caisse]) window._KG_DELETED_ORDERS[caisse].forEach(function(n){ set.add(n); }); } catch(e){}
     return set;
   }
+  async function serveurSet(client, c){
+    // Lit TOUS les numéros de tickets d'une caisse sur le serveur (par pages de 1000). null = doute → on ne conclut rien.
+    var since = new Date(Date.now() - 30*86400000).toISOString().split('T')[0], all = [], from = 0, step = 1000;
+    for(;;){
+      var r = await client.from('ventes_caisse').select('order_num').eq('restaurant_id', rid()).eq('caisse', c).gte('session_date', since).range(from, from + step - 1);
+      if(r.error || !r.data) return null;
+      r.data.forEach(function(x){ all.push(x.order_num); });
+      if(r.data.length < step || from > 20000) break;
+      from += step;
+    }
+    return new Set(all);
+  }
   async function candidats(seulementCaisse){
-    var client = sb(), out = [], vus = {};
+    var client = sb(), brut = [], vus = {};
     var add = function(caisse, vente, ms, source){
       if(!vente || !vente.orderNum) return;
       var k = caisse + '|' + vente.orderNum; if(vus[k]) return; vus[k] = 1;
-      out.push({ caisse: caisse, vente: vente, ms: ms, source: source });
+      brut.push({ caisse: caisse, vente: vente, ms: ms, source: source });
     };
-    // a) file des échecs définitifs
+    // a) file des anciens échecs  b) tickets présents sur cet appareil
     try { JSON.parse(_lsGet(FK) || '[]').forEach(function(f){ if(f && f.vente && (!seulementCaisse || f.caisse === seulementCaisse)) add(f.caisse, f.vente, isFinite(msDe(f.vente)) ? msDe(f.vente) : f.ts, 'file'); }); } catch(e){}
-    // b) tickets présents sur cet appareil mais absents du serveur
-    if(client && typeof VENTES_PAR_CAISSE !== 'undefined'){
-      var caisses = Object.keys(VENTES_PAR_CAISSE).filter(function(c){ return (VENTES_PAR_CAISSE[c] || []).length && (!seulementCaisse || c === seulementCaisse); });
-      for(var i = 0; i < caisses.length; i++){
-        var c = caisses[i];
-        try {
-          var since = new Date(Date.now() - 30*86400000).toISOString().split('T')[0];
-          var r = await client.from('ventes_caisse').select('order_num').eq('restaurant_id', rid()).eq('caisse', c).gte('session_date', since);
-          if(r.error || !r.data) continue;           // en cas de doute, on ne touche à rien
-          var surServeur = new Set(r.data.map(function(x){ return x.order_num; })), del = supprimees(c);
-          VENTES_PAR_CAISSE[c].forEach(function(v){ if(v && v.orderNum && !surServeur.has(v.orderNum) && !del.has(v.orderNum)) add(c, v, msDe(v), 'local'); });
-        } catch(e){ console.warn('[v88] comparaison serveur', c, e); }
+    if(typeof VENTES_PAR_CAISSE !== 'undefined'){
+      Object.keys(VENTES_PAR_CAISSE).forEach(function(c){
+        if(seulementCaisse && c !== seulementCaisse) return;
+        (VENTES_PAR_CAISSE[c] || []).forEach(function(v){ add(c, v, msDe(v), 'local'); });
+      });
+    }
+    if(!client || !brut.length) return [];
+    // c) ✅ v89 : on ne garde QUE ce que le serveur n'a pas réellement. Avant, la file des anciens échecs
+    //    était crue sans vérification (fausse alerte « 59 tickets non envoyés » alors qu'ils y étaient).
+    var out = [], parCaisse = {};
+    brut.forEach(function(c){ (parCaisse[c.caisse] = parCaisse[c.caisse] || []).push(c); });
+    for(var caisse in parCaisse){
+      var serveur = null;
+      try { serveur = await serveurSet(client, caisse); } catch(e){ serveur = null; }
+      if(!serveur) continue;                                          // doute (erreur, droits) → on ne touche à rien
+      var locaux = parCaisse[caisse].filter(function(c){ return c.source === 'local'; }).length;
+      if(serveur.size === 0 && locaux > 3) continue;                  // serveur « vide » alors que l'appareil a beaucoup de tickets : réponse peu fiable
+      var del = supprimees(caisse), dejaLa = [];
+      parCaisse[caisse].forEach(function(c){
+        if(serveur.has(c.vente.orderNum)) { if(c.source === 'file') dejaLa.push(c.vente.orderNum); return; }
+        if(c.source === 'local' && del.has(c.vente.orderNum)) return;  // supprimé par un admin : ne pas ressusciter
+        out.push(c);
+      });
+      if(dejaLa.length){                                              // nettoyage silencieux de la file : ces tickets sont bien sur le serveur
+        try { var f = JSON.parse(_lsGet(FK) || '[]').filter(function(x){ return !(x && x.caisse === caisse && x.vente && dejaLa.indexOf(x.vente.orderNum) >= 0); }); _lsSet(FK, JSON.stringify(f)); } catch(e){}
       }
     }
     return out;
@@ -48833,7 +48943,7 @@ function exportHotelHistoriqueCSV() {
     try {
       var d = await scanner(seulementCaisse);
       for(var i = 0; i < d.recentes.length; i++){
-        try { await _saveVenteSupabase(d.recentes[i].caisse, d.recentes[i].vente, 3); } catch(e){}   // 3 = dernier essai, sans boucle de réessais
+        try { await _saveVenteSupabase(d.recentes[i].caisse, d.recentes[i].vente, 0); } catch(e){}   // 3 = dernier essai, sans boucle de réessais
       }
       if(d.recentes.length) d = await scanner(seulementCaisse);
       return d;
@@ -48841,6 +48951,7 @@ function exportHotelHistoriqueCSV() {
   };
   // ----- pastille d'alerte -----
   function majPastille(){
+    return; // ✅ v89 : aucune alerte visible (les tickets sont renvoyés en silence)
     var n1 = _derniere.recentes.length, n2 = _derniere.anciennes.length, el = document.getElementById('kg-unsent-pill');
     if(!n1 && !n2){ if(el) el.style.display = 'none'; return; }
     if(!el){
@@ -48897,6 +49008,280 @@ function exportHotelHistoriqueCSV() {
   setTimeout(function(){ window.kgEnvoyerVentesEnAttente().catch(function(){}); }, 25000);
   setInterval(function(){ window.kgEnvoyerVentesEnAttente().catch(function(){}); }, 120000);
   window.addEventListener('online', function(){ setTimeout(function(){ window.kgEnvoyerVentesEnAttente().catch(function(){}); }, 3000); });
+})();
+</script>
+
+<script>
+// ============================================================================
+// ✅ v91 : LIVREUR SUR LES TICKETS EN ATTENTE
+// On prend la commande sans savoir qui livrera : on assigne le livreur plus tard, depuis le ticket en attente
+// (bouton « 🛵 Livreur »). Le nom s'affiche à côté du client, sur le ticket imprimé, et se synchronise entre
+// appareils. Aucune colonne ajoutée à la base : l'association ticket → livreur est dans kg_sync (clé
+// <restaurant>:attente_livreurs), comme la liste des livreurs.
+// ============================================================================
+(function(){
+  var LK = 'kg-attente-livreurs', _lastSync = 0, _syncBusy = false, _cacheLiv = { t: 0, l: null };
+  function rid(){ return window._KG_RESTAURANT_ID || ''; }
+  function esc(x){ return (window.escHtml ? window.escHtml(x) : String(x == null ? '' : x).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; })); }
+  function readLocal(){ try { return JSON.parse(_lsGet(LK) || '{}') || {}; } catch(e){ return {}; } }
+  function writeLocal(m){ try { _lsSet(LK, JSON.stringify(m)); } catch(e){} }
+  function client(){ try { return (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null; } catch(e){ return null; } }
+  function actif(t){ var e = readLocal()[t && t.id]; return e && e.nom ? e : null; }
+
+  // Fusion locale/serveur : l'entrée la plus récente (ts) gagne. Une entrée sans nom = livreur retiré.
+  window.kgFusionLivreursAttente = function(remote, local, now){
+    var merged = {}, changedLocal = false, needPush = false, ids = {};
+    Object.keys(remote || {}).forEach(function(k){ ids[k] = 1; }); Object.keys(local || {}).forEach(function(k){ ids[k] = 1; });
+    Object.keys(ids).forEach(function(id){
+      var r = (remote || {})[id], l = (local || {})[id];
+      if(r && (!l || (r.ts || 0) > (l.ts || 0))) { merged[id] = r; if(!l || (l.nom || '') !== (r.nom || '')) changedLocal = true; }
+      else if(l) { merged[id] = l; if(!r || (l.ts || 0) > (r.ts || 0)) needPush = true; }
+    });
+    var lim = (now || Date.now()) - 14 * 86400000;
+    Object.keys(merged).forEach(function(id){ if((merged[id].ts || 0) < lim) delete merged[id]; });
+    return { merged: merged, changedLocal: changedLocal, needPush: needPush };
+  };
+  async function sync(){
+    var sb = client(), r = rid(); if(!sb || !r || _syncBusy) return false;
+    _syncBusy = true;
+    try {
+      var res = await sb.from('kg_sync').select('value').eq('key', r + ':attente_livreurs').maybeSingle();
+      if(res.error) return false;
+      var remote = {};
+      try { var v = res.data && res.data.value; remote = v ? (typeof v === 'string' ? JSON.parse(v) : v) : {}; } catch(e){ remote = {}; }
+      var f = window.kgFusionLivreursAttente(remote, readLocal(), Date.now());
+      writeLocal(f.merged);
+      if(f.needPush) {
+        var up = await sb.from('kg_sync').upsert({ key: r + ':attente_livreurs', value: JSON.stringify(f.merged), restaurant_id: r, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+        if(up.error) console.warn('[v91] synchro livreurs:', up.error.message || up.error);
+      }
+      return f.changedLocal;
+    } catch(e){ console.warn('[v91] synchro livreurs:', e); return false; }
+    finally { _syncBusy = false; }
+  }
+  function rerender(){ try { if(document.getElementById('attente-paiement-list') && typeof renderAttentePaiementModule === 'function') renderAttentePaiementModule(); } catch(e){} }
+
+  // --- affichage ---
+  window._kgLivChip = function(t){
+    var e = actif(t); if(!e) return '';
+    return '<span style="display:inline-block;margin-left:6px;padding:2px 9px;border-radius:12px;background:rgba(46,204,113,0.16);border:1px solid rgba(46,204,113,0.5);color:#15803d;font-size:14px;font-weight:800;white-space:nowrap;">🛵 ' + esc(e.nom) + '</span>';
+  };
+  window._kgLivPrintRow = function(t){
+    var e = actif(t); if(!e) return '';
+    return '<div class="meta-row tel-row"><span class="meta-lbl">🛵 Livreur</span><span class="meta-val">' + esc(e.nom) + '</span></div>'
+         + (e.tel ? '<div class="meta-row"><span class="meta-lbl">Tél livreur</span><span class="meta-val">' + esc(e.tel) + '</span></div>' : '');
+  };
+
+  // --- choix du livreur ---
+  async function livreursActifs(){
+    if(_cacheLiv.l && Date.now() - _cacheLiv.t < 60000) return _cacheLiv.l;
+    var l = [];
+    try { if(typeof chargerLivreurs === 'function') l = (await chargerLivreurs()) || []; } catch(e){}
+    l = l.filter(function(x){ return x && x.nom && (x.statut || 'actif') === 'actif'; });
+    if(l.length) _cacheLiv = { t: Date.now(), l: l };
+    return l;
+  }
+  function poser(ticketId, liv){
+    var m = readLocal();
+    m[ticketId] = { nom: liv ? liv.nom : '', tel: liv ? (liv.tel || '') : '', ts: Date.now() };
+    writeLocal(m); rerender();
+    sync().then(function(c){ if(c) rerender(); });
+    var tk = (typeof TICKETS_ATTENTE !== 'undefined' ? TICKETS_ATTENTE : []).find(function(x){ return x.id === ticketId; });
+    var num = tk && tk.numero ? '#' + tk.numero : '';
+    if(typeof showNotif === 'function') showNotif(liv ? ('🛵 ' + liv.nom + ' assigné au ticket ' + num) : ('Livreur retiré du ticket ' + num));
+  }
+  window.kgChoisirLivreurAttente = async function(ticketId){
+    var old = document.getElementById('kg-liv-modal'); if(old) old.remove();
+    var tk = (typeof TICKETS_ATTENTE !== 'undefined' ? TICKETS_ATTENTE : []).find(function(x){ return x.id === ticketId; });
+    var cur = readLocal()[ticketId];
+    var m = document.createElement('div'); m.id = 'kg-liv-modal';
+    m.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;padding:0;';
+    m.innerHTML = '<div style="background:var(--surface,#fff);color:var(--text,#111);border-radius:18px 18px 0 0;max-width:560px;width:100%;max-height:88vh;overflow:auto;padding:16px 16px 22px;font-family:inherit;">'
+      + '<div style="font-weight:800;font-size:17px;margin-bottom:2px;">🛵 Livreur du ticket ' + (tk && tk.numero ? '#' + esc(tk.numero) : '') + '</div>'
+      + '<div style="font-size:12px;color:var(--text2,#666);margin-bottom:12px;">' + esc(tk ? (tk.client || '') : '') + (tk && tk.telephone ? ' · 📞 ' + esc(tk.telephone) : '') + '</div>'
+      + '<div id="kg-liv-list" style="display:flex;flex-direction:column;gap:8px;"><div style="padding:14px;text-align:center;color:var(--text2,#666);">Chargement…</div></div>'
+      + '<div style="margin-top:14px;font-size:12px;font-weight:700;color:var(--text2,#666);">Autre nom (non enregistré)</div>'
+      + '<div style="display:flex;gap:8px;margin-top:6px;"><input id="kg-liv-free" type="text" placeholder="Nom du livreur" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border,#ccc);font-size:16px;background:var(--surface2,#fff);color:inherit;">'
+      + '<button id="kg-liv-free-ok" style="padding:12px 16px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-weight:800;font-size:15px;">OK</button></div>'
+      + '<div style="display:flex;gap:8px;margin-top:14px;">' + (cur && cur.nom ? '<button id="kg-liv-none" style="flex:1;padding:12px;border-radius:10px;border:1px solid #dc3545;background:transparent;color:#dc3545;font-weight:700;">✖ Retirer le livreur</button>' : '')
+      + '<button id="kg-liv-x" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border,#bbb);background:transparent;color:inherit;font-weight:700;">Fermer</button></div></div>';
+    document.body.appendChild(m);
+    var close = function(){ m.remove(); };
+    m.onclick = function(ev){ if(ev.target === m) close(); };
+    m.querySelector('#kg-liv-x').onclick = close;
+    var none = m.querySelector('#kg-liv-none'); if(none) none.onclick = function(){ poser(ticketId, null); close(); };
+    m.querySelector('#kg-liv-free-ok').onclick = function(){
+      var v = (m.querySelector('#kg-liv-free').value || '').trim();
+      if(!v) return; poser(ticketId, { nom: v, tel: '' }); close();
+    };
+    var l = await livreursActifs(), box = m.querySelector('#kg-liv-list');
+    if(!box) return;
+    if(!l.length) { box.innerHTML = '<div style="padding:10px;color:var(--text2,#666);font-size:13px;">Aucun livreur enregistré (module Livreurs). Tapez un nom ci-dessous.</div>'; return; }
+    box.innerHTML = '';
+    l.forEach(function(x){
+      var b = document.createElement('button');
+      b.style.cssText = 'text-align:left;padding:14px;border-radius:12px;border:1px solid rgba(46,204,113,0.5);background:rgba(46,204,113,0.1);color:inherit;font-size:16px;font-weight:800;min-height:52px;';
+      b.innerHTML = '🛵 ' + esc(x.nom) + (x.zone || x.tel ? '<div style="font-size:12px;font-weight:500;color:var(--text2,#666);margin-top:2px;">' + esc([x.zone, x.tel].filter(Boolean).join(' · ')) + '</div>' : '')
+                  + (cur && cur.nom === x.nom ? ' <span style="color:#16a34a;">✔</span>' : '');
+      b.onclick = function(){ poser(ticketId, x); close(); };
+      box.appendChild(b);
+    });
+  };
+
+  // --- synchronisation : à chaque affichage de l'écran (max toutes les 15 s) et à chaque pull des tickets en attente ---
+  if(typeof window.renderAttentePaiementModule === 'function') {
+    var _r = window.renderAttentePaiementModule;
+    window.renderAttentePaiementModule = function(){
+      var out = _r.apply(this, arguments);
+      if(Date.now() - _lastSync > 15000) { _lastSync = Date.now(); sync().then(function(c){ if(c) _r(); }); }
+      return out;
+    };
+  }
+  if(typeof window._pullTicketsAttenteSupabase === 'function') {
+    var _p = window._pullTicketsAttenteSupabase;
+    window._pullTicketsAttenteSupabase = async function(){
+      var out = await _p.apply(this, arguments);
+      try { if(await sync()) rerender(); } catch(e){}
+      return out;
+    };
+  }
+})();
+</script>
+
+<script>
+// ============================================================================
+// ✅ v93 : NOTES SUR LES TICKETS EN ATTENTE (motif de non-validation)
+// Le caissier précise pourquoi un ticket n'a pas été encaissé ; l'administrateur le lit sur la carte.
+// Les notes s'ajoutent (historique : qui, quand, quoi), seul un gérant/admin peut les effacer.
+// Synchronisées entre appareils via kg_sync (clé <restaurant>:attente_notes), sans toucher à la base.
+// ============================================================================
+(function(){
+  var LK = 'kg-attente-notes', _lastSync = 0, _busy = false;
+  var MOTIFS = ['Client parti sans payer', 'Client va revenir payer', 'Paiement Wave/Orange en cours', 'Livreur pas encore revenu', 'Erreur de saisie', 'Client a annulé', 'Problème de monnaie'];
+  function rid(){ return window._KG_RESTAURANT_ID || ''; }
+  function esc(x){ return (window.escHtml ? window.escHtml(x) : String(x == null ? '' : x).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; })); }
+  function readLocal(){ try { return JSON.parse(_lsGet(LK) || '{}') || {}; } catch(e){ return {}; } }
+  function writeLocal(m){ try { _lsSet(LK, JSON.stringify(m)); } catch(e){} }
+  function client(){ try { return (typeof KGSync !== 'undefined' && KGSync.isConnected) ? KGSync.getClient() : null; } catch(e){ return null; } }
+  function sig(x){ x = x || {}; return JSON.stringify([x.clr || 0, (x.e || []).map(function(n){ return n.ts + '|' + n.p + '|' + n.t; }).sort()]); }
+  function estManager(){ try { return !!(currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur')); } catch(e){ return false; } }
+  function auteur(){
+    try {
+      var n = (typeof sessionCaisseActive !== 'undefined' && sessionCaisseActive && sessionCaisseActive.cashier) ? sessionCaisseActive.cashier : '';
+      if(!n && typeof currentUser !== 'undefined' && currentUser) n = ((currentUser.prenom || '') + ' ' + (currentUser.nom || '')).trim();
+      return n || 'Caissier';
+    } catch(e){ return 'Caissier'; }
+  }
+  function quand(ts){ try { return new Date(ts).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch(e){ return ''; } }
+
+  // Fusion : on réunit les notes des deux côtés ; un effacement (clr) supprime tout ce qui est plus ancien.
+  window.kgFusionNotesAttente = function(remote, local, now){
+    var out = {}, changedLocal = false, needPush = false, ids = {};
+    Object.keys(remote || {}).forEach(function(k){ ids[k] = 1; }); Object.keys(local || {}).forEach(function(k){ ids[k] = 1; });
+    var lim = (now || Date.now()) - 60 * 86400000;
+    Object.keys(ids).forEach(function(id){
+      var r = (remote || {})[id] || { e: [], clr: 0 }, l = (local || {})[id] || { e: [], clr: 0 };
+      var clr = Math.max(r.clr || 0, l.clr || 0), uni = {};
+      (r.e || []).concat(l.e || []).forEach(function(n){ if(n && n.ts > clr && n.ts > lim) uni[n.ts + '|' + n.p + '|' + n.t] = n; });
+      var e = Object.keys(uni).map(function(k){ return uni[k]; }).sort(function(a, b){ return a.ts - b.ts; });
+      var merged = { e: e, clr: clr > lim ? clr : 0 };
+      if(sig(merged) !== sig(l)) changedLocal = true;
+      if(sig(merged) !== sig(r)) needPush = true;
+      if(e.length || merged.clr) out[id] = merged;
+    });
+    return { merged: out, changedLocal: changedLocal, needPush: needPush };
+  };
+  async function sync(){
+    var sb = client(), r = rid(); if(!sb || !r || _busy) return false;
+    _busy = true;
+    try {
+      var res = await sb.from('kg_sync').select('value').eq('key', r + ':attente_notes').maybeSingle();
+      if(res.error) return false;
+      var remote = {};
+      try { var v = res.data && res.data.value; remote = v ? (typeof v === 'string' ? JSON.parse(v) : v) : {}; } catch(e){ remote = {}; }
+      var f = window.kgFusionNotesAttente(remote, readLocal(), Date.now());
+      writeLocal(f.merged);
+      if(f.needPush) {
+        var up = await sb.from('kg_sync').upsert({ key: r + ':attente_notes', value: JSON.stringify(f.merged), restaurant_id: r, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+        if(up.error) console.warn('[v93] synchro notes:', up.error.message || up.error);
+      }
+      return f.changedLocal;
+    } catch(e){ console.warn('[v93] synchro notes:', e); return false; }
+    finally { _busy = false; }
+  }
+  function rerender(){ try { if(document.getElementById('attente-paiement-list') && typeof renderAttentePaiementModule === 'function') renderAttentePaiementModule(); } catch(e){} }
+  function notes(id){ var x = readLocal()[id]; return (x && x.e) ? x.e : []; }
+
+  window._kgNoteLine = function(t){
+    var e = notes(t && t.id); if(!e.length) return '';
+    var d = e[e.length - 1];
+    return '<div onclick="kgNoteAttente(\'' + esc(t.id) + '\')" style="margin-top:6px;padding:6px 10px;border-radius:8px;background:rgba(220,53,69,0.10);border:1px solid rgba(220,53,69,0.35);color:#b42318;font-size:13px;font-weight:600;cursor:pointer;line-height:1.35;">📝 '
+      + esc(d.t) + ' <span style="font-weight:500;opacity:.85;">— ' + esc(d.p) + ' · ' + esc(quand(d.ts)) + '</span>'
+      + (e.length > 1 ? ' <b>(+' + (e.length - 1) + ')</b>' : '') + '</div>';
+  };
+  window._kgNoteResume = function(id){
+    var e = notes(id); if(!e.length) return '';
+    var d = e[e.length - 1];
+    return '\n\n📝 Note : « ' + d.t + ' » (' + d.p + ', ' + quand(d.ts) + ')' + (e.length > 1 ? '\n+ ' + (e.length - 1) + ' autre(s) note(s)' : '');
+  };
+
+  function ajouter(id, texte){
+    texte = String(texte || '').trim().slice(0, 300); if(!texte) return false;
+    var m = readLocal(), cur = m[id] || { e: [], clr: 0 };
+    cur.e = (cur.e || []).concat([{ t: texte, p: auteur(), ts: Date.now() }]);
+    m[id] = cur; writeLocal(m); rerender();
+    sync().then(function(c){ if(c) rerender(); });
+    if(typeof showNotif === 'function') showNotif('📝 Note enregistrée');
+    return true;
+  }
+  function effacer(id){
+    var m = readLocal(); m[id] = { e: [], clr: Date.now() }; writeLocal(m); rerender();
+    sync().then(function(c){ if(c) rerender(); });
+  }
+  window.kgNoteAttente = function(ticketId){
+    var old = document.getElementById('kg-note-modal'); if(old) old.remove();
+    var tk = (typeof TICKETS_ATTENTE !== 'undefined' ? TICKETS_ATTENTE : []).find(function(x){ return x.id === ticketId; });
+    var e = notes(ticketId), mgr = estManager();
+    var m = document.createElement('div'); m.id = 'kg-note-modal';
+    m.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;';
+    var hist = e.length ? e.slice().reverse().map(function(d){
+      return '<div style="padding:8px 10px;border-radius:8px;background:rgba(220,53,69,0.08);border:1px solid rgba(220,53,69,0.25);margin-bottom:6px;font-size:14px;"><div style="font-weight:600;">' + esc(d.t) + '</div><div style="font-size:11px;opacity:.7;margin-top:2px;">' + esc(d.p) + ' · ' + esc(quand(d.ts)) + '</div></div>';
+    }).join('') : '<div style="font-size:13px;opacity:.7;margin-bottom:6px;">Aucune note pour le moment.</div>';
+    m.innerHTML = '<div style="background:var(--surface,#fff);color:var(--text,#111);border-radius:18px 18px 0 0;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:16px 16px 22px;font-family:inherit;">'
+      + '<div style="font-weight:800;font-size:17px;">📝 Pourquoi ce ticket n\'est pas validé ?</div>'
+      + '<div style="font-size:12px;color:var(--text2,#666);margin:2px 0 12px;">Ticket ' + (tk && tk.numero ? '#' + esc(tk.numero) : '') + (tk ? ' · ' + esc(tk.client || '') + ' · ' + (Number(tk.total) || 0).toLocaleString('fr-FR') + ' F' : '') + '</div>'
+      + '<div style="max-height:30vh;overflow:auto;">' + hist + '</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 8px;">' + MOTIFS.map(function(x, i){ return '<button data-i="' + i + '" class="kg-mt" style="padding:8px 10px;border-radius:16px;border:1px solid rgba(220,53,69,0.4);background:transparent;color:inherit;font-size:12px;font-weight:600;">' + esc(x) + '</button>'; }).join('') + '</div>'
+      + '<textarea id="kg-note-txt" rows="3" maxlength="300" placeholder="Écrivez le motif (ex : le client a dit qu\'il paie demain)…" style="width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid var(--border,#ccc);font-size:16px;background:var(--surface2,#fff);color:inherit;font-family:inherit;"></textarea>'
+      + '<div style="display:flex;gap:8px;margin-top:12px;"><button id="kg-note-ok" style="flex:2;padding:13px;border:0;border-radius:10px;background:#dc3545;color:#fff;font-weight:800;font-size:15px;">Enregistrer la note</button>'
+      + '<button id="kg-note-x" style="flex:1;padding:13px;border-radius:10px;border:1px solid var(--border,#bbb);background:transparent;color:inherit;font-weight:700;">Fermer</button></div>'
+      + (mgr && e.length ? '<button id="kg-note-clr" style="width:100%;margin-top:10px;padding:10px;border-radius:10px;border:1px solid #dc3545;background:transparent;color:#dc3545;font-weight:700;">🗑️ Effacer les notes (gérant/admin)</button>' : '')
+      + '</div>';
+    document.body.appendChild(m);
+    var close = function(){ m.remove(); }, ta = m.querySelector('#kg-note-txt');
+    m.onclick = function(ev){ if(ev.target === m) close(); };
+    m.querySelector('#kg-note-x').onclick = close;
+    m.querySelectorAll('.kg-mt').forEach(function(b){ b.onclick = function(){ ta.value = MOTIFS[+b.getAttribute('data-i')]; ta.focus(); }; });
+    m.querySelector('#kg-note-ok').onclick = function(){ if(ajouter(ticketId, ta.value)) close(); else ta.focus(); };
+    var clr = m.querySelector('#kg-note-clr'); if(clr) clr.onclick = function(){ if(confirm('Effacer toutes les notes de ce ticket ?')) { effacer(ticketId); close(); } };
+  };
+
+  if(typeof window.renderAttentePaiementModule === 'function') {
+    var _r = window.renderAttentePaiementModule;
+    window.renderAttentePaiementModule = function(){
+      var out = _r.apply(this, arguments);
+      if(Date.now() - _lastSync > 15000) { _lastSync = Date.now(); sync().then(function(c){ if(c) _r(); }); }
+      return out;
+    };
+  }
+  if(typeof window._pullTicketsAttenteSupabase === 'function') {
+    var _p = window._pullTicketsAttenteSupabase;
+    window._pullTicketsAttenteSupabase = async function(){
+      var out = await _p.apply(this, arguments);
+      try { if(await sync()) rerender(); } catch(e){}
+      return out;
+    };
+  }
 })();
 </script>
 </body>
