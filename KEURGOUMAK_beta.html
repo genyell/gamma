@@ -13884,6 +13884,19 @@ function _withTimeout(promise, ms, label) {
 //     l'onglet et à chaque ouverture de l'appli, jusqu'à confirmation du serveur ;
 //  4) la session est entretenue en continu pour ne pas expirer.
 // ============================================================================
+// ✅ v97 : le téléphone du client est gardé dans la colonne « note » de ventes_caisse (aucune colonne ajoutée à la base),
+// sous la forme « … | TEL:771435546 », et sorti de la note à la relecture.
+function _kgNoteAvecTel(note, tel) {
+  note = (note == null ? '' : String(note)).replace(/(?:^|\s\|\s)TEL:\S+\s*$/, '').trim();
+  tel = (tel == null ? '' : String(tel)).replace(/\s+/g, '');
+  if(!tel) return note;
+  return (note ? note + ' | ' : '') + 'TEL:' + tel;
+}
+function _kgSepNoteTel(raw) {
+  raw = raw == null ? '' : String(raw);
+  const m = /(?:^|\s\|\s)TEL:(\S+)\s*$/.exec(raw);
+  return m ? { note: raw.slice(0, m.index).trim(), tel: m[1] } : { note: raw, tel: '' };
+}
 const _KG_OUTBOX_KEY = 'kg-outbox-ventes';
 const _kgRetryTimers = {};
 function _kgOutboxRead() { try { return JSON.parse(_lsGet(_KG_OUTBOX_KEY) || '[]'); } catch(e) { return []; } }
@@ -13968,7 +13981,7 @@ async function _saveVenteSupabase(caisse, vente, _retryCount) {
       client:        vente.client && vente.client !== 'undefined' ? vente.client : 'Client', // ✅ FIX v12
       total:         vente.total   || 0,
       lignes:        vente.items   || [],
-      note:          vente.note    || null,
+      note:          _kgNoteAvecTel(vente.note, vente.telephone) || null, // ✅ v97 : téléphone client conservé
       pay_mode:      vente.payMethod || null,
       // ✅ FIX MIXTE : sauvegarder le détail cash/wave/orange pour Rapport X
       pay_methods:   vente.payMethods ? JSON.stringify(vente.payMethods) : null,
@@ -14077,7 +14090,8 @@ async function _loadVentesSupabase(caisse, sinceMs) {
       cashier:   row.cashier || '',
       client:    row.client && row.client !== 'undefined' ? row.client : 'Client',
       serveur:   row.serveur || '',
-      note:      row.note || '',
+      note:      _kgSepNoteTel(row.note).note,
+      telephone: _kgSepNoteTel(row.note).tel,
       date:      row.session_date,
       time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
     }));
@@ -14942,6 +14956,7 @@ async function validateOrder() {
   const ht = totalTTC - tvaIncluse;
   const now = new Date();
   const client = document.getElementById('ticket-client')?.value || 'Client';
+  const telephone = document.getElementById('ticket-telephone')?.value?.trim() || ''; // ✅ v97
   const serveur = document.getElementById('ticket-serveur')?.value?.trim() || '';
   // ✅ FIX : type de service (sur place / à emporter / livraison) affiché sur le bon de cuisine
   const typeService = document.getElementById('ticket-type-service')?.value || 'sur_place';
@@ -15007,7 +15022,7 @@ async function validateOrder() {
     time: now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
     // ✅ FIX v15 FINAL : date ISO indispensable pour filtres dashboard/rapportX/inPeriode
     date: now.toISOString().split('T')[0],
-    cashier, client, serveur, typeService
+    cashier, client, telephone, serveur, typeService
   };
   VENTES_PAR_CAISSE[caisse].push(venteSaved);
   _saveVenteSupabase(caisse, venteSaved); // ✅ Persistance immédiate Supabase
@@ -15731,7 +15746,7 @@ function _genererFactureDepuisVente(vente, caisse) {
     const payMap = { cash:'especes', wave:'wave', orange:'orange', card:'carte', mixed:'especes' };
     const payMethod = payMap[vente.payMethod] || 'especes';
     const tiersNom = (vente.client && vente.client !== 'Client') ? vente.client : 'Client comptant';
-    const tiersTel = document.getElementById('ticket-telephone')?.value?.trim() || '';
+    const tiersTel = vente.telephone || document.getElementById('ticket-telephone')?.value?.trim() || '';
     const tiersEmail = document.getElementById('pos-facture-email')?.value?.trim() || '';
     const tiersAdresse = document.getElementById('pos-facture-adresse')?.value?.trim() || '';
 
@@ -16484,6 +16499,7 @@ ${isReprint ? `
   ${TICKET_CONFIG.showCashier && vente.cashier ? `<div class="meta-row"><span class="lbl">👤 Caissier</span><span class="val">${window.escHtml(vente.cashier)}</span></div>` : ''}
   ${vente.serveur && vente.serveur !== vente.cashier ? `<div class="meta-row"><span class="lbl">🍽️ Serveur</span><span class="val">${window.escHtml(vente.serveur)}</span></div>` : ''}
   ${vente.client && vente.client !== 'Client' ? `<div class="meta-row"><span class="lbl">🙋 Client</span><span class="val">${window.escHtml(vente.client)}</span></div>` : ''}
+  ${vente.telephone ? `<div class="meta-row"><span class="lbl">📞 Tél</span><span class="val" style="font-size:17px;font-weight:900;letter-spacing:.5px;">${window.escHtml(vente.telephone)}</span></div>` : ''}
   ${vente.tableInfo ? `<div class="meta-row"><span class="lbl">📍 Table / Type</span><span class="val">${window.escHtml(vente.tableInfo)}</span></div>` : ''}
   ${vente.note ? `<div class="meta-row"><span class="lbl">📝 Note</span><span class="val">${window.escHtml(vente.note)}</span></div>` : ''}
 </div>
@@ -16607,7 +16623,7 @@ ${(function(){
   ` : ''}
   <div class="cuisine-meta">
     📅 ${dateStr} · ${heureStr}<br>
-    🏪 ${window.escHtml(caisse)}${TICKET_CONFIG.showCashier && vente.cashier ? ' · 👤 ' + vente.cashier : ''}${vente.serveur && vente.serveur !== vente.cashier ? '<br>🍽️ Serveur : <strong>' + vente.serveur + '</strong>' : ''}${vente.client && vente.client !== 'Client' ? '<br>🙋 Client : ' + vente.client : ''}
+    🏪 ${window.escHtml(caisse)}${TICKET_CONFIG.showCashier && vente.cashier ? ' · 👤 ' + vente.cashier : ''}${vente.serveur && vente.serveur !== vente.cashier ? '<br>🍽️ Serveur : <strong>' + vente.serveur + '</strong>' : ''}${vente.client && vente.client !== 'Client' ? '<br>🙋 Client : ' + vente.client : ''}${vente.telephone ? '<br>📞 ' + window.escHtml(vente.telephone) : ''}
     ${(function(){
       // ✅ FIX : préciser sur place / à emporter / livraison pour la cuisine
       var _labels = { sur_place:'🪑 SUR PLACE', emporter:'🥡 À EMPORTER', livraison:'🛵 LIVRAISON' };
@@ -26398,7 +26414,8 @@ async function initDashboard() {
               payLabel:  row.pay_mode === 'wave' ? 'Wave' : row.pay_mode === 'orange' ? 'Orange Money' : '💵 Espèces',
               cashier:   row.cashier || '',
               client:    row.client && row.client !== 'undefined' ? row.client : 'Client',
-              note:      row.note || '',
+              note:      _kgSepNoteTel(row.note).note,
+              telephone: _kgSepNoteTel(row.note).tel,
               date:      row.session_date,
               time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
             });
@@ -28882,6 +28899,11 @@ function _initCatVentesSelect() {
   sel.value = currentVal;
 }
 
+function _kgChoisirCatVentes(id) {
+  const sel = document.getElementById('hist-cat-select');
+  if(sel) { sel.value = id; renderCatVentes(); }
+}
+
 function resetCatVentesFilters() {
   const s = document.getElementById('hist-cat-select');
   const d = document.getElementById('hist-cat-debut');
@@ -29087,7 +29109,33 @@ function renderCatVentes() {
   if(periodeEl) periodeEl.style.display = '';
 
   if(catKeys.length === 0) {
-    grid.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:13px;padding:28px;grid-column:1/-1;">📭 Aucune vente dans cette catégorie pour la période choisie.</div>';
+    // ✅ v94 : au lieu d'un simple « aucune vente », on montre les catégories qui ONT des ventes sur la période
+    // (même filtres caisse/dates), à toucher pour les afficher. Évite de croire à un bug quand on choisit une
+    // catégorie du catalogue qui n'a rien vendu (ex. « Plats sénégalais » alors que tout est en « Volailles »).
+    const _alt = {};
+    source.forEach(h => (Array.isArray(h.tickets) ? h.tickets : []).forEach(t => (t.items || []).forEach(it => {
+      const raw = (it.categorie || it.category || '').trim(), id = raw || '__sans__';
+      const q = it.qty || 1, pr = it.prix || it.price || 0;
+      if(!_alt[id]) _alt[id] = { qty: 0, total: 0 };
+      _alt[id].qty += q; _alt[id].total += q * pr;
+    })));
+    const _liste = Object.keys(_alt).map(id => {
+      let lab = id === '__sans__' ? 'Sans catégorie' : id, val = id;
+      if(id !== '__sans__' && typeof CATEGORIES !== 'undefined') { const f = CATEGORIES.find(c => c.id === id || c.label === id); if(f) { lab = f.label; val = f.id; } }
+      return { val, lab, qty: _alt[id].qty, total: _alt[id].total };
+    }).sort((x, y) => y.total - x.total);
+    const _manque = (typeof KGSync !== 'undefined' && KGSync.tickets && KGSync.tickets.anyNeeded && KGSync.tickets.anyNeeded());
+    let _hint = '';
+    if(_liste.length) {
+      _hint = '<div style="margin-top:14px;font-size:12px;color:var(--text2);">Catégories qui ont des ventes sur cette période — touchez pour afficher :</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px;">'
+        + _liste.map(c => '<button onclick="_kgChoisirCatVentes(\'' + String(c.val).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')" style="padding:8px 12px;border-radius:18px;border:1px solid rgba(245,166,35,0.5);background:rgba(245,166,35,0.10);color:var(--text);font-size:13px;font-weight:700;cursor:pointer;">'
+            + window.escHtml(c.lab) + ' <span style="font-weight:500;opacity:.8;">· ' + c.qty + '× · ' + c.total.toLocaleString('fr-FR') + ' F</span></button>').join('')
+        + '</div>';
+    } else if(_manque) {
+      _hint = '<div style="margin-top:12px;font-size:12px;color:#b45309;">⚠️ Les tickets de certaines clôtures n\'ont pas pu être chargés (connexion). Réessayez dans un instant.</div>';
+    }
+    grid.innerHTML = '<div style="text-align:center;color:var(--text2);font-size:13px;padding:24px 12px;grid-column:1/-1;">📭 Aucune vente dans cette catégorie pour la période choisie.' + _hint + '</div>';
     return;
   }
 
@@ -30595,7 +30643,12 @@ const KGSync = (() => {
   function _tkHas(h) { return h && Array.isArray(h.tickets) && h.tickets.length > 0; }
   function _tkNeeds(h) {
     if(!h || !h.id || _tkHas(h)) return false;
-    if(_tkTriedStore()[_tkSafe(h.id)]) return false;
+    const k = _tkSafe(h.id);
+    // ✅ v95 : les tickets déjà chargés restent en mémoire. Si une synchronisation remplace l'objet de la clôture
+    // par une version allégée, il faut les RATTACHER de nouveau (sans réseau). Avant, « déjà chargé » valait
+    // « ne plus jamais chercher » : les tickets disparaissaient et l'écran affichait « Aucune vente ».
+    if(_tkStore()[k]) return true;
+    if(_tkTriedStore()[k]) return false;   // déjà cherché sans succès
     return !!h._lite || ((h.nbTickets || h.orders || 0) > 0);
   }
   // Pose les tickets sur la clôture en propriété NON énumérable : ils sont lisibles partout (h.tickets)
@@ -30658,8 +30711,8 @@ const KGSync = (() => {
           const raw = byKey[_rkey('cloture_' + k)];
           if(raw) { const c = typeof raw === 'string' ? dec(raw) : raw; if(c && Array.isArray(c.tickets) && c.tickets.length) tk = c.tickets; }
           if(!tk) { try { tk = await _tkFromBlob(h); } catch(e) {} }
-          tried[k] = true;
           if(tk) { store[k] = tk; _tkAttach(h, tk); got++; }
+          else tried[k] = true;            // ✅ v95 : on ne marque « essayé » que si rien n'a été trouvé
         }
       } catch(e) { console.warn('[v81] chargement tickets échoué (réessai possible):', e); }
     }
@@ -47507,7 +47560,7 @@ async function validerTicketAttente() {
     payMethods: payMethodsData,
     time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
     date: new Date().toISOString().split('T')[0],
-    cashier: ticket.cashier, client: ticket.client, serveur: ticket.serveur || '', typeService: ticket.typeService || 'sur_place'
+    cashier: ticket.cashier, client: ticket.client, telephone: ticket.telephone || '', serveur: ticket.serveur || '', typeService: ticket.typeService || 'sur_place'
   };
 
   if(!VENTES_PAR_CAISSE[caisse]) VENTES_PAR_CAISSE[caisse] = [];
@@ -48025,9 +48078,11 @@ function renderAttentePaiementModule() {
   const _apUserCaisse = (sessionCaisseActive && sessionCaisseActive.caisse)
     ? sessionCaisseActive.caisse
     : ((currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null);
-  const attenteList = (_apIsManager || !_apUserCaisse)
+  const attenteListTous = (_apIsManager || !_apUserCaisse)
     ? TICKETS_ATTENTE
     : TICKETS_ATTENTE.filter(t => t.caisse === _apUserCaisse);
+  window._kgAttenteVisibles = attenteListTous; // ✅ v96 : pour le total à verser par livreur
+  const attenteList = (typeof window._kgAttFiltre === 'function') ? attenteListTous.filter(window._kgAttFiltre) : attenteListTous; // ✅ v96 : recherche
 
   // ✅ v86 : total d'argent à encaisser, affiché en haut
   const _apTotalEl = document.getElementById('attente-paiement-total');
@@ -48035,13 +48090,23 @@ function renderAttentePaiementModule() {
     if(attenteList.length === 0) { _apTotalEl.style.display = 'none'; }
     else {
       const _apSum = attenteList.reduce((acc, t) => acc + (Number(t.total) || 0), 0);
+      const _apFilt = attenteList.length !== attenteListTous.length;
       _apTotalEl.style.display = 'flex';
-      _apTotalEl.innerHTML = `<div><div style="font-size:12px;color:var(--text2);font-weight:600;letter-spacing:.5px;text-transform:uppercase;">💰 Total à encaisser</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:2px;">${attenteList.length} ticket${attenteList.length > 1 ? 's' : ''} en attente</div></div>
+      _apTotalEl.innerHTML = `<div><div style="font-size:12px;color:var(--text2);font-weight:600;letter-spacing:.5px;text-transform:uppercase;">${_apFilt ? '🔍 Total des tickets affichés' : '💰 Total à encaisser'}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px;">${_apFilt ? (attenteList.length + ' sur ' + attenteListTous.length + ' tickets') : (attenteList.length + ' ticket' + (attenteList.length > 1 ? 's' : '') + ' en attente')}</div></div>
         <div style="font-size:30px;font-weight:900;color:var(--accent);font-family:'JetBrains Mono',monospace,sans-serif;white-space:nowrap;">${_apSum.toLocaleString('fr-FR')} F</div>`;
     }
   }
 
+  if(attenteList.length === 0 && attenteListTous.length > 0) {
+    list.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:36px 16px;color:var(--text2);">
+      <div style="font-size:34px;margin-bottom:10px;">🔍</div>
+      <div style="font-weight:700;">Aucun ticket ne correspond à la recherche</div>
+      <div style="font-size:12px;margin-top:8px;">${attenteListTous.length} ticket(s) en attente au total — effacez la recherche pour tout voir</div>
+    </div>`;
+    _updateAttentePaiementNavBadge();
+    return;
+  }
   if(attenteList.length === 0) {
     list.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2);">
       <div style="font-size:40px;margin-bottom:12px;">✅</div>
@@ -49088,7 +49153,7 @@ function exportHotelHistoriqueCSV() {
     sync().then(function(c){ if(c) rerender(); });
     var tk = (typeof TICKETS_ATTENTE !== 'undefined' ? TICKETS_ATTENTE : []).find(function(x){ return x.id === ticketId; });
     var num = tk && tk.numero ? '#' + tk.numero : '';
-    if(typeof showNotif === 'function') showNotif(liv ? ('🛵 ' + liv.nom + ' assigné au ticket ' + num) : ('Livreur retiré du ticket ' + num));
+    if(typeof showNotif === 'function') showNotif(liv ? ('🛵 ' + liv.nom + ' assigné au ticket ' + num + (window.kgResumeLivreur && window.kgResumeLivreur(liv.nom) ? ' · à verser : ' + window.kgResumeLivreur(liv.nom) : '')) : ('Livreur retiré du ticket ' + num));
   }
   window.kgChoisirLivreurAttente = async function(ticketId){
     var old = document.getElementById('kg-liv-modal'); if(old) old.remove();
@@ -49121,7 +49186,7 @@ function exportHotelHistoriqueCSV() {
     l.forEach(function(x){
       var b = document.createElement('button');
       b.style.cssText = 'text-align:left;padding:14px;border-radius:12px;border:1px solid rgba(46,204,113,0.5);background:rgba(46,204,113,0.1);color:inherit;font-size:16px;font-weight:800;min-height:52px;';
-      b.innerHTML = '🛵 ' + esc(x.nom) + (x.zone || x.tel ? '<div style="font-size:12px;font-weight:500;color:var(--text2,#666);margin-top:2px;">' + esc([x.zone, x.tel].filter(Boolean).join(' · ')) + '</div>' : '')
+      b.innerHTML = '🛵 ' + esc(x.nom) + (window.kgResumeLivreur && window.kgResumeLivreur(x.nom) ? ' <span style="float:right;font-size:13px;color:#15803d;font-weight:800;">' + esc(window.kgResumeLivreur(x.nom)) + '</span>' : '') + (x.zone || x.tel ? '<div style="font-size:12px;font-weight:500;color:var(--text2,#666);margin-top:2px;">' + esc([x.zone, x.tel].filter(Boolean).join(' · ')) + '</div>' : '')
                   + (cur && cur.nom === x.nom ? ' <span style="color:#16a34a;">✔</span>' : '');
       b.onclick = function(){ poser(ticketId, x); close(); };
       box.appendChild(b);
@@ -49279,6 +49344,112 @@ function exportHotelHistoriqueCSV() {
     window._pullTicketsAttenteSupabase = async function(){
       var out = await _p.apply(this, arguments);
       try { if(await sync()) rerender(); } catch(e){}
+      return out;
+    };
+  }
+})();
+</script>
+
+<script>
+// ============================================================================
+// ✅ v96 : RECHERCHE + ARGENT À VERSER PAR LIVREUR (écran « En attente de paiement »)
+// ============================================================================
+(function(){
+  var _q = '', _liv = null, _t = null;     // _liv : nom du livreur filtré, '__aucun__' = sans livreur
+  function rid(){ return window._KG_RESTAURANT_ID || ''; }
+  function esc(x){ return (window.escHtml ? window.escHtml(x) : String(x == null ? '' : x).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; })); }
+  function lire(k){ try { return JSON.parse(_lsGet(k) || '{}') || {}; } catch(e){ return {}; } }
+  function norm(x){ return String(x == null ? '' : x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+  function fr(n){ return (Number(n) || 0).toLocaleString('fr-FR') + ' F'; }
+  function livDe(t, map){ var e = (map || lire('kg-attente-livreurs'))[t && t.id]; return (e && e.nom) ? e.nom : ''; }
+
+  // Totaux par livreur (pur) : combien chaque livreur doit encore verser = somme de ses tickets non encaissés
+  window.kgTotauxLivreurs = function(list, map){
+    var par = {}, sans = { n: 0, total: 0 };
+    (list || []).forEach(function(t){
+      var nom = livDe(t, map), m = Number(t.total) || 0;
+      if(!nom) { sans.n++; sans.total += m; return; }
+      var o = par[nom] || (par[nom] = { nom: nom, n: 0, total: 0 }); o.n++; o.total += m;
+    });
+    var l = Object.keys(par).map(function(k){ return par[k]; }).sort(function(a, b){ return b.total - a.total; });
+    return { livreurs: l, sans: sans };
+  };
+  window.kgResumeLivreur = function(nom){
+    var r = window.kgTotauxLivreurs(window._kgAttenteVisibles || (typeof TICKETS_ATTENTE !== 'undefined' ? TICKETS_ATTENTE : []));
+    var o = r.livreurs.find(function(x){ return x.nom === nom; });
+    return o ? (fr(o.total) + ' (' + o.n + ' ticket' + (o.n > 1 ? 's' : '') + ')') : '';
+  };
+
+  // Recherche (pur) : tous les mots saisis doivent se retrouver quelque part dans le ticket
+  window.kgAttMatch = function(t, q, livMap, notesMap){
+    var mots = norm(q).split(/\s+/).filter(Boolean); if(!mots.length) return true;
+    var notes = ((notesMap || {})[t.id] || {}).e || [];
+    var bota = [t.numero, '#' + (t.numero || ''), t.id, t.client, t.telephone, t.caisse, t.serveur, t.cashier, t.caissier, t.time, t.total,
+      livDe(t, livMap), (t.items || []).map(function(i){ return i.name || i.nom || ''; }).join(' '), notes.map(function(n){ return n.t + ' ' + n.p; }).join(' ')].join(' ');
+    var h = norm(bota), chiffres = h.replace(/\D/g, ' ');
+    return mots.every(function(m){ return h.indexOf(m) >= 0 || (/^\d+$/.test(m) && chiffres.indexOf(m) >= 0); });
+  };
+  window._kgAttFiltre = function(t){
+    if(_liv) { var n = livDe(t); if(_liv === '__aucun__' ? !!n : n !== _liv) return false; }
+    if(!_q) return true;
+    return window.kgAttMatch(t, _q, lire('kg-attente-livreurs'), lire('kg-attente-notes'));
+  };
+
+  function rerender(){ try { if(typeof renderAttentePaiementModule === 'function') renderAttentePaiementModule(); } catch(e){} }
+
+  function ensureUI(){
+    var tot = document.getElementById('attente-paiement-total'); if(!tot || !tot.parentNode) return;
+    if(!document.getElementById('attente-search-bar')) {
+      var bar = document.createElement('div'); bar.id = 'attente-search-bar';
+      bar.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:12px;';
+      bar.innerHTML = '<input id="attente-search" type="search" autocomplete="off" placeholder="🔍 Rechercher : n° ticket, téléphone, client, produit, livreur…" style="flex:1;min-width:0;padding:13px 14px;border-radius:12px;border:1px solid var(--border,#ccc);font-size:16px;background:var(--surface,#fff);color:var(--text,#111);font-family:inherit;">'
+        + '<button id="attente-search-x" style="display:none;padding:12px 14px;border-radius:12px;border:1px solid var(--border,#ccc);background:var(--surface2,#f3f3f3);color:inherit;font-weight:800;font-size:15px;">✖</button>';
+      tot.parentNode.insertBefore(bar, tot);
+      var inp = bar.querySelector('#attente-search'), x = bar.querySelector('#attente-search-x');
+      inp.value = _q;
+      inp.addEventListener('input', function(){ _q = inp.value; x.style.display = (_q || _liv) ? 'block' : 'none'; clearTimeout(_t); _t = setTimeout(rerender, 150); });
+      x.addEventListener('click', function(){ _q = ''; _liv = null; inp.value = ''; x.style.display = 'none'; rerender(); });
+    }
+    if(!document.getElementById('attente-livreurs-total')) {
+      var p = document.createElement('div'); p.id = 'attente-livreurs-total'; p.style.display = 'none';
+      tot.parentNode.insertBefore(p, tot.nextSibling);
+    }
+  }
+  function majPanel(){
+    var p = document.getElementById('attente-livreurs-total'); if(!p) return;
+    var x = document.getElementById('attente-search-x'); if(x) x.style.display = (_q || _liv) ? 'block' : 'none';
+    var r = window.kgTotauxLivreurs(window._kgAttenteVisibles || []);
+    if(!r.livreurs.length) { p.style.display = 'none'; return; }
+    var ligne = function(cle, label, n, total, actif, fort){
+      return '<button data-liv="' + esc(cle) + '" style="display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;padding:11px 13px;border-radius:12px;cursor:pointer;color:inherit;font-family:inherit;'
+        + 'border:' + (actif ? '2px solid #16a34a' : '1px solid rgba(46,204,113,0.4)') + ';background:' + (actif ? 'rgba(46,204,113,0.22)' : (fort ? 'rgba(46,204,113,0.10)' : 'rgba(0,0,0,0.03)')) + ';">'
+        + '<span style="font-weight:800;font-size:15px;">' + label + ' <span style="font-weight:500;font-size:12px;opacity:.75;">· ' + n + ' ticket' + (n > 1 ? 's' : '') + '</span></span>'
+        + '<span style="font-weight:900;font-size:' + (fort ? 20 : 15) + 'px;color:' + (fort ? '#15803d' : 'inherit') + ';white-space:nowrap;font-family:\'JetBrains Mono\',monospace,sans-serif;">' + fr(total) + '</span></button>';
+    };
+    var h = '<div style="font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text2,#666);margin-bottom:8px;">🛵 Argent à verser par les livreurs <span style="font-weight:500;text-transform:none;">(touchez pour filtrer)</span></div><div style="display:flex;flex-direction:column;gap:7px;">';
+    r.livreurs.forEach(function(o){ h += ligne(o.nom, '🛵 ' + esc(o.nom), o.n, o.total, _liv === o.nom, true); });
+    if(r.sans.n) h += ligne('__aucun__', 'Sans livreur', r.sans.n, r.sans.total, _liv === '__aucun__', false);
+    h += '</div>';
+    p.style.cssText = 'display:block;margin-bottom:14px;padding:12px 14px;border-radius:14px;border:1px solid rgba(46,204,113,0.45);background:rgba(46,204,113,0.07);';
+    p.innerHTML = h;
+    p.querySelectorAll('button[data-liv]').forEach(function(b){
+      b.onclick = function(){ var v = b.getAttribute('data-liv'); _liv = (_liv === v) ? null : v; rerender(); };
+    });
+  }
+
+  // La pastille du livreur sur chaque carte indique aussi ce qu'il doit verser en tout
+  window._kgLivChip = function(t){
+    var nom = livDe(t); if(!nom) return '';
+    var r = window.kgTotauxLivreurs(window._kgAttenteVisibles || []).livreurs.find(function(x){ return x.nom === nom; });
+    return '<span style="display:inline-block;margin-left:6px;padding:2px 9px;border-radius:12px;background:rgba(46,204,113,0.16);border:1px solid rgba(46,204,113,0.5);color:#15803d;font-size:14px;font-weight:800;">🛵 ' + esc(nom)
+      + (r ? ' <span style="font-weight:600;font-size:12px;">· à verser ' + fr(r.total) + '</span>' : '') + '</span>';
+  };
+
+  if(typeof window.renderAttentePaiementModule === 'function') {
+    var _r = window.renderAttentePaiementModule;
+    window.renderAttentePaiementModule = function(){
+      var out = _r.apply(this, arguments);
+      try { ensureUI(); majPanel(); } catch(e){ console.warn('[v96]', e); }
       return out;
     };
   }
