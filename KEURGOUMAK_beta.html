@@ -5956,6 +5956,7 @@ function _syncSportVentes()       { return []; }
         <button class="cat-btn active" onclick="filterOrders('all', this)" id="tab-all">Toutes (0)</button>
         <button class="cat-btn" onclick="filterOrders('waiting_payment', this)" id="tab-waiting-payment" style="border-color:var(--accent);color:var(--accent);">⏳ En attente paiement <span id="badge-waiting-payment" style="background:var(--accent);color:#000;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;margin-left:4px;display:none;">0</span></button>
         <button class="cat-btn" onclick="filterOrders('done', this)" id="tab-done">🎉 Encaissé (0)</button>
+        <select id="orders-caisse-select" onchange="_ordSetCaisse(this.value)" title="Choisir la caisse à afficher" style="display:none;padding:10px 14px;border-radius:999px;border:1.5px solid var(--accent);background:var(--surface2);color:var(--text);font-weight:700;font-size:13px;max-width:100%;"></select>
         <button class="cat-btn" id="btn-refresh-commandes" onclick="_actualiserCommandesManuel(this)" style="margin-left:auto;">🔄 Actualiser</button>
       </div>
       <div class="card">
@@ -13915,10 +13916,20 @@ function _kgOutboxRemove(caisse, orderNum) {
 }
 // Un ticket resté en attente pendant qu'une clôture de sa caisse a eu lieu appartient à un service déjà
 // clôturé : on ne le remet JAMAIS dans la caisse du jour, on le met de côté pour récupération manuelle.
+// ✅ v100 : une vente dont la date de session est ANTÉRIEURE au jour de la dernière clôture de sa caisse
+// appartient à un service déjà clôturé (même si son horodatage d'envoi est récent).
+function _kgSessionAvantCloture(caisse, sessionDate) {
+  try {
+    if(!sessionDate || typeof _kgDerniereClotureMs !== 'function') return false;
+    const ms = _kgDerniereClotureMs(caisse);
+    if(!ms) return false;
+    return String(sessionDate).split('T')[0] < new Date(ms).toISOString().split('T')[0];
+  } catch(e) { return false; }
+}
 function _kgOutboxPeriime(caisse, orderNum) {
   const e = _kgOutboxRead().find(x => x.caisse === caisse && x.vente && x.vente.orderNum === orderNum);
   if(!e || typeof _kgDerniereClotureMs !== 'function') return false;
-  if(_kgDerniereClotureMs(caisse) > e.ts) {
+  if(_kgDerniereClotureMs(caisse) > e.ts || _kgSessionAvantCloture(caisse, e.vente.date)) {
     try {
       const fk = 'kg-ventes-save-failed', f = JSON.parse(_lsGet(fk) || '[]');
       if(!f.some(x => x.vente && x.vente.orderNum === orderNum && x.caisse === caisse)) f.push({ caisse: caisse, vente: e.vente, ts: e.ts });
@@ -13961,7 +13972,7 @@ async function _kgFlushOutbox() {
 window._kgFlushOutbox = _kgFlushOutbox;
 setInterval(() => { _kgFlushOutbox().catch(() => {}); }, 30000);
 setInterval(() => { _kgEnsureSession(false).catch(() => {}); }, 3 * 60 * 1000);
-setTimeout(() => { _kgFlushOutbox().catch(() => {}); }, 8000);
+setTimeout(() => { _kgFlushOutbox().catch(() => {}); }, 40000); // ✅ v100 : attendre le rechargement de l'historique des clôtures
 window.addEventListener('online', () => { setTimeout(() => { _kgEnsureSession(true).then(_kgFlushOutbox).catch(() => {}); }, 2000); });
 document.addEventListener('visibilitychange', () => { if(!document.hidden) { _kgEnsureSession(false).then(_kgFlushOutbox).catch(() => {}); } });
 
@@ -13986,7 +13997,9 @@ async function _saveVenteSupabase(caisse, vente, _retryCount) {
       // ✅ FIX MIXTE : sauvegarder le détail cash/wave/orange pour Rapport X
       pay_methods:   vente.payMethods ? JSON.stringify(vente.payMethods) : null,
       session_date:  (vente.date || new Date().toISOString()).split('T')[0],
-      serveur:       vente.serveur && vente.serveur.trim() ? vente.serveur.trim() : null
+      serveur:       vente.serveur && vente.serveur.trim() ? vente.serveur.trim() : null,
+      // ✅ v103 : traçabilité « vente issue d'un ticket en attente » (absent pour une vente directe)
+      ...(vente.attenteId ? { ticket_attente_id: String(vente.attenteId), ticket_attente_numero: vente.attenteNumero || null, ticket_attente_cree: vente.attenteCreeLe || null } : {})
     }, { onConflict: 'restaurant_id,caisse,order_num' }), 20000, 'ventes_caisse');
     if(error) throw error;
     // ✅ FIX ARCHIVAGE PERMANENT : ventes_caisse est une table de travail vidée
@@ -14007,6 +14020,7 @@ async function _saveVenteSupabase(caisse, vente, _retryCount) {
         sub:           vente.sousTotal != null ? vente.sousTotal : (vente.total || 0),
         tva:           vente.tva || 0,
         pay_method:    vente.payMethod || null,
+        ...(vente.attenteId ? { ticket_attente_id: String(vente.attenteId), ticket_attente_numero: vente.attenteNumero || null, ticket_attente_cree: vente.attenteCreeLe || null } : {})
       }, { onConflict: 'restaurant_id,ticket_ref' }).select('id').single();
       if(errArch) throw errArch;
       if(venteRow && Array.isArray(vente.items) && vente.items.length) {
@@ -14074,6 +14088,8 @@ async function _loadVentesSupabase(caisse, sinceMs) {
     // ✅ v87 : à la clôture, ne reprendre que les ventes faites APRÈS la dernière clôture de cette caisse
     // (évite de recompter d'éventuelles ventes anciennes restées orphelines côté serveur)
     if(sinceMs) data = data.filter(r => !r.created_at || new Date(r.created_at).getTime() >= sinceMs);
+    // ✅ v100 : ignorer les ventes orphelines d'un service déjà clôturé (session_date < jour de la dernière clôture)
+    data = data.filter(r => !_kgSessionAvantCloture(caisse, r.session_date));
     // ✅ FIX v8 : FUSION intelligente — ne jamais écraser les ventes locales non encore pushées
     // On construit d'abord la liste distante, puis on ajoute les ventes locales absentes de Supabase
     const _remoteVentes = data.map(row => ({
@@ -14093,7 +14109,9 @@ async function _loadVentesSupabase(caisse, sinceMs) {
       note:      _kgSepNoteTel(row.note).note,
       telephone: _kgSepNoteTel(row.note).tel,
       date:      row.session_date,
-      time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
+      time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}),
+      // ✅ v104 : lien vers le ticket « en attente » d'origine (si la vente en vient)
+      attenteId: row.ticket_attente_id || null, attenteNumero: row.ticket_attente_numero || null, attenteCreeLe: row.ticket_attente_cree || null
     }));
     // Ventes locales présentes en mémoire mais pas encore pushées vers Supabase (pas dans _remoteVentes)
     const _localOnly = (VENTES_PAR_CAISSE[caisse] || []).filter(
@@ -14942,6 +14960,12 @@ async function validateOrder() {
   _validateOrderInProgress = true;
   const _valBtn = document.querySelector('#modal-confirmTicket .btn-primary, .pay-confirm-btn.selected');
   try {
+  // ✅ v99 : comme pour les tickets en attente, une vente ne s'enregistre QUE si la connexion au serveur fonctionne.
+  // Évite les ventes « fantômes » validées sur un appareil hors ligne, qui réapparaissent après la clôture.
+  if(typeof _kgConnexionServeur === 'function') {
+    const _cxV = await _kgConnexionServeur();
+    if(!_cxV.ok) { _kgRefusSansConnexion(_cxV, 'vente'); return; }
+  }
 
   // Calcul avec promos articles
   const totalAvantRemise = cart.reduce((a,c) => {
@@ -17198,9 +17222,13 @@ function renderOrders(status) {
   // Administrateur, Gérant et Superviseur voient toutes les caisses, comme avant.
   const _ordIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
   const _ordUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
-  const _ordVentesParCaisse = (_ordIsManager || !_ordUserCaisse)
-    ? VENTES_PAR_CAISSE
-    : { [_ordUserCaisse]: VENTES_PAR_CAISSE[_ordUserCaisse] || [] };
+  // ✅ v105 : l'administrateur peut choisir la caisse à afficher (sélecteur dans l'en-tête de Commandes)
+  const _ordFiltreAdmin = (currentUser && currentUser.role === 'administrateur' && window._ordCaisseFiltre) ? window._ordCaisseFiltre : '';
+  const _ordVentesParCaisse = _ordFiltreAdmin
+    ? { [_ordFiltreAdmin]: (VENTES_PAR_CAISSE || {})[_ordFiltreAdmin] || [] }
+    : ((_ordIsManager || !_ordUserCaisse)
+      ? VENTES_PAR_CAISSE
+      : { [_ordUserCaisse]: VENTES_PAR_CAISSE[_ordUserCaisse] || [] });
 
   // ✅ FIX : afficher TOUTES les ventes du jour, quelle que soit le statut de la caisse
   let allOrders = [];
@@ -17261,7 +17289,7 @@ function renderOrders(status) {
     <div class="order-item">
       <div class="order-num">${o.id}</div>
       <div class="order-info">
-        <div class="order-name">${window.escHtml(o.client)}${o.caisse ? ` <span style="font-size:10px;color:var(--teal);margin-left:6px;">[${window.escHtml(o.caisse)}]</span>` : ''}</div>
+        <div class="order-name">${window.escHtml(o.client)}${o.caisse ? ` <span style="font-size:10px;color:var(--teal);margin-left:6px;">[${window.escHtml(o.caisse)}]</span>` : ''}${(o.vente && o.vente.attenteId) ? ` <span title="Encaissée depuis un ticket mis en attente" style="font-size:10px;color:var(--accent);margin-left:6px;border:1px solid var(--accent);border-radius:6px;padding:1px 5px;">⏳ attente${o.vente.attenteNumero ? ' n°' + window.escHtml(String(o.vente.attenteNumero)) : ''}</span>` : ''}</div>
         <div class="order-items-list">${o.items}${o.payLabel ? ` · <span style="color:var(--teal)">${window.escHtml(o.payLabel)}</span>` : ''}</div>
       </div>
       <div class="order-time">${o.time}</div>
@@ -28013,6 +28041,19 @@ async function cloturerCaisse() {
       caisse = _fallback ? _fallback.name : 'Caisse 1';
       console.warn('[cloturerCaisse] sessionCaisseActive absent — caisse détectée par fallback :', caisse);
     }
+
+    // ✅ v99 : tickets encore EN ATTENTE sur cette caisse. Ils ne sont pas comptés dans la clôture. Si le caissier les a
+    // déjà encaissés sur SON appareil (éteint ou hors ligne), le serveur ne le sait pas : on prévient avant de clôturer,
+    // au lieu de voir ces ventes réapparaître après la clôture.
+    try {
+      if(typeof _pullTicketsAttenteSupabase === 'function') await Promise.race([_pullTicketsAttenteSupabase(), new Promise(r => setTimeout(r, 4000))]);
+      const _att = (typeof TICKETS_ATTENTE !== 'undefined' ? TICKETS_ATTENTE : []).filter(t => t.caisse === caisse);
+      if(_att.length) {
+        const _somA = _att.reduce((a, t) => a + (Number(t.total) || 0), 0);
+        const _okA = confirm('⚠️ ' + _att.length + ' ticket(s) encore EN ATTENTE sur ' + caisse + ' (' + _somA.toLocaleString('fr-FR') + ' F).\n\nIls ne seront PAS comptés dans cette clôture.\n\nSi le caissier les a déjà encaissés sur son appareil, demandez-lui de le connecter à internet et attendez qu\'ils disparaissent de la liste « En attente ».\n\nClôturer quand même ?');
+        if(!_okA) { _CLOTURE_EN_COURS = false; _CLOTURE_TIMESTAMP = 0; return; }
+      }
+    } catch(eAtt) { console.warn('[v99] contrôle tickets en attente:', eAtt); }
 
     // ✅ FIX : les ventes de Caisse 5-10 se retrouvent parfois sous l'ancien nom
     // (conservé dans c.loc) plutôt que sous le nom actuel affiché (c.name).
@@ -41868,6 +41909,10 @@ async function _validerAdditionCaisse(billId) {
   _loadBillRequests();
   const bill = window._BILL_REQUESTS.find(b => b.id === billId);
   if(!bill) return;
+  if(typeof _kgConnexionServeur === 'function') { // ✅ v99
+    const _cxA = await _kgConnexionServeur();
+    if(!_cxA.ok) { _kgRefusSansConnexion(_cxA, 'addition'); return; }
+  }
 
   // Trouver la commande QR originale pour récupérer les articles
   const qrOrder = (typeof _qrOrders !== 'undefined') ? _qrOrders.find(o => o.id === bill.qrOrderId) : null;
@@ -47031,11 +47076,27 @@ function _kgDequeueTicketDelete(ticketId) {
     _lsSet('kg-tickets-delete-pending', JSON.stringify(filtered));
   } catch(e) {}
 }
+// ✅ v101 : plafond d'essais par ticket (avant : réessais INFINIS → ~190 000 requêtes DELETE
+// en 24 h sur un seul restaurant, qui saturaient Supabase et faisaient échouer les vraies suppressions)
+const _KG_DEL_MAX_TRIES = 5;
+function _kgDelAttempts(id, inc) {
+  try {
+    const m = JSON.parse(_lsGet('kg-tickets-delete-tries') || '{}');
+    if(inc === 'reset') { delete m[id]; } else if(inc) { m[id] = (m[id] || 0) + 1; }
+    const ids = Object.keys(m); if(ids.length > 300) ids.slice(0, ids.length - 300).forEach(k => delete m[k]);
+    _lsSet('kg-tickets-delete-tries', JSON.stringify(m));
+    return m[id] || 0;
+  } catch(e) { return 0; }
+}
+let _kgLastDelRetryTs = 0;
 async function _kgRetryPendingTicketDeletes() {
   let q = [];
   try { q = JSON.parse(_lsGet('kg-tickets-delete-pending') || '[]'); } catch(e) {}
   if(!q.length) return;
   if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
+  // ✅ v101 : au plus un passage de réessai toutes les 60 s
+  if(Date.now() - _kgLastDelRetryTs < 60000) return;
+  _kgLastDelRetryTs = Date.now();
   for(const ticketId of q.slice()) {
     await _deleteTicketAttenteSupabase(ticketId);
   }
@@ -47060,16 +47121,22 @@ async function _deleteTicketAttenteSupabase(ticketId) {
       .eq('restaurant_id', rid);
     if(_delErr) {
       console.error('[tickets_attente delete] ÉCHEC suppression Supabase — mis en file pour réessai :', _delErr);
-      _kgQueueTicketDelete(ticketId);
+      // ✅ v101 : on abandonne après _KG_DEL_MAX_TRIES (l'ID reste dans la liste des tickets encaissés,
+      // et la base supprime elle-même ces tickets)
+      if(_kgDelAttempts(ticketId, true) >= _KG_DEL_MAX_TRIES) { _kgDequeueTicketDelete(ticketId); _kgDelAttempts(ticketId, 'reset'); }
+      else _kgQueueTicketDelete(ticketId);
       return;
     }
     if(_delCount === 0) {
-      console.warn('[tickets_attente delete] 0 ligne supprimée (déjà supprimé ailleurs, ou pas encore synchronisé) — mis en file pour réessai. ticketId=', ticketId);
-      _kgQueueTicketDelete(ticketId);
+      // ✅ v101 : 0 ligne = le ticket n'existe plus sur le serveur (déjà supprimé). On réessaie quelques
+      // fois (cas « pas encore synchronisé »), puis on considère la suppression comme terminée.
+      if(_kgDelAttempts(ticketId, true) >= 3) { _kgDequeueTicketDelete(ticketId); _kgDelAttempts(ticketId, 'reset'); }
+      else _kgQueueTicketDelete(ticketId);
       return;
     }
     // ✅ Succès : on retire de la file d'attente si ce ticket y était
     _kgDequeueTicketDelete(ticketId);
+    _kgDelAttempts(ticketId, 'reset');
     // ✅ FIX : même signal qu'à la création — pour que la suppression/l'encaissement
     // d'un ticket disparaisse en direct de la liste sur les autres appareils.
     try {
@@ -47519,9 +47586,45 @@ async function validerTicketAttente() {
   if(_attenteValidationEnCours) { showNotif('⏳ Validation déjà en cours, merci de patienter...'); return; }
   _attenteValidationEnCours = true;
   try {
+  // ✅ v98 : encaisser un ticket en attente exige une connexion qui fonctionne (lecture + écriture sur le serveur).
+  // Sinon : refus clair, le ticket reste en attente, rien n'est enregistré (évite numéros en double et ventes perdues).
+  if(typeof _kgConnexionServeur === 'function') {
+    const _cx = await _kgConnexionServeur();
+    if(!_cx.ok) { _kgRefusSansConnexion(_cx); return; }
+  }
   _loadTicketsAttente();
   const ticket = TICKETS_ATTENTE.find(t => t.id === _attenteCurrentId);
   if(!ticket) { showNotif('⚠️ Ticket introuvable'); return; }
+
+  // ✅ v102 : refuser d'encaisser un ticket DÉJÀ encaissé sur un autre appareil (double encaissement).
+  // Vérifie la liste partagée des tickets encaissés, puis l'existence du ticket sur le serveur.
+  try {
+    const _sbV = (typeof KGSync !== 'undefined' && KGSync.getClient) ? KGSync.getClient() : null;
+    const _ridV = window._KG_RESTAURANT_ID;
+    if(_sbV && _ridV) {
+      try { await _kgSyncTicketTombstones(_sbV, _ridV); } catch(e) {}
+      let _blV = []; try { _blV = JSON.parse(_lsGet('kg-tickets-valides') || '[]'); } catch(e) {}
+      let _dejaEncaisse = _blV.includes(ticket.id);
+      if(!_dejaEncaisse) {
+        const { data: _rowV, error: _errV } = await _sbV.from('tickets_en_attente').select('id')
+          .eq('id', ticket.id).eq('restaurant_id', _ridV).maybeSingle();
+        if(!_errV && !_rowV) {
+          let _seenV = []; try { _seenV = JSON.parse(_lsGet('kg-tickets-attente-seen-remote') || '[]'); } catch(e) {}
+          _dejaEncaisse = _seenV.includes(ticket.id); // déjà confirmé par le serveur avant, absent maintenant
+        }
+      }
+      if(_dejaEncaisse) {
+        TICKETS_ATTENTE = TICKETS_ATTENTE.filter(t => t.id !== ticket.id);
+        _saveTicketsAttente();
+        const _mV = document.getElementById('modal-valider-attente'); if(_mV) _mV.style.display = 'none';
+        _attenteCurrentId = null;
+        showNotif('⚠️ Ce ticket a déjà été encaissé (ou supprimé) sur un autre appareil — rien n\'a été enregistré.');
+        try { _updateAttenteCounter(); } catch(e) {}
+        try { if(typeof renderOrders === 'function') renderOrders('all'); } catch(e) {}
+        return;
+      }
+    }
+  } catch(e) { console.warn('[v102 garde double encaissement]', e); }
 
   // Validation montant mixte
   let payMethodsData = null;
@@ -47560,7 +47663,9 @@ async function validerTicketAttente() {
     payMethods: payMethodsData,
     time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
     date: new Date().toISOString().split('T')[0],
-    cashier: ticket.cashier, client: ticket.client, telephone: ticket.telephone || '', serveur: ticket.serveur || '', typeService: ticket.typeService || 'sur_place'
+    cashier: ticket.cashier, client: ticket.client, telephone: ticket.telephone || '', serveur: ticket.serveur || '', typeService: ticket.typeService || 'sur_place',
+    // ✅ v103 : lien vers le ticket « en attente » d'origine
+    attenteId: ticket.id, attenteNumero: ticket.numero || null, attenteCreeLe: ticket.createdAt || null
   };
 
   if(!VENTES_PAR_CAISSE[caisse]) VENTES_PAR_CAISSE[caisse] = [];
@@ -47964,6 +48069,37 @@ function rouvrirTicketAttente(ticketId) {
   showNotif(`✏️ Ticket #${ticket.numero || ticketId} rechargé — modifiez et revalidez`);
 }
 
+// ✅ v105 : sélecteur de caisse dans Commandes (administrateur uniquement)
+function _ordCaissesDisponibles() {
+  const set = new Set();
+  try { (typeof CAISSES !== 'undefined' ? CAISSES : []).forEach(c => { if(c && c.name) set.add(c.name); }); } catch(e) {}
+  try { Object.keys(VENTES_PAR_CAISSE || {}).forEach(n => set.add(n)); } catch(e) {}
+  try { (TICKETS_ATTENTE || []).forEach(t => { if(t && t.caisse) set.add(t.caisse); }); } catch(e) {}
+  return Array.from(set).sort((a, b) => String(a).localeCompare(String(b), 'fr', { numeric: true }));
+}
+function _ordRefreshCaisseSelect() {
+  const sel = document.getElementById('orders-caisse-select');
+  if(!sel) return;
+  const isAdmin = currentUser && currentUser.role === 'administrateur';
+  sel.style.display = isAdmin ? '' : 'none';
+  if(!isAdmin) { window._ordCaisseFiltre = ''; return; }
+  const noms = _ordCaissesDisponibles();
+  if(window._ordCaisseFiltre && !noms.includes(window._ordCaisseFiltre)) window._ordCaisseFiltre = '';
+  const wanted = JSON.stringify(noms);
+  if(sel.dataset.noms !== wanted) {
+    sel.dataset.noms = wanted;
+    sel.innerHTML = '<option value="">🏪 Toutes les caisses</option>' +
+      noms.map(n => `<option value="${window.escHtml(n)}">${window.escHtml(n)}</option>`).join('');
+  }
+  sel.value = window._ordCaisseFiltre || '';
+}
+function _ordSetCaisse(nom) {
+  window._ordCaisseFiltre = nom || '';
+  const actif = document.querySelector('#view-commandes .cat-btn.active');
+  const status = !actif ? 'all' : (actif.id === 'tab-waiting-payment' ? 'waiting_payment' : (actif.id === 'tab-done' ? 'done' : 'all'));
+  if(typeof renderOrders === 'function') renderOrders(status);
+}
+
 // ── Surcharger renderOrders pour inclure les tickets en attente ──
 const _origRenderOrders = renderOrders;
 renderOrders = function(status) {
@@ -47976,12 +48112,19 @@ renderOrders = function(status) {
   const _ovUserCaisse = (sessionCaisseActive && sessionCaisseActive.caisse)
     ? sessionCaisseActive.caisse
     : ((currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null);
-  const attenteList = (_ovIsManager || !_ovUserCaisse)
-    ? TICKETS_ATTENTE
-    : TICKETS_ATTENTE.filter(t => t.caisse === _ovUserCaisse);
-  const _ovVentesParCaisse = (_ovIsManager || !_ovUserCaisse)
-    ? VENTES_PAR_CAISSE
-    : { [_ovUserCaisse]: (VENTES_PAR_CAISSE||{})[_ovUserCaisse] || [] };
+  // ✅ v105 : sélecteur de caisse (administrateur)
+  _ordRefreshCaisseSelect();
+  const _ovFiltreAdmin = (currentUser && currentUser.role === 'administrateur' && window._ordCaisseFiltre) ? window._ordCaisseFiltre : '';
+  const attenteList = _ovFiltreAdmin
+    ? TICKETS_ATTENTE.filter(t => t.caisse === _ovFiltreAdmin)
+    : ((_ovIsManager || !_ovUserCaisse)
+      ? TICKETS_ATTENTE
+      : TICKETS_ATTENTE.filter(t => t.caisse === _ovUserCaisse));
+  const _ovVentesParCaisse = _ovFiltreAdmin
+    ? { [_ovFiltreAdmin]: (VENTES_PAR_CAISSE||{})[_ovFiltreAdmin] || [] }
+    : ((_ovIsManager || !_ovUserCaisse)
+      ? VENTES_PAR_CAISSE
+      : { [_ovUserCaisse]: (VENTES_PAR_CAISSE||{})[_ovUserCaisse] || [] });
 
   if(status === 'waiting_payment') {
     // Afficher uniquement les tickets en attente
@@ -49451,6 +49594,78 @@ function exportHotelHistoriqueCSV() {
       var out = _r.apply(this, arguments);
       try { ensureUI(); majPanel(); } catch(e){ console.warn('[v96]', e); }
       return out;
+    };
+  }
+})();
+</script>
+
+<script>
+// ============================================================================
+// ✅ v98 : ENCAISSER UN TICKET EN ATTENTE EXIGE LA CONNEXION
+// Vérification réelle (pas seulement « le wifi est allumé ») : internet, session valide, et une écriture de test
+// acceptée par le serveur. Si l'une échoue : message précis, le ticket reste en attente, rien n'est enregistré.
+// ============================================================================
+(function(){
+  var _cache = { t: 0, r: null };           // un contrôle réussi reste valable 20 s (évite de re-tester entre « Encaisser » et « Valider »)
+  function devId(){ try { var d = localStorage.getItem('kg-device-id'); if(!d) { d = Math.random().toString(36).slice(2, 10); localStorage.setItem('kg-device-id', d); } return d; } catch(e){ return 'x'; } }
+  function avecDelai(p, ms){ return Promise.race([Promise.resolve(p), new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('delai')); }, ms); })]); }
+
+  window._kgConnexionServeur = async function(force){
+    try { if(localStorage.getItem('kg-cx-off') === '1') return { ok: true }; } catch(e){}   // interrupteur de secours
+    if(!force && _cache.r && _cache.r.ok && Date.now() - _cache.t < 20000) return _cache.r;
+    var res = await verifier();
+    _cache = { t: Date.now(), r: res };
+    return res;
+  };
+  async function verifier(){
+    try {
+      if(typeof navigator !== 'undefined' && navigator.onLine === false) return { ok: false, code: 'hors_ligne', raison: 'pas d\'internet sur cet appareil' };
+      if(typeof KGSync === 'undefined' || !KGSync.isConnected) return { ok: false, code: 'non_connecte', raison: 'l\'appli n\'est pas connectée au serveur' };
+      var sb = KGSync.getClient(), rid = window._KG_RESTAURANT_ID || '';
+      if(!sb || !rid) return { ok: false, code: 'non_connecte', raison: 'restaurant non identifié, reconnectez-vous' };
+      // session : on tente de la renouveler si elle expire bientôt, puis on exige qu'elle existe
+      try { if(typeof _kgEnsureSession === 'function') await avecDelai(_kgEnsureSession(false), 12000); } catch(e){}
+      var ses = null;
+      try { var g = await avecDelai(sb.auth.getSession(), 8000); ses = g && g.data && g.data.session; } catch(e){}
+      if(!ses) return { ok: false, code: 'session', raison: 'votre session a expiré, reconnectez-vous' };
+      // lecture réelle sur le serveur : prouve qu'il répond ET que le jeton de connexion de l'utilisateur est valide
+      // (un jeton expiré est refusé en 401). Aucune écriture, aucune ligne ajoutée à la base.
+      var essai = async function(){
+        return avecDelai(sb.from('ventes_caisse').select('order_num').eq('restaurant_id', rid).limit(1), 8000);
+      };
+      var r = await essai();
+      if(r && r.error) {
+        var m = String(r.error.message || r.error.code || '');
+        if(/401|403|JWT|PGRST301|42501|row-level/i.test(m + ' ' + (r.error.code || ''))) {
+          try { if(typeof _kgEnsureSession === 'function') await avecDelai(_kgEnsureSession(true), 12000); } catch(e){}
+          r = await essai();
+        }
+        if(r && r.error) return { ok: false, code: 'refus', raison: 'le serveur refuse la connexion (' + String(r.error.message || r.error.code || 'erreur').slice(0, 60) + ')' };
+      }
+      return { ok: true };
+    } catch(e) {
+      return { ok: false, code: 'injoignable', raison: 'serveur injoignable ou trop lent' };
+    }
+  }
+  window._kgRefusSansConnexion = function(cx, ctx){
+    _cache = { t: 0, r: null };
+    var fin = ctx === 'vente' ? 'Le panier est conservé.' : (ctx === 'addition' ? 'L\'addition reste en attente.' : 'Le ticket reste en attente.');
+    var msg = '🔒 ' + (ctx === 'vente' ? 'Vente impossible' : 'Encaissement impossible') + ' : ' + (cx && cx.raison ? cx.raison : 'pas de connexion') + '. Rétablissez la connexion puis réessayez. ' + fin;
+    if(typeof showNotif === 'function') showNotif(msg);
+  };
+
+  // Dès l'appui sur « Encaisser » : on teste avant même d'ouvrir la fenêtre de paiement
+  if(typeof window.ouvrirPaiementAttente === 'function') {
+    var _o = window.ouvrirPaiementAttente, _occupe = false;
+    window.ouvrirPaiementAttente = async function(ticketId){
+      if(_occupe) return; _occupe = true;
+      var lent = setTimeout(function(){ if(typeof showNotif === 'function') showNotif('⏳ Vérification de la connexion…'); }, 1200);
+      try {
+        var cx = await window._kgConnexionServeur();
+        clearTimeout(lent);
+        if(!cx.ok) { window._kgRefusSansConnexion(cx); return; }
+        return _o.call(this, ticketId);
+      } finally { clearTimeout(lent); _occupe = false; }
     };
   }
 })();
