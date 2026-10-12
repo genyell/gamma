@@ -15010,7 +15010,8 @@ async function validateOrder() {
   if(!VENTES_PAR_CAISSE[caisse]) VENTES_PAR_CAISSE[caisse] = [];
   // Charger depuis Supabase seulement si liste vide (ex: premier accès ou redémarrage)
   if(VENTES_PAR_CAISSE[caisse].length === 0) {
-    await _loadVentesSupabase(caisse);
+    // ✅ v107 : au plus 3 s d'attente (le chargement continue en arrière-plan) pour ne pas retarder le ticket
+    try { await Promise.race([_loadVentesSupabase(caisse), new Promise(r => setTimeout(r, 3000))]); } catch(e) {}
   }
 
   // ✅ FIX v42 : Calcul payMethods si mode mixte
@@ -15073,8 +15074,8 @@ async function validateOrder() {
   // Deduire les ingredients du stock (recette)
   // ✅ FIX DÉFINITIF : charger les recettes depuis menu_items Supabase AVANT déduction (await)
   // Garantit que MENU a les recettes même si pullAll async n'est pas encore terminé
-  await _ensureRecettesLoaded(itemsSaved);
-  await deduireStockVente(itemsSaved, caisse);
+  // ✅ v106 : la déduction du stock se fait en arrière-plan — l'impression du ticket ne l'attend plus
+  (async () => { try { await _ensureRecettesLoaded(itemsSaved); await deduireStockVente(itemsSaved, caisse); } catch(e) { console.warn('[stock vente]', e); } })();
 
   // Synchroniser CAISSES en temps réel
   const caisseObj = CAISSES.find(c => c.name === caisse);
@@ -41991,7 +41992,7 @@ async function _validerAdditionCaisse(billId) {
     }
 
     // Déduire le stock
-    if(typeof deduireStockVente === 'function' && items.length) { await _ensureRecettesLoaded(items); await deduireStockVente(items, caisse); }
+    if(typeof deduireStockVente === 'function' && items.length) { (async () => { try { await _ensureRecettesLoaded(items); await deduireStockVente(items, caisse); } catch(e) { console.warn('[stock vente]', e); } })(); } // ✅ v106 : en arrière-plan
 
     // Imprimer ticket
     setTimeout(() => { if(typeof printTicket === 'function') printTicket(venteSaved, caisse); }, 400);
@@ -43373,7 +43374,7 @@ async function updateQRStatut(orderId, newStatut) {
       }
 
       // ③ Déduire le stock selon les recettes
-      if(typeof deduireStockVente === 'function') { await _ensureRecettesLoaded(items); await deduireStockVente(items, caisse); }
+      if(typeof deduireStockVente === 'function') { (async () => { try { await _ensureRecettesLoaded(items); await deduireStockVente(items, caisse); } catch(e) { console.warn('[stock vente]', e); } })(); } // ✅ v106 : en arrière-plan
 
       // ④ Imprimer le ticket (avec délai pour laisser le DOM respirer)
       setTimeout(function() {
@@ -47190,14 +47191,21 @@ async function _kgSyncTicketTombstones(sb, rid) {
       remote = Array.isArray(v) ? v : (v && v.ids) || [];
     }
   } catch(e) {}
+  // ✅ v106 : AVANT, la liste était tronquée à 300 en gardant la FIN de [distant + local]. Dès 300 ids, deux
+  // appareils se renvoyaient la liste en boucle (chacun écrasait celle de l'autre, ~40 requêtes/s en plein service,
+  // ce qui ralentissait les caisses). Maintenant : union triée (les ids contiennent l'heure → ordre identique sur
+  // tous les appareils), plafond 1000, et on n'écrit que si la liste du serveur change réellement.
+  const _KG_TOMB_MAX = 1000;
+  const _norm = (arr) => Array.from(new Set(arr)).sort().slice(-_KG_TOMB_MAX);
+  const mergedAll = _norm([...remote, ...local]);
   const rs = new Set(remote), ls = new Set(local);
-  const missingLocal  = remote.filter(id => !ls.has(id));
-  const missingRemote = local.filter(id => !rs.has(id));
+  const missingLocal  = mergedAll.filter(id => !ls.has(id));
+  const missingRemote = mergedAll.filter(id => !rs.has(id));
   if(missingLocal.length) {
-    try { _lsSet('kg-tickets-valides', JSON.stringify([...local, ...missingLocal].slice(-300))); } catch(e) {}
+    try { _lsSet('kg-tickets-valides', JSON.stringify(mergedAll)); } catch(e) {}
   }
   if(missingRemote.length) {
-    const merged = [...remote, ...missingRemote].slice(-300);
+    const merged = mergedAll;
     const { error: upErr } = await sb.from('kg_sync').upsert(
       { key: key, value: JSON.stringify(merged), restaurant_id: rid, updated_at: new Date().toISOString() },
       { onConflict: 'key' });
@@ -47676,7 +47684,7 @@ async function validerTicketAttente() {
   // "En attente" (contrairement à un encaissement direct). On aligne ce
   // chemin sur les autres points de vente pour que les articles liés
   // sortent bien du stock au moment de l'encaissement.
-  if(typeof deduireStockVente === 'function') { await _ensureRecettesLoaded(ticket.items); await deduireStockVente(ticket.items, caisse); }
+  if(typeof deduireStockVente === 'function') { (async () => { try { await _ensureRecettesLoaded(ticket.items); await deduireStockVente(ticket.items, caisse); } catch(e) { console.warn('[stock vente]', e); } })(); } // ✅ v106 : en arrière-plan
 
   // MAJ caisse
   const caisseObj = (typeof CAISSES !== 'undefined' ? CAISSES : []).find(c => c.name === caisse);
@@ -49610,13 +49618,26 @@ function exportHotelHistoriqueCSV() {
   function devId(){ try { var d = localStorage.getItem('kg-device-id'); if(!d) { d = Math.random().toString(36).slice(2, 10); localStorage.setItem('kg-device-id', d); } return d; } catch(e){ return 'x'; } }
   function avecDelai(p, ms){ return Promise.race([Promise.resolve(p), new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('delai')); }, ms); })]); }
 
+  // ✅ v107 : VITESSE. Avant, chaque vente (au-delà de 20 s après la précédente) attendait un contrôle complet
+  // (renouvellement de session + lecture de test, jusqu'à 12 s + 8 s) AVANT d'enregistrer et d'imprimer le ticket.
+  // Maintenant : un « battement » en arrière-plan refait ce contrôle toutes les 40 s, le résultat reste valable 90 s,
+  // et la vente l'utilise instantanément. Si le dernier contrôle a ÉCHOUÉ (ou s'il est trop ancien), la vente refait un
+  // contrôle réel comme avant : la protection contre les ventes « fantômes » hors ligne est conservée.
+  var _enCours = null;
   window._kgConnexionServeur = async function(force){
     try { if(localStorage.getItem('kg-cx-off') === '1') return { ok: true }; } catch(e){}   // interrupteur de secours
-    if(!force && _cache.r && _cache.r.ok && Date.now() - _cache.t < 20000) return _cache.r;
-    var res = await verifier();
-    _cache = { t: Date.now(), r: res };
-    return res;
+    if(!force && _cache.r && _cache.r.ok && Date.now() - _cache.t < 90000) return _cache.r;
+    if(_enCours) return _enCours;                       // un contrôle est déjà en cours : on s'y joint (pas de doublon)
+    _enCours = verifier().then(function(res){ _cache = { t: Date.now(), r: res }; return res; })
+                         .then(function(res){ _enCours = null; return res; }, function(e){ _enCours = null; throw e; });
+    return _enCours;
   };
+  // ✅ v108 : battement toutes les 40 s (au lieu de 25 s) et UNIQUEMENT sur un appareil où une caisse est ouverte
+  // (un écran d'administration n'encaisse pas : pas besoin de contrôler en continu → moins de requêtes sur le serveur)
+  function caisseOuverte(){ try { return typeof sessionCaisseActive !== 'undefined' && !!(sessionCaisseActive && sessionCaisseActive.caisse); } catch(e){ return false; } }
+  setInterval(function(){
+    try { if(document.hidden || _enCours || !caisseOuverte()) return; window._kgConnexionServeur(true).catch(function(){}); } catch(e){}
+  }, 40000);
   async function verifier(){
     try {
       if(typeof navigator !== 'undefined' && navigator.onLine === false) return { ok: false, code: 'hors_ligne', raison: 'pas d\'internet sur cet appareil' };
@@ -49630,10 +49651,19 @@ function exportHotelHistoriqueCSV() {
       if(!ses) return { ok: false, code: 'session', raison: 'votre session a expiré, reconnectez-vous' };
       // lecture réelle sur le serveur : prouve qu'il répond ET que le jeton de connexion de l'utilisateur est valide
       // (un jeton expiré est refusé en 401). Aucune écriture, aucune ligne ajoutée à la base.
+      // ✅ v110 : une coupure réseau PASSAGÈRE (« Failed to fetch », délai dépassé : wifi qui décroche, connexion
+      // restée ouverte trop longtemps…) ne doit plus bloquer une vente. On réessaie jusqu'à 2 fois avant de refuser.
       var essai = async function(){
-        return avecDelai(sb.from('ventes_caisse').select('order_num').eq('restaurant_id', rid).limit(1), 8000);
+        try { return await avecDelai(sb.from('ventes_caisse').select('order_num').eq('restaurant_id', rid).limit(1), 8000); }
+        catch(e) { return { error: { message: String((e && e.message) || 'delai'), reseau: true } }; }
       };
+      var estReseau = function(r){ return !!(r && r.error && (r.error.reseau || /failed to fetch|networkerror|network request failed|load failed|fetch|timeout|delai/i.test(String(r.error.message || '')))); };
       var r = await essai();
+      for(var _t = 0; _t < 2 && estReseau(r); _t++) {
+        await new Promise(function(ok){ setTimeout(ok, 500 * (_t + 1)); });
+        r = await essai();
+      }
+      if(estReseau(r)) return { ok: false, code: 'injoignable', raison: 'la connexion internet de cet appareil est coupée ou instable' };
       if(r && r.error) {
         var m = String(r.error.message || r.error.code || '');
         if(/401|403|JWT|PGRST301|42501|row-level/i.test(m + ' ' + (r.error.code || ''))) {
@@ -49653,6 +49683,26 @@ function exportHotelHistoriqueCSV() {
     var msg = '🔒 ' + (ctx === 'vente' ? 'Vente impossible' : 'Encaissement impossible') + ' : ' + (cx && cx.raison ? cx.raison : 'pas de connexion') + '. Rétablissez la connexion puis réessayez. ' + fin;
     if(typeof showNotif === 'function') showNotif(msg);
   };
+
+  // ✅ v109 : RÉSERVE DE NUMÉROS DE TICKET prête avant la vente. La réserve (20 numéros) n'est chargée qu'au moment où
+  // une vente en a besoin : après une ouverture/rechargement de l'appli, la 1re vente attendait donc le serveur pour
+  // obtenir son numéro. Maintenant, dès que le caissier ouvre la fenêtre « Valider la commande », la réserve est
+  // chargée en arrière-plan : le numéro est déjà là quand il confirme le paiement. (Aucun numéro n'est gaspillé
+  // si aucune vente n'est faite : on ne charge que quand une commande est en cours de validation.)
+  if(typeof window.openConfirmTicket === 'function') {
+    var _oc = window.openConfirmTicket;
+    window.openConfirmTicket = function(){
+      var out = _oc.apply(this, arguments);
+      try {
+        var c = (typeof sessionCaisseActive !== 'undefined' && sessionCaisseActive && sessionCaisseActive.caisse) ||
+                (typeof currentUser !== 'undefined' && currentUser && currentUser.caisse !== 'Toutes' ? currentUser.caisse : 'Caisse 1');
+        var p = (typeof _ticketPool !== 'undefined') ? _ticketPool[c] : null;
+        if((!p || p.next > p.max) && typeof _refillTicketPool === 'function') _refillTicketPool(c).catch(function(){});
+        if(typeof window._kgConnexionServeur === 'function') window._kgConnexionServeur().catch(function(){}); // contrôle prêt aussi
+      } catch(e){}
+      return out;
+    };
+  }
 
   // Dès l'appui sur « Encaisser » : on teste avant même d'ouvrir la fenêtre de paiement
   if(typeof window.ouvrirPaiementAttente === 'function') {
