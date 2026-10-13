@@ -13829,7 +13829,7 @@ async function _getNextTicketAttenteNum() {
 // ✅ PERSISTANCE VENTES — écriture immédiate dans ventes_caisse Supabase
 // ✅ FIX v8 : Vider la table ventes_caisse dans Supabase après clôture
 // Sans ça, le pullAll restaure les ventes depuis ventes_caisse après chaque clôture
-async function _clearVentesCaisseSupabase(caisse) {
+async function _clearVentesCaisseSupabase(caisse, info) {
   try {
     if(typeof KGSync === 'undefined' || !KGSync.isConnected) return;
     const sb  = KGSync.getClient();
@@ -13845,10 +13845,21 @@ async function _clearVentesCaisseSupabase(caisse) {
     // Une vraie clôture Z doit purger TOUT l'historique non clôturé de cette
     // caisse, sans filtre de date, pour rester cohérente avec la fenêtre de
     // lecture de 30 jours.
-    const { error } = await sb.from('ventes_caisse')
-      .delete()
-      .eq('restaurant_id', rid)
-      .eq('caisse', caisse);
+    // v113 : ne purger que (a) les tickets reellement comptes dans la cloture, (b) les lignes creees AVANT
+    // l'instant du decompte (orphelines anciennes). Une vente arrivee apres reste en base pour le service suivant.
+    let error = null;
+    if(info && info.ts) {
+      const r1 = await sb.from('ventes_caisse').delete().eq('restaurant_id', rid).eq('caisse', caisse).lt('created_at', info.ts);
+      error = r1.error;
+      const nums = (info.nums || []);
+      for(let i = 0; i < nums.length && !error; i += 50) {
+        const r2 = await sb.from('ventes_caisse').delete().eq('restaurant_id', rid).eq('caisse', caisse).in('order_num', nums.slice(i, i + 50));
+        error = r2.error;
+      }
+    } else {
+      const r0 = await sb.from('ventes_caisse').delete().eq('restaurant_id', rid).eq('caisse', caisse);
+      error = r0.error;
+    }
     if(error) console.warn('[ventes_caisse] Erreur clear:', error);
     else console.log('[ventes_caisse] ✅ Ventes supprimées après clôture :', caisse);
   } catch(e) {
@@ -13936,9 +13947,41 @@ function _kgOutboxPeriime(caisse, orderNum) {
       _lsSet(fk, JSON.stringify(f));
     } catch(_e) {}
     _kgOutboxRemove(caisse, orderNum);
+    // v111 ANTI-PERTE : la vente n'est plus gardee uniquement dans ce navigateur.
+    // On l'archive cote serveur (table ventes, deja cloturee) pour qu'elle apparaisse dans l'historique.
+    try { _kgArchiveVenteOrpheline(caisse, e.vente); } catch(_eA) {}
     return true;
   }
   return false;
+}
+// v111 : archive une vente mise de cote (service deja cloture) directement dans la table ventes.
+// Idempotent (upsert sur restaurant_id,ticket_ref). En cas d'echec, la vente reste dans kg-ventes-save-failed
+// et sera retentee par _kgFlushOutbox toutes les 30 s.
+async function _kgArchiveVenteOrpheline(caisse, vente) {
+  if(!vente || !vente.orderNum) return false;
+  try {
+    if(typeof KGSync === 'undefined' || !KGSync.isConnected) return false;
+    const sb = KGSync.getClient(), rid = window._KG_RESTAURANT_ID;
+    if(!sb || !rid) return false;
+    const n = parseInt(String(vente.orderNum).replace(/\D/g, ''), 10);
+    const d = vente.date ? new Date(vente.date) : null;
+    const row = {
+      restaurant_id: rid, ticket_ref: vente.orderNum, ticket_number: Number.isFinite(n) ? n : null,
+      caisse_nom: caisse, total: vente.total || 0, sub: vente.sousTotal != null ? vente.sousTotal : (vente.total || 0),
+      tva: vente.tva || 0, pay_method: vente.payMethod || null, cloturee: true, date_cloture: new Date().toISOString()
+    };
+    if(d && !isNaN(d.getTime())) row.created_at = d.toISOString();
+    const { data: vr, error } = await _withTimeout(sb.from('ventes').upsert(row, { onConflict: 'restaurant_id,ticket_ref' }).select('id').single(), 20000, 'ventes orpheline');
+    if(error) throw error;
+    if(vr && Array.isArray(vente.items) && vente.items.length) {
+      await sb.from('vente_items').delete().eq('vente_id', vr.id);
+      await sb.from('vente_items').insert(vente.items.map(it => ({ vente_id: vr.id, item_id: it.id || null, name: it.name || 'Article', price: it.price || 0, qty: it.qty || 1, icon: it.icon || null, category: it.category || null })));
+    }
+    // Succes : on la retire de la liste locale des echecs
+    const fk = 'kg-ventes-save-failed';
+    _lsSet(fk, JSON.stringify(JSON.parse(_lsGet(fk) || '[]').filter(x => !(x.caisse === caisse && x.vente && x.vente.orderNum === vente.orderNum))));
+    return true;
+  } catch(e) { console.warn('[v111] archivage vente orpheline echoue (sera retente):', e); return false; }
 }
 async function _kgEnsureSession(force) {
   try {
@@ -13962,11 +14005,19 @@ async function _kgFlushOutbox() {
   _kgFlushBusy = true;
   try {
     await _kgEnsureSession(false);
+    // v112 : relire les clotures distantes AVANT de renvoyer (mobile = polling lent, pas de _cloture_ping)
+    try { if(KGSync.refreshClotures) await KGSync.refreshClotures(); } catch(_eR) {}
     for(const e of _kgOutboxRead()) {
       if(!e || !e.vente) continue;
       if(_kgOutboxPeriime(e.caisse, e.vente.orderNum)) continue;
       await _saveVenteSupabase(e.caisse, e.vente, 0);
     }
+    // v111 : retenter l'archivage des ventes mises de cote (jamais perdues)
+    try {
+      for(const f of JSON.parse(_lsGet('kg-ventes-save-failed') || '[]')) {
+        if(f && f.vente) await _kgArchiveVenteOrpheline(f.caisse, f.vente);
+      }
+    } catch(_eF) {}
   } finally { _kgFlushBusy = false; }
 }
 window._kgFlushOutbox = _kgFlushOutbox;
@@ -28097,6 +28148,7 @@ async function cloturerCaisse() {
           ? _cashierFromVentes
           : 'Caissier ' + caisse; // Fallback lisible : "Caissier Caisse 2"
     const now      = new Date();
+    const _kgCloLoadTs = new Date().toISOString(); // v113 : instant AVANT la relecture serveur des ventes
 
     // ✅ v87 : AVANT, on ne regardait le serveur que si la liste de CET appareil était vide. Si l'appareil
     // qui clôture n'avait qu'une partie des tickets, la clôture était partielle, puis TOUTES les ventes du
@@ -28262,6 +28314,10 @@ async function cloturerCaisse() {
     const soldeNet = totalTTC - totalDepenses;
 
     // 4. Enregistrer dans l'historique
+    // v113 : memoriser EXACTEMENT les tickets comptes dans cette cloture (et l'instant du decompte).
+    // La purge serveur ne doit effacer que ceux-la : une vente encaissee sur un autre appareil
+    // pendant la cloture ne doit jamais etre supprimee sans avoir ete comptee.
+    const _kgCloInfo = { nums: (ventes || []).map(v => v && v.orderNum).filter(Boolean), ts: _kgCloLoadTs };
     const cloture = {
       // ✅ FIX PERTE DE CLÔTURES : identifiant unique garanti à la création.
       // Avant ce correctif, une clôture n'avait pas d'id → le système de fusion
@@ -28531,10 +28587,18 @@ async function cloturerCaisse() {
               .update({ cloturee: true, date_cloture: new Date().toISOString() })
               .eq('restaurant_id', _ridZ)
               .eq('caisse_nom', caisse)
-              .eq('cloturee', false), 5000);
+              .eq('cloturee', false)
+              .lte('created_at', _kgCloInfo.ts), 5000);
+            for(let _i = 0; _i < _kgCloInfo.nums.length; _i += 50) {
+              await _withTimeout(_sbZ.from('ventes')
+                .update({ cloturee: true, date_cloture: new Date().toISOString() })
+                .eq('restaurant_id', _ridZ)
+                .eq('caisse_nom', caisse)
+                .in('ticket_ref', _kgCloInfo.nums.slice(_i, _i + 50)), 5000);
+            }
           }
         } catch(eZ) { console.warn('[ventes] clôture immédiate échouée (filet de sécurité au login prendra le relais):', eZ); }
-        await _withTimeout(_clearVentesCaisseSupabase(caisse), 6000);
+        await _withTimeout(_clearVentesCaisseSupabase(caisse, _kgCloInfo), 6000);
         // ✅ FIX GARANTIE ANTI-PERTE : sauver CETTE clôture dans sa propre case
         // indépendante, en plus du bloc partagé — ne peut jamais être écrasée
         // par une autre clôture, quel que soit le scénario de concurrence.
@@ -30667,6 +30731,34 @@ const KGSync = (() => {
     } catch(e) { console.warn('[_pullClotureUniques] échec:', e); }
     return recovered;
   }
+  // ✅ v112 : rafraichissement LEGER des clotures (une seule ligne clotures_data, sans pullAll).
+  // Utilise par _kgFlushOutbox pour savoir si une autre caisse a cloture pendant que cette caisse
+  // etait hors-ligne / en polling lent (mobile) -> evite de reinjecter une vente dans un service cloture.
+  let _kgRefCloBusy = false;
+  async function _kgRefreshClotures() {
+    if(_kgRefCloBusy) return false;
+    _kgRefCloBusy = true;
+    try {
+      if(!client || !syncEnabled || !window._KG_RESTAURANT_ID) return false;
+      const { data: rows, error } = await _withTimeout(client.from(TABLE).select('value').eq('key', _rkey('clotures_data')).limit(1), 8000, 'refresh clotures');
+      if(error) throw error;
+      const d = rows && rows[0] ? dec(rows[0].value) : null;
+      const remote = d && Array.isArray(d.items) ? d.items : [];
+      if(!remote.length) return false;
+      const map = new Map();
+      (Array.isArray(HISTORIQUE_CLOTURES) ? HISTORIQUE_CLOTURES : []).forEach(h => { if(h) map.set(_clotureKey(h), h); });
+      let added = 0;
+      remote.forEach(h => {
+        if(!h) return;
+        const k = _clotureKey(h);
+        if(!map.has(k)) { map.set(k, h); added++; }
+      });
+      if(typeof CLOTURES_SUPPRIMEES !== 'undefined') CLOTURES_SUPPRIMEES.forEach(k => map.delete(k));
+      if(added) HISTORIQUE_CLOTURES = _dedupHistoriqueClotures(Array.from(map.values()));
+      return added > 0;
+    } catch(e) { console.warn('[v112] refresh clotures echoue:', e && e.message || e); return false; }
+    finally { _kgRefCloBusy = false; }
+  }
   // ============================================================================
   // ✅ v81 : TICKETS DES CLÔTURES CHARGÉS À LA DEMANDE
   // Avant : tous les tickets de toutes les clôtures (5,7 Mo) étaient téléchargés à chaque ouverture.
@@ -32646,6 +32738,7 @@ const KGSync = (() => {
       allegerBase: async () => { _tkLast = null; await pushClotures(); return _tkLast; },
       last: () => _tkLast
     },
+    refreshClotures: _kgRefreshClotures, // ✅ v112 : relecture legere des clotures avant renvoi outbox
     pullClientsOnly: _pullClientsOnly, // ✅ FIX LENTEUR ONGLET CLIENTS : pull ciblé, léger, sans throttle 8s
     flushAllPending: _flushAllPending, // ✅ FIX MULTI-RESTAURANT : à appeler avant tout changement de compte/restaurant
     retryFailedSyncs: _retryFailedSyncs, // ✅ FIX FIABILITÉ : renvoyer les données qui avaient définitivement échoué
