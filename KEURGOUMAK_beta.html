@@ -13851,7 +13851,7 @@ async function _clearVentesCaisseSupabase(caisse, info) {
     if(info && info.ts) {
       const r1 = await sb.from('ventes_caisse').delete().eq('restaurant_id', rid).eq('caisse', caisse).lt('created_at', info.ts);
       error = r1.error;
-      const nums = (info.nums || []);
+      const nums = (info.nums || []).concat(info.extra || []);
       for(let i = 0; i < nums.length && !error; i += 50) {
         const r2 = await sb.from('ventes_caisse').delete().eq('restaurant_id', rid).eq('caisse', caisse).in('order_num', nums.slice(i, i + 50));
         error = r2.error;
@@ -13997,6 +13997,30 @@ async function _kgEnsureSession(force) {
     }
   } catch(e) { console.warn('[v89] session:', e && e.message || e); }
 }
+// ✅ v114 ANTI-DOUBLE-CLÔTURE : un ticket dont le numéro ET le montant correspondent à un ticket déjà marqué « clôturé »
+// sur le serveur (table ventes) n'est PAS renvoyé dans la caisse du jour (sinon il est recompté à la clôture suivante).
+// Prudence : les numéros de ticket peuvent être réutilisés pour des ventes différentes, donc on exige le même montant ;
+// le ticket n'est jamais supprimé : il est mis de côté dans « kg-ventes-save-failed » (visible dans « Tickets non envoyés »).
+async function _kgTicketDejaCloture(caisse, vente) {
+  try {
+    if(!vente || !vente.orderNum || typeof KGSync === 'undefined' || !KGSync.isConnected) return false;
+    const sb = KGSync.getClient(), rid = window._KG_RESTAURANT_ID;
+    if(!sb || !rid) return false;
+    const { data, error } = await _withTimeout(sb.from('ventes').select('id,total,date_cloture')
+      .eq('restaurant_id', rid).eq('caisse_nom', caisse).eq('ticket_ref', vente.orderNum).eq('cloturee', true).limit(1), 8000, 'verif ticket cloture');
+    if(error || !data || !data.length) return false;
+    if(Number(data[0].total) !== Number(vente.total || 0)) return false; // même numéro mais autre vente → on laisse passer
+    try {
+      const fk = 'kg-ventes-save-failed', f = JSON.parse(_lsGet(fk) || '[]');
+      if(!f.some(x => x && x.caisse === caisse && x.vente && x.vente.orderNum === vente.orderNum)) { f.push({ caisse: caisse, vente: vente, ts: Date.now() }); _lsSet(fk, JSON.stringify(f)); }
+    } catch(e) {}
+    try { _kgOutboxRemove(caisse, vente.orderNum); } catch(e) {}
+    try { if(VENTES_PAR_CAISSE[caisse]) VENTES_PAR_CAISSE[caisse] = VENTES_PAR_CAISSE[caisse].filter(v => v.orderNum !== vente.orderNum); } catch(e) {}
+    console.warn('[v114] ticket ' + vente.orderNum + ' déjà clôturé sur le serveur (même montant) : non renvoyé, mis de côté');
+    return true;
+  } catch(e) { return false; }
+}
+window._kgTicketDejaCloture = _kgTicketDejaCloture;
 let _kgFlushBusy = false;
 async function _kgFlushOutbox() {
   if(_kgFlushBusy || !window._KG_RESTAURANT_ID) return;
@@ -14010,6 +14034,7 @@ async function _kgFlushOutbox() {
     for(const e of _kgOutboxRead()) {
       if(!e || !e.vente) continue;
       if(_kgOutboxPeriime(e.caisse, e.vente.orderNum)) continue;
+      if(await _kgTicketDejaCloture(e.caisse, e.vente)) continue; // v114
       await _saveVenteSupabase(e.caisse, e.vente, 0);
     }
     // v111 : retenter l'archivage des ventes mises de cote (jamais perdues)
@@ -28263,6 +28288,40 @@ async function cloturerCaisse() {
       || (sessionCaisseActive && sessionCaisseActive.heureOuverture) || '08:00';
     const fonds    = (sessionCaisseActive && sessionCaisseActive.fonds) || 0;
 
+    // ✅ v114 ANTI-DOUBLE-COMPTAGE : détecter les tickets déjà clôturés par une clôture précédente (même numéro + même montant,
+    // marqués « clôturé » sur le serveur). On DEMANDE confirmation avant de les retirer (les numéros peuvent être réutilisés).
+    let _kgDejaClotures = [];
+    try {
+      if(ventes.length > 0 && typeof KGSync !== 'undefined' && KGSync.isConnected) {
+        const _sbD = KGSync.getClient(), _ridD = window._KG_RESTAURANT_ID;
+        if(_sbD && _ridD) {
+          const _numsD = ventes.map(v => v && v.orderNum).filter(Boolean);
+          const _totD = {};
+          for(let _i = 0; _i < _numsD.length; _i += 50) {
+            const { data: _rD, error: _eD } = await _withTimeout(_sbD.from('ventes').select('ticket_ref,total')
+              .eq('restaurant_id', _ridD).eq('caisse_nom', caisse).eq('cloturee', true)
+              .in('ticket_ref', _numsD.slice(_i, _i + 50)), 8000, 'verif doublons cloture');
+            if(_eD) throw _eD;
+            (_rD || []).forEach(r => { _totD[r.ticket_ref] = Number(r.total); });
+          }
+          const _susp = ventes.filter(v => v && _totD[v.orderNum] !== undefined && _totD[v.orderNum] === Number(v.total || 0));
+          if(_susp.length) {
+            const _sommeS = _susp.reduce((a, v) => a + (v.total || 0), 0);
+            const _liste = _susp.slice(0, 15).map(v => v.orderNum + ' (' + (v.total || 0).toLocaleString('fr-FR') + ' F)').join('\n') + (_susp.length > 15 ? '\n… +' + (_susp.length - 15) + ' autres' : '');
+            const _okEx = confirm('⚠️ ' + _susp.length + ' ticket(s) (' + _sommeS.toLocaleString('fr-FR') + ' F) semblent DÉJÀ avoir été clôturés dans une clôture précédente :\n\n' + _liste + '\n\nOK = les RETIRER de cette clôture (évite de compter 2 fois)\nAnnuler = les GARDER dans cette clôture');
+            if(_okEx) {
+              const _setS = new Set(_susp.map(v => v.orderNum));
+              _kgDejaClotures = Array.from(_setS);
+              ventes = ventes.filter(v => !(v && _setS.has(v.orderNum)));
+              VENTES_PAR_CAISSE[caisse] = ventes;
+              showNotif('✅ ' + _susp.length + ' ticket(s) déjà clôturé(s) retiré(s) (' + _sommeS.toLocaleString('fr-FR') + ' F)');
+              try { JOURNAL.unshift({ user: cashier, role: _deriveJournalRole(cashier), action: 'Anti-doublon clôture ' + caisse + ' : ' + _susp.length + ' ticket(s) déjà clôturé(s) retiré(s) (' + _sommeS + ' F) : ' + _kgDejaClotures.join(', '), module: caisse, date: now.toLocaleDateString('fr-FR').slice(0,8), heure: heureStr, ip: '—' }); } catch(eJ) {}
+            }
+          }
+        }
+      }
+    } catch(eDbl) { console.warn('[v114] contrôle anti-doublon ignoré :', eDbl); }
+
     // 3. Calculs sécurisés
     const totalHT      = ventes.reduce((a,v) => a + (v.sub   || 0), 0);
     const totalTVA     = ventes.reduce((a,v) => a + (v.tva   || 0), 0);
@@ -28317,7 +28376,7 @@ async function cloturerCaisse() {
     // v113 : memoriser EXACTEMENT les tickets comptes dans cette cloture (et l'instant du decompte).
     // La purge serveur ne doit effacer que ceux-la : une vente encaissee sur un autre appareil
     // pendant la cloture ne doit jamais etre supprimee sans avoir ete comptee.
-    const _kgCloInfo = { nums: (ventes || []).map(v => v && v.orderNum).filter(Boolean), ts: _kgCloLoadTs };
+    const _kgCloInfo = { nums: (ventes || []).map(v => v && v.orderNum).filter(Boolean), ts: _kgCloLoadTs, extra: _kgDejaClotures };
     const cloture = {
       // ✅ FIX PERTE DE CLÔTURES : identifiant unique garanti à la création.
       // Avant ce correctif, une clôture n'avait pas d'id → le système de fusion
@@ -49252,7 +49311,7 @@ function exportHotelHistoriqueCSV() {
     try {
       var d = await scanner(seulementCaisse);
       for(var i = 0; i < d.recentes.length; i++){
-        try { await _saveVenteSupabase(d.recentes[i].caisse, d.recentes[i].vente, 0); } catch(e){}   // 3 = dernier essai, sans boucle de réessais
+        try { if(await window._kgTicketDejaCloture(d.recentes[i].caisse, d.recentes[i].vente)) continue; /* v114 */ await _saveVenteSupabase(d.recentes[i].caisse, d.recentes[i].vente, 0); } catch(e){}   // 3 = dernier essai, sans boucle de réessais
       }
       if(d.recentes.length) d = await scanner(seulementCaisse);
       return d;
