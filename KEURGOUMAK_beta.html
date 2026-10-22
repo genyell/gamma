@@ -13967,6 +13967,7 @@ async function _kgArchiveVenteOrpheline(caisse, vente) {
     const d = vente.date ? new Date(vente.date) : null;
     const row = {
       restaurant_id: rid, ticket_ref: vente.orderNum, ticket_number: Number.isFinite(n) ? n : null,
+      ...(vente.uid ? { ticket_uid: vente.uid } : {}),
       caisse_nom: caisse, total: vente.total || 0, sub: vente.sousTotal != null ? vente.sousTotal : (vente.total || 0),
       tva: vente.tva || 0, pay_method: vente.payMethod || null, cloturee: true, date_cloture: new Date().toISOString()
     };
@@ -14006,10 +14007,18 @@ async function _kgTicketDejaCloture(caisse, vente) {
     if(!vente || !vente.orderNum || typeof KGSync === 'undefined' || !KGSync.isConnected) return false;
     const sb = KGSync.getClient(), rid = window._KG_RESTAURANT_ID;
     if(!sb || !rid) return false;
-    const { data, error } = await _withTimeout(sb.from('ventes').select('id,total,date_cloture')
-      .eq('restaurant_id', rid).eq('caisse_nom', caisse).eq('ticket_ref', vente.orderNum).eq('cloturee', true).limit(1), 8000, 'verif ticket cloture');
-    if(error || !data || !data.length) return false;
-    if(Number(data[0].total) !== Number(vente.total || 0)) return false; // même numéro mais autre vente → on laisse passer
+    let _deja = false;
+    if(vente.uid) {
+      // v115 : identifiant unique => correspondance exacte, aucun faux positif possible
+      const r1 = await _withTimeout(sb.from('ventes').select('id').eq('restaurant_id', rid).eq('ticket_uid', vente.uid).eq('cloturee', true).limit(1), 8000, 'verif uid cloture');
+      if(r1 && !r1.error && r1.data && r1.data.length) _deja = true;
+    } else {
+      // ancien ticket sans uid : repli prudent (meme numero + meme montant, ligne serveur elle aussi sans uid)
+      const r2 = await _withTimeout(sb.from('ventes').select('id,total,ticket_uid')
+        .eq('restaurant_id', rid).eq('caisse_nom', caisse).eq('ticket_ref', vente.orderNum).eq('cloturee', true).limit(1), 8000, 'verif ticket cloture');
+      if(r2 && !r2.error && r2.data && r2.data.length && !r2.data[0].ticket_uid && Number(r2.data[0].total) === Number(vente.total || 0)) _deja = true;
+    }
+    if(!_deja) return false;
     try {
       const fk = 'kg-ventes-save-failed', f = JSON.parse(_lsGet(fk) || '[]');
       if(!f.some(x => x && x.caisse === caisse && x.vente && x.vente.orderNum === vente.orderNum)) { f.push({ caisse: caisse, vente: vente, ts: Date.now() }); _lsSet(fk, JSON.stringify(f)); }
@@ -14052,6 +14061,14 @@ setTimeout(() => { _kgFlushOutbox().catch(() => {}); }, 40000); // ✅ v100 : at
 window.addEventListener('online', () => { setTimeout(() => { _kgEnsureSession(true).then(_kgFlushOutbox).catch(() => {}); }, 2000); });
 document.addEventListener('visibilitychange', () => { if(!document.hidden) { _kgEnsureSession(false).then(_kgFlushOutbox).catch(() => {}); } });
 
+// v115 IDENTIFIANT UNIQUE PAR TICKET : genere UNE fois, a la creation de la vente, puis conserve partout
+// (liste locale, file d'attente d'envoi, serveur, clotures). Ne change jamais, meme si le numero est reutilise.
+function _kgNewUid() {
+  try { if(window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID(); } catch(e) {}
+  const h = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
+  return h() + h() + '-' + h() + '-' + h() + '-' + h() + '-' + h() + h() + h();
+}
+window._kgNewUid = _kgNewUid;
 async function _saveVenteSupabase(caisse, vente, _retryCount) {
   _retryCount = _retryCount || 0;
   if(_retryCount === 0) _kgOutboxAdd(caisse, vente); // ✅ v89 : écrit localement AVANT l'envoi
@@ -14064,6 +14081,7 @@ async function _saveVenteSupabase(caisse, vente, _retryCount) {
       restaurant_id: rid,
       caisse:        caisse,
       order_num:     vente.orderNum,
+      ...(vente.uid ? { ticket_uid: vente.uid } : {}),
       cashier:       vente.cashier || null,
       client:        vente.client && vente.client !== 'undefined' ? vente.client : 'Client', // ✅ FIX v12
       total:         vente.total   || 0,
@@ -14090,6 +14108,7 @@ async function _saveVenteSupabase(caisse, vente, _retryCount) {
       const { data: venteRow, error: errArch } = await sb.from('ventes').upsert({
         restaurant_id: rid,
         ticket_ref:    vente.orderNum || null,
+        ...(vente.uid ? { ticket_uid: vente.uid } : {}),
         ticket_number: Number.isFinite(ticketNumParsed) ? ticketNumParsed : null,
         caisse_nom:    caisse,
         total:         vente.total || 0,
@@ -14170,6 +14189,7 @@ async function _loadVentesSupabase(caisse, sinceMs) {
     // On construit d'abord la liste distante, puis on ajoute les ventes locales absentes de Supabase
     const _remoteVentes = data.map(row => ({
       orderNum:  row.order_num,
+      uid:       row.ticket_uid || undefined,
       items:     (row.lignes || []).map(i => {
         const m = (typeof MENU !== 'undefined' ? MENU : []).find(m => m.name === (i.name||i.nom) || m.id === i.id);
         return { ...i, image_url: i.image_url || (i.icon&&i.icon.startsWith('http')?i.icon:null) || m?.image_url || (m?.icon&&m.icon.startsWith('http')?m.icon:null) };
@@ -15106,6 +15126,7 @@ async function validateOrder() {
   }
 
   const venteSaved = {
+    uid: _kgNewUid(),
     orderNum, items: itemsSaved, sub: ht, tva: tvaIncluse, total: totalTTC,
     remisePct, remiseMontant,
     payMethod: confirmPayMethod,
@@ -26510,6 +26531,7 @@ async function initDashboard() {
           if(!VENTES_PAR_CAISSE[caisse].find(v => v.orderNum === row.order_num)) {
             VENTES_PAR_CAISSE[caisse].push({
               orderNum:  row.order_num,
+      uid:       row.ticket_uid || undefined,
               items:     (row.lignes || []).map(i => {
                 const m = (typeof MENU !== 'undefined' ? MENU : []).find(m => m.name === (i.name||i.nom) || m.id === i.id);
                 return { ...i, image_url: i.image_url || (i.icon&&i.icon.startsWith('http')?i.icon:null) || m?.image_url || (m?.icon&&m.icon.startsWith('http')?m.icon:null) };
@@ -28076,6 +28098,16 @@ function confirmerCloturerCaisse() {
   if(!confirm('🔒 Confirmer la clôture de :\n\n' + _label + '\n' + _nbVentes + ' ticket(s)\n\nCette action est irréversible. Continuer ?')) {
     return;
   }
+  // v114 : comptage OBLIGATOIRE des especes avant de cloturer (sinon le logiciel ne peut jamais detecter un ecart)
+  let _cnt = null;
+  for(let _t = 0; _t < 3 && _cnt === null; _t++) {
+    const _r = prompt('\uD83D\uDCB5 Comptez les ESPECES dans le tiroir (fonds de caisse inclus) et saisissez le montant en F :\n\n(Annuler = ne pas cloturer)', '');
+    if(_r === null) return;
+    const _n = parseInt(String(_r).replace(/[^0-9]/g, ''), 10);
+    if(!isNaN(_n) && _n >= 0) _cnt = _n;
+  }
+  if(_cnt === null) { showNotif('\u26A0\uFE0F Montant compte invalide : cloture annulee'); return; }
+  window._kgMontantCompte = _cnt;
   cloturerCaisse();
 }
 
@@ -28298,13 +28330,27 @@ async function cloturerCaisse() {
           const _numsD = ventes.map(v => v && v.orderNum).filter(Boolean);
           const _totD = {};
           for(let _i = 0; _i < _numsD.length; _i += 50) {
-            const { data: _rD, error: _eD } = await _withTimeout(_sbD.from('ventes').select('ticket_ref,total')
+            const { data: _rD, error: _eD } = await _withTimeout(_sbD.from('ventes').select('ticket_ref,total,ticket_uid')
               .eq('restaurant_id', _ridD).eq('caisse_nom', caisse).eq('cloturee', true)
               .in('ticket_ref', _numsD.slice(_i, _i + 50)), 8000, 'verif doublons cloture');
             if(_eD) throw _eD;
-            (_rD || []).forEach(r => { _totD[r.ticket_ref] = Number(r.total); });
+            (_rD || []).forEach(r => { _totD[r.ticket_ref] = { total: Number(r.total), uid: r.ticket_uid || null }; });
           }
-          const _susp = ventes.filter(v => v && _totD[v.orderNum] !== undefined && _totD[v.orderNum] === Number(v.total || 0));
+          // v115 : tickets avec identifiant unique deja clotures (correspondance exacte, meme si le numero a change)
+          const _closedUid = new Set();
+          const _uidsD = ventes.map(v => v && v.uid).filter(Boolean);
+          for(let _i = 0; _i < _uidsD.length; _i += 50) {
+            const { data: _rU, error: _eU } = await _withTimeout(_sbD.from('ventes').select('ticket_uid')
+              .eq('restaurant_id', _ridD).eq('cloturee', true).in('ticket_uid', _uidsD.slice(_i, _i + 50)), 8000, 'verif uid doublons cloture');
+            if(_eU) throw _eU;
+            (_rU || []).forEach(r => { if(r.ticket_uid) _closedUid.add(r.ticket_uid); });
+          }
+          const _susp = ventes.filter(v => {
+            if(!v) return false;
+            if(v.uid) return _closedUid.has(v.uid); // identifiant unique : certitude
+            const s = _totD[v.orderNum];
+            return !!s && !s.uid && s.total === Number(v.total || 0); // ancien ticket : repli prudent
+          });
           if(_susp.length) {
             const _sommeS = _susp.reduce((a, v) => a + (v.total || 0), 0);
             const _liste = _susp.slice(0, 15).map(v => v.orderNum + ' (' + (v.total || 0).toLocaleString('fr-FR') + ' F)').join('\n') + (_susp.length > 15 ? '\n… +' + (_susp.length - 15) + ' autres' : '');
@@ -28372,6 +28418,13 @@ async function cloturerCaisse() {
     const totalDepenses = depensesCaisse.reduce((a, d) => a + (d.montant || 0), 0);
     const soldeNet = totalTTC - totalDepenses;
 
+    // v114 : ecart de caisse reel = especes comptees - (fonds + especes du logiciel - depenses en especes)
+    const _kgCompte = (typeof window._kgMontantCompte === 'number') ? window._kgMontantCompte : null;
+    window._kgMontantCompte = null;
+    const _kgDepEsp = depensesCaisse.filter(d => !/wave|orange|carte|card|mobile/i.test(String(d.mode || d.modePaiement || d.mode_paiement || ''))).reduce((a, d) => a + (d.montant || 0), 0);
+    const _kgEcart = (_kgCompte === null) ? 0 : (_kgCompte - ((fonds || 0) + totalEspeces - _kgDepEsp));
+    if(_kgCompte !== null) setTimeout(() => { try { showNotif((_kgEcart === 0 ? '\u2705 Caisse juste' : (_kgEcart > 0 ? '\u26A0\uFE0F SURPLUS de ' : '\u26A0\uFE0F MANQUE de ') + Math.abs(_kgEcart).toLocaleString('fr-FR') + ' F en especes')); } catch(e) {} }, 600);
+
     // 4. Enregistrer dans l'historique
     // v113 : memoriser EXACTEMENT les tickets comptes dans cette cloture (et l'instant du decompte).
     // La purge serveur ne doit effacer que ceux-la : une vente encaissee sur un autre appareil
@@ -28394,7 +28447,7 @@ async function cloturerCaisse() {
       depenses: totalDepenses,
       soldeNet: soldeNet,
       depensesList: depensesCaisse.map(d => ({ id: d.id || d.sbId || null, libelle: d.libelle, montant: d.montant, date: d.date, categorie: d.categorie || '' })),
-      ecart:   0,
+      ecart:   _kgEcart,
       status:  'ok',
       caTotal: totalTTC,
       especes: totalEspeces,
@@ -28404,11 +28457,12 @@ async function cloturerCaisse() {
       nbTickets: ventes.length,
       totalHT: totalHT,
       tva:     totalTVA,
-      montantCompte: 0,
+      montantCompte: (_kgCompte === null ? 0 : _kgCompte),
       fonds:   fonds,
       ouvertureAt: sessionCaisseActive?.dateOuverture ? (sessionCaisseActive.dateOuverture + 'T' + (sessionCaisseActive.heureOuverture||'08:00') + ':00') : new Date().toISOString(),
       tickets: ventes.map((v, i) => ({
         id: v.orderNum || (Date.now() + i),
+        uid: v.uid || null,
         numero: v.orderNum || (i + 1),
         date: now.toISOString().split('T')[0] + 'T' + (v.time ? v.time + ':00' : now.toTimeString().slice(0,8)),
         caisse: caisse,
@@ -42117,6 +42171,7 @@ async function _validerAdditionCaisse(billId) {
     const orderNum = '#ADD' + String(Date.now()).slice(-5);
 
     const venteSaved = {
+    uid: _kgNewUid(),
       orderNum,
       items: items.length ? items : [{ name: b.tableLabel, icon:'🍽️', qty:1, price: b.total }],
       sub: b.total, tva: 0, total: b.total,
@@ -43494,6 +43549,7 @@ async function updateQRStatut(orderId, newStatut) {
       const _qrPayLabels = { cash:'💵 Espèces', wave:'Wave', orange:'Orange Money', card:'💳 Carte' };
 
       const venteSaved = {
+    uid: _kgNewUid(),
         orderNum,
         items,
         sub: totalTTC,
@@ -47815,6 +47871,7 @@ async function validerTicketAttente() {
   orderCounter++;
 
   const venteSaved = {
+    uid: _kgNewUid(),
     orderNum,
     items: ticket.items, sub: ticket.sub, tva: ticket.tva, total: ticket.total,
     remisePct: ticket.remisePct, remiseMontant: ticket.remiseMontant,
