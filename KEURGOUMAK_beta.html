@@ -7844,6 +7844,7 @@ Revenez nous voir bient&#244;t.</textarea>
         <button class="cat-btn" id="compta-tab-journal" onclick="switchComptaTab('journal',this)">📒 Journal</button>
         <button class="cat-btn" id="compta-tab-charges" onclick="switchComptaTab('charges',this)">💸 Charges</button>
         <button class="cat-btn" id="compta-tab-bilan" onclick="switchComptaTab('bilan',this)">⚖️ Bilan</button>
+        <button class="cat-btn" id="compta-tab-etats" onclick="switchComptaTab('etats',this)">&#128200; Etats de gestion</button>
         <button class="cat-btn" id="compta-tab-tva" onclick="switchComptaTab('tva',this)">🧾 TVA</button>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
           <select class="form-input" id="compta-periode" onchange="renderCompta()" style="width:160px;">
@@ -7995,6 +7996,14 @@ Revenez nous voir bient&#244;t.</textarea>
       </div>
 
       <!-- TAB: TVA -->
+      <div id="compta-panel-etats" style="display:none;">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="exportEtatsPDF()">&#128196; Exporter PDF</button>
+          <button class="btn btn-ghost" onclick="exportEtatsCSV()">&#128202; Exporter Excel (CSV)</button>
+        </div>
+        <div id="compta-etats-content"></div>
+      </div>
+
       <div id="compta-panel-tva" style="display:none;">
         <div class="card">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
@@ -28098,16 +28107,6 @@ function confirmerCloturerCaisse() {
   if(!confirm('🔒 Confirmer la clôture de :\n\n' + _label + '\n' + _nbVentes + ' ticket(s)\n\nCette action est irréversible. Continuer ?')) {
     return;
   }
-  // v114 : comptage OBLIGATOIRE des especes avant de cloturer (sinon le logiciel ne peut jamais detecter un ecart)
-  let _cnt = null;
-  for(let _t = 0; _t < 3 && _cnt === null; _t++) {
-    const _r = prompt('\uD83D\uDCB5 Comptez les ESPECES dans le tiroir (fonds de caisse inclus) et saisissez le montant en F :\n\n(Annuler = ne pas cloturer)', '');
-    if(_r === null) return;
-    const _n = parseInt(String(_r).replace(/[^0-9]/g, ''), 10);
-    if(!isNaN(_n) && _n >= 0) _cnt = _n;
-  }
-  if(_cnt === null) { showNotif('\u26A0\uFE0F Montant compte invalide : cloture annulee'); return; }
-  window._kgMontantCompte = _cnt;
   cloturerCaisse();
 }
 
@@ -35312,7 +35311,7 @@ function printComptaSection(section) {
 function switchComptaTab(tab, el) {
   document.querySelectorAll('#view-compta .cat-btn').forEach(b => b.classList.remove('active'));
   if(el) el.classList.add('active');
-  ['tableau','journal','charges','bilan','tva'].forEach(t => {
+  ['tableau','journal','charges','bilan','etats','tva'].forEach(t => {
     const p = document.getElementById('compta-panel-' + t);
     if(p) p.style.display = t === tab ? '' : 'none';
   });
@@ -35324,6 +35323,7 @@ function switchComptaTab(tab, el) {
   if(tab === 'charges') renderCharges();
   if(tab === 'bilan')   renderBilan();
   if(tab === 'tva')     renderTVA();
+  if(tab === 'etats')   renderEtats();
 }
 
 // --- Helpers période ---
@@ -35382,13 +35382,18 @@ function _getAllVentesForCompta() {
   // Ventes session en cours
   const ventes = Object.values(VENTES_PAR_CAISSE).flat().map(v => ({...v}));
   const vuesIds = new Set(ventes.map(v => String(v.orderNum || v.sbId || '')).filter(Boolean));
+  // v116 : un ticket n'est ignore que s'il a le MEME identifiant unique, ou (anciens tickets) le meme numero ET le meme montant.
+  // Avant, un numero reutilise pour une autre vente etait ignore => CA sous-estime en comptabilite.
+  const _seenT = new Map();
+  ventes.forEach(v => { const k = String(v.orderNum || v.sbId || ''); if(k) { const a = _seenT.get(k) || []; a.push({ uid: v.uid, total: v.total || 0 }); _seenT.set(k, a); } });
+  const _dejaVuT = (k, uid, total) => { const a = _seenT.get(k) || []; const d = a.some(e => (uid && e.uid) ? uid === e.uid : e.total === (total || 0)); if(!d) { a.push({ uid: uid, total: total || 0 }); _seenT.set(k, a); } return d; };
 
   // FIX: inclure ventes des clotures passees (sinon bilan/TVA disparaissent apres cloture)
   (typeof HISTORIQUE_CLOTURES !== 'undefined' ? HISTORIQUE_CLOTURES : []).forEach(h => {
     if(Array.isArray(h.tickets) && h.tickets.length) {
       h.tickets.forEach(t => {
         const key = String(t.numero || t.id);
-        if(vuesIds.has(key)) return;
+        if(_dejaVuT(key, t.uid, t.total)) return;
         vuesIds.add(key);
         const dateT = t.date ? t.date.split('T')[0] : (h.date ? _histParseDateStr(h.date) : null);
         ventes.push({ date: dateT, total: t.total || 0, tva: t.tva || Math.round((t.total||0)*18/118) });
@@ -35412,7 +35417,7 @@ function _getAllVentesForCompta() {
   // FIX: inclure aussi TICKETS_ARCHIVES (Supabase)
   (typeof TICKETS_ARCHIVES !== 'undefined' ? TICKETS_ARCHIVES : []).forEach(t => {
     const key = String(t.numero || t.id);
-    if(vuesIds.has(key)) return;
+    if(_dejaVuT(key, t.uid, t.total)) return;
     vuesIds.add(key);
     const dateT = t.date ? t.date.split('T')[0] : null;
     ventes.push({ date: dateT, total: t.total || 0, tva: t.tva || Math.round((t.total||0)*18/118) });
@@ -35566,6 +35571,108 @@ function calcAvancesRHTotal() {
 }
 
 function fmtF(n) { return (Math.round(n)||0).toLocaleString() + ' F'; }
+
+// ============================================================
+// v116 ETATS DE GESTION (compte de resultat, tresorerie, TVA, controles) + export PDF / Excel
+// Ce sont des etats de GESTION (pilotage), pas des etats financiers officiels SYSCOHADA.
+// ============================================================
+function _etatsFmt(n) { return (Math.round(n) || 0).toLocaleString('fr-FR').replace(/[\u202f\u00a0]/g, ' ') + ' F'; }
+function _etatsDonnees() {
+  const per = getComptaPeriode();
+  const allV = _getAllVentesForCompta().filter(v => inPeriode(v.date || null));
+  const srcSum = s => allV.filter(v => (s === 'caisse' ? !v.source : v.source === s)).reduce((a, v) => a + (v.total || 0), 0);
+  const ca = allV.reduce((a, v) => a + (v.total || 0), 0);
+  const tva = allV.reduce((a, v) => a + (v.tva || 0), 0);
+  const produits = [['Restauration / Caisse', srcSum('caisse')], ['Location de salle', srcSum('location')], ['Terrain de football', srcSum('terrain')],
+    ['Piscine', srcSum('piscine')], ['Manege enfants', srcSum('manege')], ['Salle de sport', srcSum('sport')], ['Factures clients', srcSum('facture')]]
+    .filter((r, i) => i === 0 || r[1] > 0);
+  const depenses = calcDepenses(), achats = calcAchats(), salaires = calcMasseSalariale(), avances = calcAvancesRH();
+  const charges = depenses + achats + salaires + avances, resultat = ca - charges;
+  const tvaFourn = Math.round(achats * 0.18), tvaDep = calcTVADeductibleDepenses(), tvaDed = tvaFourn + tvaDep;
+  const hist = (typeof HISTORIQUE_CLOTURES !== 'undefined' ? HISTORIQUE_CLOTURES : []);
+  const clot = hist.filter(h => inPeriode(h.date));
+  const num = x => Number(x) || 0;
+  const treso = { especes: 0, wave: 0, orange: 0, carte: 0 };
+  let ecartTotal = 0, nbComptes = 0;
+  clot.forEach(h => {
+    treso.especes += num(h.especes); treso.wave += num(h.wave); treso.orange += num(h.orange); treso.carte += num(h.carte);
+    if(num(h.montantCompte) > 0) { nbComptes++; ecartTotal += num(h.ecart); }
+  });
+  // Controle : tickets presents dans plusieurs clotures (identifiant unique, sinon caisse+numero+montant+mode)
+  const vus = new Map(); const doublons = []; let sansDetail = 0;
+  hist.slice().sort((a, b) => String(a.id).localeCompare(String(b.id))).forEach(h => {
+    if(!Array.isArray(h.tickets) || !h.tickets.length) { if(inPeriode(h.date)) sansDetail++; return; }
+    h.tickets.forEach(t => {
+      const k = t.uid ? 'u:' + t.uid : 'n:' + [h.caisse, t.id || t.numero, num(t.total), t.mode || ''].join('|');
+      if(vus.has(k) && vus.get(k).cid !== h.id) doublons.push({ ticket: t.id || t.numero, total: num(t.total), caisse: h.caisse, premiere: vus.get(k).label, deuxieme: (h.date || '') + ' ' + (h.heure || '') });
+      else if(!vus.has(k)) vus.set(k, { cid: h.id, label: (h.date || '') + ' ' + (h.heure || '') });
+    });
+  });
+  const montantDoublons = doublons.reduce((a, d) => a + d.total, 0);
+  return { per, ca, tva, produits, depenses, achats, salaires, avances, charges, resultat, tvaFourn, tvaDep, tvaDed, tvaNette: tva - tvaDed,
+    treso, tresoTotal: treso.especes + treso.wave + treso.orange + treso.carte, nbClot: clot.length, nbComptes, ecartTotal, sansDetail, doublons, montantDoublons };
+}
+function _etatsPeriodeTxt(per) {
+  const f = d => d.toLocaleDateString('fr-FR');
+  return 'Du ' + f(per.debut) + ' au ' + f(per.fin);
+}
+function renderEtats() {
+  const el = document.getElementById('compta-etats-content'); if(!el) return;
+  const D = _etatsDonnees();
+  const row = (l, v, bold, col) => '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:' + (bold ? 14 : 13) + 'px;' + (bold ? 'font-weight:700;' : '') + '"><span style="color:var(--text2);">' + l + '</span><span style="font-family:\'JetBrains Mono\',monospace;' + (col ? 'color:' + col + ';' : '') + '">' + _etatsFmt(v) + '</span></div>';
+  const card = (t, inner) => '<div style="background:var(--surface2);border-radius:12px;padding:16px;margin-bottom:16px;"><div style="font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:700;">' + t + '</div>' + inner + '</div>';
+  let h = '<div style="font-size:12px;color:var(--text2);margin-bottom:12px;">' + _etatsPeriodeTxt(D.per) + ' &middot; Etats de gestion (pilotage), pas des etats financiers officiels.</div>';
+  // Alertes de controle
+  const alertes = [];
+  if(D.doublons.length) alertes.push('<b>' + D.doublons.length + ' ticket(s) compte(s) dans 2 clotures (' + _etatsFmt(D.montantDoublons) + ')</b> : la tresorerie ci-dessous peut etre gonflee de ce montant. Premiers : ' + D.doublons.slice(0, 5).map(d => d.ticket).join(', ') + '.');
+  if(D.nbClot > D.nbComptes) alertes.push((D.nbClot - D.nbComptes) + ' cloture(s) sur ' + D.nbClot + ' sans comptage des especes : l\'ecart de caisse n\'a pas pu etre controle.');
+  if(D.sansDetail) alertes.push(D.sansDetail + ' cloture(s) sans detail des tickets : controle des doublons impossible pour elles.');
+  if(alertes.length) h += '<div style="background:rgba(231,76,60,0.1);border:1px solid var(--red);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;line-height:1.6;">' + alertes.map(a => '&#9888; ' + a).join('<br>') + '</div>';
+  h += card('Compte de resultat',
+    '<div style="font-size:11px;color:var(--green);font-weight:700;padding-top:4px;">PRODUITS</div>' + D.produits.map(p => row(p[0], p[1], false, 'var(--green)')).join('') + row('Total produits (CA TTC)', D.ca, true, 'var(--green)') +
+    '<div style="font-size:11px;color:var(--red);font-weight:700;padding-top:10px;">CHARGES</div>' + row('Depenses operationnelles', D.depenses) + row('Achats fournisseurs', D.achats) + row('Charges de personnel', D.salaires) + (D.avances > 0 ? row('Avances sur salaires', D.avances) : '') + row('Total charges', D.charges, true, 'var(--red)') +
+    row('RESULTAT', D.resultat, true, D.resultat >= 0 ? 'var(--green)' : 'var(--red)') +
+    '<div style="text-align:right;font-size:11px;color:var(--text2);margin-top:4px;">Marge : ' + (D.ca > 0 ? ((D.resultat / D.ca) * 100).toFixed(1) : '0.0') + ' %</div>');
+  h += card('Tresorerie par moyen de paiement (clotures de caisse de la periode)',
+    row('Especes', D.treso.especes) + row('Wave', D.treso.wave) + row('Orange Money', D.treso.orange) + row('Carte', D.treso.carte) + row('Total encaisse', D.tresoTotal, true) +
+    '<div style="font-size:11px;color:var(--text2);margin-top:6px;">' + D.nbClot + ' cloture(s) &middot; ' + D.nbComptes + ' avec comptage &middot; ecart de caisse cumule (comptes) : ' + _etatsFmt(D.ecartTotal) + '</div>');
+  h += card('TVA (18 %)',
+    row('TVA collectee', D.tva) + row('TVA deductible sur achats fournisseurs', D.tvaFourn) + row('TVA deductible sur depenses', D.tvaDep) + row('TVA nette a reverser', D.tvaNette, true, D.tvaNette >= 0 ? 'var(--green)' : 'var(--red)'));
+  el.innerHTML = h;
+}
+function _etatsLignes() {
+  const D = _etatsDonnees(); const L = [];
+  L.push(['COMPTE DE RESULTAT', '']); D.produits.forEach(p => L.push([p[0], p[1]])); L.push(['Total produits (CA TTC)', D.ca]);
+  L.push(['Depenses operationnelles', D.depenses], ['Achats fournisseurs', D.achats], ['Charges de personnel', D.salaires]);
+  if(D.avances > 0) L.push(['Avances sur salaires', D.avances]);
+  L.push(['Total charges', D.charges], ['RESULTAT', D.resultat]);
+  L.push(['TRESORERIE PAR MOYEN DE PAIEMENT', ''], ['Especes', D.treso.especes], ['Wave', D.treso.wave], ['Orange Money', D.treso.orange], ['Carte', D.treso.carte], ['Total encaisse', D.tresoTotal], ['Ecart de caisse cumule (clotures comptees)', D.ecartTotal]);
+  L.push(['TVA', ''], ['TVA collectee', D.tva], ['TVA deductible achats', D.tvaFourn], ['TVA deductible depenses', D.tvaDep], ['TVA nette a reverser', D.tvaNette]);
+  L.push(['CONTROLES', ''], ['Tickets comptes dans 2 clotures (nombre)', D.doublons.length], ['Tickets comptes dans 2 clotures (montant)', D.montantDoublons], ['Clotures sans comptage des especes', D.nbClot - D.nbComptes]);
+  return { D, L };
+}
+function exportEtatsCSV() {
+  const { D, L } = _etatsLignes();
+  const esc = s => '"' + String(s).replace(/"/g, '""') + '"';
+  const rows = [esc('Etats de gestion - ' + _etatsPeriodeTxt(D.per)) + ';', 'Libelle;Montant (F)'];
+  L.forEach(r => rows.push(esc(r[0]) + ';' + (r[1] === '' ? '' : Math.round(r[1]))));
+  const blob = new Blob(['\uFEFF' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'etats-de-gestion-' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function exportEtatsPDF() {
+  if(typeof window.jspdf === 'undefined' || !window.jspdf.jsPDF) { alert('Le module PDF n\'est pas charge (connexion internet requise la premiere fois).'); return; }
+  const { D, L } = _etatsLignes();
+  const nom = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO && RESTAURANT_INFO.nom) || 'KEURGOUMAK';
+  const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+  doc.setFontSize(16); doc.text(nom + ' - Etats de gestion', 14, 16);
+  doc.setFontSize(10); doc.text(_etatsPeriodeTxt(D.per) + '  |  Genere le ' + new Date().toLocaleString('fr-FR'), 14, 23);
+  doc.setFontSize(8); doc.text('Etats de gestion (pilotage). Ne remplacent pas les etats financiers officiels SYSCOHADA etablis par un expert-comptable.', 14, 28);
+  const body = L.map(r => r[1] === '' ? [{ content: r[0], colSpan: 2, styles: { fontStyle: 'bold', fillColor: [230, 232, 240] } }] : [r[0], _etatsFmt(r[1])]);
+  if(typeof doc.autoTable === 'function') doc.autoTable({ startY: 33, head: [['Libelle', 'Montant']], body: body, styles: { fontSize: 9 }, headStyles: { fillColor: [26, 26, 46] }, columnStyles: { 1: { halign: 'right' } } });
+  else { let y = 36; L.forEach(r => { doc.text(String(r[0]) + (r[1] === '' ? '' : '   ' + _etatsFmt(r[1])), 14, y); y += 6; }); }
+  doc.save('etats-de-gestion-' + new Date().toISOString().slice(0, 10) + '.pdf');
+}
 
 // --- renderCompta (entry point) ---
 function renderCompta() {
