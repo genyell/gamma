@@ -84,7 +84,7 @@ window.safeUrl = function(u) {
   str = str.replace(/[\u0000-\u001F\u007F]/g, '');
   if(/^(https?:)?\/\//i.test(str)) return window.escHtml(str);
   if(/^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=\s]*$/i.test(str)
-     && !/svg/i.test(str)) return window.escHtml(str);
+     && !/^data:image\/svg/i.test(str)) return window.escHtml(str);
   if(/^\/(?!\/)/.test(str) || /^\.{0,2}\//.test(str)) return window.escHtml(str);
   return '';
 };
@@ -24017,6 +24017,23 @@ function renderRapportX() {
 // peut casser l'accès contentWindow/print() sur les pages content://.
 // On garde srcdoc en secours si jamais doc.write() n'est pas accessible.
 // ============================================================
+// 🪶 ALLÈGEMENT DES PDF : chaque emoji imprimé est un petit dessin couleur que le navigateur recopie
+// dans le PDF à CHAQUE occurrence (ex. « 💵 Espèces » sur chacun des 146 tickets => plusieurs Mo).
+// On garde les emojis à l'écran, mais on les masque à l'impression / à l'export PDF.
+function kgWrapEmoji(html) {
+  const re = /([\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2300}-\u{23FF}][\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]*)+/gu;
+  // On découpe en « balises » (attributs entre guillemets inclus) et « texte » : seul le texte est modifié.
+  const parts = String(html).split(/(<!--[\s\S]*?-->|<(?:[^>"']|"[^"]*"|'[^']*')*>)/);
+  let raw = false; // à l'intérieur de <style>, <script> ou <title> : on ne touche à rien
+  return parts.map((seg, i) => {
+    if(i % 2 === 1) {
+      const m = /^<\s*(\/?)\s*(style|script|title)\b/i.exec(seg);
+      if(m) raw = !m[1];
+      return seg;
+    }
+    return raw ? seg : seg.replace(re, e => '<span class="emo">' + e + '</span>');
+  }).join('');
+}
 function _kgFillIframe(iframe, html) {
   if (!iframe) return false;
   try {
@@ -24210,8 +24227,10 @@ async function printRapportXCaisse(name) {
   if(ventes.length === 0) { showNotif('Aucune vente pour '+name); return; }
   const _logoUrlC = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.logo) ? TICKET_CONFIG.logo
                   : (RESTAURANT_INFO?.logo_url || RESTAURANT_INFO?.loginLogo || null);
+  // ⚖️ logo réduit (300 px max) : l'original peut peser plusieurs Mo et serait recopié tel quel dans le PDF
+  const _logoSmallC = _logoUrlC ? ((await _loadImageAsDataURL(_logoUrlC, 4000, { max: 300, fmt: 'png' })) || _logoUrlC) : null;
   const _logoHtmlC = _logoUrlC
-    ? `<div style="text-align:center;margin-bottom:8px;"><img src="${window.safeUrl(_logoUrlC)}" alt="Logo" style="max-height:80px;max-width:200px;object-fit:contain;"></div>`
+    ? `<div style="text-align:center;margin-bottom:8px;"><img src="${window.safeUrl(_logoSmallC)}" alt="Logo" style="max-height:80px;max-width:200px;object-fit:contain;"></div>`
     : '<div style="text-align:center;font-size:32px;margin-bottom:8px;">🍽️</div>';
   const now      = new Date();
   const dateStr  = now.toLocaleDateString('fr-FR');
@@ -24244,7 +24263,7 @@ async function printRapportXCaisse(name) {
   const topRows = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).map((p,i)=>{
     const _src = p.image_url || (p.icon&&(p.icon.startsWith('http')||p.icon.startsWith('data:'))?p.icon:null);
     const imgHtml = _src
-      ? `<img src="${window.safeUrl(_src)}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;" onerror="this.outerHTML='<span style=\'font-size:20px;vertical-align:middle;\'>${p.icon||'🍽️'}</span>'">` 
+      ? `<img class="rx-thumb" src="${window.safeUrl(_src)}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;" onerror="this.outerHTML='<span style=\'font-size:20px;vertical-align:middle;\'>${p.icon||'🍽️'}</span>'">` 
       : `<span style="font-size:20px;vertical-align:middle;margin-right:6px;">${p.icon||'🍽️'}</span>`;
     return `<tr><td>#${i+1}</td><td>${imgHtml} ${window.escHtml(p.name)}</td><td style="text-align:right;font-weight:700">${p.qty}</td><td style="text-align:right"><span style="display:inline-block;background:#fff3cd;border:2px solid #c07a00;border-radius:5px;padding:2px 8px;font-weight:900;font-size:12pt;color:#7a4f00;white-space:nowrap">${p.ca.toLocaleString()} F</span></td></tr>`;
   }).join('') || '<tr><td colspan="4" style="text-align:center;color:#888">Aucune vente</td></tr>';
@@ -24339,6 +24358,7 @@ async function printRapportXCaisse(name) {
     @media print{
       *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
       .no-print{display:none!important;}
+      .rx-thumb,.emo{display:none!important;}
       @page{margin:14mm;size:A4;}
       body{font-size:11pt;padding:0;}
       th{background:#1a1a2e!important;color:#fff!important;}
@@ -24408,8 +24428,8 @@ async function printRapportXCaisse(name) {
     </div>`;
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
-  _kgFillIframe(document.getElementById('rapportx-single-frame'), html);
-  setTimeout(() => _kgWatchIframePreview('rapportx-single-frame', 'button[onclick^="_genererPdfNatif"]', 0, html), 100);
+  _kgFillIframe(document.getElementById('rapportx-single-frame'), kgWrapEmoji(html));
+  setTimeout(() => _kgWatchIframePreview('rapportx-single-frame', 'button[onclick^="_genererPdfNatif"]', 0, kgWrapEmoji(html)), 100);
   } catch(_errRapportX) {
     // 🔒 FIABILITÉ : avant, toute erreur ici laissait une fenêtre ouverte avec
     // un aperçu totalement blanc, sans aucune indication du problème (bug
@@ -24442,21 +24462,32 @@ function _fmtFCFA(n) {
 }
 
 // Charge une image (logo, même hébergée à distance) et la convertit en dataURL utilisable par jsPDF
-function _loadImageAsDataURL(url, timeoutMs) {
+// ⚖️ POIDS : l'image est TOUJOURS réduite (opts.max = plus grand côté en pixels) avant d'être
+// intégrée au PDF. Avant, une photo de 4000×3000 px était insérée telle quelle (plusieurs Mo)
+// pour une vignette de 6 mm, et recopiée pour chaque produit => PDF de 20 Mo et plus.
+//   opts = { max: 300, fmt: 'png' | 'jpeg', q: 0.75 }
+function _loadImageAsDataURL(url, timeoutMs, opts) {
+  opts = opts || {};
+  const MAX = opts.max || 400;
+  const FMT = opts.fmt === 'jpeg' ? 'image/jpeg' : 'image/png';
   return new Promise((resolve) => {
     if(!url) { resolve(null); return; }
-    if(url.startsWith('data:')) { resolve(url); return; }
     const img = new Image();
     img.crossOrigin = 'anonymous';
     const timer = setTimeout(() => resolve(null), timeoutMs || 6000);
     img.onload = () => {
       clearTimeout(timer);
       try {
+        const w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height;
+        if(!w0 || !h0) { resolve(null); return; }
+        const k = Math.min(1, MAX / Math.max(w0, h0));
         const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-        canvas.getContext('2d').drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      } catch(e) { resolve(null); } // logo bloqué par CORS -> on continue sans logo
+        canvas.width = Math.max(1, Math.round(w0 * k)); canvas.height = Math.max(1, Math.round(h0 * k));
+        const ctx = canvas.getContext('2d');
+        if(FMT === 'image/jpeg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); } // JPEG : pas de transparence
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL(FMT, opts.q || 0.75));
+      } catch(e) { resolve(null); } // image bloquée par CORS -> on continue sans image
     };
     img.onerror = () => { clearTimeout(timer); resolve(null); };
     img.src = url;
@@ -24471,7 +24502,7 @@ async function _genererPdfNatif(config, filename, btn) {
     return;
   }
   const { jsPDF } = window.jspdf;
-  const _testDoc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const _testDoc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   if(typeof _testDoc.autoTable !== 'function') {
     showNotif('⚠️ Module tableaux PDF non chargé — vérifiez votre connexion internet puis réessayez');
     if(btn) { btn.disabled = false; }
@@ -24480,12 +24511,12 @@ async function _genererPdfNatif(config, filename, btn) {
   const label = btn ? btn.textContent : null;
   if(btn) { btn.textContent = '⏳ Génération...'; }
   try {
-    const logoDataUrl = config.logo ? await _loadImageAsDataURL(config.logo) : null;
+    const logoDataUrl = config.logo ? await _loadImageAsDataURL(config.logo, 6000, { max: 300, fmt: 'png' }) : null;
     // ✅ Précharger les photos des produits (Top Produits), comme pour le logo,
     // pour pouvoir les dessiner dans le tableau (rapprocher du rendu "Imprimer").
     let topImages = [];
     if(config.top && config.top.length) {
-      topImages = await Promise.all(config.top.map(t => t.img ? _loadImageAsDataURL(t.img, 4000) : Promise.resolve(null)));
+      topImages = await Promise.all(config.top.map(t => t.img ? _loadImageAsDataURL(t.img, 4000, { max: 64, fmt: 'jpeg', q: 0.7 }) : Promise.resolve(null)));
     }
     const doc = _testDoc;
     const pageW = doc.internal.pageSize.getWidth();
@@ -24496,7 +24527,7 @@ async function _genererPdfNatif(config, filename, btn) {
       try {
         const imgProps = doc.getImageProperties(logoDataUrl);
         const logoH = 18, logoW = (imgProps.width / imgProps.height) * logoH;
-        doc.addImage(logoDataUrl, imgProps.fileType || 'PNG', pageW/2 - logoW/2, y, logoW, logoH);
+        doc.addImage(logoDataUrl, 'PNG', pageW/2 - logoW/2, y, logoW, logoH, 'kg-logo', 'FAST');
         y += logoH + 4;
       } catch(e) { /* logo illisible -> on continue sans */ }
     }
@@ -24619,7 +24650,7 @@ async function _genererPdfNatif(config, filename, btn) {
             if(img) {
               try {
                 const sz = Math.min(data.cell.height - 2, 6);
-                doc.addImage(img, 'PNG', data.cell.x + 1.5, data.cell.y + (data.cell.height-sz)/2, sz, sz);
+                doc.addImage(img, 'JPEG', data.cell.x + 1.5, data.cell.y + (data.cell.height-sz)/2, sz, sz, 'p' + data.row.index, 'FAST');
               } catch(e) { /* image illisible -> texte seul, sans bloquer le PDF */ }
             }
           }
@@ -24668,7 +24699,7 @@ async function _genererPdfNatif(config, filename, btn) {
   }
 }
 
-function printRapportX() {
+async function printRapportX() {
   // ✅ ISOLATION CAISSIER : un caissier n'imprime que SA caisse. Admin/Gérant/Superviseur voient tout.
   const _pxIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
   const _pxUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
@@ -24684,8 +24715,9 @@ function printRapportX() {
   const nomResto  = (RESTAURANT_INFO?.nom) || 'KEURGOUMAK';
   const logoUrl   = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.logo) ? TICKET_CONFIG.logo
                   : (RESTAURANT_INFO?.logo_url || RESTAURANT_INFO?.loginLogo || null);
+  const logoSmall = logoUrl ? ((await _loadImageAsDataURL(logoUrl, 4000, { max: 300, fmt: 'png' })) || logoUrl) : null;
   const logoHtml  = logoUrl
-    ? `<div style="text-align:center;margin-bottom:8px;"><img src="${window.safeUrl(logoUrl)}" alt="Logo" style="max-height:80px;max-width:200px;object-fit:contain;"></div>`
+    ? `<div style="text-align:center;margin-bottom:8px;"><img src="${window.safeUrl(logoSmall)}" alt="Logo" style="max-height:80px;max-width:200px;object-fit:contain;"></div>`
     : '<div style="text-align:center;font-size:32px;margin-bottom:8px;">🍽️</div>';
 
   // Données par caisse
@@ -24747,7 +24779,7 @@ function printRapportX() {
     .map((p,i) => {
       const _src2 = p.image_url || (p.icon&&(p.icon.startsWith('http')||p.icon.startsWith('data:'))?p.icon:null);
       const imgHtml = _src2
-        ? `<img src="${window.safeUrl(_src2)}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;" onerror="this.outerHTML='<span style=\'font-size:18px;\' >${p.icon||'🍽️'}</span>'">` 
+        ? `<img class="rx-thumb" src="${window.safeUrl(_src2)}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;" onerror="this.outerHTML='<span style=\'font-size:18px;\' >${p.icon||'🍽️'}</span>'">` 
         : `<span style="font-size:20px;vertical-align:middle;margin-right:6px;">${p.icon||'🍽️'}</span>`;
       return `<tr><td>#${i+1}</td><td>${imgHtml} ${window.escHtml(p.name)}</td>
         <td style="text-align:right;font-weight:700;font-size:12pt">${p.qty}</td>
@@ -24823,6 +24855,7 @@ function printRapportX() {
     @media print{
       *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
       .no-print{display:none!important;}
+      .rx-thumb,.emo{display:none!important;}
       @page{margin:14mm;size:A4;}
       body{font-size:11pt;padding:0;}
       th{background:#1a1a2e!important;color:#fff!important;}
@@ -24889,8 +24922,8 @@ function printRapportX() {
   // ✅ Remplissage direct via doc.write() (compatible mobile, pas de popup
   // bloqué, et fiable même sur les WebViews content:// où srcdoc échoue).
   const frame = document.getElementById('rapportx-print-frame');
-  _kgFillIframe(frame, html);
-  setTimeout(() => _kgWatchIframePreview('rapportx-print-frame', 'button[onclick^="_genererPdfNatif"]', 0, html), 100);
+  _kgFillIframe(frame, kgWrapEmoji(html));
+  setTimeout(() => _kgWatchIframePreview('rapportx-print-frame', 'button[onclick^="_genererPdfNatif"]', 0, kgWrapEmoji(html)), 100);
 }
 
 // ===== SHIFTS — données réelles uniquement =====
