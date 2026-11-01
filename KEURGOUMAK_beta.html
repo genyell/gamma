@@ -5897,7 +5897,7 @@ function _syncSportVentes()       { return []; }
           <div class="pos-items-grid" id="pos-items-grid"></div>
         </div>
         <div class="pos-right">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;"><div class="cart-title">🛒 Commande <span style="font-family:'Space Mono';font-size:14px;color:var(--text2)">#0135</span></div><button type="button" onclick="openEchange()" title="Échange / retour d'article" style="flex-shrink:0;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">🔄 Échange</button></div>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;"><div class="cart-title">🛒 Commande <span style="font-family:'Space Mono';font-size:14px;color:var(--text2)">#0135</span></div><button type="button" id="btn-echange" onclick="openEchange()" title="Échange / retour d'article" style="flex-shrink:0;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">🔄 Échange</button></div>
           <div class="cart-items" id="cart-items">
             <div class="empty-cart">
               <div class="empty-cart-icon">🛒</div>
@@ -7158,6 +7158,11 @@ function _syncSportVentes()       { return []; }
             <label class="form-label">N° NINEA (Numéro d'Identification Nationale)</label>
             <input class="form-input" id="settings-ninea" value="00789456" placeholder="Ex: 00789456" style="font-family:'JetBrains Mono',monospace;letter-spacing:2px;">
           </div>
+          <div class="form-group">
+            <label class="form-label">N° RC (Registre du Commerce)</label>
+            <input class="form-input" id="settings-rc" value="" placeholder="Ex: SN.LGA.2026.A.182" style="font-family:'JetBrains Mono',monospace;letter-spacing:1px;">
+            <div style="font-size:11px;color:var(--text2);margin-top:4px;">Le RC et le NINEA s'affichent en haut des factures.</div>
+          </div>
           <div class="form-row">
             <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="settings-tel" value="+221 77 123 45 67"></div>
             <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="settings-email" value="contact@keurgoumak.sn"></div>
@@ -7326,7 +7331,7 @@ Revenez nous voir bient&#244;t.</textarea>
                 </label>
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;">
                   <input type="checkbox" id="ticket-show-ninea" checked onchange="updateTicketPreview()" style="width:16px;height:16px;accent-color:var(--accent);">
-                  Afficher le N&#176; NINEA / TVA
+                  Afficher le RC et le N&#176; NINEA (en haut du ticket)
                 </label>
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;">
                   <input type="checkbox" id="ticket-show-cashier" checked onchange="updateTicketPreview()" style="width:16px;height:16px;accent-color:var(--accent);">
@@ -12233,6 +12238,127 @@ function editFacture(id) {
 // ✅ NOUVEAU : partager une facture/devis directement au numéro du client/fournisseur
 // via WhatsApp — même principe que pour les reçus caisse et les RDV.
 // Format date jj/mm/aaaa (les dates restent stockées en AAAA-MM-JJ)
+// 🔳 Générateur de QR code autonome (octets, correction M, versions 1 à 10) — aucune dépendance, aucun réseau.
+window.kgQrMatrix = function(text) {
+  const bytes = Array.from(unescape(encodeURIComponent(String(text))), c => c.charCodeAt(0));
+  const ECC = [0,10,16,26,18,24,16,18,22,22,26];   // mots de correction par bloc (niveau M)
+  const NBLK = [0,1,1,1,2,2,4,4,4,5,5];            // nombre de blocs (niveau M)
+  const rawModules = v => { let r = (16*v+128)*v+64; if(v >= 2) { const a = Math.floor(v/7)+2; r -= (25*a-10)*a-55; if(v >= 7) r -= 36; } return r; };
+  let ver = 0, dataCw = 0;
+  for(let v = 1; v <= 10; v++) {
+    const total = Math.floor(rawModules(v)/8);
+    const dcw = total - ECC[v]*NBLK[v];
+    const cap = Math.floor((dcw*8 - 4 - (v < 10 ? 8 : 16)) / 8);
+    if(bytes.length <= cap) { ver = v; dataCw = dcw; break; }
+  }
+  if(!ver) return null;
+  // --- flux de bits ---
+  const bits = [];
+  const put = (val, n) => { for(let i = n-1; i >= 0; i--) bits.push((val >>> i) & 1); };
+  put(4, 4); put(bytes.length, ver < 10 ? 8 : 16);
+  bytes.forEach(b => put(b, 8));
+  put(0, Math.min(4, dataCw*8 - bits.length));
+  while(bits.length % 8) bits.push(0);
+  for(let pad = 0xEC; bits.length < dataCw*8; pad ^= 0xEC ^ 0x11) put(pad, 8);
+  const data = [];
+  for(let i = 0; i < bits.length; i += 8) { let b = 0; for(let j = 0; j < 8; j++) b = (b << 1) | bits[i+j]; data.push(b); }
+  // --- Reed-Solomon (GF 256, 0x11D) ---
+  const EXP = new Array(512), LOG = new Array(256);
+  for(let i = 0, x = 1; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if(x & 256) x ^= 0x11D; }
+  for(let i = 255; i < 512; i++) EXP[i] = EXP[i-255];
+  const mul = (a, b) => (a && b) ? EXP[LOG[a] + LOG[b]] : 0;
+  const rsGen = deg => { let g = [1]; for(let i = 0; i < deg; i++) { const n = new Array(g.length+1).fill(0); for(let j = 0; j < g.length; j++) { n[j] ^= g[j]; n[j+1] ^= mul(g[j], EXP[i]); } g = n; } return g; };
+  const rsRem = (d, deg) => { const g = rsGen(deg), r = new Array(deg).fill(0); d.forEach(b => { const f = b ^ r.shift(); r.push(0); for(let i = 0; i < deg; i++) r[i] ^= mul(g[i+1], f); }); return r; };
+  const nb = NBLK[ver], ecl = ECC[ver];
+  const total = Math.floor(rawModules(ver)/8);
+  const shortBlocks = nb - total % nb, shortLen = Math.floor(total/nb);
+  const blocks = [];
+  for(let i = 0, k = 0; i < nb; i++) {
+    const dl = shortLen - ecl + (i < shortBlocks ? 0 : 1);
+    const d = data.slice(k, k+dl); k += dl;
+    blocks.push({ d, e: rsRem(d, ecl) });
+  }
+  const finalCw = [];
+  for(let i = 0; i < blocks[nb-1].d.length; i++) blocks.forEach((b, j) => { if(i < b.d.length && !(i === shortLen - ecl && j < shortBlocks)) finalCw.push(b.d[i]); });
+  for(let i = 0; i < ecl; i++) blocks.forEach(b => finalCw.push(b.e[i]));
+  // --- matrice ---
+  const size = ver*4 + 17;
+  const M = Array.from({length: size}, () => new Array(size).fill(false));
+  const F = Array.from({length: size}, () => new Array(size).fill(false)); // modules de fonction
+  const setF = (x, y, dark) => { if(x >= 0 && x < size && y >= 0 && y < size) { M[y][x] = dark; F[y][x] = true; } };
+  for(let i = 0; i < size; i++) { setF(6, i, i % 2 === 0); setF(i, 6, i % 2 === 0); }
+  const finder = (cx, cy) => { for(let dy = -4; dy <= 4; dy++) for(let dx = -4; dx <= 4; dx++) { const d = Math.max(Math.abs(dx), Math.abs(dy)); setF(cx+dx, cy+dy, d !== 2 && d !== 4); } };
+  finder(3, 3); finder(size-4, 3); finder(3, size-4);
+  const pos = [];
+  if(ver > 1) { const na = Math.floor(ver/7)+2, step = Math.ceil((ver*4+4)/(na*2-2))*2; pos.push(6); for(let p = size-7; pos.length < na; p -= step) pos.splice(1, 0, p); }
+  pos.forEach((cx, i) => pos.forEach((cy, j) => {
+    if((i === 0 && j === 0) || (i === 0 && j === pos.length-1) || (i === pos.length-1 && j === 0)) return;
+    for(let dy = -2; dy <= 2; dy++) for(let dx = -2; dx <= 2; dx++) setF(cx+dx, cy+dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+  }));
+  const bch = (v, gen, nbits) => { let r = v; for(let i = 0; i < nbits; i++) r = (r << 1) ^ ((r >>> (nbits > 10 ? 11 : 9)) * gen); return r; };
+  const drawFormat = mask => {
+    const d = (0 << 3) | mask;                       // niveau M = 00
+    let rem = d; for(let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+    const f = ((d << 10) | rem) ^ 0x5412;
+    const bit = i => ((f >>> i) & 1) !== 0;
+    for(let i = 0; i <= 5; i++) setF(8, i, bit(i));
+    setF(8, 7, bit(6)); setF(8, 8, bit(7)); setF(7, 8, bit(8));
+    for(let i = 9; i < 15; i++) setF(14-i, 8, bit(i));
+    for(let i = 0; i < 8; i++) setF(size-1-i, 8, bit(i));
+    for(let i = 8; i < 15; i++) setF(8, size-15+i, bit(i));
+    setF(8, size-8, true);
+  };
+  drawFormat(0);
+  if(ver >= 7) {
+    let rem = ver; for(let i = 0; i < 12; i++) rem = (rem << 1) ^ ((rem >>> 11) * 0x1F25);
+    const bitsV = (ver << 12) | rem;
+    for(let i = 0; i < 18; i++) { const a = size-11 + i % 3, b = Math.floor(i/3), dark = ((bitsV >>> i) & 1) !== 0; setF(a, b, dark); setF(b, a, dark); }
+  }
+  // --- placement des données ---
+  let k = 0;
+  for(let right = size-1; right >= 1; right -= 2) {
+    if(right === 6) right = 5;
+    for(let vert = 0; vert < size; vert++) for(let j = 0; j < 2; j++) {
+      const x = right - j, up = ((right + 1) & 2) === 0, y = up ? size-1-vert : vert;
+      if(!F[y][x] && k < finalCw.length*8) { M[y][x] = ((finalCw[k >>> 3] >>> (7 - (k & 7))) & 1) !== 0; k++; }
+    }
+  }
+  // --- masque (choix par pénalité) ---
+  const maskFn = [(x,y)=>(x+y)%2===0,(x,y)=>y%2===0,(x,y)=>x%3===0,(x,y)=>(x+y)%3===0,(x,y)=>(Math.floor(x/3)+Math.floor(y/2))%2===0,(x,y)=>x*y%2+x*y%3===0,(x,y)=>(x*y%2+x*y%3)%2===0,(x,y)=>((x+y)%2+x*y%3)%2===0];
+  const apply = m => { for(let y = 0; y < size; y++) for(let x = 0; x < size; x++) if(!F[y][x] && maskFn[m](x, y)) M[y][x] = !M[y][x]; };
+  const penalty = () => {
+    let p = 0;
+    for(let t = 0; t < 2; t++) for(let a = 0; a < size; a++) {
+      let run = 1;
+      for(let b = 1; b < size; b++) {
+        const c = t ? M[b][a] : M[a][b], q = t ? M[b-1][a] : M[a][b-1];
+        if(c === q) { run++; if(run === 5) p += 3; else if(run > 5) p++; } else run = 1;
+      }
+    }
+    for(let y = 0; y < size-1; y++) for(let x = 0; x < size-1; x++) if(M[y][x] === M[y][x+1] && M[y][x] === M[y+1][x] && M[y][x] === M[y+1][x+1]) p += 3;
+    let dark = 0; M.forEach(r => r.forEach(c => { if(c) dark++; }));
+    p += Math.floor(Math.abs(dark*20 - size*size*10) / (size*size)) * 10;
+    return p;
+  };
+  let best = 0, bestP = Infinity;
+  for(let m = 0; m < 8; m++) { apply(m); drawFormat(m); const p = penalty(); if(p < bestP) { bestP = p; best = m; } apply(m); }
+  apply(best); drawFormat(best);
+  return M;
+};
+
+// QR code en SVG intégré (net à l'impression, même hors connexion)
+window.kgQrSvg = function(text, px) {
+  try {
+    const m = window.kgQrMatrix(text);
+    if(!m) return '';
+    const n = m.length, q = 2;  // zone de silence de 2 modules
+    let d = '';
+    for(let y = 0; y < n; y++) for(let x = 0; x < n; x++) if(m[y][x]) d += 'M' + (x+q) + ' ' + (y+q) + 'h1v1h-1z';
+    const s = px || 96;
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + (n+2*q) + ' ' + (n+2*q) + '" width="' + s + '" height="' + s + '" shape-rendering="crispEdges" style="display:block;background:#fff"><path d="' + d + '" fill="#000"/></svg>';
+  } catch(e) { return ''; }
+};
+
 window.fmtDateFR = function(d){
   if(d===null || d===undefined || d==='') return '';
   if(d instanceof Date) return isNaN(d) ? '' : String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
@@ -12521,27 +12647,73 @@ function exportFacturesCSV() {
 }
 
 // ---------- IMPRESSION FACTURE ----------
+// 🔧 Réparation à la volée : si une facture issue de la caisse a perdu les détails de ses lignes
+// (IMEI, « Échange — article repris »…), on les retrouve dans la vente d'origine (n° de ticket dans les notes).
+function kgRepairFactureNotes(f) {
+  try {
+    if(!f || f.origine !== 'pos' || !Array.isArray(f.lignes) || !f.lignes.some(l => !l.note)) return;
+    const m = /depuis la vente (\S+) \(([^)]+)\)/.exec(f.notes || '');
+    if(!m) return;
+    const num = m[1], caisse = m[2];
+    let vente = null;
+    const cherche = arr => (arr || []).find(v => String(v.orderNum) === num);
+    if(typeof VENTES_PAR_CAISSE !== 'undefined') {
+      vente = cherche(VENTES_PAR_CAISSE[caisse]);
+      if(!vente) Object.keys(VENTES_PAR_CAISSE).some(k => (vente = cherche(VENTES_PAR_CAISSE[k])));
+    }
+    if(!vente && typeof TICKETS_ARCHIVES !== 'undefined') vente = cherche(TICKETS_ARCHIVES);
+    if(!vente || !Array.isArray(vente.items)) return;
+    const estEchange = vente.type === 'echange' || /^(REPRISE \/ )?ÉCHANGE/.test(vente.note || '');
+    let changed = false;
+    f.lignes.forEach((l, i) => {
+      if(l.note) return;
+      const it = vente.items[i];
+      if(!it || (it.name || '') !== (l.desc || '')) return;
+      let note = it.note || '';
+      if(!note && estEchange) {
+        const lib = it.echange === 'reprise' ? 'article apporté par le client' : ((it.qty < 0 || it.echange === 'retour') ? 'article repris' : 'article remis');
+        note = '🔄 Échange — ' + lib + (it.detail && String(it.detail).trim() ? ' · ' + String(it.detail).trim() : '');
+      }
+      if(note) { l.note = note; changed = true; }
+    });
+    if(changed && typeof saveFacturesLocal === 'function') saveFacturesLocal();
+  } catch(e) { console.warn('[kgRepairFactureNotes]', e); }
+}
+
 function printFacture(id) {
   const f = FACTURES.find(x => x.id === id);
   if(!f) return;
+  kgRepairFactureNotes(f);
   const resto    = RESTAURANT_INFO?.nom     || 'KEURGOUMAK';
   const adresse  = RESTAURANT_INFO?.adresse || 'Louga, Sénégal';
   const tel      = RESTAURANT_INFO?.tel     || '';
   const email    = RESTAURANT_INFO?.email   || '';
   const ninea    = RESTAURANT_INFO?.ninea   || '';
+  const rc       = RESTAURANT_INFO?.rc      || '';
   const typeLabel= f.type === 'devis' ? 'DEVIS' : (f.type === 'client' ? 'FACTURE CLIENT' : 'FACTURE FOURNISSEUR');
   const tvaLabel = Math.round((f.tvaRate||0.18)*100)+'%';
   const payLabels= { especes:'Espèces', wave:'Wave', orange:'Orange Money', virement:'Virement bancaire', cheque:'Chèque', carte:'Carte bancaire' };
 
   // Génération QR simple basé sur le N° de facture (texte)
   const qrDataRaw = `FAC:${f.num}|TIERS:${f.tiers}|TTC:${f.ttc}|DATE:${f.date}`;
+  const qrSvg = (typeof kgQrSvg === 'function') ? kgQrSvg(qrDataRaw, 92) : '';
 
+  // Détail sous la désignation : un numéro seul (14-16 chiffres) est présenté comme IMEI
+  const _noteLigne = n => {
+    const t = String(n || '').trim();
+    if(!t) return '';
+    const m = /^(\d{14,16})[.\s]*$/.exec(t);
+    return m ? 'IMEI : ' + m[1] : t;
+  };
   const lignesHTML = (f.lignes||[]).map((l,i) => `
     <tr style="background:${i%2===0?'#f9fafb':'#fff'};">
-      <td style="padding:9px 10px;border:1px solid #e5e7eb;font-size:10pt;font-weight:500;">${window.escHtml(l.desc)}${l.note ? `<br><span style="font-size:8.5pt;font-weight:400;color:#6b7280;">${window.escHtml(l.note)}</span>` : ''}</td>
-      <td style="padding:9px 10px;border:1px solid #e5e7eb;text-align:center;font-weight:700;font-size:10pt;">${l.qty}</td>
-      <td style="padding:9px 10px;border:1px solid #e5e7eb;text-align:right;font-weight:600;font-size:10pt;">${l.pu.toLocaleString()} F</td>
-      <td style="padding:9px 10px;border:1px solid #e5e7eb;text-align:right;font-weight:900;font-size:11pt;color:#1a1a2e;">${(l.qty*l.pu).toLocaleString()} F</td>
+      <td style="padding:12px 12px;border:1px solid #d1d5db;vertical-align:top;">
+        <div style="font-size:13pt;font-weight:800;color:#111827;line-height:1.3;">${window.escHtml(l.desc)}</div>
+        ${l.note ? `<div style="font-size:10pt;font-weight:600;color:#1f2937;margin-top:4px;line-height:1.4;">${window.escHtml(_noteLigne(l.note))}</div>` : ''}
+      </td>
+      <td style="padding:12px 10px;border:1px solid #d1d5db;text-align:center;font-weight:800;font-size:13pt;vertical-align:middle;">${l.qty}</td>
+      <td style="padding:12px 10px;border:1px solid #d1d5db;text-align:right;font-weight:700;font-size:12pt;vertical-align:middle;white-space:nowrap;">${l.pu.toLocaleString()} F</td>
+      <td style="padding:12px 10px;border:1px solid #d1d5db;text-align:right;font-weight:900;font-size:13pt;color:#1a1a2e;vertical-align:middle;white-space:nowrap;">${(l.qty*l.pu).toLocaleString()} F</td>
     </tr>
   `).join('');
 
@@ -12568,13 +12740,20 @@ function printFacture(id) {
   .tiers-name  { font-size:11pt; font-weight:800; color:#1a1a2e; }
   .tiers-meta  { font-size:9pt; color:#444; margin-top:3px; line-height:1.5; }
   table { width:100%; border-collapse:collapse; margin-bottom:10px; }
-  thead th { background:linear-gradient(135deg,#f5a623,#e8440a); color:#fff; padding:7px 10px; font-size:9pt; text-align:left; font-weight:700; letter-spacing:0.5px; }
+  thead th { background:linear-gradient(135deg,#f5a623,#e8440a); color:#fff; padding:10px 12px; font-size:10.5pt; text-align:left; font-weight:800; letter-spacing:0.5px; }
   thead th:nth-child(2),thead th:nth-child(3),thead th:nth-child(4) { text-align:right; }
   td { font-size:10pt; }
-  .totaux { width:290px; margin-left:auto; border:1.5px solid #e5e7eb; border-radius:8px; overflow:hidden; }
-  .totaux-row { display:flex; justify-content:space-between; padding:7px 14px; border-bottom:1px solid #e5e7eb; font-size:10pt; }
-  .totaux-row b { font-weight:700; }
-  .totaux-row:last-child { background:linear-gradient(135deg,#f5a623,#e8440a); color:#fff; font-size:12pt; font-weight:900; border-bottom:none; }
+  /* 🔎 Bloc des totaux : plus grand, plus contrasté, TOTAL TTC bien mis en avant */
+  .totaux { width:350px; max-width:100%; margin-left:auto; border:2px solid #1a1a2e; border-radius:10px; overflow:hidden; }
+  .totaux-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:9px 16px; border-bottom:1px solid #d1d5db; font-size:11.5pt; font-weight:600; color:#111827; }
+  .totaux-row span:last-child { font-family:Arial,'Segoe UI',sans-serif; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .totaux-row:last-child { border-bottom:none; }
+  .totaux-row.total-ttc { background:#1a1a2e; color:#fff; font-size:15pt; font-weight:900; padding:13px 16px; }
+  .totaux-row.total-ttc span:last-child { color:#f5a623; font-weight:900; }
+  .totaux-row.row-paid { background:#dcfce7; color:#166534; font-size:12.5pt; font-weight:800; }
+  .totaux-row.row-acompte { background:#e0f2fe; color:#0369a1; font-size:12.5pt; font-weight:800; }
+  .totaux-row.row-rest { background:#fff; color:#111827; font-size:12pt; font-weight:800; }
+  .totaux-row.row-solde { background:#fee2e2; color:#b91c1c; font-size:14pt; font-weight:900; }
   .pay-info { margin-top:12px; background:#f0fdf4; border:1.5px solid #86efac; border-radius:8px; padding:9px 14px; font-size:10pt; font-weight:600; }
   .notes-block { margin-top:10px; background:#fffbeb; border:1.5px solid #fde68a; border-radius:8px; padding:9px 14px; font-size:9pt; color:#78350f; line-height:1.6; }
   .footer { margin-top:18px; border-top:2px solid #f5a623; padding-top:10px; display:flex; justify-content:space-between; align-items:flex-end; }
@@ -12657,12 +12836,16 @@ function printFacture(id) {
        contraste maximal : fonds noirs francs (au lieu du dégradé) et textes
        secondaires en noir gras plutôt qu'en gris clair. */
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-    .logo-sub, .logo-meta, .tiers-label, .tiers-meta, .fact-dates, .footer-left,
-    .totaux-row, .totaux-row b { color:#000 !important; }
+    .logo-sub, .logo-meta, .tiers-label, .tiers-meta, .fact-dates, .footer-left { color:#000 !important; }
     .logo-name, .fact-type, .fact-num, .tiers-name { color:#000 !important; }
     thead th { background:#000 !important; background-image:none !important; color:#fff !important; }
-    .totaux-row:last-child { background:#000 !important; background-image:none !important; color:#fff !important; }
-    .totaux-row:last-child b { color:#fff !important; }
+    .totaux { border:2px solid #000 !important; }
+    .totaux-row { color:#000 !important; border-bottom:1px solid #000 !important; }
+    .totaux-row:last-child { border-bottom:none !important; }
+    .totaux-row.total-ttc { background:#000 !important; color:#fff !important; }
+    .totaux-row.total-ttc span:last-child { color:#fff !important; }
+    .totaux-row.row-paid, .totaux-row.row-acompte { background:#e5e7eb !important; color:#000 !important; }
+    .totaux-row.row-solde { background:#000 !important; color:#fff !important; }
     .ninea-badge { background:#000 !important; color:#fff !important; }
     .tiers-card, .totaux, .pay-info, .notes-block, .qr-placeholder, .amount-words {
       background:#fff !important; border:1.3px solid #000 !important; color:#000 !important;
@@ -12685,7 +12868,7 @@ function printFacture(id) {
       📍 ${window.escHtml(adresse)}<br>
       ${tel ? '📞 ' + tel + '<br>' : ''}
       ${email ? '✉️ ' + email + '<br>' : ''}
-      ${ninea ? '<span class="ninea-badge">NINEA : ' + ninea + '</span>' : ''}
+      ${(rc || ninea) ? '<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px;">' + (rc ? '<span class="ninea-badge">RC : ' + window.escHtml(rc) + '</span>' : '') + (ninea ? '<span class="ninea-badge">NINEA : ' + window.escHtml(ninea) + '</span>' : '') + '</div>' : ''}
     </div>
   </div>
   <div class="fact-info">
@@ -12731,10 +12914,10 @@ function printFacture(id) {
 <table>
   <thead>
     <tr>
-      <th style="width:50%">Description</th>
-      <th style="text-align:right;width:10%">Qté</th>
-      <th style="text-align:right;width:20%">Prix unit. TTC</th>
-      <th style="text-align:right;width:20%">Total TTC</th>
+      <th style="width:48%">Désignation</th>
+      <th style="text-align:center;width:9%">Qté</th>
+      <th style="text-align:right;width:21%">Prix unit. TTC</th>
+      <th style="text-align:right;width:22%">Total TTC</th>
     </tr>
   </thead>
   <tbody>${lignesHTML}</tbody>
@@ -12742,29 +12925,26 @@ function printFacture(id) {
 
 <!-- TOTAUX + QR -->
 <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:20px;">
-  <!-- QR CODE de vérification -->
+  <!-- QR CODE de vérification (généré dans l'application, scannable) -->
   <div style="flex:1;">
-    <div class="qr-placeholder" id="fact-qr-ph">
-      <div>
-        <div style="font-size:22px;margin-bottom:4px;">▦</div>
-        Réf.<br>${f.num}
-      </div>
-    </div>
-    <img id="fact-qr" alt="QR" style="display:none;width:84px;height:84px;image-rendering:pixelated;">
-    <div style="font-size:10px;color:#6b7280;margin-top:4px;max-width:110px;">Réf. ${f.num}<br>Scan pour vérification</div>
+    ${qrSvg
+      ? `<div style="width:98px;height:98px;border:1.5px solid #1a1a2e;border-radius:6px;padding:2px;background:#fff;">${qrSvg}</div>`
+      : `<div class="qr-placeholder"><div><div style="font-size:22px;margin-bottom:4px;">▦</div>Réf.<br>${f.num}</div></div>`}
+    <div style="font-size:10.5px;font-weight:700;color:#374151;margin-top:5px;max-width:130px;">Réf. ${f.num}</div>
+    <div style="font-size:9px;color:#6b7280;">Scan pour vérification</div>
   </div>
   <!-- TOTAUX -->
   <div class="totaux">
-    ${(f.remise||0) > 0 ? `<div class="totaux-row"><span style="color:#6b7280;">Sous-total (avant remise)</span><span style="font-family:'Courier New',monospace;">${(f.sousTotal||f.ttc).toLocaleString()} FCFA</span></div>
-    <div class="totaux-row" style="color:#166534;font-weight:700;"><span>🏷️ Remise</span><span style="font-family:'Courier New',monospace;">−${f.remise.toLocaleString()} FCFA</span></div>` : ''}
-    <div class="totaux-row"><span style="color:#6b7280;">Sous-total HT</span><span style="font-family:'Courier New',monospace;">${f.ht.toLocaleString()} FCFA</span></div>
-    <div class="totaux-row"><span style="color:#6b7280;">TVA ${window.escHtml(tvaLabel)}</span><span style="font-family:'Courier New',monospace;">${f.tva.toLocaleString()} FCFA</span></div>
-    <div class="totaux-row"><span>TOTAL TTC${(f.remise||0) > 0 ? ' NET' : ''}</span><span style="font-family:'Courier New',monospace;">${f.ttc.toLocaleString()} FCFA</span></div>
+    ${(f.remise||0) > 0 ? `<div class="totaux-row"><span>Sous-total (avant remise)</span><span >${(f.sousTotal||f.ttc).toLocaleString()} FCFA</span></div>
+    <div class="totaux-row" style="color:#166534;font-weight:700;"><span>🏷️ Remise</span><span >−${f.remise.toLocaleString()} FCFA</span></div>` : ''}
+    <div class="totaux-row"><span>Sous-total HT</span><span >${f.ht.toLocaleString()} FCFA</span></div>
+    <div class="totaux-row"><span>TVA ${window.escHtml(tvaLabel)}</span><span >${f.tva.toLocaleString()} FCFA</span></div>
+    <div class="totaux-row total-ttc"><span>TOTAL TTC${(f.remise||0) > 0 ? ' NET' : ''}</span><span >${f.ttc.toLocaleString()} FCFA</span></div>
     ${f.acompte > 0 ? (f.statut === 'payee'
-      ? `<div class="totaux-row" style="background:#dcfce7;color:#166534;font-size:13px;"><span>✅ Montant réglé</span><span style="font-family:'Courier New',monospace;">${f.acompte.toLocaleString()} FCFA</span></div>
-         <div class="totaux-row" style="font-size:11px;"><span>Reste à payer</span><span style="font-family:'Courier New',monospace;">0 FCFA</span></div>`
-      : `<div class="totaux-row" style="background:#e0f2fe;color:#0369a1;font-size:13px;"><span>Acompte versé</span><span style="font-family:'Courier New',monospace;">${f.acompte.toLocaleString()} FCFA</span></div>
-         <div class="totaux-row" style="background:#fee2e2;color:#b91c1c;"><span>SOLDE RESTANT</span><span style="font-family:'Courier New',monospace;">${(f.soldeRestant||0).toLocaleString()} FCFA</span></div>`) : ''}
+      ? `<div class="totaux-row row-paid"><span>✅ Montant réglé</span><span >${f.acompte.toLocaleString()} FCFA</span></div>
+         <div class="totaux-row row-rest"><span>Reste à payer</span><span >0 FCFA</span></div>`
+      : `<div class="totaux-row row-acompte"><span>Acompte versé</span><span >${f.acompte.toLocaleString()} FCFA</span></div>
+         <div class="totaux-row row-solde"><span>SOLDE RESTANT</span><span >${(f.soldeRestant||0).toLocaleString()} FCFA</span></div>`) : ''}
   </div>
 </div>
 
@@ -12784,25 +12964,13 @@ ${f.notes ? `<div class="notes-block">📝 <strong>Notes / Conditions :</strong>
 <div class="footer">
   <div class="footer-left">
     Document fiscal — ${resto}<br>
-    N° NINEA : ${ninea||'Non renseigné'} · TVA ${window.escHtml(tvaLabel)} incluse<br>
+    TVA ${window.escHtml(tvaLabel)} incluse<br>
     Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} · KEURGOUMAK POS v3.0
   </div>
   <div style="text-align:right;font-size:12px;color:#9ca3af;">
     Réf. : <strong style="font-family:'Courier New',monospace;color:#f5a623;">${f.num}</strong>
   </div>
 </div>
-
-<script>
-(function(){
-  try {
-    var q = window.parent && window.parent.QRCode, txt = ${JSON.stringify(qrDataRaw)};
-    var show = function(u){ var i=document.getElementById('fact-qr'), ph=document.getElementById('fact-qr-ph'); if(i&&u){ i.src=u; i.style.display='block'; if(ph) ph.style.display='none'; } };
-    if(q && typeof q.toDataURL === 'function') {
-      q.toDataURL(txt, { margin:0, width:240, errorCorrectionLevel:'M' }, function(e,u){ if(!e) show(u); });
-    }
-  } catch(e) {}
-})();
-<\/script>
 
 <!-- BOUTONS IMPRESSION -->
 <div class="no-print" style="text-align:center;margin-top:24px;display:flex;gap:12px;justify-content:center;">
@@ -14276,6 +14444,7 @@ async function _loadVentesSupabase(caisse, sinceMs) {
       client:    row.client && row.client !== 'undefined' ? row.client : 'Client',
       serveur:   row.serveur || '',
       note:      _kgSepNoteTel(row.note).note,
+      type:      /^(REPRISE \/ )?ÉCHANGE/.test(_kgSepNoteTel(row.note).note || '') ? 'echange' : undefined,
       telephone: _kgSepNoteTel(row.note).tel,
       date:      row.session_date,
       time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}),
@@ -15128,6 +15297,7 @@ let _ech = { rendus: [], nouveaux: [], enCours: false };
 function _echEsc(t) { return (window.escHtml ? window.escHtml(String(t==null?'':t)) : String(t==null?'':t)); }
 
 function openEchange() {
+  if(!kgCanEchange()) { showNotif('⛔ Vous n\'avez pas la permission de faire des échanges'); return; }
   if(!sessionCaisseActive) { showNotif('🔒 Ouvrez une caisse avant de faire un échange !'); if(typeof _highlightOpenBtn==='function') _highlightOpenBtn(); return; }
   _ech = { rendus: [], nouveaux: [], enCours: false };
   let ov = document.getElementById('kg-echange-modal');
@@ -15283,6 +15453,7 @@ function echResume() {
 
 async function validerEchange() {
   if(_ech.enCours) return;
+  if(!kgCanEchange()) { showNotif('⛔ Vous n\'avez pas la permission de faire des échanges'); return; }
   if(!sessionCaisseActive) { showNotif('🔒 Ouvrez une caisse avant de faire un échange !'); return; }
   if(!_ech.rendus.length) { showNotif('⚠️ Ajoutez l\'article rendu par le client'); return; }
   if(_ech.rendus.some(l => !(l.qty > 0)) || _ech.nouveaux.some(l => !(l.qty > 0))) { showNotif('⚠️ Vérifiez les quantités'); return; }
@@ -15572,6 +15743,7 @@ function _lsRemove(key) { try { localStorage.removeItem(_lsKey(key)); } catch(e)
 let RESTAURANT_INFO = {
   nom: 'Mon Restaurant',
   ninea: '',
+  rc: '',
   tel: '',
   email: '',
   adresse: 'Louga, Sénégal',
@@ -15806,6 +15978,7 @@ function applyRestaurantSettingsToUI() {
   const set = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
   set('settings-nom',    RESTAURANT_INFO.nom);
   set('settings-ninea',  RESTAURANT_INFO.ninea);
+  set('settings-rc',     RESTAURANT_INFO.rc);
   set('settings-tel',    RESTAURANT_INFO.tel);
   set('settings-wave-url',   RESTAURANT_INFO.wave_payment_url || RESTAURANT_INFO.wave_numero || '');
   set('settings-orange-url', RESTAURANT_INFO.orange_payment_url || RESTAURANT_INFO.orange_numero || '');
@@ -15928,6 +16101,7 @@ async function saveRestaurantSettings() {
   if(!KGSync.isConnected) { showNotif('❌ Connexion Supabase requise pour sauvegarder les paramètres.'); return; }
   const nom    = (document.getElementById('settings-nom')?.value || '').trim();
   const ninea  = (document.getElementById('settings-ninea')?.value || '').trim();
+  const rc     = (document.getElementById('settings-rc')?.value || '').trim();
   const tel    = (document.getElementById('settings-tel')?.value || '').trim();
   const email  = (document.getElementById('settings-email')?.value || '').trim();
   const adresse= (document.getElementById('settings-adresse')?.value || '').trim();
@@ -15937,7 +16111,7 @@ async function saveRestaurantSettings() {
 
   const waveUrl   = (document.getElementById('settings-wave-url')?.value   || '').trim();
   const orangeUrl = (document.getElementById('settings-orange-url')?.value || '').trim();
-  RESTAURANT_INFO = { ...RESTAURANT_INFO, nom, ninea, tel, email, adresse, devise, wave_payment_url: waveUrl, orange_payment_url: orangeUrl };
+  RESTAURANT_INFO = { ...RESTAURANT_INFO, nom, ninea, rc, tel, email, adresse, devise, wave_payment_url: waveUrl, orange_payment_url: orangeUrl };
 
   // Sauvegarder localement (double persistance localStorage + session)
   try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
@@ -16181,10 +16355,16 @@ function _initPhotosPreviews() {
 // du module Factures existant pour garder un numéro et un format cohérents.
 function _genererFactureDepuisVente(vente, caisse) {
   try {
-    const lignes = (vente.items||[]).map((it, idx) => ({
-      desc: it.name || 'Article', qty: it.qty || 1, pu: it.price || 0, total: (it.qty||1) * (it.price||0),
-      note: document.getElementById('pos-fact-note-' + idx)?.value?.trim() || it.note || ''
-    }));
+    const _estEchange = vente.type === 'echange' || /^(REPRISE \/ )?ÉCHANGE/.test(vente.note || '');
+    const lignes = (vente.items||[]).map((it, idx) => {
+      // Note de ligne : saisie du POS, sinon note enregistrée avec la vente (IMEI, « Échange — article repris »…)
+      let note = document.getElementById('pos-fact-note-' + idx)?.value?.trim() || it.note || '';
+      if(!note && _estEchange) {
+        const lib = (it.echange === 'reprise') ? 'article apporté par le client' : ((it.qty < 0 || it.echange === 'retour') ? 'article repris' : 'article remis');
+        note = '🔄 Échange — ' + lib + (it.detail && String(it.detail).trim() ? ' · ' + String(it.detail).trim() : '');
+      }
+      return { desc: it.name || 'Article', qty: it.qty || 1, pu: it.price || 0, total: (it.qty||1) * (it.price||0), note };
+    });
     if(!lignes.length) {
       showNotif('⚠️ Impossible de générer une facture sans articles — ticket imprimé à la place');
       printTicket(vente, caisse);
@@ -16193,7 +16373,7 @@ function _genererFactureDepuisVente(vente, caisse) {
     const sousTotal = lignes.reduce((a,l) => a + l.total, 0);
     const remise = vente.remiseMontant || 0;
     // Un échange peut aboutir à un total négatif (remboursement) : on ne le ramène pas à 0.
-    const ttc = (vente.type === 'echange') ? (sousTotal - remise) : Math.max(0, sousTotal - remise);
+    const ttc = _estEchange ? (sousTotal - remise) : Math.max(0, sousTotal - remise);
     // ✅ FIX : respecter le réglage "Assujetti à la TVA" des Paramètres —
     // si désactivé, la facture générée automatiquement est à 0% de TVA.
     const tvaRate = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.tvaActive === false) ? 0 : 0.18;
@@ -16214,7 +16394,7 @@ function _genererFactureDepuisVente(vente, caisse) {
       date: vente.date, echeance: '',
       statut: 'payee', // ✅ vente déjà encaissée au POS → facture directement soldée
       payMethod,
-      notes: (vente.type === 'echange' ? '🔄 ÉCHANGE — ' : '') + `Générée automatiquement depuis la vente ${vente.orderNum} (${caisse})` + (vente.type === 'echange' && vente.note ? ' · ' + vente.note : '') + (vente.payMethod === 'mixed' ? ` · Paiement mixte : ${vente.payLabel||''}` : ''),
+      notes: (_estEchange ? '🔄 ÉCHANGE — ' : '') + `Générée automatiquement depuis la vente ${vente.orderNum} (${caisse})` + (_estEchange && vente.note ? ' · ' + vente.note : '') + (vente.payMethod === 'mixed' ? ` · Paiement mixte : ${vente.payLabel||''}` : ''),
       lignes, sousTotal, remise, ht, tva, ttc, tvaRate,
       acompte: ttc, soldeRestant: 0,
       // ✅ FIX double comptage : cette facture est générée depuis une vente
@@ -16278,6 +16458,7 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
   const adresse    = RESTAURANT_INFO.adresse || 'Louga, Sénégal';
   const tel        = RESTAURANT_INFO.tel     || '';
   const ninea      = RESTAURANT_INFO.ninea   || '';
+  const rc         = RESTAURANT_INFO.rc      || '';
   const tvaIncluse = vente.tva   || 0;
   const ht         = vente.sub   || 0;
   const total      = vente.total || 0;
@@ -16940,6 +17121,7 @@ ${isReprint ? `
   <div class="header-tagline">${TICKET_CONFIG.headerMsg || 'Fast-Food & Restauration'}</div>
   <div class="header-addr">${window.escHtml(adresse)}</div>
   ${tel ? `<div class="header-tel">☎ ${window.escHtml(tel)}</div>` : ''}
+  ${TICKET_CONFIG.showNinea && (rc || ninea) ? `<div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin-top:4px;">${rc ? `<span class="footer-ninea">RC : ${window.escHtml(rc)}</span>` : ''}${ninea ? `<span class="footer-ninea">NINEA : ${window.escHtml(ninea)}</span>` : ''}</div>` : ''}
 </div>
 
 <!-- ══ BANDEAU NUMÉRO ══ -->
@@ -17041,7 +17223,6 @@ ${TICKET_CONFIG.showQR ? `
   <div class="footer-msg">${(TICKET_CONFIG.footerMsg || '🙏 Merci pour votre visite !\nÀ très bientôt parmi nous.').replace(/\n/g,'<br>')}</div>
   <div class="footer-meta">
     N°${String(vente.orderNum).padStart(3,'0')} · ${fmtDateFR(dateStr)} · ${heureStr}
-    ${TICKET_CONFIG.showNinea && ninea ? `<br><span class="footer-ninea">NINEA : ${ninea}</span>` : ''}
   </div>
 </div>
 
@@ -17763,13 +17944,18 @@ function reprintOuGenererFacture(orderNum) {
   }
   if(!vente) { showNotif('⚠️ Vente introuvable'); return; }
 
-  if(vente.factureId) {
-    const fExistante = (FACTURES||[]).find(f => f.id === vente.factureId);
-    if(fExistante) {
-      printFacture(fExistante.id);
-      showNotif(`📄 Facture ${fExistante.num} réimprimée`);
-      return;
-    }
+  // La facture est retrouvée par son id, sinon par le n° de ticket écrit dans ses notes
+  // (le lien vente → facture est perdu quand les ventes sont rechargées depuis le serveur).
+  let fExistante = vente.factureId ? (FACTURES||[]).find(f => f.id === vente.factureId) : null;
+  if(!fExistante) {
+    const _marque = 'depuis la vente ' + orderNum + ' (';
+    fExistante = (FACTURES||[]).find(f => f.origine === 'pos' && String(f.notes||'').includes(_marque));
+  }
+  if(fExistante) {
+    vente.factureId = fExistante.id;
+    printFacture(fExistante.id);
+    showNotif(`📄 Facture ${fExistante.num} réimprimée`);
+    return;
   }
   // Aucune facture existante pour cette vente → en générer une nouvelle
   _genererFactureDepuisVente(vente, caisseName);
@@ -24115,6 +24301,25 @@ function _kgWatchIframePreview(iframeId, pdfButtonSelector, attempt, html, retri
 // principale, on masque tout le reste à l'impression, puis on appelle
 // window.print() sur la page elle-même.
 // ============================================================
+// 🖨️ Téléphone : on ouvre la facture/le rapport SEUL dans un nouvel onglet puis on lance l'impression.
+// Une page isolée s'imprime (ou s'enregistre en PDF) bien plus fiablement que l'application entière.
+function kgPrintInNewWindow(doc) {
+  try {
+    const w = window.open('', '_blank');
+    if (!w) return false;
+    let html = '<!DOCTYPE html>' + doc.documentElement.outerHTML;
+    html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+    const auto = '<script>window.addEventListener("load",function(){setTimeout(function(){try{window.focus();window.print();}catch(e){}},500);});<\/script>';
+    html = html.indexOf('</body>') > -1 ? html.replace('</body>', auto + '</body>') : html + auto;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 function kgIsMobileDevice() {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '') ||
          ((navigator.maxTouchPoints || 0) > 1 && window.innerWidth < 900);
@@ -24142,12 +24347,10 @@ function kgPrintTopLevel(doc) {
     root.querySelectorAll('script').forEach(x => x.remove());
     document.head.appendChild(st);
     document.body.appendChild(root);
-    const cleanup = () => {
-      window.removeEventListener('afterprint', cleanup);
-      setTimeout(() => { [root, st].forEach(n => n && n.parentNode && n.parentNode.removeChild(n)); }, 500);
-    };
-    window.addEventListener('afterprint', cleanup);
-    setTimeout(cleanup, 120000);
+    // Nettoyage différé (10 min) : sur Android, « afterprint » se déclenche avant la fin de la mise en page
+    // de l'aperçu, et retirer le contenu à ce moment donne une page blanche / une impression qui échoue.
+    const cleanup = () => { [root, st].forEach(n => n && n.parentNode && n.parentNode.removeChild(n)); };
+    setTimeout(cleanup, 600000);
     setTimeout(() => { try { window.print(); } catch(e) { cleanup(); if (typeof showNotif === 'function') showNotif('⚠️ Impression indisponible sur cet appareil'); } }, 150);
     return true;
   } catch (e) {
@@ -24181,7 +24384,13 @@ function kgSafePrintIframe(iframeId, _attempt) {
   // (évite un aperçu blanc quand le layout n'est pas encore stabilisé).
   const doPrint = () => {
     // 📱 Mobile : impression depuis la page principale (l'iframe ne s'imprime pas)
-    if (kgIsMobileDevice() && kgPrintTopLevel(doc)) return;
+    if (kgIsMobileDevice()) {
+      if (kgPrintInNewWindow(doc)) {
+        if (typeof showNotif === 'function') showNotif('🖨️ Document ouvert dans un nouvel onglet — si l\'impression ne démarre pas : menu ⋮ → Partager → Imprimer');
+        return;
+      }
+      if (kgPrintTopLevel(doc)) return;
+    }
     try {
       iframe.contentWindow.focus();
       iframe.contentWindow.print();
@@ -25174,9 +25383,9 @@ function renderReconciliation() {
 
 // ===== AUTH & USERS SYSTEM =====
 const ROLES_CONFIG = {
-  administrateur: { label:'Administrateur', icon:'🛡️', color:'#dc3545', perms: ['dashboard','caisse','commandes','qrcommandes','attentepaiement','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','rapport-mensuel','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','gestion-roles','annonces','livreurs','serveurs','terrain','salle','sport','rdv'] },
-  gerant:      { label:'Gérant', icon:'👑', color:'var(--accent)', perms: ['dashboard','caisse','commandes','qrcommandes','attentepaiement','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','annonces','livreurs','serveurs','terrain','salle','sport','rdv'] },
-  superviseur: { label:'Superviseur', icon:'🔷', color:'var(--purple)', perms: ['dashboard','caisse','commandes','qrcommandes','attentepaiement','menu','stock','inventaire','fournisseurs','caisses','rapportx','shift','fermeture','historique','stats','depenses','rh','compta','factures','banque','annonces','livreurs','serveurs','terrain','salle','sport','rdv'] },
+  administrateur: { label:'Administrateur', icon:'🛡️', color:'#dc3545', perms: ['dashboard','caisse','commandes','qrcommandes','attentepaiement','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','rapport-mensuel','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','gestion-roles','annonces','livreurs','serveurs','terrain','salle','sport','rdv','echange'] },
+  gerant:      { label:'Gérant', icon:'👑', color:'var(--accent)', perms: ['dashboard','caisse','commandes','qrcommandes','attentepaiement','menu','stock','inventaire','clients','fournisseurs','utilisateurs','caisses','rapportx','shift','fermeture','reconciliation','historique','stats','settings','depenses','rh','compta','factures','banque','materiel','annonces','livreurs','serveurs','terrain','salle','sport','rdv','echange'] },
+  superviseur: { label:'Superviseur', icon:'🔷', color:'var(--purple)', perms: ['dashboard','caisse','commandes','qrcommandes','attentepaiement','menu','stock','inventaire','fournisseurs','caisses','rapportx','shift','fermeture','historique','stats','depenses','rh','compta','factures','banque','annonces','livreurs','serveurs','terrain','salle','sport','rdv','echange'] },
   caissier:    { label:'Caissier', icon:'💳', color:'var(--teal)', perms: ['caisse','commandes','qrcommandes','attentepaiement','rapportx'] },
   cuisinier:   { label:'Cuisinier', icon:'👨‍🍳', color:'var(--accent2)', perms: ['commandes','qrcommandes','attentepaiement','menu','stock'] },
   livreur:     { label:'Livreur', icon:'🛵', color:'var(--green)', perms: ['commandes','qrcommandes','attentepaiement'] },
@@ -25188,6 +25397,7 @@ const ALL_PERMS = [
   { id:'stock', label:'Stocks' }, { id:'inventaire', label:'Inventaire' }, { id:'clients', label:'Clients' },
   { id:'fournisseurs', label:'Fournisseurs' }, { id:'livreurs', label:'🛵 Livreurs' }, { id:'serveurs', label:'🍽️ Serveurs' }, { id:'utilisateurs', label:'Utilisateurs' },
   { id:'caisses', label:'🖥️ Gestion des Caisses' },
+  { id:'echange', label:'🔄 Échange / retour en caisse' },
   { id:'rapportx', label:'Rapport X' }, { id:'rapport-mensuel', label:'📅 Rapport Mensuel' }, { id:'shift', label:'Shifts' },
   { id:'fermeture', label:'Fermeture (Z)' }, { id:'reconciliation', label:'Réconciliation' },
   { id:'historique', label:'Historique' }, { id:'stats', label:'Statistiques' },
@@ -25317,6 +25527,14 @@ function getRoleClass(role) { return 'role-'+role; }
 function getRoleLabel(role) { return ROLES_CONFIG[role]?.label || role; }
 function getRoleIcon(role) { return ROLES_CONFIG[role]?.icon || '👤'; }
 function getUserPerms(u) { return u.perms || ROLES_CONFIG[u.role]?.perms || []; }
+
+// 🔄 Qui peut faire un échange en caisse ? L'administrateur toujours ; les autres selon leurs permissions
+// (Utilisateurs → Rôles & Permissions, ou droits personnalisés d'un utilisateur).
+function kgCanEchange() {
+  if(typeof currentUser === 'undefined' || !currentUser) return false;
+  if(currentUser.role === 'administrateur') return true;
+  return (getUserPerms(currentUser) || []).includes('echange');
+}
 
 // LOGIN
 function renderQuickUsers() {
@@ -26217,6 +26435,10 @@ function applyPermissions() {
     item.style.display = allowed ? '' : 'none';
   });
 
+  // 🔄 Bouton « Échange » de la caisse : visible seulement avec la permission
+  const _btnEch = document.getElementById('btn-echange');
+  if(_btnEch) _btnEch.style.display = kgCanEchange() ? '' : 'none';
+
   // ✅ FIX : l'onglet "Catégories" du Menu & Carte (voir + créer/modifier les catégories
   // de produits) est réservé aux rôles Administrateur et Gérant.
   const canManageCats = currentUser.role === 'administrateur' || currentUser.role === 'gerant';
@@ -27042,6 +27264,7 @@ async function initDashboard() {
               cashier:   row.cashier || '',
               client:    row.client && row.client !== 'undefined' ? row.client : 'Client',
               note:      _kgSepNoteTel(row.note).note,
+      type:      /^(REPRISE \/ )?ÉCHANGE/.test(_kgSepNoteTel(row.note).note || '') ? 'echange' : undefined,
               telephone: _kgSepNoteTel(row.note).tel,
               date:      row.session_date,
               time:      new Date(row.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})
@@ -34453,7 +34676,7 @@ function updateTicketPreview() {
   html += '<div style="font-weight:700;font-size:15px;">' + (ri.nom || 'MON RESTAURANT') + '</div>';
   html += '<div style="font-size:11px;color:#555;">' + (ri.adresse || '') + '</div>';
   html += '<div style="font-size:11px;color:#555;">Tél: ' + (ri.tel || '') + '</div>';
-  if(showNinea) html += '<div style="font-size:10px;color:#777;">NINEA: ' + (ri.ninea || '') + ' — TVA 18%</div>';
+  if(showNinea) html += '<div style="font-size:10px;color:#777;">' + (ri.rc ? 'RC: ' + ri.rc + ' · ' : '') + 'NINEA: ' + (ri.ninea || '') + ' — TVA 18%</div>';
   html += '</div>';
 
   html += '<div style="text-align:center;font-size:10px;color:#999;margin:5px 0;">' + sep + '</div>';
