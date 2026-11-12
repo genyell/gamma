@@ -7932,6 +7932,7 @@ Revenez nous voir bient&#244;t.</textarea>
         <button class="cat-btn" id="rh-tab-salaires" onclick="switchRHTab('salaires',this)">💰 Fiches de Paie</button>
         <button class="cat-btn" id="rh-tab-conges" onclick="switchRHTab('conges',this)">🏖️ Congés & Absences</button>
         <button class="cat-btn" id="rh-tab-avances" onclick="switchRHTab('avances',this)">💳 Avances & Prêts</button>
+        <button class="cat-btn" id="rh-tab-situation" onclick="switchRHTab('situation',this)">📋 Situation du mois</button>
         <button class="btn btn-primary" style="margin-left:auto;" onclick="openAddEmploye()">+ Nouvel Employé</button>
       </div>
 
@@ -7991,6 +7992,22 @@ Revenez nous voir bient&#244;t.</textarea>
             <button class="btn btn-primary" onclick="openAddConge()">+ Nouvelle demande</button>
           </div>
           <div id="rh-conges-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+      </div>
+
+      <!-- TAB: SITUATION DU MOIS (ce que chacun a pris, ce qui reste à verser) -->
+      <div id="rh-panel-situation" style="display:none;">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
+            <div class="card-title" style="flex:1;min-width:200px;">Situation du mois — <span id="rh-sit-label"></span></div>
+            <input class="form-input" type="month" id="rh-sit-mois" onchange="renderSituationPersonnel()" style="width:170px;">
+            <button class="btn btn-ghost" onclick="openAddAvance()">➕ Nouveau prélèvement</button>
+            <button class="btn btn-primary" onclick="printSituationPersonnel()">🖨️ Imprimer</button>
+            <button class="btn btn-ghost" onclick="exportSituationExcel()">📊 Excel</button>
+          </div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">Chaque fois qu'une personne prend de l'argent, enregistrez-le avec ➕ : il est déduit de sa paie du mois. Pour une personne non salariée, créez-la dans « Employés » avec un salaire de 0.</div>
+          <div id="rh-situation-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+          <div id="rh-situation-total" style="margin-top:14px;"></div>
         </div>
       </div>
 
@@ -11726,6 +11743,7 @@ function renderFactures() {
       <td style="text-align:center;">
         <div style="display:flex;gap:4px;justify-content:center;flex-wrap:nowrap;">
           <button onclick="printFacture('${f.id}')" title="Imprimer" style="background:rgba(0,201,177,0.12);border:1px solid rgba(0,201,177,0.3);color:var(--teal);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">🖨️</button>
+          ${f.type === 'client' ? `<button onclick="printBonLivraison('${f.id}')" title="Bon de livraison" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.35);color:#6366f1;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">📦</button>` : ''}
           ${f.tiersTel ? `<button onclick="partagerFacture_WhatsApp('${f.id}')" title="Envoyer par WhatsApp" style="background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.35);color:#1da851;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">💬</button>` : ''}
           <button onclick="editFacture('${f.id}')" title="Modifier" style="background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.3);color:var(--accent);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;font-weight:700;">✏️</button>
           ${f.type==='devis' ? `
@@ -12928,6 +12946,126 @@ function exportFacturesCSV() {
 }
 
 // ---------- IMPRESSION FACTURE ----------
+// ================================================================
+// 📦 BON DE LIVRAISON — généré à partir d'une facture client (Factures → bouton 📦)
+// Mêmes articles que la facture, SANS prix, avec les zones de signature (livreur / client).
+// N° du bon = n° de la facture (FAC-2026-004 → BL-2026-004) : lien clair entre les deux documents.
+// ================================================================
+function printBonLivraison(id) {
+  const f = FACTURES.find(x => x.id === id);
+  if(!f) return;
+  if(typeof kgRepairFactureNotes === 'function') kgRepairFactureNotes(f);
+  const E = t => window.escHtml(String(t == null ? '' : t));
+  const info = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO) ? RESTAURANT_INFO : {};
+  const resto = info.nom || 'KEURGOUMAK', adresse = info.adresse || '', tel = info.tel || '', email = info.email || '';
+  const ninea = info.ninea || '', rc = info.rc || '';
+  const optPied = info.fact_pied !== false, optGenere = info.fact_genere !== false;
+  const numBL = 'BL-' + String(f.num || '').replace(/^[A-Za-z]+-/, '');
+  const dateLiv = fmtDateFR(new Date());
+  const lignes = f.lignes || [];
+  // livrés = quantités positives ; repris (échange) = quantités négatives, comptées à part
+  const totalQte = lignes.reduce((a, l) => a + Math.max(0, Number(l.qty) || 0), 0);
+  const totalRepris = lignes.reduce((a, l) => a + Math.max(0, -(Number(l.qty) || 0)), 0);
+  const logoSrc = (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.showLogo && TICKET_CONFIG.logo) ? TICKET_CONFIG.logo : (info.loginLogo || '');
+  const n = lignes.length;
+  const SZ = n <= 6 ? { f: 12, pad: 9, d: 10 } : (n <= 10 ? { f: 11, pad: 6, d: 9 } : { f: 10, pad: 4, d: 8.5 });
+  const rows = lignes.map((l, i) => `
+    <tr>
+      <td class="c" style="padding:${SZ.pad}px 6px;">${i + 1}</td>
+      <td style="padding:${SZ.pad}px 10px;">
+        <div class="d" style="font-size:${SZ.f}pt;">${E(l.desc)}${(Number(l.qty) < 0) ? ' <span class="rep">(repris)</span>' : ''}</div>
+        ${l.note ? `<div class="n" style="font-size:${SZ.d}pt;">${E(l.note)}</div>` : ''}
+      </td>
+      <td class="c q" style="padding:${SZ.pad}px 6px;font-size:${SZ.f + 1}pt;">${E(l.qty)}</td>
+      <td style="padding:${SZ.pad}px 6px;"></td>
+    </tr>`).join('');
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bon de livraison ${E(numBL)}</title>
+<style>
+  @page { size:A4; margin:0; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Inter','Segoe UI',Arial,sans-serif; color:#111827; background:#fff; padding:12mm 14mm; font-size:10pt; max-width:860px; margin:0 auto; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .top { display:flex; justify-content:space-between; gap:14px; border-bottom:3px solid #111; padding-bottom:10px; margin-bottom:12px; }
+  .nom { font-size:18pt; font-weight:900; line-height:1.15; }
+  .meta { font-size:9pt; color:#374151; margin-top:5px; line-height:1.5; }
+  .badge { display:inline-block; background:#111; color:#fff; font-size:8pt; font-weight:700; border-radius:4px; padding:2px 7px; margin:5px 5px 0 0; }
+  .titre { text-align:right; }
+  .titre b { display:block; font-size:17pt; font-weight:900; letter-spacing:.5px; }
+  .titre .num { font-size:12pt; font-weight:800; margin-top:3px; }
+  .titre .sm { font-size:9.5pt; color:#374151; margin-top:3px; line-height:1.5; }
+  .blocs { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  .box { border:1.5px solid #111; border-radius:8px; padding:8px 11px; }
+  .lab { font-size:7.5pt; letter-spacing:2px; text-transform:uppercase; color:#555; font-weight:700; margin-bottom:4px; }
+  .box .nm { font-size:11pt; font-weight:800; }
+  .box .mt { font-size:9pt; color:#374151; margin-top:3px; line-height:1.45; }
+  table { width:100%; border-collapse:collapse; margin-bottom:8px; }
+  th { background:#111; color:#fff; font-size:9.5pt; padding:7px 10px; text-align:left; }
+  th.c { text-align:center; }
+  td { border:1px solid #9ca3af; vertical-align:middle; }
+  td.c { text-align:center; }
+  td.q { font-weight:900; }
+  .d { font-weight:800; line-height:1.25; }
+  .n { font-weight:600; color:#1f2937; margin-top:2px; line-height:1.3; }
+  .rep { font-weight:600; color:#6b7280; font-size:.8em; }
+  tr { page-break-inside:avoid; }
+  .tot { text-align:right; font-size:10.5pt; font-weight:800; margin:4px 2px 12px; }
+  .mention { border:1.5px solid #d1d5db; background:#f8f9fc; border-radius:8px; padding:7px 12px; font-size:9pt; line-height:1.5; margin-bottom:14px; }
+  .sigs { display:grid; grid-template-columns:1fr 1fr; gap:14px; page-break-inside:avoid; }
+  .sig { border:1.5px solid #111; border-radius:8px; padding:9px 12px; height:120px; }
+  .sig .t { font-weight:800; font-size:10pt; margin-bottom:6px; }
+  .sig .l { font-size:9pt; color:#374151; margin-top:6px; }
+  .footer { margin-top:14px; border-top:2px solid #111; padding-top:7px; font-size:8pt; color:#374151; line-height:1.5; page-break-inside:avoid; }
+  @media print { body { padding:9mm 12mm; max-width:none; } .no-print { display:none !important; } }
+</style></head><body>
+  <div class="top">
+    <div>
+      ${logoSrc ? `<div style="margin-bottom:6px;"><img src="${window.safeUrl(logoSrc)}" style="max-width:100px;max-height:64px;object-fit:contain;"></div>` : ''}
+      <div class="nom">${E(resto)}</div>
+      <div class="meta">${adresse ? '📍 ' + E(adresse) + '<br>' : ''}${tel ? '📞 ' + E(tel) + '<br>' : ''}${email ? '✉️ ' + E(email) : ''}</div>
+      ${rc ? `<span class="badge">RC : ${E(rc)}</span>` : ''}${ninea ? `<span class="badge">NINEA : ${E(ninea)}</span>` : ''}
+    </div>
+    <div class="titre">
+      <b>BON DE LIVRAISON</b>
+      <div class="num">${E(numBL)}</div>
+      <div class="sm">📅 Date de livraison : <strong>${dateLiv}</strong><br>🧾 Facture associée : <strong>${E(f.num)}</strong> du ${fmtDateFR(f.date)}</div>
+    </div>
+  </div>
+  <div class="blocs">
+    <div class="box"><div class="lab">Expéditeur</div><div class="nm">${E(resto)}</div><div class="mt">${adresse ? E(adresse) + '<br>' : ''}${tel ? E(tel) : ''}</div></div>
+    <div class="box"><div class="lab">Livré à</div><div class="nm">${E(f.tiers || 'Client')}</div><div class="mt">${f.tiersAdresse ? E(f.tiersAdresse) + '<br>' : ''}${f.tiersTel ? E(f.tiersTel) : ''}${f.tiersEmail ? '<br>' + E(f.tiersEmail) : ''}</div></div>
+  </div>
+  <table>
+    <thead><tr><th class="c" style="width:7%;">N°</th><th style="width:61%;">Désignation</th><th class="c" style="width:12%;">Qté</th><th style="width:20%;">Observations</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="tot">Total articles livrés : ${E(totalQte)}${totalRepris ? ' &nbsp;·&nbsp; Articles repris : ' + E(totalRepris) : ''}</div>
+  <div class="mention">Le client reconnaît avoir reçu les marchandises ci-dessus. Toute anomalie (manquant, article endommagé) doit être signalée à la livraison, sur ce bon, avant signature.</div>
+  <div class="sigs">
+    <div class="sig"><div class="t">Le livreur / l'expéditeur</div><div class="l">Nom :</div><div class="l">Date :</div><div class="l">Signature :</div></div>
+    <div class="sig"><div class="t">Le client — « Reçu en bon état »</div><div class="l">Nom :</div><div class="l">Date :</div><div class="l">Signature et cachet :</div></div>
+  </div>
+  ${optPied ? `<div class="footer">Bon de livraison — ${E(resto)} · Document non valable comme facture${optGenere ? `<br>Généré le ${fmtDateFR(new Date())} à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · KEURGOUMAK POS v3.0` : ''}</div>` : ''}
+</body></html>`;
+
+  const old = document.getElementById('kg-facture-overlay'); if(old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'kg-facture-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;overflow:auto;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:12px;overflow:hidden;max-height:95vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.5);width:860px;max-width:98vw;">
+      <div style="position:sticky;top:0;background:#1a1a2e;padding:12px 18px;display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;z-index:1;">
+        <span style="color:#f5a623;font-weight:700;font-size:14px;">📦 BON DE LIVRAISON — ${E(numBL)} · ${E(f.tiers)}</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="kgSafePrintIframe('kg-facture-frame')" style="padding:7px 18px;background:linear-gradient(135deg,#f5a623,#e8440a);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">🖨️ Imprimer</button>
+          <button onclick="document.getElementById('kg-facture-overlay').remove();printFacture('${f.id}')" style="padding:7px 16px;background:#374151;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">🧾 Voir la facture</button>
+          <button onclick="document.getElementById('kg-facture-overlay').remove()" style="padding:7px 16px;background:#444;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">✕ Fermer</button>
+        </div>
+      </div>
+      <iframe id="kg-facture-frame" style="width:100%;height:82vh;border:none;display:block;background:#fff;"></iframe>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('kg-facture-frame').srcdoc = html;
+}
+
 // 🔧 Réparation à la volée : si une facture issue de la caisse a perdu les détails de ses lignes
 // (IMEI, « Échange — article repris »…), on les retrouve dans la vente d'origine (n° de ticket dans les notes).
 function kgRepairFactureNotes(f) {
@@ -13308,6 +13446,7 @@ ${_optPied ? `<div class="footer">
         <span style="color:#f5a623;font-weight:700;font-size:14px;">🧾 ${window.escHtml(typeLabel)} — ${f.num} · ${f.tiers}</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button onclick="kgSafePrintIframe('kg-facture-frame')" style="padding:7px 18px;background:linear-gradient(135deg,#f5a623,#e8440a);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">🖨️ Imprimer</button>
+          ${f.type === 'client' ? `<button onclick="document.getElementById('kg-facture-overlay').remove();printBonLivraison('${f.id}')" style="padding:7px 16px;background:#6366f1;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">📦 Bon de livraison</button>` : ''}
           ${f.tiersTel ? `<button onclick="partagerFacture_WhatsApp('${f.id}')" style="padding:7px 18px;background:#25D366;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">💬 WhatsApp</button>` : ''}
           <button onclick="document.getElementById('kg-facture-overlay').remove()" style="padding:7px 16px;background:#444;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">✕ Fermer</button>
         </div>
@@ -18253,7 +18392,7 @@ function renderOrders(status) {
   const _ordIsManager = currentUser && (currentUser.role === 'administrateur' || currentUser.role === 'gerant' || currentUser.role === 'superviseur');
   const _ordUserCaisse = (currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null;
   // ✅ v105 : l'administrateur peut choisir la caisse à afficher (sélecteur dans l'en-tête de Commandes)
-  const _ordFiltreAdmin = (currentUser && currentUser.role === 'administrateur' && window._ordCaisseFiltre) ? window._ordCaisseFiltre : '';
+  const _ordFiltreAdmin = ((currentUser && ['administrateur','gerant','superviseur'].includes(currentUser.role)) && window._ordCaisseFiltre) ? window._ordCaisseFiltre : '';
   const _ordVentesParCaisse = _ordFiltreAdmin
     ? { [_ordFiltreAdmin]: (VENTES_PAR_CAISSE || {})[_ordFiltreAdmin] || [] }
     : ((_ordIsManager || !_ordUserCaisse)
@@ -24423,7 +24562,7 @@ function renderRapportX() {
   // si _syncPiscineVentes() et _syncManegeVentes() n'ont pas réussi à remplir (cas: pas de transactions dans obj)
   const _today = new Date().toISOString().slice(0,10);
 
-  if((VENTES_PAR_CAISSE['Caisse 5']||[]).length === 0 && typeof PISCINE_ENTREES !== 'undefined') {
+  if((VENTES_PAR_CAISSE['Caisse 5']||[]).length === 0 && typeof PISCINE_ENTREES !== 'undefined' && !kgCaisseFermeeAujourdhui('Caisse 5')) {
     const _vp5 = PISCINE_ENTREES.filter(e => !e.cloturee && (e.date||'').slice(0,10) === _today);
     if(_vp5.length > 0) {
       const _pl = {cash:'💵 Espèces', wave:'Wave', orange:'Orange Money', card:'💳 Carte'};
@@ -24436,7 +24575,7 @@ function renderRapportX() {
     }
   }
 
-  if((VENTES_PAR_CAISSE['Caisse 7']||[]).length === 0 && typeof MANEGE_ENTREES !== 'undefined') {
+  if((VENTES_PAR_CAISSE['Caisse 7']||[]).length === 0 && typeof MANEGE_ENTREES !== 'undefined' && !kgCaisseFermeeAujourdhui('Caisse 7')) {
     const _vm7 = MANEGE_ENTREES.filter(e => !e.cloturee && (e.date||'').slice(0,10) === _today);
     if(_vm7.length > 0) {
       const _pl = {cash:'💵 Espèces', wave:'Wave', orange:'Orange Money', card:'💳 Carte'};
@@ -27877,11 +28016,11 @@ function refreshDashboard() {
   // Car leurs ventes ne passent pas par VENTES_PAR_CAISSE → elles étaient ignorées dans le total
   const _todayDash = new Date().toISOString().slice(0,10);
   const _pl = {cash:'Espèces', wave:'Wave', orange:'Orange Money', card:'Carte'};
-  if((VENTES_PAR_CAISSE['Caisse 5']||[]).length === 0 && typeof PISCINE_ENTREES !== 'undefined') {
+  if((VENTES_PAR_CAISSE['Caisse 5']||[]).length === 0 && typeof PISCINE_ENTREES !== 'undefined' && !kgCaisseFermeeAujourdhui('Caisse 5')) {
     const _vp5 = PISCINE_ENTREES.filter(e => !e.cloturee && (e.date||'').slice(0,10) === _todayDash);
     if(_vp5.length > 0) VENTES_PAR_CAISSE['Caisse 5'] = _vp5.map(e => ({id:e.id||'p'+Math.random(), total:e.montant||0, payMethod:e.paiement||'cash', payLabel:_pl[e.paiement]||'Espèces', label:e.label||'Piscine', caisse:'Caisse 5', cashier:e.caissier||'—', date:e.date||new Date().toISOString()}));
   }
-  if((VENTES_PAR_CAISSE['Caisse 7']||[]).length === 0 && typeof MANEGE_ENTREES !== 'undefined') {
+  if((VENTES_PAR_CAISSE['Caisse 7']||[]).length === 0 && typeof MANEGE_ENTREES !== 'undefined' && !kgCaisseFermeeAujourdhui('Caisse 7')) {
     const _vm7 = MANEGE_ENTREES.filter(e => !e.cloturee && (e.date||'').slice(0,10) === _todayDash);
     if(_vm7.length > 0) VENTES_PAR_CAISSE['Caisse 7'] = _vm7.map(e => ({id:e.id||'m'+Math.random(), total:e.montant||0, payMethod:e.paiement||'cash', payLabel:_pl[e.paiement]||'Espèces', label:e.label||'Manège', caisse:'Caisse 7', cashier:e.caissier||'—', date:e.date||new Date().toISOString()}));
   }
@@ -28232,6 +28371,23 @@ const CAISSES = [
 
 ];
 const statusLabel = { open:'🟢 Ouverte', paused:'🟡 En pause', closed:'⚫ Fermée' };
+
+// Caisse de module (5 = piscine, 7 = manège) clôturée AUJOURD'HUI et non rouverte depuis ?
+// Sert à ne pas recréer ses ventes à partir des entrées du jour (qui peuvent encore sembler « non clôturées »).
+function kgCaisseFermeeAujourdhui(nom) {
+  try {
+    if(window._kgClotureNom === nom) return true;   // clôture en cours : ne rien recréer
+    const auj = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    const cloturee = (typeof HISTORIQUE_CLOTURES !== 'undefined' ? HISTORIQUE_CLOTURES : []).some(h => h.caisse === nom && h.date === auj);
+    if(!cloturee) return false;
+    const mod = nom === 'Caisse 5' ? (typeof PISCINE_CAISSE !== 'undefined' ? PISCINE_CAISSE : null)
+              : nom === 'Caisse 7' ? (typeof MANEGE_CAISSE !== 'undefined' ? MANEGE_CAISSE : null) : null;
+    const c = CAISSES.find(x => x.name === nom);
+    const rouverte = !!((mod && mod.active) || (c && c.status === 'open') || (sessionCaisseActive && sessionCaisseActive.caisse === nom));
+    return !rouverte;
+  } catch(e) { return false; }
+}
+
 
 function saveCaisses() {
   try {
@@ -29226,11 +29382,11 @@ function initFermetureSelect() {
   });
   // Forcer la population VENTES_PAR_CAISSE depuis ENTREES pour Piscine/Manège si vides
   const _todayFZ = new Date().toISOString().slice(0,10);
-  if((VENTES_PAR_CAISSE['Caisse 5']||[]).length===0 && typeof PISCINE_ENTREES!=='undefined') {
+  if((VENTES_PAR_CAISSE['Caisse 5']||[]).length===0 && typeof PISCINE_ENTREES!=='undefined' && !kgCaisseFermeeAujourdhui('Caisse 5')) {
     const _vp5 = PISCINE_ENTREES.filter(e=>!e.cloturee&&(e.date||'').slice(0,10)===_todayFZ);
     if(_vp5.length>0) VENTES_PAR_CAISSE['Caisse 5']=_vp5.map(e=>({id:e.id||'p'+Math.random(),total:e.montant||0,payMethod:e.paiement||'cash',label:e.label||'Piscine',caisse:'Caisse 5',cashier:e.caissier||'—',date:e.date||new Date().toISOString()}));
   }
-  if((VENTES_PAR_CAISSE['Caisse 7']||[]).length===0 && typeof MANEGE_ENTREES!=='undefined') {
+  if((VENTES_PAR_CAISSE['Caisse 7']||[]).length===0 && typeof MANEGE_ENTREES!=='undefined' && !kgCaisseFermeeAujourdhui('Caisse 7')) {
     const _vm7 = MANEGE_ENTREES.filter(e=>!e.cloturee&&(e.date||'').slice(0,10)===_todayFZ);
     if(_vm7.length>0) VENTES_PAR_CAISSE['Caisse 7']=_vm7.map(e=>({id:e.id||'m'+Math.random(),total:e.montant||0,payMethod:e.paiement||'cash',label:e.label||'Manège',caisse:'Caisse 7',cashier:e.caissier||'—',date:e.date||new Date().toISOString()}));
   }
@@ -29724,6 +29880,10 @@ async function cloturerCaisse() {
     }
 
     // 5. Remettre la caisse à zéro
+    // 🛑 Pendant la clôture, le réaffichage du Rapport X (plus bas) recréait les ventes des caisses 5/7 à partir
+    // des entrées du jour, pas encore marquées « clôturées » : la caisse clôturée « revenait ». On l'interdit ici.
+    window._kgClotureNom = caisse;
+    setTimeout(() => { if(window._kgClotureNom === caisse) window._kgClotureNom = null; }, 5000);
     VENTES_PAR_CAISSE[caisse] = [];
 
     // ✅ FIX SYNC : Ne plus couper le Realtime après clôture
@@ -29877,6 +30037,13 @@ async function cloturerCaisse() {
       if(typeof refreshManegeStats === 'function') refreshManegeStats();
     }
 
+    // Vidage final : les entrées du module sont maintenant marquées « clôturées », la caisse reste à zéro
+    if(['Caisse 4','Caisse 5','Caisse 6','Caisse 7','Caisse 8'].includes(caisse)) {
+      VENTES_PAR_CAISSE[caisse] = [];
+      const _coFin = CAISSES.find(c => c.name === caisse);
+      if(_coFin) { _coFin.ca = 0; _coFin.orders = 0; }
+    }
+
     // ✅ RESET CAISSE 8 — Salle de Sport après clôture
     if(caisse === 'Caisse 8') {
       // Marquer les entrées du jour comme clôturées
@@ -29910,6 +30077,16 @@ async function cloturerCaisse() {
       const btnMain = document.getElementById('sport-btn-ouvrir-caisse');
       if(btnMain) { btnMain.textContent = '🔓 Ouvrir Caisse 8'; btnMain.disabled = false; btnMain.style.opacity = '1'; }
     }
+
+    // 🔒 Les entrées du module (piscine, manège, sport, location, terrain) viennent d'être marquées « clôturées » :
+    // on envoie TOUT DE SUITE cet état au serveur. Avant, il n'était gardé que sur cet appareil ; les autres appareils
+    // (ou cet appareil après rechargement) retrouvaient les anciennes entrées « non clôturées » => la caisse « revenait ».
+    try {
+      if(typeof KGSync !== 'undefined' && KGSync.isConnected && KGSync.push) {
+        const _pm = { 'Caisse 4':'terrainReservations', 'Caisse 5':'piscineData', 'Caisse 6':'locReservations', 'Caisse 7':'manegeData', 'Caisse 8':'sportData' }[caisse];
+        if(_pm && typeof KGSync.push[_pm] === 'function') KGSync.push[_pm]().catch(() => {});
+      }
+    } catch(e) {}
 
     // Push Supabase — avec retry multi-niveau pour fiabilité
     if(typeof KGSync !== 'undefined' && KGSync.isConnected) {
@@ -33473,6 +33650,8 @@ const KGSync = (() => {
             }
             if(Array.isArray(data.entrees) && data.entrees.length > 0) {
               const localIds = new Set((SPORT_ENTREES||[]).map(e => e.id));
+              // propager l'état « clôturé » venu du serveur aux entrées déjà connues
+              data.entrees.forEach(e => { if(e && e.cloturee) { const _l = (SPORT_ENTREES||[]).find(l => l.id === e.id); if(_l && !_l.cloturee) _l.cloturee = true; } });
               data.entrees.forEach(e => { if(!localIds.has(e.id)) { if(!Array.isArray(SPORT_ENTREES)) SPORT_ENTREES=[]; SPORT_ENTREES.push(e); localIds.add(e.id); } });
               try { localStorage.setItem('kg-sport-entrees', JSON.stringify(SPORT_ENTREES)); } catch(e) {}
             }
@@ -33485,6 +33664,8 @@ const KGSync = (() => {
           try {
             if(Array.isArray(data.entrees) && data.entrees.length > 0) {
               const localIds = new Set((PISCINE_ENTREES||[]).map(e => e.id));
+              // propager l'état « clôturé » venu du serveur aux entrées déjà connues
+              data.entrees.forEach(e => { if(e && e.cloturee) { const _l = (PISCINE_ENTREES||[]).find(l => l.id === e.id); if(_l && !_l.cloturee) _l.cloturee = true; } });
               data.entrees.forEach(e => { if(!localIds.has(e.id)) { if(!Array.isArray(PISCINE_ENTREES)) PISCINE_ENTREES=[]; PISCINE_ENTREES.push(e); localIds.add(e.id); } });
               try { localStorage.setItem('kg-piscine-entrees', JSON.stringify(PISCINE_ENTREES)); } catch(e) {}
             }
@@ -33496,6 +33677,8 @@ const KGSync = (() => {
           try {
             if(Array.isArray(data.entrees) && data.entrees.length > 0) {
               const localIds = new Set((MANEGE_ENTREES||[]).map(e => e.id));
+              // propager l'état « clôturé » venu du serveur aux entrées déjà connues
+              data.entrees.forEach(e => { if(e && e.cloturee) { const _l = (MANEGE_ENTREES||[]).find(l => l.id === e.id); if(_l && !_l.cloturee) _l.cloturee = true; } });
               data.entrees.forEach(e => { if(!localIds.has(e.id)) { if(!Array.isArray(MANEGE_ENTREES)) MANEGE_ENTREES=[]; MANEGE_ENTREES.push(e); localIds.add(e.id); } });
               try { localStorage.setItem('kg-manege-entrees', JSON.stringify(MANEGE_ENTREES)); } catch(e) {}
             }
@@ -33750,11 +33933,11 @@ const KGSync = (() => {
       // Car PISCINE_CAISSE.transactions peut être vide même si des ventes existent dans PISCINE_ENTREES
       const _pullToday2 = new Date().toISOString().slice(0,10);
       const _plMap = {cash:'💵 Espèces', wave:'Wave', orange:'Orange Money', card:'💳 Carte'};
-      if((VENTES_PAR_CAISSE['Caisse 5']||[]).length === 0 && typeof PISCINE_ENTREES !== 'undefined') {
+      if((VENTES_PAR_CAISSE['Caisse 5']||[]).length === 0 && typeof PISCINE_ENTREES !== 'undefined' && !kgCaisseFermeeAujourdhui('Caisse 5')) {
         const _vp5 = PISCINE_ENTREES.filter(e => !e.cloturee && (e.date||'').slice(0,10) === _pullToday2);
         if(_vp5.length > 0) VENTES_PAR_CAISSE['Caisse 5'] = _vp5.map(e => ({ id:e.id||'p'+Math.random(), total:e.montant||0, payMethod:e.paiement||'cash', payLabel:_plMap[e.paiement]||'💵 Espèces', label:e.label||'🏊 Piscine', caisse:'Caisse 5', cashier:e.caissier||'—', date:e.date||new Date().toISOString() }));
       }
-      if((VENTES_PAR_CAISSE['Caisse 7']||[]).length === 0 && typeof MANEGE_ENTREES !== 'undefined') {
+      if((VENTES_PAR_CAISSE['Caisse 7']||[]).length === 0 && typeof MANEGE_ENTREES !== 'undefined' && !kgCaisseFermeeAujourdhui('Caisse 7')) {
         const _vm7 = MANEGE_ENTREES.filter(e => !e.cloturee && (e.date||'').slice(0,10) === _pullToday2);
         if(_vm7.length > 0) VENTES_PAR_CAISSE['Caisse 7'] = _vm7.map(e => ({ id:e.id||'m'+Math.random(), total:e.montant||0, payMethod:e.paiement||'cash', payLabel:_plMap[e.paiement]||'💵 Espèces', label:e.label||'🎠 Manège', caisse:'Caisse 7', cashier:e.caissier||'—', date:e.date||new Date().toISOString() }));
       }
@@ -35439,7 +35622,7 @@ const RH_TYPE_CONGE = {
 function switchRHTab(tab, el) {
   document.querySelectorAll('#view-rh .cat-btn').forEach(b => b.classList.remove('active'));
   if(el) el.classList.add('active');
-  ['employes','salaires','conges','avances'].forEach(t => {
+  ['employes','salaires','conges','avances','situation'].forEach(t => {
     const p = document.getElementById('rh-panel-' + t);
     if(p) p.style.display = t === tab ? '' : 'none';
   });
@@ -35447,6 +35630,7 @@ function switchRHTab(tab, el) {
   if(tab === 'salaires') renderSalaires();
   if(tab === 'conges')   renderConges();
   if(tab === 'avances')  renderAvances();
+  if(tab === 'situation') renderSituationPersonnel();
 }
 
 // ---------- STATS BAR ----------
@@ -35537,11 +35721,13 @@ function renderSalaires() {
   const actifs = RH_EMPLOYES.filter(e => e.actif);
 
   list.innerHTML = actifs.map(e => {
-    const avancesEmp = RH_AVANCES.filter(a => a.employeId === e.id && !a.rembourse && a.date && a.date.startsWith(yyyy + '-' + mm)).reduce((s,a)=>s+a.montant,0);
     const joursCongePaie = RH_CONGES.filter(c => c.employeId === e.id && c.type === 'conge_paye' && c.debut && c.debut.startsWith(yyyy + '-' + mm)).length;
     const paie = RH_PAIES.find(p => p.employeId === e.id && p.mois === moisVal);
-    const netAPayer = e.salaire - avancesEmp;
-    const transport = e.transport || 0;
+    // fiche payée = chiffres figés au moment du paiement ; sinon calcul en direct (avances déduites dans la limite du salaire)
+    const _figee = !!(paie && paie.statut === 'paye' && paie.netPaye !== undefined);
+    const avancesEmp = _figee ? (paie.avances || 0) : _rhDeductionsMois(e, yyyy + '-' + mm).deduit;
+    const netAPayer = _figee ? paie.netPaye : (e.salaire - avancesEmp);
+    const transport = _figee ? (paie.transportPaye || 0) : (e.transport || 0);
     const totalVerse = netAPayer + transport;
     const statut = paie?.statut || 'en_attente';
     const statutColors = { paye:'var(--green)', en_attente:'var(--accent)', annule:'var(--red)' };
@@ -35577,11 +35763,26 @@ function renderSalaires() {
   }).join('');
 
   const totalMasse = actifs.reduce((s,e) => {
-    const avancesEmp = RH_AVANCES.filter(a => a.employeId === e.id && !a.rembourse && a.date && a.date.startsWith(yyyy + '-' + mm)).reduce((x,a)=>x+a.montant,0);
-    return s + e.salaire + (e.transport || 0) - avancesEmp;
+    const paie = RH_PAIES.find(p => p.employeId === e.id && p.mois === moisVal);
+    if(paie && paie.statut === 'paye' && paie.netPaye !== undefined) return s + paie.netPaye + (paie.transportPaye || 0);
+    return s + e.salaire + (e.transport || 0) - _rhDeductionsMois(e, yyyy + '-' + mm).deduit;
   }, 0);
   const totalEl = document.getElementById('rh-total-masse');
   if(totalEl) totalEl.textContent = totalMasse.toLocaleString() + ' FCFA';
+}
+
+
+// 💳 Avances déduites d'une paie : celles du mois non encore soldées, dans l'ordre des dates, tant qu'elles
+// tiennent dans le salaire. À la validation du paiement, elles sont SOLDÉES automatiquement (plus de « Remboursé » à cliquer).
+// Si une avance dépasse ce qui reste du salaire, elle (et les suivantes) reste « en cours » : la dette est conservée.
+function _rhDeductionsMois(emp, ym) {
+  const dues = RH_AVANCES.filter(a => a.employeId === emp.id && !a.rembourse && a.date && String(a.date).slice(0,7) <= ym)   // ✅ mois en cours + avances des mois précédents non encore déduites (salaire payé en retard)
+                         .sort((a, b) => String(a.date).localeCompare(String(b.date)) || ((a.id > b.id) ? 1 : -1));
+  const salaire = Number(emp.salaire) || 0;
+  let cum = 0; const settle = [];
+  for(const a of dues) { const m = Number(a.montant) || 0; if(cum + m <= salaire) { settle.push(a); cum += m; } else break; }
+  const total = dues.reduce((t, a) => t + (Number(a.montant) || 0), 0);
+  return { dues, settle, deduit: cum, total, reste: total - cum };
 }
 
 // ── Ouvrir le modal de confirmation de paiement ──────────────────────────
@@ -35589,7 +35790,8 @@ function marquerPaie(employeId, mois) {
   const emp = RH_EMPLOYES.find(e => e.id === employeId);
   if(!emp) return;
   const [mm, yyyy] = mois.split('-');
-  const avancesEmp = RH_AVANCES.filter(a => a.employeId === employeId && !a.rembourse && a.date && a.date.startsWith(yyyy+'-'+mm)).reduce((s,a)=>s+a.montant,0);
+  const _d = _rhDeductionsMois(emp, yyyy + '-' + mm);
+  const avancesEmp = _d.deduit;
   const net = Math.max(0, (emp.salaire || 0) - avancesEmp);
   const transport = emp.transport || 0;
   const total = net + transport;
@@ -35608,7 +35810,7 @@ function marquerPaie(employeId, mois) {
   if(modeSelect) modeSelect.value = emp.modePaie || emp.mode_paie || 'especes';
 
   // Stocker les données pour la confirmation
-  window._paieEnCours = { employeId, mois, net, transport, total, avancesEmp, emp };
+  window._paieEnCours = { employeId, mois, net, transport, total, avancesEmp, emp, settleIds: _d.settle.map(a => a.id), resteDu: _d.reste };
   showModal('confirmPaie');
 }
 
@@ -35632,7 +35834,7 @@ async function validerPaiement() {
     if(existing) {
       const { error } = await sb.from('rh_paies').update({
         statut: 'paye', date_paiement: now, mode_paiement: modePaie,
-        net_paye: net, transport: transport
+        net_paye: net, transport: transport, avances: avancesEmp
       }).eq('id', existing.id);
       if(error) throw error;
       existing.statut = 'paye'; existing.datePaiement = now; existing.modePaiement = modePaie;
@@ -35654,12 +35856,25 @@ async function validerPaiement() {
       if(error) throw error;
       RH_PAIES.push({ id: inserted.id, employeId: empIdInt, mois, statut: 'paye', datePaiement: now, modePaiement: modePaie });
     }
+    // 💳 Les avances déduites de cette paie sont SOLDÉES automatiquement
+    const idsSoldes = ctx.settleIds || [];
+    if(idsSoldes.length) {
+      const { error: errAv } = await sb.from('rh_avances').update({ rembourse: true }).in('id', idsSoldes);
+      if(errAv) throw errAv;
+      RH_AVANCES.forEach(a => { if(idsSoldes.includes(a.id)) { a.rembourse = true; a.soldeParPaie = mois; } });
+    }
+    // chiffres de la fiche figés au moment du paiement (elle ne change plus quand les avances passent à « remboursées »)
+    const _rec = RH_PAIES.find(p => p.employeId === empIdInt && p.mois === mois);
+    if(_rec) { _rec.avances = avancesEmp; _rec.netPaye = net; _rec.transportPaye = transport; }
     closeModal('confirmPaie');
     saveSession();
     KGSync.push.rh().catch(()=>{});
+    try { updateRHStats(); } catch(e) {}
     renderSalaires();
+    try { renderAvances(); } catch(e) {}
     const modeLabels = { especes:'💵 Espèces', virement:'🏦 Virement', mobile:'📱 Mobile Money' };
-    showNotif(`✅ Salaire de ${emp.prenom} ${emp.nom} payé (${modeLabels[modePaie]||modePaie})`);
+    showNotif(`✅ Salaire de ${emp.prenom} ${emp.nom} payé (${modeLabels[modePaie]||modePaie})` + (idsSoldes.length ? ` · ${idsSoldes.length} avance(s) soldée(s)` : ''));
+    if(ctx.resteDu > 0) setTimeout(() => alert(`⚠️ ${emp.prenom} ${emp.nom} doit encore ${ctx.resteDu.toLocaleString('fr-FR')} F : ses avances dépassent son salaire. Cette part reste « en cours » dans Avances & Prêts.`), 300);
     window._paieEnCours = null;
   } catch(err) {
     showNotif('❌ Erreur Supabase : ' + (err.message || err));
@@ -35782,9 +35997,10 @@ function imprimerFichePaie(employeId, mois) {
   const cfce       = Math.round(salaireBrut * 0.02);                   // CFCE : 2%
 
   // ── Avances sur salaire ───────────────────────────────────────────────
-  const avancesEmp = RH_AVANCES
-    .filter(a => a.employeId === employeId && !a.rembourse && a.date && a.date.startsWith(yyyy+'-'+mm))
-    .reduce((s,a)=>s+a.montant, 0);
+  const _paieRec = RH_PAIES.find(p => p.employeId === employeId && p.mois === mois);
+  const avancesEmp = (_paieRec && _paieRec.statut === 'paye' && _paieRec.avances !== undefined)
+    ? _paieRec.avances                                   // fiche déjà payée : montant figé
+    : _rhDeductionsMois(emp, yyyy + '-' + mm).deduit;
 
   // ── Net à verser ──────────────────────────────────────────────────────
   const netApayer  = Math.max(0, salaireNet - avancesEmp);
@@ -36133,12 +36349,244 @@ function renderAvances() {
         <div style="font-size:11px;color:${a.rembourse ? 'var(--green)' : 'var(--accent)'};white-space:nowrap;">${a.rembourse ? '✅ Remboursée' : '⏳ En cours'}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;margin-left:auto;">
-        ${!a.rembourse ? `<button class="btn btn-ghost" style="padding:6px 12px;font-size:11px;white-space:nowrap;" onclick="marquerRembourse(${a.id})">✅ Remboursé</button>` : ''}
+        ${(!a.rembourse && (currentUser && currentUser.role === 'administrateur')) ? `<button class="btn btn-ghost" style="padding:6px 12px;font-size:11px;white-space:nowrap;" onclick="marquerRembourse(${a.id})">✅ Remboursé</button>` : ''}
         <button class="caisse-btn danger" onclick="supprimerAvance(${a.id})" style="padding:6px 10px;flex-shrink:0;">🗑</button>
       </div>
     </div>`;
   }).join('');
 }
+
+
+// ================================================================
+// 📋 SITUATION DU MOIS — ce que chaque personne a pris, ce qui reste, et le net à verser à la paie
+//   Montant = tout ce qui a été pris dans le mois · Avance = ce qui est déjà remboursé · Reste = Montant − Avance
+//   Net à verser = salaire − reste (jamais négatif) + transport, comme sur la fiche de paie.
+// ================================================================
+function _sitMoisYM() {
+  const el = document.getElementById('rh-sit-mois');
+  if(el && !el.value) el.value = new Date().toISOString().slice(0, 7);
+  return (el && el.value) || new Date().toISOString().slice(0, 7);
+}
+function _sitLabel(ym) {
+  const [y, m] = ym.split('-');
+  const noms = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  return (noms[(+m || 1) - 1] || ym) + ' ' + y;
+}
+function _sitCalcul(ym) {
+  return RH_EMPLOYES.filter(e => e.actif).map(e => {
+    const prises = RH_AVANCES.filter(a => a.employeId === e.id && a.date && String(a.date).startsWith(ym))
+                             .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const pris = prises.reduce((t, a) => t + (Number(a.montant) || 0), 0);
+    const rembourse = prises.filter(a => a.rembourse).reduce((t, a) => t + (Number(a.montant) || 0), 0);
+    const reste = pris - rembourse;
+    const salaire = Number(e.salaire) || 0, transport = Number(e.transport) || 0;
+    let net = Math.max(0, salaire - reste) + transport;
+    const paieRec = RH_PAIES.find(p => p.employeId === e.id && p.mois === ym.slice(5) + '-' + ym.slice(0, 4));
+    const paye = !!(paieRec && paieRec.statut === 'paye');
+    if(paye && paieRec.netPaye !== undefined) net = paieRec.netPaye + (paieRec.transportPaye || 0);   // montant réellement versé
+    // 💳 Avances ACTIVES (non remboursées), quelle que soit leur date — y compris celles qui dépassent le mois affiché
+    const activesAll = RH_AVANCES.filter(a => a.employeId === e.id && !a.rembourse)
+                                 .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const activesTotal = activesAll.reduce((t, a) => t + (Number(a.montant) || 0), 0);
+    const horsMois = activesAll.filter(a => !(a.date && String(a.date).startsWith(ym)));
+    const horsMoisTotal = horsMois.reduce((t, a) => t + (Number(a.montant) || 0), 0);
+    return { e, prises, pris, rembourse, reste, salaire, transport, net, activesAll, activesTotal, horsMois, horsMoisTotal, paye, datePaie: paye ? paieRec.datePaiement : '', depasse: Math.max(0, reste - salaire) };
+  }).sort((a, b) => b.pris - a.pris || String(a.e.nom).localeCompare(String(b.e.nom)));
+}
+const _sitF = n => (Math.round(Number(n)) || 0).toLocaleString('fr-FR').replace(/[\u202f\u00a0]/g, ' ');
+function toggleSituationDetail(id) {
+  const d = document.getElementById('sit-detail-' + id);
+  if(d) d.style.display = d.style.display === 'none' ? 'block' : 'none';
+}
+function renderSituationPersonnel() {
+  const list = document.getElementById('rh-situation-list');
+  if(!list) return;
+  const ym = _sitMoisYM();
+  const lab = document.getElementById('rh-sit-label'); if(lab) lab.textContent = _sitLabel(ym);
+  const L = _sitCalcul(ym);
+  if(!L.length) {
+    list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text2);">Aucun employé. Créez les personnes dans l\'onglet « Employés ».</div>';
+    document.getElementById('rh-situation-total').innerHTML = '';
+    return;
+  }
+  const E = t => window.escHtml(String(t == null ? '' : t));
+  const typeLabels = { avance:'💳 Avance', pret:'🏦 Prêt', acompte:'💵 Acompte' };
+  list.innerHTML = L.map(r => {
+    const detail = r.prises.length ? r.prises.map(a => `
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px dashed var(--border);font-size:12px;flex-wrap:wrap;">
+        <span style="min-width:78px;color:var(--text2);">${fmtDateFR(a.date)}</span>
+        <span style="flex:1;min-width:120px;">${typeLabels[a.type] || E(a.type)}${a.motif ? ' — ' + E(a.motif) : ''}</span>
+        <b style="font-family:'JetBrains Mono',monospace;">${_sitF(a.montant)} F</b>
+        <span style="color:${a.rembourse ? 'var(--green)' : 'var(--accent)'};">${a.rembourse ? (a.soldeParPaie ? '✅ soldé par la paie' : '✅ remboursé') : '⏳ à déduire'}</span>
+        ${(!a.rembourse && (currentUser && currentUser.role === 'administrateur')) ? `<button class="btn btn-ghost" style="padding:3px 8px;font-size:11px;flex:0 0 auto;width:auto;" onclick="marquerRembourse(${a.id})">✅ Remboursé</button>` : ''}
+        <button class="caisse-btn danger" style="padding:3px 10px;flex:0 0 auto;width:auto;min-width:0;" onclick="supprimerAvance(${a.id})">🗑</button>
+      </div>`).join('') : '<div style="font-size:12px;color:var(--text2);padding:6px 0;">Aucun prélèvement ce mois-ci.</div>';
+    const detailHors = r.horsMois.length ? `<div style="font-size:11px;font-weight:700;color:var(--accent);margin-top:8px;">💳 Autres avances actives (hors ${_sitLabel(ym)})</div>` + r.horsMois.map(a => `
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px dashed var(--border);font-size:12px;flex-wrap:wrap;">
+        <span style="min-width:78px;color:var(--text2);">${fmtDateFR(a.date)}</span>
+        <span style="flex:1;min-width:120px;">${typeLabels[a.type] || E(a.type)}${a.motif ? ' — ' + E(a.motif) : ''}</span>
+        <b style="font-family:'JetBrains Mono',monospace;">${_sitF(a.montant)} F</b>
+        <span style="color:var(--accent);">⏳ active</span>
+      </div>`).join('') : '';
+    return `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:150px;">
+          <div style="font-weight:700;font-size:13px;">${E(r.e.prenom)} ${E(r.e.nom)}</div>
+          <div style="font-size:11px;color:var(--text2);">${E((typeof RH_POSTES !== 'undefined' && RH_POSTES[r.e.poste]) || r.e.poste || '')} · ${r.prises.length} prélèvement(s)${r.paye ? ' · <span style="color:var(--green);font-weight:700;">✅ salaire payé' + (r.datePaie ? ' le ' + fmtDateFR(r.datePaie) : '') + '</span>' : ''}</div>
+        </div>
+        <div style="text-align:right;min-width:90px;"><div style="font-size:10px;color:var(--text2);">Montant pris</div><div style="font-family:'JetBrains Mono',monospace;font-weight:700;">${r.pris ? _sitF(r.pris) + ' F' : '—'}</div></div>
+        <div style="text-align:right;min-width:90px;"><div style="font-size:10px;color:var(--text2);">Avance (remboursé)</div><div style="font-family:'JetBrains Mono',monospace;color:var(--green);">${r.rembourse ? _sitF(r.rembourse) + ' F' : '—'}</div></div>
+        <div style="text-align:right;min-width:90px;"><div style="font-size:10px;color:var(--text2);">Reste</div><div style="font-family:'JetBrains Mono',monospace;font-weight:800;color:${r.reste ? 'var(--red)' : 'var(--text2)'};">${r.reste ? _sitF(r.reste) + ' F' : '—'}</div></div>
+        ${r.activesTotal ? `<div style="text-align:right;min-width:90px;"><div style="font-size:10px;color:var(--text2);">Avances actives</div><div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--accent);">${_sitF(r.activesTotal)} F</div>${r.horsMoisTotal ? `<div style="font-size:10px;color:var(--text2);">dont ${_sitF(r.horsMoisTotal)} F hors mois</div>` : ''}</div>` : ''}
+        <div style="text-align:right;min-width:90px;"><div style="font-size:10px;color:var(--text2);">Salaire</div><div style="font-family:'JetBrains Mono',monospace;">${_sitF(r.salaire)} F</div></div>
+        <div style="text-align:right;min-width:110px;"><div style="font-size:10px;color:var(--text2);">Net à verser</div><div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:800;color:var(--accent);">${_sitF(r.net)} F</div>${r.depasse ? `<div style="font-size:10px;color:var(--red);">doit encore ${_sitF(r.depasse)} F</div>` : ''}</div>
+        <div style="display:flex;gap:6px;">
+          ${((currentUser && currentUser.role === 'administrateur') && r.paye && r.reste > 0 && _rhDeductionsMois(r.e, ym).settle.length) ? `<button class="btn btn-ghost" style="padding:6px 10px;font-size:11px;white-space:nowrap;" title="La paie est déjà payée : marquer ces avances comme soldées" onclick="solderAvancesPaie(${r.e.id})">✅ Solder</button>` : ''}
+          <button class="btn btn-primary" style="padding:6px 10px;font-size:12px;" title="Enregistrer un prélèvement" onclick="openAddAvance(${r.e.id})">➕</button>
+          <button class="btn btn-ghost" style="padding:6px 10px;font-size:12px;" title="Voir le détail" onclick="toggleSituationDetail(${r.e.id})">▾</button>
+        </div>
+      </div>
+      <div id="sit-detail-${r.e.id}" style="display:none;margin-top:8px;">${detail}${detailHors}</div>
+    </div>`;
+  }).join('');
+  const T = L.reduce((t, r) => ({ pris: t.pris + r.pris, rembourse: t.rembourse + r.rembourse, reste: t.reste + r.reste, net: t.net + r.net }), { pris: 0, rembourse: 0, reste: 0, net: 0 });
+  document.getElementById('rh-situation-total').innerHTML = `
+    <div style="display:flex;gap:10px;flex-wrap:wrap;border:2px solid var(--accent);border-radius:12px;padding:12px 16px;background:rgba(245,166,35,0.07);">
+      <div style="font-weight:900;font-size:14px;align-self:center;flex:1;min-width:80px;">SOLDE</div>
+      <div style="text-align:right;"><div style="font-size:10px;color:var(--text2);">Montant pris</div><div style="font-family:'JetBrains Mono',monospace;font-weight:800;">${_sitF(T.pris)} F</div></div>
+      <div style="text-align:right;"><div style="font-size:10px;color:var(--text2);">Avance (remboursé)</div><div style="font-family:'JetBrains Mono',monospace;font-weight:800;color:var(--green);">${_sitF(T.rembourse)} F</div></div>
+      <div style="text-align:right;"><div style="font-size:10px;color:var(--text2);">Reste à déduire</div><div style="font-family:'JetBrains Mono',monospace;font-weight:900;color:var(--red);">${_sitF(T.reste)} F</div></div>
+      <div style="text-align:right;"><div style="font-size:10px;color:var(--text2);">Total net à verser</div><div style="font-family:'JetBrains Mono',monospace;font-weight:900;color:var(--accent);">${_sitF(T.net)} F</div></div>
+    </div>`;
+}
+
+// Régularisation : salaire déjà payé avant cette version, avances restées « en cours » => on les solde (et on fige la fiche)
+async function solderAvancesPaie(employeId) {
+  if(!(currentUser && currentUser.role === 'administrateur')) { showNotif('🔒 Réservé à l\'administrateur'); return; }
+  if(!KGSync.isConnected) { showNotif('❌ Connexion Supabase requise.'); return; }
+  const emp = RH_EMPLOYES.find(e => e.id === employeId); if(!emp) return;
+  const ym = _sitMoisYM(), mois = ym.slice(5) + '-' + ym.slice(0, 4);
+  const d = _rhDeductionsMois(emp, ym);
+  if(!d.settle.length) return;
+  if(!confirm(`Solder ${d.settle.length} avance(s) de ${emp.prenom} ${emp.nom} (${d.deduit.toLocaleString('fr-FR')} F) ?\nLeur salaire du mois est déjà payé.`)) return;
+  try {
+    const ids = d.settle.map(a => a.id);
+    const { error } = await KGSync.getClient().from('rh_avances').update({ rembourse: true }).in('id', ids);
+    if(error) throw error;
+    const rec = RH_PAIES.find(p => p.employeId === employeId && p.mois === mois);
+    if(rec && rec.netPaye === undefined) { rec.avances = d.deduit; rec.netPaye = Math.max(0, (Number(emp.salaire) || 0) - d.deduit); rec.transportPaye = Number(emp.transport) || 0; }
+    RH_AVANCES.forEach(a => { if(ids.includes(a.id)) { a.rembourse = true; a.soldeParPaie = mois; } });
+    saveSession(); KGSync.push.rh().catch(() => {});
+    try { updateRHStats(); } catch(e) {}
+    renderAvances(); renderSalaires();
+    showNotif('✅ Avances soldées');
+  } catch(err) { showNotif('❌ Erreur Supabase : ' + (err.message || err)); }
+}
+
+// 📊 Export Excel de la situation du mois (fichier .xls : s'ouvre directement dans Excel / Google Sheets / WPS)
+function exportSituationExcel() {
+  const ym = _sitMoisYM(), lab = _sitLabel(ym);
+  const L = _sitCalcul(ym);
+  const E = t => window.escHtml(String(t == null ? '' : t));
+  const info = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO) ? RESTAURANT_INFO : {};
+  const typeLbl = { avance:'Avance', pret:'Prêt', acompte:'Acompte' };
+  const num = n => `<td x:num style="mso-number-format:'#\\,##0';text-align:right;">${Math.round(Number(n) || 0)}</td>`;
+  const vide = '<td></td>';
+  const th = ['Libellé','Date','Type / Motif','Montant','Avance (remboursé)','Reste à déduire','Avances actives','Salaire','Net à verser','Statut']
+    .map(h => `<th style="background:#F5A623;color:#000;border:1px solid #444;">${h}</th>`).join('');
+  let body = '';
+  const T = { pris:0, rembourse:0, reste:0, act:0, sal:0, net:0 };
+  L.forEach(r => {
+    T.pris += r.pris; T.rembourse += r.rembourse; T.reste += r.reste; T.act += r.activesTotal; T.sal += r.salaire; T.net += r.net;
+    body += `<tr style="background:#E5E7EB;font-weight:bold;"><td>${E((r.e.prenom + ' ' + r.e.nom).trim().toUpperCase())}</td>${vide}${vide}${num(r.pris)}${num(r.rembourse)}${num(r.reste)}${num(r.activesTotal)}${num(r.salaire)}${num(r.net)}<td>${r.paye ? 'Salaire payé' + (r.datePaie ? ' le ' + fmtDateFR(r.datePaie) : '') : ''}</td></tr>`;
+    r.prises.concat(r.horsMois).sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(a => {
+      const m = Number(a.montant) || 0;
+      const hors = !(a.date && String(a.date).startsWith(ym));
+      const statut = a.rembourse ? 'Remboursée' + (a.soldeParPaie ? ' (déduite de la paie)' : '') : (hors ? 'ACTIVE (hors ' + lab + ')' : 'À déduire');
+      body += `<tr><td>&nbsp;&nbsp;↳ ${E(typeLbl[a.type] || a.type)}</td><td>${fmtDateFR(a.date)}</td><td>${E(a.motif || '')}</td>${hors ? vide : num(m)}${a.rembourse ? num(m) : vide}${(!a.rembourse && !hors) ? num(m) : vide}${!a.rembourse ? num(m) : vide}${vide}${vide}<td>${statut}</td></tr>`;
+    });
+  });
+  body += `<tr style="background:#FDE9B8;font-weight:bold;"><td>SOLDE</td>${vide}${vide}${num(T.pris)}${num(T.rembourse)}${num(T.reste)}${num(T.act)}${num(T.sal)}${num(T.net)}${vide}</tr>`;
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8">
+    <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Situation</x:Name></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+    </head><body><table border="1" style="border-collapse:collapse;font-family:Arial;font-size:11pt;">
+    <tr><td colspan="10" style="font-size:14pt;font-weight:bold;">SITUATION MOIS DE ${E(lab.toUpperCase())} — ${E((info.nom || '').toUpperCase())}</td></tr>
+    <tr>${th}</tr>${body}</table></body></html>`;
+  const blob = new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'situation-' + ym + '.xls';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  showNotif('📊 Export Excel : situation ' + lab);
+}
+
+// Impression de la situation (même présentation que la feuille papier : LIBELLÉ / MONTANT / AVANCE / RESTE / SOLDE)
+function printSituationPersonnel() {
+  const ym = _sitMoisYM(), lab = _sitLabel(ym).toUpperCase();
+  const L = _sitCalcul(ym);
+  const E = t => window.escHtml(String(t == null ? '' : t));
+  const info = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO) ? RESTAURANT_INFO : {};
+  const dash = n => n ? _sitF(n) : '-';
+  const T = L.reduce((t, r) => ({ pris: t.pris + r.pris, rembourse: t.rembourse + r.rembourse, reste: t.reste + r.reste, net: t.net + r.net, sal: t.sal + r.salaire, act: t.act + r.activesTotal }), { pris: 0, rembourse: 0, reste: 0, net: 0, sal: 0, act: 0 });
+  const n = L.length, pad = n <= 20 ? 7 : (n <= 32 ? 4.5 : 3), fs = n <= 20 ? 11 : (n <= 32 ? 10 : 9);
+  const _typeLbl = { avance:'Avance', pret:'Prêt', acompte:'Acompte' };
+  const _detailLignes = r => {
+    // une ligne par avance, alignée sur les colonnes du tableau : date au-dessus du montant
+    const toutes = r.prises.concat(r.horsMois).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    return toutes.map(a => {
+      const m = Number(a.montant) || 0;
+      const hors = !(a.date && String(a.date).startsWith(ym));
+      const statut = a.rembourse ? 'remboursée' + (a.soldeParPaie ? ' (déduite de la paie)' : '') : (hors ? 'ACTIVE · hors ' + lab.toLowerCase() : 'à déduire');
+      const cell = (txt) => `<td class="n">${txt ? _sitF(txt) : '-'}</td>`;
+      return `<tr class="det"><td>&nbsp;&nbsp;↳ ${E(_typeLbl[a.type] || a.type)}${a.motif ? ' — ' + E(a.motif) : ''}<div class="st">${statut}</div></td>`
+        + `<td class="n">${hors ? '' : `<div class="dt">${fmtDateFR(a.date)}</div><div>${_sitF(m)}</div>`}</td>`
+        + `<td class="n">${a.rembourse ? _sitF(m) : '-'}</td>`
+        + `<td class="n">${(!a.rembourse && !hors) ? _sitF(m) : '-'}</td>`
+        + `<td class="n">${!a.rembourse ? `<div class="dt">${fmtDateFR(a.date)}</div><div>${_sitF(m)}</div>` : '-'}</td>`
+        + `<td></td><td></td></tr>`;
+    }).join('');
+  };
+  const rows = L.map(r => `<tr><td>${E((r.e.prenom + ' ' + r.e.nom).trim().toUpperCase())}</td><td class="n">${dash(r.pris)}</td><td class="n">${dash(r.rembourse)}</td><td class="n b">${dash(r.reste)}</td><td class="n">${dash(r.activesTotal)}</td><td class="n">${dash(r.salaire)}</td><td class="n b">${_sitF(r.net)}</td></tr>${_detailLignes(r)}`).join('');
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Situation ${E(lab)}</title><style>
+    @page { size:A4; margin:0; } * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Courier New',monospace,Arial; color:#111; padding:11mm 12mm; font-size:${fs}pt; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    h1 { font-size:13pt; text-align:center; margin-bottom:3px; } .sub { text-align:center; font-size:9pt; color:#444; margin-bottom:10px; }
+    table { width:100%; border-collapse:collapse; } th,td { border:1px solid #444; padding:${pad}px 7px; } th { background:#e5e7eb; font-size:${fs - 1}pt; text-align:center; }
+    td.n { text-align:right; white-space:nowrap; } td.b { font-weight:700; } tr { page-break-inside:avoid; }
+    tr.det td { padding:3px 7px; font-size:${fs - 2}pt; color:#222; background:#fafafa; }
+    tr.det .dt { font-size:${fs - 3}pt; color:#555; } tr.det .st { font-size:${fs - 3}pt; font-style:italic; color:#555; }
+    tr.tot td { background:#e5e7eb; font-weight:900; border-top:2px solid #111; }
+    .pied { margin-top:12px; font-size:8.5pt; color:#444; } .sigs { display:flex; justify-content:space-between; margin-top:22px; font-size:9pt; }
+    @media print { .no-print { display:none !important; } }
+  </style></head><body>
+    <h1>SITUATION MOIS DE ${E(lab)} — ${E((info.nom || '').toUpperCase())}</h1>
+    <div class="sub">Montant = total pris dans le mois · Avance = déjà remboursé · Reste = à déduire de la paie · Avances actives = toutes les avances non remboursées, quelle que soit la date · Net = salaire − reste + transport</div>
+    <table><thead><tr><th style="width:34%;">LIBELLÉ</th><th>MONTANT</th><th>AVANCE</th><th>RESTE</th><th>AVANCES ACTIVES</th><th>SALAIRE</th><th>NET À VERSER</th></tr></thead>
+      <tbody>${rows}<tr class="tot"><td>SOLDE</td><td class="n">${_sitF(T.pris)}</td><td class="n">${_sitF(T.rembourse)}</td><td class="n">${_sitF(T.reste)}</td><td class="n">${_sitF(T.act)}</td><td class="n">${_sitF(T.sal)}</td><td class="n">${_sitF(T.net)}</td></tr></tbody></table>
+    <div class="sigs"><div>Établi le ${fmtDateFR(new Date())}</div><div>Signature : ______________________</div></div>
+  </body></html>`;
+  const old = document.getElementById('kg-facture-overlay'); if(old) old.remove();
+  const ov = document.createElement('div');
+  ov.id = 'kg-facture-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;overflow:auto;padding:20px;';
+  ov.innerHTML = `<div style="background:#fff;border-radius:12px;overflow:hidden;max-height:95vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.5);width:860px;max-width:98vw;">
+      <div style="position:sticky;top:0;background:#1a1a2e;padding:12px 18px;display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;z-index:1;">
+        <span style="color:#f5a623;font-weight:700;font-size:14px;">📋 SITUATION — ${E(lab)}</span>
+        <div style="display:flex;gap:8px;">
+          <button onclick="kgSafePrintIframe('kg-facture-frame')" style="padding:7px 18px;background:linear-gradient(135deg,#f5a623,#e8440a);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">🖨️ Imprimer</button>
+          <button onclick="document.getElementById('kg-facture-overlay').remove()" style="padding:7px 16px;background:#444;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">✕ Fermer</button>
+        </div></div>
+      <iframe id="kg-facture-frame" style="width:100%;height:82vh;border:none;display:block;background:#fff;"></iframe></div>`;
+  document.body.appendChild(ov);
+  document.getElementById('kg-facture-frame').srcdoc = html;
+}
+// La situation se met à jour dès qu'une avance est ajoutée / remboursée / supprimée (ces actions rappellent renderAvances)
+(function() {
+  const _ra = renderAvances;
+  renderAvances = function() { const r = _ra.apply(this, arguments); try { renderSituationPersonnel(); } catch(e) {} return r; };
+})();
 
 // ---------- CRUD EMPLOYE ----------
 function openAddEmploye() {
@@ -36391,13 +36839,15 @@ async function supprimerConge(id) {
 }
 
 // ---------- CRUD AVANCE ----------
-function openAddAvance() {
+function openAddAvance(employeId) {
   const sel = document.getElementById('avance-employe-id');
   if(sel) sel.innerHTML = RH_EMPLOYES.filter(e=>e.actif).map(e => `<option value="${e.id}">${window.escHtml(e.prenom)} ${window.escHtml(e.nom)}</option>`).join('');
+  if(sel && employeId != null) sel.value = String(employeId);   // depuis « Situation du mois » : la personne est déjà choisie
   document.getElementById('avance-edit-id').value = '';
   document.getElementById('avance-montant').value = '';
   document.getElementById('avance-date').value = new Date().toISOString().slice(0,10);
   document.getElementById('avance-motif').value = '';
+  { const _p1 = document.getElementById('avance-part1'); if(_p1) _p1.value = ''; }
   showModal('addAvance');
 }
 
@@ -36406,31 +36856,54 @@ async function saveAvance() {
   const employeId = parseInt(document.getElementById('avance-employe-id').value);
   const montant = parseInt(document.getElementById('avance-montant').value);
   if(!employeId || isNaN(montant) || montant <= 0) { showNotif('⚠️ Montant invalide'); return; }
-  const data = {
+  const dateAv = document.getElementById('avance-date').value;
+  const type = document.getElementById('avance-type').value;
+  const motif = document.getElementById('avance-motif').value.trim();
+  // 📆 Étalement : part 1 déduite le mois de la date, le reste le mois suivant
+  const part1 = parseInt((document.getElementById('avance-part1') || {}).value);
+  const etale = !isNaN(part1) && part1 > 0 && part1 < montant;
+  let parts;
+  if(etale) {
+    const ym = String(dateAv || new Date().toISOString().slice(0,10)).slice(0,7);
+    let [y, m] = ym.split('-').map(Number);
+    m++; if(m > 12) { m = 1; y++; }
+    const date2 = y + '-' + String(m).padStart(2,'0') + '-01';
+    parts = [
+      { montant: part1,           date: dateAv, motif: (motif ? motif + ' ' : '') + '(1/2)' },
+      { montant: montant - part1, date: date2,  motif: (motif ? motif + ' ' : '') + '(2/2)' }
+    ];
+  } else {
+    parts = [{ montant, date: dateAv, motif }];
+  }
+  const rows = parts.map(p => ({
     restaurant_id: window._KG_RESTAURANT_ID,
     employe_id: employeId,
-    montant,
-    type: document.getElementById('avance-type').value,
-    date_avance: document.getElementById('avance-date').value,
-    motif: document.getElementById('avance-motif').value.trim(),
+    montant: p.montant,
+    type,
+    date_avance: p.date,
+    motif: p.motif,
     rembourse: false,
-  };
+  }));
   try {
-    const { data: inserted, error } = await KGSync.getClient().from('rh_avances').insert(data).select().single();
+    const { data: inserted, error } = await KGSync.getClient().from('rh_avances').insert(rows).select();
     if(error) throw error;
-    RH_AVANCES.push({ id: inserted.id, employeId, montant, type: data.type, date: data.date_avance, motif: data.motif, rembourse: false });
+    (inserted || []).forEach((r, k) => {
+      RH_AVANCES.push({ id: r.id, employeId, montant: rows[k].montant, type, date: rows[k].date_avance, motif: rows[k].motif, rembourse: false });
+    });
     saveSession();
     KGSync.push.rh().catch(()=>{}); // ✅ FIX v39
     closeModal('addAvance');
     updateRHStats();
     renderAvances();
-    showNotif('✅ Avance enregistrée');
+    try { if(typeof renderSituationPersonnel === 'function') renderSituationPersonnel(); } catch(e) {}
+    showNotif(etale ? '✅ Avance étalée : ' + part1.toLocaleString('fr-FR') + ' F puis ' + (montant - part1).toLocaleString('fr-FR') + ' F le mois suivant' : '✅ Avance enregistrée');
   } catch(err) {
     showNotif('❌ Erreur Supabase : ' + (err.message || err));
   }
 }
 
 async function marquerRembourse(id) {
+  if(!(currentUser && currentUser.role === 'administrateur')) { showNotif('🔒 Seul l\'administrateur peut marquer une avance comme remboursée'); return; }
   if(!KGSync.isConnected) { showNotif('❌ Connexion Supabase requise.'); return; }
   try {
     const { error } = await KGSync.getClient().from('rh_avances').update({ rembourse: true }).eq('id', id);
@@ -40664,6 +41137,11 @@ async function executeReset() {
         <label class="form-label">Date</label>
         <input class="form-input" type="date" id="avance-date">
       </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Étaler la déduction <span style="font-weight:400;color:var(--text2);">(optionnel)</span></label>
+      <input class="form-input" type="number" id="avance-part1" placeholder="Part déduite le mois de la date (ex: 50000)" min="0">
+      <div style="font-size:11px;color:var(--text2);margin-top:4px;">Le reste est déduit automatiquement le mois suivant. Laisser vide = tout déduit le mois de la date.</div>
     </div>
     <div class="form-group">
       <label class="form-label">Type</label>
@@ -49638,7 +50116,7 @@ function _ordCaissesDisponibles() {
 function _ordRefreshCaisseSelect() {
   const sel = document.getElementById('orders-caisse-select');
   if(!sel) return;
-  const isAdmin = currentUser && currentUser.role === 'administrateur';
+  const isAdmin = (currentUser && ['administrateur','gerant','superviseur'].includes(currentUser.role));   // administrateur, gérant et superviseur
   sel.style.display = isAdmin ? '' : 'none';
   if(!isAdmin) { window._ordCaisseFiltre = ''; return; }
   const noms = _ordCaissesDisponibles();
@@ -49672,7 +50150,7 @@ renderOrders = function(status) {
     : ((currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes') ? currentUser.caisse : null);
   // ✅ v105 : sélecteur de caisse (administrateur)
   _ordRefreshCaisseSelect();
-  const _ovFiltreAdmin = (currentUser && currentUser.role === 'administrateur' && window._ordCaisseFiltre) ? window._ordCaisseFiltre : '';
+  const _ovFiltreAdmin = ((currentUser && ['administrateur','gerant','superviseur'].includes(currentUser.role)) && window._ordCaisseFiltre) ? window._ordCaisseFiltre : '';
   const attenteList = _ovFiltreAdmin
     ? TICKETS_ATTENTE.filter(t => t.caisse === _ovFiltreAdmin)
     : ((_ovIsManager || !_ovUserCaisse)
