@@ -36499,7 +36499,7 @@ function exportSituationExcel() {
   const T = { pris:0, rembourse:0, reste:0, act:0, sal:0, net:0 };
   L.forEach(r => {
     T.pris += r.pris; T.rembourse += r.rembourse; T.reste += r.reste; T.act += r.activesTotal; T.sal += r.salaire; T.net += r.net;
-    body += `<tr style="background:#E5E7EB;font-weight:bold;"><td>${E((r.e.prenom + ' ' + r.e.nom).trim().toUpperCase())}</td>${vide}${vide}${num(r.pris)}${num(r.rembourse)}${num(r.reste)}${num(r.activesTotal)}${num(r.salaire)}${num(r.net)}<td>${r.paye ? 'Salaire payé' + (r.datePaie ? ' le ' + fmtDateFR(r.datePaie) : '') : ''}</td></tr>`;
+    body += `<tr style="background:#E5E7EB;font-weight:bold;"><td>${E((r.e.prenom + ' ' + r.e.nom).trim().toUpperCase())}</td>${vide}${vide}${num(r.pris)}${num(r.rembourse)}${num(r.reste)}${num(r.activesTotal)}${num(r.salaire)}${num(r.net)}<td style="color:${r.paye ? '#0a7a2f' : '#b45309'};">${r.paye ? 'PAYÉ' + (r.datePaie ? ' le ' + fmtDateFR(r.datePaie) : '') : 'NON PAYÉ'}</td></tr>`;
     r.prises.concat(r.horsMois).sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(a => {
       const m = Number(a.montant) || 0;
       const hors = !(a.date && String(a.date).startsWith(ym));
@@ -36508,6 +36508,9 @@ function exportSituationExcel() {
     });
   });
   body += `<tr style="background:#FDE9B8;font-weight:bold;"><td>SOLDE</td>${vide}${vide}${num(T.pris)}${num(T.rembourse)}${num(T.reste)}${num(T.act)}${num(T.sal)}${num(T.net)}${vide}</tr>`;
+  const _pay = L.filter(r => r.paye), _imp = L.filter(r => !r.paye);
+  body += `<tr style="font-weight:bold;"><td colspan="8" style="text-align:right;">Déjà payé (${_pay.length})</td>${num(_pay.reduce((t, r) => t + r.net, 0))}${vide}</tr>`;
+  body += `<tr style="font-weight:bold;"><td colspan="8" style="text-align:right;">Reste à payer (${_imp.length})</td>${num(_imp.reduce((t, r) => t + r.net, 0))}${vide}</tr>`;
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8">
     <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Situation</x:Name></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
     </head><body><table border="1" style="border-collapse:collapse;font-family:Arial;font-size:11pt;">
@@ -36548,7 +36551,8 @@ function printSituationPersonnel() {
         + `<td></td><td></td></tr>`;
     }).join('');
   };
-  const rows = L.map(r => `<tr><td>${E((r.e.prenom + ' ' + r.e.nom).trim().toUpperCase())}</td><td class="n">${dash(r.pris)}</td><td class="n">${dash(r.rembourse)}</td><td class="n b">${dash(r.reste)}</td><td class="n">${dash(r.activesTotal)}</td><td class="n">${dash(r.salaire)}</td><td class="n b">${_sitF(r.net)}</td></tr>${_detailLignes(r)}`).join('');
+  const _stPaie = r => r.paye ? `<div class="st" style="font-weight:700;color:#0a7a2f;font-style:normal;">✔ PAYÉ${r.datePaie ? ' le ' + fmtDateFR(r.datePaie) : ''}</div>` : `<div class="st" style="font-weight:700;color:#b45309;font-style:normal;">⏳ NON PAYÉ</div>`;
+  const rows = L.map(r => `<tr><td>${E((r.e.prenom + ' ' + r.e.nom).trim().toUpperCase())}${_stPaie(r)}</td><td class="n">${dash(r.pris)}</td><td class="n">${dash(r.rembourse)}</td><td class="n b">${dash(r.reste)}</td><td class="n">${dash(r.activesTotal)}</td><td class="n">${dash(r.salaire)}</td><td class="n b">${_sitF(r.net)}</td></tr>${_detailLignes(r)}`).join('');
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Situation ${E(lab)}</title><style>
     @page { size:A4; margin:0; } * { box-sizing:border-box; margin:0; padding:0; }
     body { font-family:'Courier New',monospace,Arial; color:#111; padding:11mm 12mm; font-size:${fs}pt; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
@@ -36556,6 +36560,7 @@ function printSituationPersonnel() {
     table { width:100%; border-collapse:collapse; } th,td { border:1px solid #444; padding:${pad}px 7px; } th { background:#e5e7eb; font-size:${fs - 1}pt; text-align:center; }
     td.n { text-align:right; white-space:nowrap; } td.b { font-weight:700; } tr { page-break-inside:avoid; }
     tr.det td { padding:3px 7px; font-size:${fs - 2}pt; color:#222; background:#fafafa; }
+    .st { font-size:${fs - 3}pt; }
     tr.det .dt { font-size:${fs - 3}pt; color:#555; } tr.det .st { font-size:${fs - 3}pt; font-style:italic; color:#555; }
     tr.tot td { background:#e5e7eb; font-weight:900; border-top:2px solid #111; }
     .pied { margin-top:12px; font-size:8.5pt; color:#444; } .sigs { display:flex; justify-content:space-between; margin-top:22px; font-size:9pt; }
@@ -36564,7 +36569,7 @@ function printSituationPersonnel() {
     <h1>SITUATION MOIS DE ${E(lab)} — ${E((info.nom || '').toUpperCase())}</h1>
     <div class="sub">Montant = total pris dans le mois · Avance = déjà remboursé · Reste = à déduire de la paie · Avances actives = toutes les avances non remboursées, quelle que soit la date · Net = salaire − reste + transport</div>
     <table><thead><tr><th style="width:34%;">LIBELLÉ</th><th>MONTANT</th><th>AVANCE</th><th>RESTE</th><th>AVANCES ACTIVES</th><th>SALAIRE</th><th>NET À VERSER</th></tr></thead>
-      <tbody>${rows}<tr class="tot"><td>SOLDE</td><td class="n">${_sitF(T.pris)}</td><td class="n">${_sitF(T.rembourse)}</td><td class="n">${_sitF(T.reste)}</td><td class="n">${_sitF(T.act)}</td><td class="n">${_sitF(T.sal)}</td><td class="n">${_sitF(T.net)}</td></tr></tbody></table>
+      <tbody>${rows}<tr class="tot"><td>SOLDE</td><td class="n">${_sitF(T.pris)}</td><td class="n">${_sitF(T.rembourse)}</td><td class="n">${_sitF(T.reste)}</td><td class="n">${_sitF(T.act)}</td><td class="n">${_sitF(T.sal)}</td><td class="n">${_sitF(T.net)}</td></tr><tr class="tot"><td colspan="6" style="text-align:right;">✔ Déjà payé (${L.filter(r => r.paye).length})</td><td class="n">${_sitF(L.filter(r => r.paye).reduce((t, r) => t + r.net, 0))}</td></tr><tr class="tot"><td colspan="6" style="text-align:right;">⏳ Reste à payer (${L.filter(r => !r.paye).length})</td><td class="n">${_sitF(L.filter(r => !r.paye).reduce((t, r) => t + r.net, 0))}</td></tr></tbody></table>
     <div class="sigs"><div>Établi le ${fmtDateFR(new Date())}</div><div>Signature : ______________________</div></div>
   </body></html>`;
   const old = document.getElementById('kg-facture-overlay'); if(old) old.remove();

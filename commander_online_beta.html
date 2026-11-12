@@ -260,7 +260,7 @@ body {
 }
 
 .delivery-stats {
-  display:grid; grid-template-columns:1fr 1fr 1fr;
+  display:grid; grid-auto-flow:column; grid-auto-columns:1fr;
   background:var(--bg); border-radius:14px;
   overflow:hidden;
 }
@@ -641,7 +641,7 @@ body {
   <!-- Texte -->
   <div style="position:relative;z-index:2;text-align:center;padding:0 32px;">
     <div style="font-size:28px;font-weight:800;color:#fff;margin-bottom:8px;letter-spacing:-.01em;">Nous sommes fermés</div>
-    <div style="font-size:14px;color:rgba(255,255,255,0.65);line-height:1.8;margin-bottom:24px;">Les commandes sont disponibles<br><strong style="color:#FFD700;font-size:16px;">de 18h00 à 23h59</strong></div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.65);line-height:1.8;margin-bottom:24px;">Les commandes sont disponibles<br><strong style="color:#FFD700;font-size:16px;">de 17h00 à 02h00</strong></div>
     <div id="ferme-countdown" style="display:inline-block;background:linear-gradient(135deg,rgba(91,47,212,0.4),rgba(255,107,53,0.3));border:1px solid rgba(255,255,255,0.2);border-radius:24px;padding:14px 32px;color:#fff;font-size:16px;font-weight:800;letter-spacing:.04em;"></div>
   </div>
   <style>
@@ -682,10 +682,6 @@ body {
   <div id="resto-addr"></div>
   <div class="pay-chips" id="pay-chips"></div>
   <div class="delivery-stats">
-    <div class="ds-col">
-      <div class="ds-label" id="ds-lbl-1">Livraison</div>
-      <div class="ds-val" id="ds-val-1">0 Fr</div>
-    </div>
     <div class="ds-col">
       <div class="ds-label">Temps</div>
       <div class="ds-val" id="ds-temps">15–25 min</div>
@@ -735,9 +731,9 @@ body {
     <div class="cart-form">
       <div class="flbl">Votre nom *</div>
       <input class="finp" id="client-nom" placeholder="Ex: Mamadou Diallo" type="text">
-      <div class="flbl">Téléphone *</div>
+      <div class="flbl" id="lbl-tel">Téléphone *</div>
       <input class="finp" id="client-tel" placeholder="77 000 00 00" type="tel">
-      <div class="flbl">Adresse de livraison *</div>
+      <div class="flbl" id="lbl-adr">Adresse de livraison *</div>
       <input class="finp" id="client-adresse" placeholder="Quartier, rue…" type="text">
       <div class="flbl">Note / Instructions</div>
       <input class="finp" id="note-input" placeholder="Sans piment, bien cuit…">
@@ -1006,21 +1002,21 @@ function normalizeItems(items) {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  // ✅ BLOCAGE HORAIRE : site fermé hors 18h-23h59
+  // ✅ BLOCAGE HORAIRE : site ouvert de 17h00 à 02h00 (le lendemain), fermé le reste du temps
   function _checkHoraires() {
     const h = new Date().getHours();
-    return h >= 18 && h < 24;
+    return h >= 17 || h < 2;
   }
   function _showFermeNuit() {
     const el = document.getElementById('screen-ferme-nuit');
     const loader = document.getElementById('loader');
     if(loader) loader.style.display = 'none';
     if(el) el.style.display = 'flex';
-    // Countdown jusqu'à 18h — zéro Supabase
+    // Countdown jusqu'à 17h — zéro Supabase
     function _updateCountdown() {
       const now = new Date();
       const ouverture = new Date();
-      ouverture.setHours(18, 0, 0, 0);
+      ouverture.setHours(17, 0, 0, 0);
       if(now >= ouverture) ouverture.setDate(ouverture.getDate() + 1);
       const diff = ouverture - now;
       const hh = Math.floor(diff / 3600000);
@@ -1435,18 +1431,18 @@ function buildRestoUI() {
   buildPaymentModes(methods, r);
 
   // Stats
-  document.getElementById('ds-val-1').textContent =
-    r.frais_livraison > 0
-      ? r.frais_livraison.toLocaleString()+' Fr'
-      : 'À partir de 200 Fr';
   document.getElementById('ds-temps').textContent = r.temps_livraison || '15–25 min';
   document.getElementById('ds-note').textContent  = (r.note||5).toFixed(1);
 
   // Table
   const tl = tableInfo?.label;
   if (tl && tl !== 'Commande en ligne') {
-    document.getElementById('ds-lbl-1').textContent = 'Table';
-    document.getElementById('ds-val-1').textContent  = tl;
+    // Pas de colonne Livraison : on n'ajoute une colonne « Table » que pour les commandes sur place
+    const _col = document.createElement('div');
+    _col.className = 'ds-col';
+    _col.innerHTML = '<div class="ds-label">Table</div><div class="ds-val"></div>';
+    _col.querySelector('.ds-val').textContent = tl;
+    document.querySelector('.delivery-stats').prepend(_col);
   }
 }
 
@@ -1540,13 +1536,13 @@ let _realtimeRestartPending = false;
 
 function _isRestaurantHours() {
   const h = new Date().getHours();
-  return h >= 18 && h < 24; // ✅ Actif uniquement 18h-23h59
+  return h >= 17 || h < 2; // ✅ Actif uniquement de 17h00 à 02h00
 }
 
 function startRealtime() {
-  // ✅ FIX EGRESS : bloquer hors horaires restaurant (18h-23h59)
+  // ✅ FIX EGRESS : bloquer hors horaires restaurant (17h-02h)
   if(!_isRestaurantHours()) {
-    console.log('Hors horaires — realtime desactive jusqu a 18h');
+    console.log('Hors horaires — realtime desactive jusqu a 17h');
     // Revérifier toutes les 30min si on est dans les horaires
     setTimeout(() => { if(_isRestaurantHours()) startRealtime(); }, 1800000);
     return;
@@ -1636,7 +1632,7 @@ function startRealtime() {
 
   // ── Polling de secours — STRICT, ne passe jamais ouvert si fermé ──
   setInterval(async () => {
-    if(!_isRestaurantHours()) return; // ✅ Bloquer hors 18h-23h
+    if(!_isRestaurantHours()) return; // ✅ Bloquer hors 17h-02h
     try {
       const {data} = await sb.from('kg_sync').select('value')
         .eq('key', restaurantId+':commandes_ouvertes').maybeSingle();
@@ -1835,7 +1831,19 @@ function renderCartDrawer() {
   document.getElementById('cart-total').textContent = fmt(getTotal())+' CFA';
 }
 
+// ✅ Commande depuis une table (QR) : téléphone et adresse facultatifs
+function _isTableOrder() { return !!(tableId && !String(tableId).startsWith('local_')); }
+function _adaptCartForm() {
+  const t = _isTableOrder();
+  const lt = document.getElementById('lbl-tel'), la = document.getElementById('lbl-adr');
+  const it = document.getElementById('client-tel'), ia = document.getElementById('client-adresse');
+  if(lt) lt.textContent = t ? 'Téléphone (facultatif)' : 'Téléphone *';
+  if(la) la.textContent = t ? 'Adresse (facultatif)' : 'Adresse de livraison *';
+  if(ia) ia.placeholder = t ? 'Facultatif' : 'Quartier, rue…';
+  if(it) it.placeholder = t ? 'Facultatif' : '77 000 00 00';
+}
 function openCart(){
+  _adaptCartForm();
   renderCartDrawer();
   document.getElementById('cart-overlay').style.display='block';
   const d=document.getElementById('cart-drawer');
@@ -1890,8 +1898,10 @@ async function validerCommande() {
   const tel=document.getElementById('client-tel').value.trim();
   const adr=document.getElementById('client-adresse').value.trim();
   if(!nom){ showToast('⚠️ Entrez votre nom'); return; }
-  if(!tel){ showToast('⚠️ Entrez votre téléphone'); return; }
-  if(!adr){ showToast('⚠️ Entrez votre adresse'); return; }
+  if(!_isTableOrder()) {   // table : téléphone et adresse facultatifs
+    if(!tel){ showToast('⚠️ Entrez votre téléphone'); return; }
+    if(!adr){ showToast('⚠️ Entrez votre adresse'); return; }
+  }
   if(!selectedPayMode){ showToast('⚠️ Choisissez un mode de paiement'); return; }
 
   const note=document.getElementById('note-input').value.trim();
@@ -1995,8 +2005,8 @@ async function _enregistrerEtRedirigerWave({ nom, tel, adr, note, total, lignes,
 const TRACK_KEY   = 'kg_orders_v2';      // localStorage key
 // ✅ v16 : flag permanent par restaurant — chaque téléphone garde son propre historique
 const _sessionOrderKey = 'kg_ordered_' + (new URLSearchParams(window.location.search).get('r') || 'x');
-function _getSessionOrdered() { return localStorage.getItem(_sessionOrderKey) === '1'; }
-function _setSessionOrdered() { localStorage.setItem(_sessionOrderKey, '1'); }
+function _getSessionOrdered() { try { return localStorage.getItem(_sessionOrderKey) === '1'; } catch(_) { return false; } }
+function _setSessionOrdered() { try { localStorage.setItem(_sessionOrderKey, '1'); } catch(_) {} }
 const TRACK_TTL   = 24 * 60 * 60 * 1000; // 24h max (au lieu de 6h)
 const STEP_LABELS = {
   en_attente_paiement: {icon:'💳', label:'Paiement en attente', sub:'Retournez valider le paiement Wave/Orange', color:'#e67e22'},
@@ -2013,26 +2023,42 @@ const STEPS_ORDER = ['en_attente','acceptee','en_preparation','prete','livree'];
 const _trackChannels = {};
 
 // ── Lire / écrire le tableau de commandes sauvegardées ──
+// ✅ FIX suivi : si le localStorage est bloqué (navigateur intégré TikTok/Facebook, mode privé, stockage plein),
+// on garde les commandes en mémoire pour que le bouton 📡 s'affiche quand même.
+let _memOrders = [];
 function getSavedOrders() {
+  let arr = [];
   try {
     const raw = localStorage.getItem(TRACK_KEY);
-    const arr = raw ? JSON.parse(raw) : [];
-    // Filtrer les trop vieilles (> 6h)
-    return arr.filter(o => Date.now() - (o.ts||0) < TRACK_TTL);
-  } catch(_){ return []; }
+    arr = raw ? JSON.parse(raw) : [];
+  } catch(_){ arr = []; }
+  // fusionner avec la mémoire (sans doublons)
+  _memOrders.forEach(m => { if(!arr.some(o => o.id === m.id)) arr.push(m); });
+  // Filtrer les trop vieilles
+  return arr.filter(o => Date.now() - (o.ts||0) < TRACK_TTL).sort((a,b) => (b.ts||0) - (a.ts||0));
 }
 function saveOrder(orderObj) {
-  const arr = getSavedOrders().filter(o => o.id !== orderObj.id);
-  arr.unshift(orderObj); // plus récente en premier
-  localStorage.setItem(TRACK_KEY, JSON.stringify(arr.slice(0, 10)));
+  _memOrders = _memOrders.filter(o => o.id !== orderObj.id);
+  _memOrders.unshift(orderObj);
+  try {
+    let arr = [];
+    try { arr = JSON.parse(localStorage.getItem(TRACK_KEY) || '[]'); } catch(_){ arr = []; }
+    arr = arr.filter(o => o.id !== orderObj.id);
+    arr.unshift(orderObj); // plus récente en premier
+    localStorage.setItem(TRACK_KEY, JSON.stringify(arr.slice(0, 10)));
+  } catch(e) { console.warn('[Suivi] localStorage indisponible, suivi gardé en mémoire', e); }
+}
+function _persistOrders(arr) {
+  _memOrders = arr.slice(0, 10);
+  try { localStorage.setItem(TRACK_KEY, JSON.stringify(arr.slice(0, 10))); } catch(e) { console.warn('[Suivi] localStorage indisponible', e); }
 }
 function updateSavedStatut(id, statut, extra={}) {
   const arr = getSavedOrders().map(o => o.id===id ? {...o, statut, ...extra} : o);
-  localStorage.setItem(TRACK_KEY, JSON.stringify(arr));
+  _persistOrders(arr);
 }
 function removeSavedOrder(id) {
   const arr = getSavedOrders().filter(o => o.id !== id);
-  localStorage.setItem(TRACK_KEY, JSON.stringify(arr));
+  _persistOrders(arr);
 }
 
 // ── Abonner le suivi realtime pour UNE commande ──
@@ -2066,15 +2092,43 @@ function subscribeOrderTracking(orderId) {
   _trackChannels[orderId] = ch;
 }
 
+// ── Filet de sécurité : interroger le statut toutes les 20 s tant qu'une commande est active ──
+let _trackPollTimer = null;
+function _startTrackPolling() {
+  if(_trackPollTimer) return;
+  _trackPollTimer = setInterval(async () => {
+    try {
+      const actives = getSavedOrders().filter(o => o.rid===restaurantId && o.statut!=='livree' && o.statut!=='annulee');
+      if(!actives.length) { clearInterval(_trackPollTimer); _trackPollTimer = null; return; }
+      const { data } = await sb.from('commandes_en_ligne').select('id,statut,order_ref,livreur_nom,livreur_tel').in('id', actives.map(o => o.id));
+      (data || []).forEach(row => {
+        const old = actives.find(o => o.id === row.id);
+        if(old && old.statut !== row.statut) {
+          const extra = {};
+          if(row.livreur_nom) extra.livreur_nom = row.livreur_nom;
+          if(row.livreur_tel) extra.livreur_tel = row.livreur_tel;
+          updateSavedStatut(row.id, row.statut, extra);
+          const st = STEP_LABELS[row.statut];
+          if(st) showToast(st.icon + ' Commande ' + (row.order_ref || old.ref) + ' : ' + st.label);
+          if(row.statut === 'livree') setTimeout(() => _chargerEtAfficherRecu(row.id), 2000);
+        }
+      });
+      renderTrackDrawer(); updateTrackFab();
+    } catch(e) { /* silencieux */ }
+  }, 20000);
+}
+
 // ── Démarrer le suivi d'une nouvelle commande ──
 function startOrderTracking(orderId, ref, statut='en_attente', lignes=[], total=0, clientNom='', clientTel='', clientAdr='', payMode='') {
-  _setSessionOrdered(); // ✅ v16 : le client a commandé dans cette session
+  try { _setSessionOrdered(); } catch(_) {} // ✅ v16 : le client a commandé dans cette session
   const rNom = restoData?.nom || restoData?.name || '';
   const rAdr = restoData?.adresse || restoData?.address || '';
   const rTel = restoData?.tel || restoData?.telephone || '';
-  saveOrder({ id:orderId, ref, statut, rid:restaurantId, ts:Date.now(), lignes, total, clientNom, clientTel, clientAdr, payMode, rNom, rAdr, rTel });
-  subscribeOrderTracking(orderId);
-  updateTrackFab();
+  try { saveOrder({ id:orderId, ref, statut, rid:restaurantId, ts:Date.now(), lignes, total, clientNom, clientTel, clientAdr, payMode, rNom, rAdr, rTel }); } catch(e) { console.warn('[Suivi] saveOrder', e); }
+  try { subscribeOrderTracking(orderId); } catch(e) { console.warn('[Suivi] realtime', e); }
+  updateTrackFab(); // ✅ le bouton 📡 s'affiche toujours, même si le temps réel échoue
+  // Rafraîchir le suivi par interrogation régulière (filet de sécurité si le temps réel est coupé)
+  _startTrackPolling();
 }
 
 // ── Reprendre tous les suivis sauvegardés au chargement ──
@@ -2272,7 +2326,7 @@ async function _chargerEtAfficherRecu(orderId) {
       // Sauvegarder le reçu dans le suivi local pour accès hors-ligne
       if(local) {
         const arr = getSavedOrders().map(o => o.id===orderId ? {...o, recu} : o);
-        localStorage.setItem(TRACK_KEY, JSON.stringify(arr));
+        _persistOrders(arr);
       }
       afficherRecu(recu, orderId);
     } else {
