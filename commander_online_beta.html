@@ -1048,14 +1048,26 @@ window.addEventListener('DOMContentLoaded', async () => {
     if(!isUUID) {
       // Convertir slug en texte lisible pour comparaison (ex: "crema-mia" → "crema mia")
       const slugNom = restaurantParam.replace(/-/g, ' ').toLowerCase();
+      const _norm = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
       try {
-        const { data: found } = await sb.from('restaurants')
-          .select('id, nom')
-          .ilike('nom', slugNom)
-          .limit(1)
-          .maybeSingle();
+        let found = null, lastErr = null;
+        // 1) nom exact (insensible à la casse)  2) nom contenant les mots du lien
+        for(const pattern of [slugNom, '%' + slugNom.replace(/\s+/g, '%') + '%']) {
+          const { data, error } = await sb.from('restaurants').select('id, nom').ilike('nom', pattern).limit(1).maybeSingle();
+          if(error) lastErr = error;
+          if(data?.id) { found = data; break; }
+        }
+        // 3) comparaison sans accents ni espaces (ex: « crema-mia » = « Crema Mia » = « CremaMia »)
+        if(!found) {
+          const { data: all, error } = await sb.from('restaurants').select('id, nom').limit(500);
+          if(error) lastErr = error;
+          found = (all || []).find(r => _norm(r.nom) === _norm(restaurantParam)) || null;
+        }
         if(found?.id) {
           restaurantId = found.id;
+        } else if(lastErr) {
+          showError('Erreur de connexion.<br>' + (lastErr.message || 'Réessayez dans un instant.') + '<br><small>Vérifiez votre connexion puis rescannez le QR code.</small>');
+          return;
         } else {
           showError('Restaurant introuvable.<br>Vérifiez le lien ou scannez à nouveau le QR code.');
           return;

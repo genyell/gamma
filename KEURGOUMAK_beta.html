@@ -45556,7 +45556,7 @@ function renderQRCodesPanel() {
   }
 
   grid.innerHTML = _qrTables.map(t => {
-    const url = _qrClientBase + '?r=' + _qrSlug + '&t=' + t.id;
+    const url = _qrClientBase + '?r=' + (_qrRid || _qrSlug) + '&t=' + t.id;
     return `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center;cursor:pointer;"
          onclick="zoomQR('${t.id}','${t.label.replace(/'/g,"\\'")}')">
@@ -45575,7 +45575,7 @@ function renderQRCodesPanel() {
     _qrTables.forEach(t => {
       const canvas = document.getElementById('qrc-' + t.id);
       if(!canvas) return;
-      const url = _qrClientBase + '?r=' + _qrSlug + '&t=' + t.id;
+      const url = _qrClientBase + '?r=' + (_qrRid || _qrSlug) + '&t=' + t.id;
       // QR intégré en priorité (fonctionne même si la bibliothèque en ligne ne s'est pas chargée : connexion lente / hors ligne)
       if(kgDrawQrOnCanvas(canvas, url, 130, 2, '#111111', '#ffffff')) return;
       if(window.QRCode) QRCode.toCanvas(canvas, url, { width: 130, margin: 1,
@@ -45608,20 +45608,22 @@ function _qrFitText(ctx, txt, maxW, size, weight) {
   while(ctx.measureText(txt).width > maxW && f > 18);
 }
 async function kgBuildQrCard(canvas, url, tableLabel) {
-  const W = 1000, H = 1380;
+  const W = 1000, H = 1640;
   const nom = (RESTAURANT_INFO && RESTAURANT_INFO.nom) ? RESTAURANT_INFO.nom : 'Restaurant';
   const logoSrc = (RESTAURANT_INFO && (RESTAURANT_INFO.logo_url || RESTAURANT_INFO.loginLogo)) || (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.logo) || '';
   const logo = await _qrLoadImg(logoSrc);
+  const FONT = '"Plus Jakarta Sans","Segoe UI",Arial,sans-serif';
   const draw = (withLogo) => {
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
-    // fond + bandeau orange
+    const cx = W / 2;
     ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    // bandeau orange
     const g = ctx.createLinearGradient(0, 0, W, 330);
     g.addColorStop(0, '#F5A623'); g.addColorStop(1, '#E8542A');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, 330);
-    // logo (cercle blanc débordant du bandeau)
-    const cx = W / 2, cy = 300, R = 150;
+    // logo dans un cercle blanc
+    const cy = 300, R = 150;
     ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 10;
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, R + 12, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
@@ -45630,43 +45632,43 @@ async function kgBuildQrCard(canvas, url, tableLabel) {
       ctx.drawImage(logo, cx - logo.width * sc / 2, cy - logo.height * sc / 2, logo.width * sc, logo.height * sc);
     } else {
       ctx.fillStyle = '#FFF3DC'; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
-      ctx.fillStyle = '#E8542A'; ctx.font = '700 150px "Plus Jakarta Sans",Arial,sans-serif';
+      ctx.fillStyle = '#E8542A'; ctx.font = '700 150px ' + FONT;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText((nom.trim()[0] || 'R').toUpperCase(), cx, cy + 6);
     }
     ctx.restore();
-    // nom du restaurant
-    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#1a1a2e';
-    _qrFitText(ctx, nom.toUpperCase(), W - 140, 78, '800');
-    ctx.fillText(nom.toUpperCase(), cx, 560);
-    ctx.fillStyle = '#E8542A';
-    _qrFitText(ctx, 'SCANNEZ POUR COMMANDER', W - 160, 44, '700');
-    ctx.fillText('SCANNEZ POUR COMMANDER', cx, 625);
-    // QR en grand dans un cadre arrondi
-    const qs = 640, qx = (W - qs) / 2, qy = 670;
+    // nom + accroche
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#1a1a2e'; _qrFitText(ctx, nom.toUpperCase(), W - 140, 78, '800');
+    ctx.fillText(nom.toUpperCase(), cx, 555);
+    ctx.fillStyle = '#E8542A'; _qrFitText(ctx, 'SCANNEZ POUR COMMANDER', W - 160, 44, '700');
+    ctx.fillText('SCANNEZ POUR COMMANDER', cx, 620);
+    // QR dans un cadre blanc (marge blanche large = lecture facile)
+    const qs = 640, qx = (W - qs) / 2, qy = 690, pad = 40;
     ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.15)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8;
-    ctx.fillStyle = '#fff'; _qrRoundRect(ctx, qx - 30, qy - 30, qs + 60, qs + 60, 36); ctx.fill(); ctx.restore();
-    ctx.strokeStyle = '#F5A623'; ctx.lineWidth = 6; _qrRoundRect(ctx, qx - 30, qy - 30, qs + 60, qs + 60, 36); ctx.stroke();
+    ctx.fillStyle = '#fff'; _qrRoundRect(ctx, qx - pad, qy - pad, qs + 2 * pad, qs + 2 * pad, 36); ctx.fill(); ctx.restore();
+    ctx.strokeStyle = '#F5A623'; ctx.lineWidth = 6; _qrRoundRect(ctx, qx - pad, qy - pad, qs + 2 * pad, qs + 2 * pad, 36); ctx.stroke();
     const tmp = document.createElement('canvas');
-    if(!kgDrawQrOnCanvas(tmp, url, qs, 1, '#111111', '#ffffff') && window.QRCode) { /* bibliothèque en ligne : rendu asynchrone non géré ici */ }
+    kgDrawQrOnCanvas(tmp, url, qs, 3, '#000000', '#ffffff');
     ctx.imageSmoothingEnabled = false; ctx.drawImage(tmp, qx, qy, qs, qs); ctx.imageSmoothingEnabled = true;
-    // pastille table
-    const py = qy + qs + 70;
-    ctx.fillStyle = g; _qrRoundRect(ctx, cx - 250, py, 500, 110, 55); ctx.fill();
+    // numéro de table, bien visible
+    const py = qy + qs + pad + 50;           // 1420
+    ctx.fillStyle = g; _qrRoundRect(ctx, cx - 300, py, 600, 130, 65); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle';
-    _qrFitText(ctx, String(tableLabel).toUpperCase(), 440, 62, '800');
-    ctx.fillText(String(tableLabel).toUpperCase(), cx, py + 57);
-    // pied
+    const tl = String(tableLabel).toUpperCase();
+    _qrFitText(ctx, tl, 540, 76, '800');
+    ctx.fillText(tl, cx, py + 67);
+    // pied de page
     ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#777';
-    ctx.font = '500 30px "Plus Jakarta Sans",Arial,sans-serif';
-    ctx.fillText('📱 Ouvrez l’appareil photo et visez le code', cx, H - 40);
+    ctx.font = '500 30px ' + FONT;
+    ctx.fillText('Ouvrez l’appareil photo et visez le code', cx, H - 40);
   };
   draw(true);
   try { canvas.toDataURL(); } catch(e) { draw(false); }   // logo sans autorisation CORS : on retire le logo plutôt que de bloquer le téléchargement
 }
 function zoomQR(tableId, label) {
   _qrZoomTable = _qrTables.find(t => t.id === tableId);
-  const url = _qrClientBase + '?r=' + _qrSlug + '&t=' + tableId;
+  const url = _qrClientBase + '?r=' + (_qrRid || _qrSlug) + '&t=' + tableId;
   const modal = document.getElementById('modal-qrZoom');
   modal.style.display = 'flex';
   const _zt = document.getElementById('qr-zoom-title') || document.getElementById('qr-zoom-label');
