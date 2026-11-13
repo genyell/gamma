@@ -7783,13 +7783,13 @@ Revenez nous voir bient&#244;t.</textarea>
 
     <!-- Modal zoom QR -->
     <div class="modal-overlay" id="modal-qrZoom" onclick="if(event.target===this)closeQRZoom()">
-      <div class="modal" style="max-width:380px;text-align:center;">
+      <div class="modal" style="max-width:520px;width:96vw;text-align:center;">
         <div class="modal-header">
           <div class="modal-title" id="qr-zoom-title">QR Code</div>
           <button class="modal-close" onclick="closeQRZoom()">✕</button>
         </div>
         <div class="modal-body" style="display:flex;flex-direction:column;align-items:center;gap:16px;">
-          <canvas id="qr-zoom-canvas" style="border-radius:12px;max-width:260px;width:100%;"></canvas>
+          <canvas id="qr-zoom-canvas" style="border-radius:16px;width:100%;max-width:440px;height:auto;box-shadow:0 8px 30px rgba(0,0,0,.25);"></canvas>
           <div style="font-size:12px;color:var(--text2);word-break:break-all;" id="qr-zoom-url"></div>
         </div>
         <div class="modal-footer">
@@ -9806,20 +9806,10 @@ Revenez nous voir bient&#244;t.</textarea>
           <option value="livreur">🛵 Livreur</option>
         </select>
       </div>
-      <div class="form-group"><label class="form-label">Caisse assignée</label>
-        <select class="form-input" id="nu-caisse">
-          <option value="Toutes">Toutes les caisses</option>
-          <option value="Caisse 1">Caisse 1 — Salle</option>
-          <option value="Caisse 2">Caisse 2 — Emporter</option>
-          <option value="Caisse 3">Caisse 3 — Terrasse</option>
-          <option value="Caisse 4">Caisse 4 — Terrasse / Bar</option>
-          <option value="Caisse 5">Caisse 5</option>
-          <option value="Caisse 6">Caisse 6</option>
-          <option value="Caisse 7">Caisse 7</option>
-          <option value="Caisse 8">Caisse 8</option>
-          <option value="Caisse 9">Caisse 9</option>
-          <option value="Caisse 10">Caisse 10</option>
-        </select>
+      <div class="form-group"><label class="form-label">Caisse(s) assignée(s)</label>
+        <div id="nu-caisse-box" style="max-height:220px;overflow:auto;border:1.5px solid var(--border);border-radius:12px;padding:6px 10px;background:var(--surface2);"><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Toutes" checked onchange="kgCaisseBoxChange('nu')" style="width:18px;height:18px;accent-color:var(--accent);"> Toutes les caisses</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 1" onchange="kgCaisseBoxChange('nu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 1 — Salle</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 2" onchange="kgCaisseBoxChange('nu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 2 — Emporter</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 3" onchange="kgCaisseBoxChange('nu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 3 — Terrasse</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 4" onchange="kgCaisseBoxChange('nu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 4 — Terrasse / Bar</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 5" onchange="kgCaisseBoxChange('nu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 5</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 6" onchange="kgCaisseBoxChange('nu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 6</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 7" onchange="kgCaisseBoxChange('nu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 7</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 8" onchange="kgCaisseBoxChange('nu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 8</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 9" onchange="kgCaisseBoxChange('nu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 9</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 10" onchange="kgCaisseBoxChange('nu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 10</label></div>
+        <input type="hidden" id="nu-caisse" value="Toutes">
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;">Cochez une ou plusieurs caisses. À l'ouverture, l'utilisateur choisit parmi celles-ci.</div>
       </div>
     </div>
     <div class="form-row">
@@ -9872,22 +9862,10 @@ Revenez nous voir bient&#244;t.</textarea>
           <option value="livreur">🛵 Livreur</option>
         </select>
       </div>
-      <div class="form-group"><label class="form-label">Caisse assignée</label>
-        <select class="form-input" id="eu-caisse">
-          <option value="Toutes">Toutes les caisses</option>
-          <option value="Caisse 1">Caisse 1 — Salle</option>
-          <option value="Caisse 2">Caisse 2 — Emporter</option>
-          <option value="Caisse 3">Caisse 3 — Terrasse</option>
-          <option value="Caisse 4">Caisse 4 — Terrasse / Bar</option>
-          <option value="Caisse 5">Caisse 5</option>
-          <option value="Caisse 6">Caisse 6</option>
-          <option value="Caisse 7">Caisse 7</option>
-          <option value="Caisse 8">Caisse 8</option>
-          <option value="Caisse 9">Caisse 9</option>
-          <option value="Caisse 10">Caisse 10</option><option value="Caisse 10">Caisse 10</option>
-
-          <option value="Cuisine">Cuisine</option>
-        </select>
+      <div class="form-group"><label class="form-label">Caisse(s) assignée(s)</label>
+        <div id="eu-caisse-box" style="max-height:220px;overflow:auto;border:1.5px solid var(--border);border-radius:12px;padding:6px 10px;background:var(--surface2);"><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Toutes" checked onchange="kgCaisseBoxChange('eu')" style="width:18px;height:18px;accent-color:var(--accent);"> Toutes les caisses</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 1" onchange="kgCaisseBoxChange('eu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 1 — Salle</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 2" onchange="kgCaisseBoxChange('eu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 2 — Emporter</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 3" onchange="kgCaisseBoxChange('eu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 3 — Terrasse</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 4" onchange="kgCaisseBoxChange('eu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 4 — Terrasse / Bar</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 5" onchange="kgCaisseBoxChange('eu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 5</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 6" onchange="kgCaisseBoxChange('eu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 6</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 7" onchange="kgCaisseBoxChange('eu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 7</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 8" onchange="kgCaisseBoxChange('eu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 8</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 9" onchange="kgCaisseBoxChange('eu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 9</label><label style="display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:14px;cursor:pointer;"><input type="checkbox" value="Caisse 10" onchange="kgCaisseBoxChange('eu')" style="width:18px;height:18px;accent-color:var(--accent);"> Caisse 10</label></div>
+        <input type="hidden" id="eu-caisse" value="Toutes">
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;">Cochez une ou plusieurs caisses. À l'ouverture, l'utilisateur choisit parmi celles-ci.</div>
       </div>
     </div>
     <div class="form-group"><label class="form-label">Statut</label>
@@ -15331,7 +15309,25 @@ function openModalOuverture() {
   // caisse précise (pas seulement le rôle "caissier") — sinon un gérant/superviseur assigné
   // à Caisse 1 pouvait quand même ouvrir n'importe quelle autre caisse par erreur.
   var isCaissier = currentUser && currentUser.caisse && currentUser.caisse !== 'Toutes';
-  if(isCaissier) {
+  var _multiCaisses = isCaissier && Array.isArray(currentUser.caisses) && currentUser.caisses.length > 1;
+  if(_multiCaisses) {
+    // 🖥️ Plusieurs caisses assignées : on n'affiche que celles-ci, l'utilisateur en choisit une
+    document.querySelectorAll('.oc-caisse-btn').forEach(function(b) {
+      var nameEl = b.querySelector('.oc-caisse-name');
+      var rawText = nameEl ? nameEl.textContent : b.textContent;
+      var ok = currentUser.caisses.some(function(c){ return _kgSameCaisse(c, rawText); });
+      b.classList.remove('selected');
+      if(ok) {
+        b.style.display = ''; b.style.opacity = '1'; b.style.pointerEvents = 'auto';
+        var rawName = nameEl ? nameEl.textContent.trim() : '';
+        var name = rawName.replace(/^[^\w]*/u, '').trim() || rawName.trim();
+        var locEl = b.querySelector('.oc-caisse-loc');
+        var loc = locEl ? locEl.textContent.trim() : '';
+        b.onclick = (function(btn, n, l){ return function(){ selectOC(btn, n, l); }; })(b, name, loc);
+      } else { b.style.display = 'none'; b.style.pointerEvents = 'none'; b.onclick = null; }
+    });
+    ocSelectedCaisse = null;
+  } else if(isCaissier) {
     ocSelectedCaisse = currentUser.caisse;
     // ✅ FIX : comparaison par numéro de caisse (ex: "Caisse 1" vs "Caisse 1 — Salle")
     // plutôt qu'un indexOf exact qui échouait dès que les libellés différaient légèrement.
@@ -15378,12 +15374,54 @@ function openModalOuverture() {
   showModal('ouvertureCaisse');
 }
 
+// 🖥️ Plusieurs caisses par utilisateur : stockées dans users.caisse_assignee sous forme « Caisse 1,Caisse 2 »
+function kgCaissesList(v) {
+  if(!v || v === 'Toutes') return [];
+  return String(v).split(',').map(x => x.trim()).filter(x => x && x !== 'Toutes');
+}
+function kgUserCaisseFields(raw) {
+  const l = kgCaissesList(raw);
+  return { caisse: l[0] || 'Toutes', caisses: l, caisse_assignee: l.length ? l.join(',') : null };
+}
+function _kgSameCaisse(a, b) {
+  if(a === b) return true;
+  const na = String(a).match(/Caisse\s*(\d+)/i), nb = String(b).match(/Caisse\s*(\d+)/i);
+  return !!(na && nb && na[1] === nb[1]);
+}
+function kgUserPeutCaisse(u, name) {
+  const l = (u && Array.isArray(u.caisses)) ? u.caisses : kgCaissesList(u && u.caisse);
+  return !l.length || l.some(c => _kgSameCaisse(c, name));
+}
+function kgCaisseBoxChange(p) {
+  const box = document.getElementById(p + '-caisse-box');
+  const toutes = box.querySelector('input[value="Toutes"]');
+  const autres = Array.from(box.querySelectorAll('input:not([value="Toutes"])'));
+  if(event && event.target === toutes && toutes.checked) autres.forEach(i => i.checked = false);
+  else if(autres.some(i => i.checked)) toutes.checked = false;
+  const sel = autres.filter(i => i.checked).map(i => i.value);
+  if(!sel.length) toutes.checked = true;
+  document.getElementById(p + '-caisse').value = sel.length ? sel.join(',') : 'Toutes';
+}
+function kgCaisseBoxSet(p, raw) {
+  const box = document.getElementById(p + '-caisse-box');
+  if(!box) return;
+  const l = kgCaissesList(raw);
+  box.querySelectorAll('input').forEach(i => { i.checked = (i.value === 'Toutes') ? !l.length : l.some(c => _kgSameCaisse(c, i.value)); });
+  document.getElementById(p + '-caisse').value = l.length ? l.join(',') : 'Toutes';
+}
+
 async function confirmerOuverture() {
   try {
     // Si caissier, forcer sa caisse assignée
     let caisse = ocSelectedCaisse;
     if(currentUser && currentUser.role === 'caissier' && currentUser.caisse !== 'Toutes') {
-      caisse = currentUser.caisse;
+      if(Array.isArray(currentUser.caisses) && currentUser.caisses.length > 1) {
+        // plusieurs caisses : choix obligatoire parmi les caisses autorisées
+        caisse = (ocSelectedCaisse && kgUserPeutCaisse(currentUser, ocSelectedCaisse)) ? ocSelectedCaisse : null;
+        if(caisse) currentUser.caisse = caisse;   // caisse active = celle choisie
+      } else {
+        caisse = currentUser.caisse;
+      }
     }
     // ✅ FIX : pour admin/gérant/superviseur, exiger un choix EXPLICITE de caisse —
     // ne plus retomber silencieusement sur 'Caisse 1' (cause d'ouvertures accidentelles).
@@ -16073,6 +16111,11 @@ async function validateOrder() {
   // ✅ FIX VENTES CROISÉES : verrou final — un caissier assigné à une caisse précise
   // ne peut JAMAIS enregistrer une vente sur une autre caisse, même si la session
   // active (sessionCaisseActive) pointe par erreur ailleurs (ex: session héritée).
+  if(currentUser && currentUser.role === 'caissier' && currentUser.caisse !== 'Toutes'
+     && Array.isArray(currentUser.caisses) && currentUser.caisses.length > 1
+     && kgUserPeutCaisse(currentUser, sessionCaisseActive.caisse)) {
+    currentUser.caisse = sessionCaisseActive.caisse;   // plusieurs caisses : la caisse active suit la session ouverte
+  }
   if(currentUser && currentUser.role === 'caissier' && currentUser.caisse !== 'Toutes'
      && sessionCaisseActive.caisse !== currentUser.caisse) {
     showNotif('🔒 Session incohérente : vous êtes assigné à ' + currentUser.caisse + ' mais la session ouverte est ' + sessionCaisseActive.caisse + '. Reconnectez-vous.');
@@ -18067,7 +18110,7 @@ function renderSessionModal() {
     if(u.status !== 'actif') return false;
     if(u.role === 'superviseur') return true; // supervise plusieurs caisses, toujours visible
     if(u.role !== 'caissier') return false;
-    return _caissesOuvertes.has(u.caisse);
+    return (u.caisses && u.caisses.length) ? u.caisses.some(c => _caissesOuvertes.has(c)) : _caissesOuvertes.has(u.caisse);
   });
   const now = new Date();
   // Sessions actives
@@ -26115,7 +26158,7 @@ function renderQuickUsers() {
       <div style="width:28px;height:28px;border-radius:50%;background:${u.color}33;color:${u.color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">${getInitials(u)}</div>
       <div style="flex:1;">
         <div style="font-size:13px;font-weight:600;">${window.escHtml(u.prenom)} ${window.escHtml(u.nom)}</div>
-        <div style="font-size:11px;color:var(--text2);">${getRoleIcon(u.role)} ${getRoleLabel(u.role)}${u.caisse_assignee && u.caisse_assignee !== 'Toutes' ? ' · ' + u.caisse_assignee : ''}</div>
+        <div style="font-size:11px;color:var(--text2);">${getRoleIcon(u.role)} ${getRoleLabel(u.role)}${u.caisse_assignee && u.caisse_assignee !== 'Toutes' ? ' · ' + String(u.caisse_assignee).replace(/,/g, ' + ') : ''}</div>
       </div>
     </div>
   `).join('');
@@ -26547,8 +26590,7 @@ async function doLogin() {
       nom: profile.nom,
       email: email,
       role: profile.role,
-      caisse: profile.caisse_assignee || 'Toutes',
-      caisse_assignee: profile.caisse_assignee,
+      ...kgUserCaisseFields(profile.caisse_assignee),
       tel: profile.tel || '',
       status: profile.status,
       lastLogin: new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) + ' ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
@@ -26577,7 +26619,7 @@ async function doLogin() {
       sb.from('caisses').select('id,restaurant_id,name,fonds_initial,cloturee,date_cloture').eq('restaurant_id', profile.restaurant_id).order('name')
     ]);
     const { data: allUsers } = _q1;
-    if(allUsers) USERS = allUsers.map(u => ({ ...u, caisse: u.caisse_assignee || 'Toutes', login: u.email || u.id, tel: u.tel || '—', lastLogin: '—' }));
+    if(allUsers) USERS = allUsers.map(u => ({ ...u, ...kgUserCaisseFields(u.caisse_assignee), login: u.email || u.id, tel: u.tel || '—', lastLogin: '—' }));
 
     // ✅ Charger permissions personnalisées des rôles depuis Supabase
     const { data: rolesData } = _q2;
@@ -27376,7 +27418,7 @@ function renderUsersGrid() {
       </div>
       <div style="font-size:12px;color:var(--text2);display:flex;flex-direction:column;gap:4px;margin-bottom:14px;">
         <div>📱 ${u.tel && u.tel !== 'undefined' ? u.tel : '—'}</div>
-        <div>🖥️ ${u.caisse || 'Toutes'}</div>
+        <div>🖥️ ${(u.caisses && u.caisses.length) ? u.caisses.join(' + ') : (u.caisse || 'Toutes')}</div>
         <div>🕐 Dernière connexion : ${u.lastLogin && u.lastLogin !== 'undefined' ? u.lastLogin.split(' ').map((x,i)=>i===0?fmtDateFR(x):x).join(' ') : '—'}</div>
         <div>🔐 ${getUserPerms(u).length} permissions</div>
       </div>
@@ -27572,7 +27614,7 @@ async function saveNewUser() {
     if(profileErr) throw profileErr;
 
     // Mettre à jour la liste locale
-    USERS.push({ id: authData.user.id, prenom, nom, email, role, caisse: caisse||'Toutes', caisse_assignee: caisse||null, tel, status:'actif', color: colors[(USERS.length-1) % colors.length], login: email });
+    USERS.push({ id: authData.user.id, prenom, nom, email, role, ...kgUserCaisseFields(caisse), tel, status:'actif', color: colors[(USERS.length-1) % colors.length], login: email });
 
     renderQuickUsers();
     closeModal('addUser');
@@ -27644,7 +27686,7 @@ function openEditUser(id) {
   document.getElementById('eu-tel').value = u.tel;
   document.getElementById('eu-role').value = u.role;
   document.getElementById('eu-status').value = u.status;
-  document.getElementById('eu-caisse').value = u.caisse;
+  kgCaisseBoxSet('eu', (u.caisses && u.caisses.length) ? u.caisses.join(',') : u.caisse);
   const _euPwd = document.getElementById('eu-pwd');
   const _euPwd2 = document.getElementById('eu-pwd2');
   const _euPwdStrength = document.getElementById('eu-pwd-strength');
@@ -27718,8 +27760,8 @@ async function saveEditUser() {
       }
     }
     // Mise à jour locale
-    Object.assign(u, { prenom, nom, tel, role, status, caisse: caisse||'Toutes', caisse_assignee: caisse||null, login: emailVal, email: emailVal });
-    if(id === currentUser?.id) Object.assign(currentUser, { prenom, nom, tel, role, caisse });
+    Object.assign(u, { prenom, nom, tel, role, status, ...kgUserCaisseFields(caisse), login: emailVal, email: emailVal });
+    if(id === currentUser?.id) Object.assign(currentUser, { prenom, nom, tel, role, ...kgUserCaisseFields(caisse) });
 
     closeModal('editUser');
     renderUsersGrid();
@@ -38153,8 +38195,7 @@ setTimeout(() => {
     currentUser = {
       id: profile.id, prenom: profile.prenom, nom: profile.nom,
       email: session.user.email, role: profile.role,
-      caisse: profile.caisse_assignee || 'Toutes',
-      caisse_assignee: profile.caisse_assignee,
+      ...kgUserCaisseFields(profile.caisse_assignee),
       tel: profile.tel || '', status: profile.status,
       lastLogin: '—', color: profile.color || '#f5a623',
       perms: null, restaurant_id: profile.restaurant_id,
@@ -38173,7 +38214,7 @@ setTimeout(() => {
       sb.from('caisses').select('id,restaurant_id,name,fonds_initial,cloturee,date_cloture').eq('restaurant_id', profile.restaurant_id).order('name')
     ]);
     const { data: allUsers } = _q1;
-    if(allUsers) USERS = allUsers.map(u => ({ ...u, caisse: u.caisse_assignee || 'Toutes', login: u.email || u.id, tel: u.tel || '—', lastLogin: '—' }));
+    if(allUsers) USERS = allUsers.map(u => ({ ...u, ...kgUserCaisseFields(u.caisse_assignee), login: u.email || u.id, tel: u.tel || '—', lastLogin: '—' }));
 
     // ✅ Charger permissions personnalisées des rôles depuis Supabase
     const { data: rolesData } = _q2;
@@ -43734,9 +43775,28 @@ function renderQROrdersPanel() {
       <!-- Actions -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         ${qrActionButtons(o)}
+        ${(currentUser && currentUser.role === 'administrateur') ? `<button onclick="supprimerQRCommande('${o.id}')" title="Supprimer cette commande (administrateur)"
+          style="padding:9px 12px;background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.4);border-radius:8px;color:#e74c3c;font-weight:700;cursor:pointer;font-size:13px;">🗑️ Supprimer</button>` : ''}
       </div>
     </div>`;
   }).join('');
+}
+
+// 🗑️ Suppression définitive d'une commande QR / en ligne — réservée à l'administrateur
+async function supprimerQRCommande(orderId) {
+  if(!(currentUser && currentUser.role === 'administrateur')) { _qrToast('🔒 Réservé à l\'administrateur'); return; }
+  const o = _qrOrders.find(x => x.id === orderId);
+  const ref = o ? (o.numero || o.order_ref || '') : '';
+  if(!confirm('Supprimer définitivement la commande ' + ref + ' ?\nCette action est irréversible.')) return;
+  if(!_qrSb) { _qrToast('❌ Non connecté — suppression impossible'); return; }
+  try {
+    const { error } = await _qrSb.from('commandes_en_ligne').delete().eq('id', orderId);
+    if(error) { _qrToast('❌ Erreur : ' + error.message); return; }
+  } catch(e) { _qrToast('❌ Erreur réseau : ' + (e.message || e)); return; }
+  const i = _qrOrders.findIndex(x => x.id === orderId);
+  if(i >= 0) _qrOrders.splice(i, 1);
+  _qrToast('🗑️ Commande ' + ref + ' supprimée');
+  renderQROrdersPanel();
 }
 
 function qrStatutColor(s) {
@@ -43769,7 +43829,7 @@ function qrActionButtons(o) {
     return `<div style="display:flex;gap:8px;flex-wrap:wrap;width:100%;">
       ${billBtn}
       <button onclick="ouvrirModalLivreur('${o.id}')"
-        style="flex:1;min-width:120px;padding:9px 12px;background:#2ecc71;border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;font-size:13px;">🛵 Livrée / Remise</button>
+        style="flex:1;min-width:120px;padding:9px 12px;background:#2ecc71;border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;font-size:13px;">${_qrEstSurPlace(o.id) ? '🍽️ Servie' : '🛵 Livrée / Remise'}</button>
     </div>`;
   }
   // Commandes livrées ou annulées → boutons réimpression + partage
@@ -45140,18 +45200,38 @@ async function afficherListeLivreurs() {
     </div>`).join('');
 }
 
+// 🍽️ Commande venant d'une table (sur place) : on choisit un SERVEUR, pas un livreur
+function _qrEstSurPlace(orderId) {
+  const o = (typeof _qrOrders !== 'undefined' ? _qrOrders : []).find(x => x.id === orderId);
+  if(!o || !o.qr_table_id) return false;
+  const t = (typeof _qrTables !== 'undefined' ? _qrTables : []).find(x => x.id === o.qr_table_id);
+  return !t || t.type === 'table';
+}
+async function _qrListeServeurs() {
+  let liste = [];
+  try { liste = (await chargerServeurs()) || []; } catch(_) {}
+  liste = liste.filter(x => !x.statut || x.statut === 'actif');
+  if(!liste.length && typeof RH_EMPLOYES !== 'undefined') {   // secours : employés RH dont le poste est « serveur »
+    liste = RH_EMPLOYES.filter(e => e.actif !== false && /serveu/i.test(e.poste || ''))
+      .map(e => ({ id: e.id, nom: ((e.prenom || '') + ' ' + (e.nom || '')).trim(), tel: e.tel || e.telephone || '', statut: 'actif' }));
+  }
+  return liste.map(x => ({ ...x, statut: 'actif' }));
+}
+
 // ── Modal livraison — avec sélection depuis la liste ──────────
 async function ouvrirModalLivreur(orderId) {
   document.getElementById('modal-livreur')?.remove();
-  const livreurs = (await chargerLivreurs()) || [];
+  const surPlace = _qrEstSurPlace(orderId);
+  const livreurs = surPlace ? await _qrListeServeurs() : ((await chargerLivreurs()) || []);
+  const ICO = surPlace ? '🍽️' : '🛵';
   const actifsOptions = livreurs.filter(l => l.statut === 'actif')
     .map(l => `<div onclick="selectionnerLivreur('${l.id}','${window.escHtml(l.nom)}','${window.escHtml(l.tel)}',this)" 
       style="padding:12px 14px;border-radius:10px;border:2px solid var(--border);cursor:pointer;transition:all .15s;margin-bottom:8px;display:flex;align-items:center;gap:12px;" 
       class="livreur-option">
-      <div style="width:36px;height:36px;background:linear-gradient(135deg,#f59e2a,#e84520);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🛵</div>
+      <div style="width:36px;height:36px;background:linear-gradient(135deg,#f59e2a,#e84520);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ICO}</div>
       <div>
         <div style="font-size:14px;font-weight:700;color:var(--text);">${window.escHtml(l.nom)}</div>
-        <div style="font-size:12px;color:var(--text2);">${window.escHtml(l.tel)}${l.zone ? ' · ' + l.zone : ''}</div>
+        <div style="font-size:12px;color:var(--text2);">${window.escHtml(l.tel || '')}${l.zone ? ' · ' + l.zone : ''}</div>
       </div>
       <div style="margin-left:auto;width:20px;height:20px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;" class="livreur-check"></div>
     </div>`).join('');
@@ -45161,24 +45241,24 @@ async function ouvrirModalLivreur(orderId) {
   modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:20px;';
   modal.innerHTML = `
     <div style="background:var(--surface);border-radius:16px;padding:24px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
-      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px;">🛵 Choisir un livreur</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:18px;">Le client verra le nom et numéro du livreur.</div>
+      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px;">${surPlace ? '🍽️ Choisir le serveur' : '🛵 Choisir un livreur'}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:18px;">${surPlace ? 'Commande sur place : indiquez le serveur qui a servi la table.' : 'Le client verra le nom et numéro du livreur.'}</div>
       
       ${actifsOptions.length ? `
-        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">LIVREURS DISPONIBLES</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">${surPlace ? 'SERVEURS' : 'LIVREURS DISPONIBLES'}</div>
         <div id="livreur-options-list">${actifsOptions}</div>
         <div style="height:1px;background:var(--border);margin:16px 0;"></div>
         <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">OU SAISIR MANUELLEMENT</div>
-      ` : '<div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Aucun livreur actif — saisie manuelle :</div>'}
+      ` : `<div style="font-size:13px;color:var(--text2);margin-bottom:12px;">${surPlace ? 'Aucun serveur enregistré — saisie manuelle :' : 'Aucun livreur actif — saisie manuelle :'}</div>`}
       
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;">
         <div>
           <label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:5px;">NOM</label>
-          <input id="livreur-nom-input" type="text" placeholder="Nom du livreur"
+          <input id="livreur-nom-input" type="text" placeholder="${surPlace ? 'Nom du serveur' : 'Nom du livreur'}"
             style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;outline:none;box-sizing:border-box;">
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:5px;">TÉLÉPHONE</label>
+          <label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:5px;">TÉLÉPHONE${surPlace ? ' (facultatif)' : ''}</label>
           <input id="livreur-tel-input" type="tel" placeholder="77 000 00 00"
             style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;outline:none;box-sizing:border-box;">
         </div>
@@ -45188,7 +45268,7 @@ async function ouvrirModalLivreur(orderId) {
         <button onclick="document.getElementById('modal-livreur').remove()"
           style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text2);font-weight:600;cursor:pointer;font-size:14px;">Annuler</button>
         <button onclick="confirmerLivraison('${orderId}')"
-          style="flex:2;padding:12px;border-radius:10px;border:none;background:#2ecc71;color:#fff;font-weight:700;cursor:pointer;font-size:14px;">✅ Confirmer livraison</button>
+          style="flex:2;padding:12px;border-radius:10px;border:none;background:#2ecc71;color:#fff;font-weight:700;cursor:pointer;font-size:14px;">${surPlace ? '✅ Confirmer service' : '✅ Confirmer livraison'}</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -45231,7 +45311,7 @@ async function confirmerLivraison(orderId) {
   // ── Générer et sauvegarder le reçu dans Supabase pour le client ──
   try { await _sauvegarderRecuClient(orderId, nom, tel); } catch(e) { console.warn('recu save:', e); }
 
-  _qrToast('🛵 Commande livrée' + (nom ? ' par ' + nom : ''));
+  _qrToast(_qrEstSurPlace(orderId) ? ('🍽️ Commande servie' + (nom ? ' par ' + nom : '')) : ('🛵 Commande livrée' + (nom ? ' par ' + nom : '')));
   renderQROrdersPanel();
 }
 
@@ -45505,18 +45585,99 @@ function renderQRCodesPanel() {
   }, 200);
 }
 
+// 🎨 Affiche QR : logo du restaurant en haut, nom, QR en grand, nom de la table
+function _qrLoadImg(src) {
+  return new Promise(res => {
+    if(!src) return res(null);
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    const t = setTimeout(() => res(null), 4000);
+    im.onload = () => { clearTimeout(t); res(im); };
+    im.onerror = () => { clearTimeout(t); res(null); };
+    im.src = src;
+  });
+}
+function _qrRoundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function _qrFitText(ctx, txt, maxW, size, weight) {
+  let f = size;
+  do { ctx.font = weight + ' ' + f + 'px "Plus Jakarta Sans","Segoe UI",Arial,sans-serif'; f -= 2; }
+  while(ctx.measureText(txt).width > maxW && f > 18);
+}
+async function kgBuildQrCard(canvas, url, tableLabel) {
+  const W = 1000, H = 1380;
+  const nom = (RESTAURANT_INFO && RESTAURANT_INFO.nom) ? RESTAURANT_INFO.nom : 'Restaurant';
+  const logoSrc = (RESTAURANT_INFO && (RESTAURANT_INFO.logo_url || RESTAURANT_INFO.loginLogo)) || (typeof TICKET_CONFIG !== 'undefined' && TICKET_CONFIG.logo) || '';
+  const logo = await _qrLoadImg(logoSrc);
+  const draw = (withLogo) => {
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    // fond + bandeau orange
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    const g = ctx.createLinearGradient(0, 0, W, 330);
+    g.addColorStop(0, '#F5A623'); g.addColorStop(1, '#E8542A');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, 330);
+    // logo (cercle blanc débordant du bandeau)
+    const cx = W / 2, cy = 300, R = 150;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 10;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, R + 12, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+    if(withLogo && logo) {
+      const sc = Math.max((R * 2) / logo.width, (R * 2) / logo.height);
+      ctx.drawImage(logo, cx - logo.width * sc / 2, cy - logo.height * sc / 2, logo.width * sc, logo.height * sc);
+    } else {
+      ctx.fillStyle = '#FFF3DC'; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+      ctx.fillStyle = '#E8542A'; ctx.font = '700 150px "Plus Jakarta Sans",Arial,sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText((nom.trim()[0] || 'R').toUpperCase(), cx, cy + 6);
+    }
+    ctx.restore();
+    // nom du restaurant
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#1a1a2e';
+    _qrFitText(ctx, nom.toUpperCase(), W - 140, 78, '800');
+    ctx.fillText(nom.toUpperCase(), cx, 560);
+    ctx.fillStyle = '#E8542A';
+    _qrFitText(ctx, 'SCANNEZ POUR COMMANDER', W - 160, 44, '700');
+    ctx.fillText('SCANNEZ POUR COMMANDER', cx, 625);
+    // QR en grand dans un cadre arrondi
+    const qs = 640, qx = (W - qs) / 2, qy = 670;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.15)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8;
+    ctx.fillStyle = '#fff'; _qrRoundRect(ctx, qx - 30, qy - 30, qs + 60, qs + 60, 36); ctx.fill(); ctx.restore();
+    ctx.strokeStyle = '#F5A623'; ctx.lineWidth = 6; _qrRoundRect(ctx, qx - 30, qy - 30, qs + 60, qs + 60, 36); ctx.stroke();
+    const tmp = document.createElement('canvas');
+    if(!kgDrawQrOnCanvas(tmp, url, qs, 1, '#111111', '#ffffff') && window.QRCode) { /* bibliothèque en ligne : rendu asynchrone non géré ici */ }
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(tmp, qx, qy, qs, qs); ctx.imageSmoothingEnabled = true;
+    // pastille table
+    const py = qy + qs + 70;
+    ctx.fillStyle = g; _qrRoundRect(ctx, cx - 250, py, 500, 110, 55); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle';
+    _qrFitText(ctx, String(tableLabel).toUpperCase(), 440, 62, '800');
+    ctx.fillText(String(tableLabel).toUpperCase(), cx, py + 57);
+    // pied
+    ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#777';
+    ctx.font = '500 30px "Plus Jakarta Sans",Arial,sans-serif';
+    ctx.fillText('📱 Ouvrez l’appareil photo et visez le code', cx, H - 40);
+  };
+  draw(true);
+  try { canvas.toDataURL(); } catch(e) { draw(false); }   // logo sans autorisation CORS : on retire le logo plutôt que de bloquer le téléchargement
+}
 function zoomQR(tableId, label) {
   _qrZoomTable = _qrTables.find(t => t.id === tableId);
   const url = _qrClientBase + '?r=' + _qrSlug + '&t=' + tableId;
   const modal = document.getElementById('modal-qrZoom');
   modal.style.display = 'flex';
-  // (l'élément s'appelle « qr-zoom-title » : l'ancien « qr-zoom-label » n'existait pas, ce qui faisait planter l'agrandissement => fenêtre blanche)
   const _zt = document.getElementById('qr-zoom-title') || document.getElementById('qr-zoom-label');
   if(_zt) _zt.textContent = 'QR — ' + label;
   const _zu = document.getElementById('qr-zoom-url');
   if(_zu) _zu.textContent = url;
   const canvas = document.getElementById('qr-zoom-canvas');
-  if(!kgDrawQrOnCanvas(canvas, url, 260, 2, '#111111', '#ffffff') && window.QRCode) QRCode.toCanvas(canvas, url, { width: 260, margin: 2, color: { dark: '#111', light: '#fff' } }).catch(()=>{});
+  kgBuildQrCard(canvas, url, label).catch(() => {
+    // secours : QR simple
+    if(!kgDrawQrOnCanvas(canvas, url, 460, 2, '#111111', '#ffffff') && window.QRCode) QRCode.toCanvas(canvas, url, { width: 460, margin: 2, color: { dark: '#111', light: '#fff' } }).catch(()=>{});
+  });
 }
 function closeQRZoom() { document.getElementById('modal-qrZoom').style.display = 'none'; _qrZoomTable = null; }
 function downloadZoomQR() {
