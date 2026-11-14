@@ -868,10 +868,7 @@ async function _redirectMobilePay(type, montant, restoData, ref) {
 
   if(!waveUrl || !orangeUrl) {
     try {
-      const { data: fresh } = await sb.from('kg_sync')
-        .select('value')
-        .eq('key', restaurantId + ':restaurant_info')
-        .maybeSingle();
+      const { data: fresh } = await _kgPub(restaurantId + ':restaurant_info');
       const fv = fresh?.value;
       const fi = (typeof fv === 'string' ? JSON.parse(fv) : fv) || {};
       const info = fi.info || fi;
@@ -1050,23 +1047,12 @@ window.addEventListener('DOMContentLoaded', async () => {
       const slugNom = restaurantParam.replace(/-/g, ' ').toLowerCase();
       const _norm = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
       try {
-        let found = null, lastErr = null;
-        // 1) nom exact (insensible à la casse)  2) nom contenant les mots du lien
-        for(const pattern of [slugNom, '%' + slugNom.replace(/\s+/g, '%') + '%']) {
-          const { data, error } = await sb.from('restaurants').select('id, nom').ilike('nom', pattern).limit(1).maybeSingle();
-          if(error) lastErr = error;
-          if(data?.id) { found = data; break; }
-        }
-        // 3) comparaison sans accents ni espaces (ex: « crema-mia » = « Crema Mia » = « CremaMia »)
-        if(!found) {
-          const { data: all, error } = await sb.from('restaurants').select('id, nom').limit(500);
-          if(error) lastErr = error;
-          found = (all || []).find(r => _norm(r.nom) === _norm(restaurantParam)) || null;
-        }
+        const { data: rows, error } = await sb.rpc('client_restaurant', { p_ref: restaurantParam });
+        const found = Array.isArray(rows) ? rows[0] : rows;
         if(found?.id) {
           restaurantId = found.id;
-        } else if(lastErr) {
-          showError('Erreur de connexion.<br>' + (lastErr.message || 'Réessayez dans un instant.') + '<br><small>Vérifiez votre connexion puis rescannez le QR code.</small>');
+        } else if(error) {
+          showError('Erreur de connexion.<br>' + (error.message || 'Réessayez dans un instant.') + '<br><small>Vérifiez votre connexion puis rescannez le QR code.</small>');
           return;
         } else {
           showError('Restaurant introuvable.<br>Vérifiez le lien ou scannez à nouveau le QR code.');
@@ -1123,9 +1109,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     const _menuProm  = _cachedMenu  ? Promise.resolve({ data: _cachedMenu })
       : sb.from('menu_items').select('id,restaurant_id,name,category,price_ttc,description,icon,image_url,tag,actif,sort_order,promo_pct,en_rupture').eq('restaurant_id',restaurantId).eq('actif',true).order('sort_order');
     const _restoProm = _cachedResto ? Promise.resolve({ data: _cachedResto })
-      : sb.from('restaurants').select('id,nom,ninea,tel,email,adresse,devise,logo_url,cover_url,wave_payment_url,orange_payment_url').eq('id',restaurantId).single();
+      : sb.rpc('client_restaurant', { p_ref: restaurantId }).then(r => ({ data: Array.isArray(r.data) ? (r.data[0] || null) : r.data, error: r.error }));
     const _infoProm  = _cachedInfo  ? Promise.resolve({ data: { value: JSON.stringify(_cachedInfo) } })
-      : sb.from('kg_sync').select('value').eq('key', restaurantId+':restaurant_info').maybeSingle();
+      : _kgPub(restaurantId+':restaurant_info');
 
     if(_cachedMenu)  console.log('[cache] ✅ Menu client depuis cache');
     if(_cachedResto) console.log('[cache] ✅ Resto depuis cache');
@@ -1135,9 +1121,9 @@ window.addEventListener('DOMContentLoaded', async () => {
       tblProm,
       _menuProm,
       _restoProm,
-      sb.from('kg_sync').select('value').eq('key', restaurantId+':commandes_ouvertes').maybeSingle(),
+      _kgPub(restaurantId+':commandes_ouvertes'),
       _infoProm,
-      _cachedMenu ? Promise.resolve({ data: null }) : sb.from('kg_sync').select('value').eq('key', restaurantId+':menu_data').maybeSingle(),
+      _cachedMenu ? Promise.resolve({ data: null }) : _kgPub(restaurantId+':menu_data'),
     ]);
 
     // Sauvegarder dans cache si fraîchement fetchés
@@ -1340,8 +1326,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Vérification fraîche 1s après chargement — NE CHANGE PAS si réponse vide
     setTimeout(async () => {
       try {
-        const {data} = await sb.from('kg_sync').select('value')
-          .eq('key', restaurantId+':commandes_ouvertes').maybeSingle();
+        const {data} = await _kgPub(restaurantId+':commandes_ouvertes');
         const sv = data?.value;
         if(sv === null || sv === undefined) return; // réponse vide = ne rien changer
         // _parseOuvert gère string JSON, objet et booléen
@@ -1363,9 +1348,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       );
       for(const _po of _pendingOrders) {
         try {
-          await sb.from('commandes_en_ligne')
-            .update({ statut: 'en_attente' })
-            .eq('id', _po.id);
+          await _clientSetStatut(_po.id, 'en_attente');
           updateSavedStatut(_po.id, 'en_attente');
           showToast('✅ Paiement confirmé — commande ' + _po.ref + ' envoyée !');
         } catch(e) { console.warn('Erreur confirmation paiement:', e); }
@@ -1501,8 +1484,7 @@ function updateOpenStatus() {
 
 async function checkIfOpenAgain() {
   try {
-    const {data} = await sb.from('kg_sync').select('value')
-      .eq('key', restaurantId+':commandes_ouvertes').maybeSingle();
+    const {data} = await _kgPub(restaurantId+':commandes_ouvertes');
     const newVal = _parseOuvert(data?.value, false);
     const was = isOpen; isOpen = newVal;
     if(isOpen && !was) {
@@ -1583,7 +1565,7 @@ function startRealtime() {
         // Fallback refetch complet si item non trouvé localement
         const [{data: rawItems}, kgMenuR] = await Promise.all([
           sb.from('menu_items').select('*').eq('restaurant_id',restaurantId).eq('actif',true).order('sort_order'),
-          sb.from('kg_sync').select('value').eq('key', restaurantId+':menu_data').maybeSingle(),
+          _kgPub(restaurantId+':menu_data'),
         ]);
         let rawMenu = rawItems || [];
         try {
@@ -1624,8 +1606,7 @@ function startRealtime() {
       const was = isOpen;
       if(v === undefined || v === null) {
         // Valeur absente → relire depuis Supabase
-        const {data:fr} = await sb.from('kg_sync').select('value')
-          .eq('key',restaurantId+':commandes_ouvertes').maybeSingle();
+        const {data:fr} = await _kgPub(restaurantId+':commandes_ouvertes');
         isOpen = _parseOuvert(fr?.value, isOpen);
       } else {
         // ✅ v peut être string JSON ("{"ouvert":true}") ou objet ou booléen
@@ -1646,8 +1627,7 @@ function startRealtime() {
   setInterval(async () => {
     if(!_isRestaurantHours()) return; // ✅ Bloquer hors 17h-02h
     try {
-      const {data} = await sb.from('kg_sync').select('value')
-        .eq('key', restaurantId+':commandes_ouvertes').maybeSingle();
+      const {data} = await _kgPub(restaurantId+':commandes_ouvertes');
       const sv = data?.value;
       let newVal;
       // Si data est null (aucune ligne) = pas encore configuré = ouvert
@@ -1877,8 +1857,7 @@ async function validerCommande() {
   const origTxt = checkBtn.textContent;
   checkBtn.disabled = true; checkBtn.textContent = '⏳ Vérification…';
   try {
-    const {data: fresh, error: ferr} = await sb.from('kg_sync').select('value')
-      .eq('key', restaurantId+':commandes_ouvertes').maybeSingle();
+    const {data: fresh, error: ferr} = await _kgPub(restaurantId+':commandes_ouvertes');
     if(ferr) throw ferr;
     const sv = fresh?.value;
     let freshOpen;
@@ -1953,6 +1932,39 @@ async function validerCommande() {
 
 
 
+// ✅ Lecture des données PUBLIQUES via fonctions Supabase (le client anonyme n'a pas accès direct aux tables)
+async function _kgPub(key) {
+  try {
+    const { data, error } = await sb.rpc('client_kg_public', { p_key: key });
+    return { data: data ? { value: data } : null, error };
+  } catch(e) { return { data: null, error: e }; }
+}
+async function _clientSuivi(ids) {
+  try {
+    const { data, error } = await sb.rpc('client_suivi_commandes', { p_ids: ids });
+    return { data: data || [], error };
+  } catch(e) { return { data: [], error: e }; }
+}
+async function _clientSetStatut(id, statut) {
+  try { const { data } = await sb.rpc('client_set_statut', { p_id: id, p_statut: statut }); return data; } catch(e) { return null; }
+}
+
+// ✅ FIX iPhone / clients non connectés : l'insertion ne demande plus de droit de LECTURE.
+// Avant, « .insert().select() » exigeait une règle SELECT (RLS) pour le client anonyme, sinon Supabase répondait
+// « new row violates row-level security policy ». On génère l'identifiant côté client et on n'attend aucun retour.
+async function _insertCommande(row) {
+  const id = (window.crypto && typeof crypto.randomUUID === 'function') ? crypto.randomUUID() : null;
+  if(id) {
+    const { error } = await sb.from('commandes_en_ligne').insert({ id, ...row });   // pas de .select()
+    if(!error) return { id };
+    // identifiant non accepté (colonne non-UUID) → ancienne méthode ; toute autre erreur est remontée telle quelle
+    if(!(error.code === '22P02' || /invalid input syntax|invalid.*uuid/i.test(error.message || ''))) throw error;
+  }
+  const { data, error } = await sb.from('commandes_en_ligne').insert(row).select().single();
+  if(error) throw error;
+  return data;
+}
+
 async function _enregistrerCommande({ nom, tel, adr, note, total, lignes, ref, ok, payLabel, payKey, payOnline, skipSuccessPopup = false }) {
   const btn = document.getElementById('btn-valider');
   btn.disabled = true; btn.textContent = '⏳ Envoi en cours…';
@@ -1962,7 +1974,7 @@ async function _enregistrerCommande({ nom, tel, adr, note, total, lignes, ref, o
     localStorage.removeItem('kg_cmd_menu_ts_' + restaurantId);
   } catch(e) {}
   try {
-    const {data: newOrder, error} = await sb.from('commandes_en_ligne').insert({
+    const newOrder = await _insertCommande({
       restaurant_id: restaurantId,
       ...(ok ? {qr_table_id: tableId} : {}),
       table_label: tableInfo?.label||'Commande en ligne',
@@ -1971,8 +1983,7 @@ async function _enregistrerCommande({ nom, tel, adr, note, total, lignes, ref, o
       note: note||null,
       mode_paiement: payKey || payLabel,
       paiement_en_ligne: payOnline,
-    }).select().single();
-    if(error) throw error;
+    });
 
     cart={}; updateCartUI(); if(typeof renderMenu==="function") renderMenu(); closeCart();
     // ✅ FIX v18 : ne pas afficher le popup avant la redirection Wave/Orange
@@ -1990,7 +2001,7 @@ async function _enregistrerEtRedirigerWave({ nom, tel, adr, note, total, lignes,
   const btn = document.getElementById('btn-valider');
   btn.disabled = true; btn.textContent = '⏳ Envoi en cours…';
   try {
-    const {data: newOrder, error} = await sb.from('commandes_en_ligne').insert({
+    const newOrder = await _insertCommande({
       restaurant_id: restaurantId,
       ...(ok ? {qr_table_id: tableId} : {}),
       table_label: tableInfo?.label||'Commande en ligne',
@@ -1999,8 +2010,7 @@ async function _enregistrerEtRedirigerWave({ nom, tel, adr, note, total, lignes,
       note: note||null,
       mode_paiement: payKey || payLabel,
       paiement_en_ligne: true,
-    }).select().single();
-    if(error) throw error;
+    });
 
     cart={}; updateCartUI(); if(typeof renderMenu==="function") renderMenu(); closeCart();
     startOrderTracking(newOrder.id, ref, 'en_attente_paiement', lignes, total, nom, tel, adr, payLabel);
@@ -2112,7 +2122,7 @@ function _startTrackPolling() {
     try {
       const actives = getSavedOrders().filter(o => o.rid===restaurantId && o.statut!=='livree' && o.statut!=='annulee');
       if(!actives.length) { clearInterval(_trackPollTimer); _trackPollTimer = null; return; }
-      const { data } = await sb.from('commandes_en_ligne').select('id,statut,order_ref,livreur_nom,livreur_tel').in('id', actives.map(o => o.id));
+      const { data } = await _clientSuivi(actives.map(o => o.id));
       (data || []).forEach(row => {
         const old = actives.find(o => o.id === row.id);
         if(old && old.statut !== row.statut) {
@@ -2152,8 +2162,7 @@ async function resumeAllTracking() {
   if(!activeOrders.length) return; // toutes terminées — pas de requête Supabase
   // Rafraîchir les statuts depuis la DB (silencieux — pas d'affichage du FAB)
   const ids = activeOrders.map(o=>o.id);
-  const { data } = await sb.from('commandes_en_ligne')
-    .select('id,statut,order_ref').in('id', ids);
+  const { data } = await _clientSuivi(ids);
   if(data) {
     data.forEach(row => {
       updateSavedStatut(row.id, row.statut);
@@ -2290,9 +2299,7 @@ async function _confirmerPaiementManuel(orderId) {
   if(!o) return;
   if(!confirm('Confirmez-vous avoir effectué le paiement Wave pour la commande ' + (o.ref||'') + ' ?')) return;
   try {
-    await sb.from('commandes_en_ligne')
-      .update({ statut: 'en_attente' })
-      .eq('id', orderId);
+    await _clientSetStatut(orderId, 'en_attente');
     updateSavedStatut(orderId, 'en_attente');
     renderTrackDrawer();
     updateTrackFab();
@@ -2307,9 +2314,7 @@ async function _confirmerPaiementManuel(orderId) {
 async function _annulerCommandePaiement(orderId) {
   if(!confirm('Annuler cette commande ?')) return;
   try {
-    await sb.from('commandes_en_ligne')
-      .update({ statut: 'annulee' })
-      .eq('id', orderId);
+    await _clientSetStatut(orderId, 'annulee');
     updateSavedStatut(orderId, 'annulee');
     renderTrackDrawer();
     updateTrackFab();
@@ -2327,8 +2332,7 @@ function closeSuccessPopup() {
 // ── Charger le reçu depuis Supabase et l'afficher ────────────
 async function _chargerEtAfficherRecu(orderId) {
   try {
-    const { data } = await sb.from('kg_sync').select('value')
-      .eq('key', restaurantId + ':recu:' + orderId).maybeSingle();
+    const { data } = await _kgPub(restaurantId + ':recu:' + orderId);
     if(data?.value) {
       const recu = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
       // Enrichir avec les infos du suivi local (livreur si pas dans le reçu)
@@ -2714,7 +2718,7 @@ async function chargerAnnoncesCommander() {
     // 2. Supabase si cache expiré
     if(sb) {
       try {
-        const { data } = await sb.from('kg_sync').select('value').eq('key', annKey).maybeSingle();
+        const { data } = await _kgPub(annKey);
         if(data?.value) {
           const arr = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
           // Sauvegarder dans cache
