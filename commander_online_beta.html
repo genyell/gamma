@@ -683,8 +683,8 @@ body {
   <div class="pay-chips" id="pay-chips"></div>
   <div class="delivery-stats">
     <div class="ds-col">
-      <div class="ds-label">Temps</div>
-      <div class="ds-val" id="ds-temps">15–25 min</div>
+      <div class="ds-label">Préparation</div>
+      <div class="ds-val" id="ds-temps">10–20 min</div>
     </div>
     <div class="ds-col">
       <div class="ds-label">Note</div>
@@ -1426,7 +1426,7 @@ function buildRestoUI() {
   buildPaymentModes(methods, r);
 
   // Stats
-  document.getElementById('ds-temps').textContent = r.temps_livraison || '15–25 min';
+  document.getElementById('ds-temps').textContent = '10–20 min';   // temps de préparation fixe
   document.getElementById('ds-note').textContent  = (r.note||5).toFixed(1);
 
   // Table
@@ -1626,6 +1626,7 @@ function startRealtime() {
   // ── Polling de secours — STRICT, ne passe jamais ouvert si fermé ──
   setInterval(async () => {
     if(!_isRestaurantHours()) return; // ✅ Bloquer hors 17h-02h
+    if(document.hidden) return;        // ✅ onglet en arrière-plan : aucune requête
     try {
       const {data} = await _kgPub(restaurantId+':commandes_ouvertes');
       const sv = data?.value;
@@ -2116,29 +2117,52 @@ function subscribeOrderTracking(orderId) {
 
 // ── Filet de sécurité : interroger le statut toutes les 20 s tant qu'une commande est active ──
 let _trackPollTimer = null;
+let _trackPollStart = 0;
+async function _trackPollOnce() {
+  const actives = getSavedOrders().filter(o => o.rid===restaurantId && o.statut!=='livree' && o.statut!=='annulee');
+  if(!actives.length) return false;                      // plus rien à suivre → on arrête
+  const { data } = await _clientSuivi(actives.map(o => o.id));
+  (data || []).forEach(row => {
+    const old = actives.find(o => o.id === row.id);
+    if(old && old.statut !== row.statut) {
+      const extra = {};
+      if(row.livreur_nom) extra.livreur_nom = row.livreur_nom;
+      if(row.livreur_tel) extra.livreur_tel = row.livreur_tel;
+      updateSavedStatut(row.id, row.statut, extra);
+      const st = STEP_LABELS[row.statut];
+      if(st) showToast(st.icon + ' Commande ' + (row.order_ref || old.ref) + ' : ' + st.label);
+      if(row.statut === 'livree') setTimeout(() => _chargerEtAfficherRecu(row.id), 2000);
+    }
+  });
+  renderTrackDrawer(); updateTrackFab();
+  return true;
+}
+// ✅ Économie Supabase : requête légère, SEULEMENT si la page est visible, rythme qui ralentit avec le temps
+// (15 s les 10 premières minutes, puis 30 s, puis 60 s après 1 h) et arrêt dès que la commande est livrée/annulée.
 function _startTrackPolling() {
   if(_trackPollTimer) return;
-  _trackPollTimer = setInterval(async () => {
-    try {
-      const actives = getSavedOrders().filter(o => o.rid===restaurantId && o.statut!=='livree' && o.statut!=='annulee');
-      if(!actives.length) { clearInterval(_trackPollTimer); _trackPollTimer = null; return; }
-      const { data } = await _clientSuivi(actives.map(o => o.id));
-      (data || []).forEach(row => {
-        const old = actives.find(o => o.id === row.id);
-        if(old && old.statut !== row.statut) {
-          const extra = {};
-          if(row.livreur_nom) extra.livreur_nom = row.livreur_nom;
-          if(row.livreur_tel) extra.livreur_tel = row.livreur_tel;
-          updateSavedStatut(row.id, row.statut, extra);
-          const st = STEP_LABELS[row.statut];
-          if(st) showToast(st.icon + ' Commande ' + (row.order_ref || old.ref) + ' : ' + st.label);
-          if(row.statut === 'livree') setTimeout(() => _chargerEtAfficherRecu(row.id), 2000);
-        }
-      });
-      renderTrackDrawer(); updateTrackFab();
-    } catch(e) { /* silencieux */ }
-  }, 20000);
+  _trackPollStart = Date.now();
+  const delay = () => {
+    const age = Date.now() - _trackPollStart;
+    return age < 10*60*1000 ? 15000 : (age < 60*60*1000 ? 30000 : 60000);
+  };
+  const tick = async () => {
+    _trackPollTimer = null;
+    let continuer = true;
+    if(!document.hidden) {                                // onglet en arrière-plan : on ne consomme rien
+      try { continuer = await _trackPollOnce(); } catch(e) { /* silencieux */ }
+    }
+    if(continuer) _trackPollTimer = setTimeout(tick, delay());
+  };
+  _trackPollTimer = setTimeout(tick, 5000);
 }
+// Retour sur la page (après un moment en arrière-plan) : mise à jour immédiate
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden && getSavedOrders().some(o => o.rid===restaurantId && o.statut!=='livree' && o.statut!=='annulee')) {
+    _trackPollOnce().catch(()=>{});
+    if(!_trackPollTimer) _startTrackPolling();
+  }
+});
 
 // ── Démarrer le suivi d'une nouvelle commande ──
 function startOrderTracking(orderId, ref, statut='en_attente', lignes=[], total=0, clientNom='', clientTel='', clientAdr='', payMode='') {
