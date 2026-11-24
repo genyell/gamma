@@ -759,8 +759,9 @@ body {
     <div class="sp-sub">Votre commande a bien été reçue.<br>Nous la préparons dès que possible.</div>
     <div class="sp-ref" id="popup-order-num">#0000</div>
     <div id="popup-client-info" style="background:#F7F7F9;border-radius:10px;padding:8px 14px;margin:0 0 10px;font-size:13px;color:#555;display:none;text-align:left;"></div>
-    <div class="sp-hint">Suivez votre commande via le bouton 📡 en haut</div>
-    <button class="sp-btn" onclick="closeSuccessPopup()">🛒 Continuer à commander</button>
+    <div class="sp-hint">Vous pouvez suivre l'avancement de votre commande en direct.</div>
+    <button class="sp-btn" onclick="closeSuccessPopup(); openTrackDrawer();">📋 Voir ma commande et le suivi</button>
+    <button onclick="closeSuccessPopup()" style="margin-top:10px;background:none;border:none;color:#888;font-size:13px;text-decoration:underline;cursor:pointer;">Commander autre chose</button>
   </div>
 </div>
 
@@ -1339,19 +1340,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     renderMenu();
     // ✅ FIX v25 : afficher le bouton commandes dès le chargement si des commandes existent
     updateTrackFab();
-    // Si une commande est en statut 'en_attente_paiement' et que l'URL contient ?paid=1
-    // → confirmer la commande (passer à 'en_attente')
-    const _paidParam = new URLSearchParams(window.location.search).get('paid');
-    if(_paidParam === '1') {
-      const _pendingOrders = getSavedOrders().filter(o =>
-        o.rid === restaurantId && o.statut === 'en_attente_paiement'
-      );
-      for(const _po of _pendingOrders) {
-        try {
-          await _clientSetStatut(_po.id, 'en_attente');
-          updateSavedStatut(_po.id, 'en_attente');
-          showToast('✅ Paiement confirmé — commande ' + _po.ref + ' envoyée !');
-        } catch(e) { console.warn('Erreur confirmation paiement:', e); }
+    // Retour depuis Wave/Orange (?paid=1) : le client n'a RIEN à confirmer. C'est le restaurant qui vérifie le
+    // paiement de son côté (page « En attente de paiement ») puis valide la commande.
+    if(new URLSearchParams(window.location.search).get('paid') === '1') {
+      if(getSavedOrders().some(o => o.rid === restaurantId && o.statut === 'en_attente_paiement')) {
+        showToast('🙏 Merci ! Le restaurant vérifie votre paiement et lance votre commande.');
+        setTimeout(() => { try { openTrackDrawer(); } catch(_) {} }, 700);   // montre directement le suivi au retour de Wave
       }
     }
 
@@ -2032,7 +2026,7 @@ function _getSessionOrdered() { try { return localStorage.getItem(_sessionOrderK
 function _setSessionOrdered() { try { localStorage.setItem(_sessionOrderKey, '1'); } catch(_) {} }
 const TRACK_TTL   = 24 * 60 * 60 * 1000; // 24h max (au lieu de 6h)
 const STEP_LABELS = {
-  en_attente_paiement: {icon:'💳', label:'Paiement en attente', sub:'Retournez valider le paiement Wave/Orange', color:'#e67e22'},
+  en_attente_paiement: {icon:'💳', label:'Paiement en vérification', sub:'Le restaurant vérifie votre paiement', color:'#e67e22'},
   en_attente:    {icon:'⏳', label:'Reçue',         sub:'En attente de confirmation', color:'#f5a623'},
   acceptee:      {icon:'✅', label:'Acceptée',       sub:'Le restaurant confirme',     color:'#00c9b1'},
   en_preparation:{icon:'👨‍🍳',label:'En préparation', sub:'Votre commande est en cours', color:'#a88ee8'},
@@ -2269,6 +2263,11 @@ function renderTrackDrawer() {
         <span style="font-size:16px;font-weight:800;color:#6c2bd9;">${o.ref}</span>
         <span style="background:${st.color};color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">${st.icon} ${st.label}</span>
       </div>
+      <div style="font-size:11px;color:#999;margin:-2px 0 8px;">🕒 Passée à ${new Date(o.ts||Date.now()).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+      ${Array.isArray(o.lignes) && o.lignes.length ? `<div style="background:#fff;border-radius:8px;padding:8px 10px;border:1px solid #ebe5ff;margin-bottom:10px;">
+        ${o.lignes.map(l => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#333;padding:2px 0;"><span>${l.qty||1} × ${l.nom||l.name||''}</span><span>${((l.sous_total!=null?l.sous_total:(l.prix||l.price||0)*(l.qty||1))||0).toLocaleString('fr-FR')} F</span></div>`).join('')}
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;color:#6c2bd9;border-top:1px dashed #d4b8ff;margin-top:6px;padding-top:6px;"><span>Total</span><span>${(o.total||0).toLocaleString('fr-FR')} F</span></div>
+      </div>` : ''}
       ${(o.clientNom||o.clientTel) ? `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;background:#fff;border-radius:8px;padding:7px 10px;border:1px solid #ebe5ff;">
         ${o.clientNom ? `<span style="font-size:12px;color:#444;font-weight:600;">&#x1F64B; ${o.clientNom}</span>` : ''}
         ${o.clientTel ? `<a href="tel:${o.clientTel}" style="font-size:12px;color:#6c2bd9;font-weight:700;text-decoration:none;margin-left:auto;">&#x1F4DE; ${o.clientTel}</a>` : ''}
@@ -2277,14 +2276,11 @@ function renderTrackDrawer() {
         ? `<div style="text-align:center;color:#e74c3c;font-size:13px;padding:6px 0;">😔 Commande annulée par le restaurant</div>`
         : o.statut==='en_attente_paiement'
           ? `<div style="background:#fff8f0;border:1px solid #f5a623;border-radius:10px;padding:10px 12px;text-align:center;">
-              <div style="font-size:13px;font-weight:600;color:#e67e22;margin-bottom:8px;">💳 Paiement non finalisé</div>
-              <div style="font-size:11px;color:#666;margin-bottom:10px;">Si vous avez déjà payé sur Wave, appuyez sur <strong style="color:#27ae60;">« J'ai déjà payé »</strong>. Sinon, finalisez le paiement puis revenez confirmer.</div>
+              <div style="font-size:13px;font-weight:700;color:#e67e22;margin-bottom:6px;">⏳ Paiement en cours de vérification</div>
+              <div style="font-size:12px;color:#666;margin-bottom:10px;line-height:1.4;">Le restaurant vérifie votre paiement Wave / Orange Money et lance votre commande. <strong>Vous n'avez rien à confirmer.</strong> Si vous n'avez pas encore payé, utilisez le bouton ci-dessous.</div>
               <button onclick="_relancerPaiement('${o.id}')"
                 style="width:100%;background:#1a9dff;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:6px;">
-                💳 Finaliser le paiement Wave</button>
-              <button onclick="_confirmerPaiementManuel('${o.id}')"
-                style="width:100%;background:#e8f8ef;color:#27ae60;border:1px solid #27ae60;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:6px;">
-                ✅ J'ai déjà payé — Confirmer</button>
+                💳 Payer maintenant (Wave / Orange)</button>
               <button onclick="_annulerCommandePaiement('${o.id}')"
                 style="width:100%;background:#fff0f0;color:#e74c3c;border:1px solid #e74c3c;border-radius:8px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;">
                 ✕ Annuler la commande</button>
@@ -2315,23 +2311,6 @@ async function _relancerPaiement(orderId) {
   // Récupérer le mode de paiement sauvegardé
   const paytype = (o.payMode || '').toLowerCase().includes('wave') ? 'wave' : 'orange';
   await _redirectMobilePay(paytype, o.total, restoData, o.ref);
-}
-
-// ── Confirmer manuellement un paiement Wave (quand la redirection automatique échoue) ──
-async function _confirmerPaiementManuel(orderId) {
-  const o = getSavedOrders().find(x => x.id === orderId);
-  if(!o) return;
-  if(!confirm('Confirmez-vous avoir effectué le paiement Wave pour la commande ' + (o.ref||'') + ' ?')) return;
-  try {
-    await _clientSetStatut(orderId, 'en_attente');
-    updateSavedStatut(orderId, 'en_attente');
-    renderTrackDrawer();
-    updateTrackFab();
-    showToast('✅ Paiement confirmé — commande envoyée au restaurant !');
-  } catch(e) {
-    showToast('⚠️ Erreur réseau. Vérifiez votre connexion et réessayez.');
-    console.warn('Erreur _confirmerPaiementManuel:', e);
-  }
 }
 
 // ── Annuler une commande non payée ──
@@ -2701,7 +2680,6 @@ function showSuccessPopup(ref) {
     }
   }
   document.getElementById('success-popup').style.display = 'flex';
-  setTimeout(closeSuccessPopup, 6000);
 }
 
 // ── UTILS ─────────────────────────────────────────────

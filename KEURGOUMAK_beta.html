@@ -7315,6 +7315,20 @@ function _syncSportVentes()       { return []; }
             <div style="font-size:11px;color:var(--text2);margin-top:4px;">Le RC et le NINEA s'affichent en haut des factures.</div>
           </div>
           <div class="form-group">
+            <label class="form-label">🏪 Nom affiché par caisse</label>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:2px;">Sur les tickets et rapports d'une caisse, ce nom remplace le nom principal. Exemple : Caisse 1 et 2 = « SAM'S RESTO », Caisse 3 et 4 = « SAM'S PRESTIGE ». Laissez vide pour garder le nom du commerce.</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><span style="min-width:74px;font-size:13px;font-weight:600;">Caisse 1</span><input class="form-input" id="settings-nomcaisse-1" placeholder="Nom sur les tickets (vide = nom principal)" style="flex:1;"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><span style="min-width:74px;font-size:13px;font-weight:600;">Caisse 2</span><input class="form-input" id="settings-nomcaisse-2" placeholder="Nom sur les tickets (vide = nom principal)" style="flex:1;"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><span style="min-width:74px;font-size:13px;font-weight:600;">Caisse 3</span><input class="form-input" id="settings-nomcaisse-3" placeholder="Nom sur les tickets (vide = nom principal)" style="flex:1;"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><span style="min-width:74px;font-size:13px;font-weight:600;">Caisse 4</span><input class="form-input" id="settings-nomcaisse-4" placeholder="Nom sur les tickets (vide = nom principal)" style="flex:1;"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><span style="min-width:74px;font-size:13px;font-weight:600;">Caisse 5</span><input class="form-input" id="settings-nomcaisse-5" placeholder="Nom sur les tickets (vide = nom principal)" style="flex:1;"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><span style="min-width:74px;font-size:13px;font-weight:600;">Caisse 6</span><input class="form-input" id="settings-nomcaisse-6" placeholder="Nom sur les tickets (vide = nom principal)" style="flex:1;"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><span style="min-width:74px;font-size:13px;font-weight:600;">Caisse 7</span><input class="form-input" id="settings-nomcaisse-7" placeholder="Nom sur les tickets (vide = nom principal)" style="flex:1;"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><span style="min-width:74px;font-size:13px;font-weight:600;">Caisse 8</span><input class="form-input" id="settings-nomcaisse-8" placeholder="Nom sur les tickets (vide = nom principal)" style="flex:1;"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><span style="min-width:74px;font-size:13px;font-weight:600;">Caisse 9</span><input class="form-input" id="settings-nomcaisse-9" placeholder="Nom sur les tickets (vide = nom principal)" style="flex:1;"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><span style="min-width:74px;font-size:13px;font-weight:600;">Caisse 10</span><input class="form-input" id="settings-nomcaisse-10" placeholder="Nom sur les tickets (vide = nom principal)" style="flex:1;"></div>
+          </div>
+          <div class="form-group">
             <label class="form-label">🧾 Bas de la facture — ce qui s'affiche</label>
             <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;margin:6px 0;cursor:pointer;">
               <input type="checkbox" id="settings-fact-pied" checked style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;">
@@ -15571,7 +15585,7 @@ function openConfirmTicket() {
     if(_saved[_previewCaisse]) _previewCounter = Math.max(orderCounter, _saved[_previewCaisse]);
   } catch(e) {}
   const orderNum = '#' + _caisseTicketPrefix(_previewCaisse) + '-' + String(_previewCounter).padStart(3, '0');
-  const nomResto = RESTAURANT_INFO?.nom || 'KEURGOUMAK';
+  const nomResto = kgNomCommerce(_previewCaisse);
 
   document.getElementById('ticket-preview').innerHTML = `
     <div class="ticket-header">
@@ -16563,9 +16577,21 @@ function loadRestaurantSettings() {
   if(typeof loadSystemConfig === 'function') loadSystemConfig();
 }
 
+// 🏪 Nom du commerce propre à chaque caisse (tickets, rapports). Retombe sur le nom principal si non renseigné.
+function kgNomCommerce(caisse) {
+  const base = (RESTAURANT_INFO && RESTAURANT_INFO.nom) ? RESTAURANT_INFO.nom : 'KEURGOUMAK';
+  try {
+    const m = String(caisse == null ? '' : caisse).match(/(\d+)/);
+    const map = (RESTAURANT_INFO && RESTAURANT_INFO.noms_caisses) || {};
+    const n = m ? (map[m[1]] || '').trim() : '';
+    return n || base;
+  } catch(e) { return base; }
+}
+
 function applyRestaurantSettingsToUI() {
   const set = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
   set('settings-nom',    RESTAURANT_INFO.nom);
+  for(let _c = 1; _c <= 10; _c++) set('settings-nomcaisse-' + _c, (RESTAURANT_INFO.noms_caisses || {})[_c]);
   set('settings-ninea',  RESTAURANT_INFO.ninea);
   set('settings-rc',     RESTAURANT_INFO.rc);
   [['settings-fact-pied','fact_pied'],['settings-fact-genere','fact_genere'],['settings-fact-auto','fact_auto']].forEach(([id,k]) => {
@@ -16708,7 +16734,9 @@ async function saveRestaurantSettings() {
 
   const waveUrl   = (document.getElementById('settings-wave-url')?.value   || '').trim();
   const orangeUrl = (document.getElementById('settings-orange-url')?.value || '').trim();
-  RESTAURANT_INFO = { ...RESTAURANT_INFO, ...factOpts, nom, ninea, rc, tel, email, adresse, devise, wave_payment_url: waveUrl, orange_payment_url: orangeUrl };
+  const nomsCaisses = {};
+  for(let c = 1; c <= 10; c++) { const v = (document.getElementById('settings-nomcaisse-' + c)?.value || '').trim(); if(v) nomsCaisses[c] = v; }
+  RESTAURANT_INFO = { ...RESTAURANT_INFO, ...factOpts, nom, ninea, rc, tel, email, adresse, devise, noms_caisses: nomsCaisses, wave_payment_url: waveUrl, orange_payment_url: orangeUrl };
 
   // Sauvegarder localement (double persistance localStorage + session)
   try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
@@ -17053,7 +17081,7 @@ function printTicket(vente, caisse, isReprint, skipCuisine) {
   }
   if (!dateStr) dateStr = now.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
   const heureStr = vente.time || now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-  const restaurant = RESTAURANT_INFO.nom     || 'KEURGOUMAK';
+  const restaurant = kgNomCommerce(caisse || (vente && vente.caisse));
   const adresse    = RESTAURANT_INFO.adresse || 'Louga, Sénégal';
   const tel        = RESTAURANT_INFO.tel     || '';
   const ninea      = RESTAURANT_INFO.ninea   || '';
@@ -25050,7 +25078,7 @@ async function printRapportXCaisse(name) {
   const now      = new Date();
   const dateStr  = now.toLocaleDateString('fr-FR');
   const heureStr = now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-  const nomResto = (RESTAURANT_INFO?.nom) || 'KEURGOUMAK';
+  const nomResto = kgNomCommerce(name);
   const ca  = ventes.reduce((a,v)=>a+v.total,0);
   // ✅ FIX : normaliser payMethod ('especes'→'cash','carte'→'card') et supporter les
   // deux formats de détail mixte (payMethods.* ET mixEspeces/mixWave/mixOrange/mixCarte),
@@ -39711,7 +39739,7 @@ function printArchivedTicket(idx) {
   const ticket = _ticketsArchivesCache[idx];
   if (!ticket) { if(typeof showToast==='function') showToast('Ticket introuvable'); return; }
 
-  const restaurant = (typeof RESTAURANT_INFO!=='undefined' && RESTAURANT_INFO.nom)    || 'KEURGOUMAK';
+  const restaurant = kgNomCommerce(ticket.caisse);
   const adresse    = (typeof RESTAURANT_INFO!=='undefined' && RESTAURANT_INFO.adresse) || 'Louga';
   const tel        = (typeof RESTAURANT_INFO!=='undefined' && RESTAURANT_INFO.tel)     || '';
   const ninea      = (typeof RESTAURANT_INFO!=='undefined' && RESTAURANT_INFO.ninea)   || '';
@@ -43550,7 +43578,7 @@ function _qrPlayBeep() {
 }
 
 function updateQRNavBadge() {
-  const pending = _qrOrders.filter(o => o.statut === 'en_attente').length;
+  const pending = _qrOrders.filter(o => o.statut === 'en_attente' || o.statut === 'en_attente_paiement').length;
   const badge = document.getElementById('qr-nav-badge');
   if(badge) badge.style.display = pending > 0 ? 'inline' : 'none';
   // Mettre à jour le compteur "Livrées"
@@ -43661,7 +43689,7 @@ function filterQROrders(filter, btn) {
 function filterQRCmds(filter, btn) { filterQROrders(filter, btn); }
 
 // Statuts considérés comme "en cours"
-const _QR_ACTIFS = ['en_attente','acceptee','en_preparation','prete','en_cours','en_traitement'];
+const _QR_ACTIFS = ['en_attente','en_attente_paiement','acceptee','en_preparation','prete','en_cours','en_traitement'];
 
 function renderQROrdersPanel() {
   const list = document.getElementById('qr-commandes-list');
@@ -43800,10 +43828,10 @@ async function supprimerQRCommande(orderId) {
 }
 
 function qrStatutColor(s) {
-  return { en_attente:'#f5a623', acceptee:'#00c9b1', en_preparation:'#a88ee8', prete:'#2ecc71', livree:'#8a8a9e', annulee:'#e74c3c' }[s] || '#888';
+  return { en_attente:'#f5a623', en_attente_paiement:'#1a9dff', acceptee:'#00c9b1', en_preparation:'#a88ee8', prete:'#2ecc71', livree:'#8a8a9e', annulee:'#e74c3c' }[s] || '#888';
 }
 function qrStatutLabel(s) {
-  return { en_attente:'⏳ En attente', acceptee:'✅ Acceptée', en_preparation:'👨‍🍳 En préparation', prete:'🎉 Prête', livree:'🙌 Livrée', annulee:'✖ Annulée' }[s] || s;
+  return { en_attente:'⏳ En attente', en_attente_paiement:'💳 Paiement à vérifier', acceptee:'✅ Acceptée', en_preparation:'👨‍🍳 En préparation', prete:'🎉 Prête', livree:'🙌 Livrée', annulee:'✖ Annulée' }[s] || s;
 }
 function qrTimeAgo(iso) {
   const m = Math.floor((Date.now() - new Date(iso)) / 60000);
@@ -43817,6 +43845,8 @@ function qrActionButtons(o) {
     `<button onclick="updateQRStatut('${o.id}','annulee')"
       style="padding:9px 12px;background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);border-radius:8px;color:#e74c3c;font-weight:600;cursor:pointer;font-size:13px;">✖ Refuser</button>`;
   if(o.statut === 'en_attente')     return btn('✅ Accepter','acceptee','#2ecc71') + reject;
+  // 💳 Wave / Orange Money : le client n'a rien à confirmer — vous vérifiez la réception du paiement puis acceptez
+  if(o.statut === 'en_attente_paiement') return btn('✅ Paiement reçu — Accepter','acceptee','#1a9dff') + reject;
   if(o.statut === 'acceptee')       return btn('👨‍🍳 En préparation','en_preparation','#a88ee8');
   if(o.statut === 'en_preparation') return btn('🎉 Commande prête','prete','#00c9b1');
   if(o.statut === 'prete') {
@@ -49958,7 +49988,7 @@ function imprimerTicketAttente(ticketId) {
   if(!ticket) return;
 
   // ── Récupérer les infos restaurant depuis paramètres ──
-  const restaurant  = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.nom)     || 'MON RESTAURANT';
+  const restaurant  = kgNomCommerce(ticket.caisse) || 'MON RESTAURANT';
   const adresse     = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.adresse) || 'Louga, Sénégal';
   const tel         = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.tel)     || '';
   const ninea       = (typeof RESTAURANT_INFO !== 'undefined' && RESTAURANT_INFO.ninea)   || '';
