@@ -1644,11 +1644,26 @@ function startRealtime() {
   }, 300000); // vérif toutes les 5min — le realtime gère le reste
 }
 
+// ── QR limité à certaines catégories (« &c=code.code » dans le lien) ──
+const _qrCatCodes = (new URLSearchParams(window.location.search).get('c') || '').split('.').map(x => x.trim().toLowerCase()).filter(Boolean);
+function _catCode(name) {
+  const n = String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  let h = 2166136261;
+  for(let i = 0; i < n.length; i++) { h ^= n.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return (h % 1679616).toString(36).padStart(4, '0');
+}
+function _visibleCat(cat) {
+  if(!_qrCatCodes.length) return true;
+  // si aucune catégorie du menu ne correspond (menu renommé…), on affiche tout plutôt qu'une page vide
+  if(!menuItems.some(i => _qrCatCodes.includes(_catCode(i.categorie || 'Autres')))) return true;
+  return _qrCatCodes.includes(_catCode(cat || 'Autres'));
+}
+
 // ── CATÉGORIES ────────────────────────────────────────
 function renderCats() {
   document.getElementById('cats-bar').innerHTML =
     `<div class="cat-tab active" data-cat="all">≡  Tout</div>` +
-    categories.map(c=>`<div class="cat-tab" data-cat="${c}">${getCatLabel(c)}</div>`).join('');
+    categories.filter(_visibleCat).map(c=>`<div class="cat-tab" data-cat="${c}">${getCatLabel(c)}</div>`).join('');
 
   // Event delegation sur les onglets — fiable mobile
   document.getElementById('cats-bar').addEventListener('click', e => {
@@ -1678,9 +1693,10 @@ function filterCat(cat, el) {
 function renderMenu() {
   const container = document.getElementById('menu-content');
   // Filtrer selon l'onglet actif
+  const _base = menuItems.filter(i => _visibleCat(i.categorie || 'Autres'));
   const filtered = activeCat === 'all'
-    ? menuItems
-    : menuItems.filter(i => (i.categorie || 'Autres') === activeCat);
+    ? _base
+    : _base.filter(i => (i.categorie || 'Autres') === activeCat);
   if(!filtered.length) {
     container.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#aaa;">
       <div style="font-size:40px;margin-bottom:12px;">🍽️</div>Aucun plat disponible.</div>`;

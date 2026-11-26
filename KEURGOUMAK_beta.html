@@ -7787,6 +7787,16 @@ Revenez nous voir bient&#244;t.</textarea>
               <option value="livraison">🛵 Livraison</option>
             </select>
           </div>
+          <div class="form-group">
+            <label class="form-label">🏷 Catégories visibles <span style="font-weight:400;color:var(--text2);">(optionnel)</span></label>
+            <div id="qr-new-cats-wrap"></div>
+            <div style="font-size:11px;color:var(--text2);margin-top:4px;">Ex. un QR « Bar » qui n'affiche que les boissons. Aucune case = tout le menu.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">👥 Utilisateurs qui voient ses commandes <span style="font-weight:400;color:var(--text2);">(optionnel)</span></label>
+            <div id="qr-new-users-wrap"></div>
+            <div style="font-size:11px;color:var(--text2);margin-top:4px;">Aucun coché = tout le monde. La direction voit toujours tout.</div>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" onclick="closeQRModal()">Annuler</button>
@@ -16137,6 +16147,8 @@ async function validateOrder() {
   }
   if(cart.length === 0) { showNotif('⚠️ Panier vide !'); return; }
   _validateOrderInProgress = true;
+  // 🔒 Signature du panier au moment du clic : détecte un article ajouté/modifié PENDANT la validation
+  const _cartSig0 = JSON.stringify(cart.map(c => [c.id, c.qty, c.price, c.discount]));
   const _valBtn = document.querySelector('#modal-confirmTicket .btn-primary, .pay-confirm-btn.selected');
   try {
   // ✅ v99 : comme pour les tickets en attente, une vente ne s'enregistre QUE si la connexion au serveur fonctionne.
@@ -16192,6 +16204,13 @@ async function validateOrder() {
   orderCounter++;
   const payLabels = { cash:'Espèces', wave:'Wave', orange:'Orange Money', card:'Carte bancaire' };
 
+  // 🔒 Le total a été calculé plus haut : si le panier a changé depuis (ex. un produit touché par erreur
+  // pendant l'attente), on annule plutôt que d'enregistrer des articles absents du total.
+  if(JSON.stringify(cart.map(c => [c.id, c.qty, c.price, c.discount])) !== _cartSig0) {
+    showNotif('⚠️ Le panier a changé pendant la validation — vérifiez le panier puis revalidez.');
+    _validateOrderInProgress = false;
+    return;
+  }
   // Sauvegarder les items avec leur prix final (après promo)
   const itemsSaved = cart.map(c => ({
     ...c,
@@ -43498,7 +43517,7 @@ async function loadQROrders() {
     .eq('restaurant_id', _qrRid)
     .gte('created_at', since2ISO)
     .order('created_at', { ascending: false });
-  _qrOrders = data || [];
+  _qrOrders = (data || []).filter(kgQrPeutVoir);
   updateQRNavBadge();
 }
 
@@ -45586,14 +45605,17 @@ function renderQRCodesPanel() {
   }
 
   grid.innerHTML = _qrTables.map(t => {
-    const url = _qrClientBase + '?r=' + (_qrRid || _qrSlug) + '&t=' + t.id;
+    const url = kgQrUrl(t.id);
     return `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center;cursor:pointer;"
          onclick="zoomQR('${t.id}','${t.label.replace(/'/g,"\\'")}')">
       <canvas id="qrc-${t.id}" width="130" height="130" style="border-radius:8px;background:white;display:block;margin:0 auto;"></canvas>
       <div style="font-size:13px;font-weight:700;margin-top:8px;">${window.escHtml(t.label)}</div>
       <div style="font-size:11px;color:var(--text2);">${t.type === 'table' ? '🪑 Sur place' : t.type === 'emporter' ? '🥡 À emporter' : '🛵 Livraison'}</div>
-      <div style="display:flex;gap:6px;justify-content:center;margin-top:8px;">
+      <div style="font-size:11px;margin-top:4px;color:${kgQrCats(t.id).length ? 'var(--accent)' : 'var(--text2)'};font-weight:${kgQrCats(t.id).length ? '700' : '400'};">${kgQrCats(t.id).length ? '🏷 ' + window.escHtml(kgQrCats(t.id).join(', ')) : '🍽 Tout le menu'}</div>
+      <div style="font-size:11px;margin-top:2px;color:${kgQrUsers(t.id).length ? 'var(--accent)' : 'var(--text2)'};font-weight:${kgQrUsers(t.id).length ? '700' : '400'};">${kgQrUsers(t.id).length ? '👥 ' + kgQrUsers(t.id).map(id => { const u = (typeof USERS !== 'undefined' ? USERS : []).find(x => String(x.id) === String(id)); return u ? window.escHtml((u.prenom || u.nom || u.login || '?')) : null; }).filter(Boolean).join(', ') : '👥 Tout le monde'}</div>
+      <div style="display:flex;gap:6px;justify-content:center;margin-top:8px;flex-wrap:wrap;">
+        <button onclick="event.stopPropagation();kgEditQrCats('${t.id}')" style="font-size:11px;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);">⚙️ Options</button>
         <button onclick="event.stopPropagation();copyQRUrl('${url}')" style="font-size:11px;padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);">📋 Copier lien</button>
         <button onclick="event.stopPropagation();deleteQRTable('${t.id}','${t.label.replace(/'/g,"\'")}')" style="font-size:11px;padding:4px 10px;background:rgba(231,76,60,0.12);border:1px solid var(--red);border-radius:6px;cursor:pointer;color:var(--red);">🗑 Supprimer</button>
       </div>
@@ -45605,7 +45627,7 @@ function renderQRCodesPanel() {
     _qrTables.forEach(t => {
       const canvas = document.getElementById('qrc-' + t.id);
       if(!canvas) return;
-      const url = _qrClientBase + '?r=' + (_qrRid || _qrSlug) + '&t=' + t.id;
+      const url = kgQrUrl(t.id);
       // QR intégré en priorité (fonctionne même si la bibliothèque en ligne ne s'est pas chargée : connexion lente / hors ligne)
       if(kgDrawQrOnCanvas(canvas, url, 130, 2, '#111111', '#ffffff')) return;
       if(window.QRCode) QRCode.toCanvas(canvas, url, { width: 130, margin: 1,
@@ -45613,6 +45635,89 @@ function renderQRCodesPanel() {
       }).catch(() => {});
     });
   }, 200);
+}
+
+// 🏷 QR code limité à certaines catégories du menu — la liste est mémorisée avec les paramètres
+// et écrite dans le lien du QR (« &c=code.code »). Chaque catégorie est représentée par un code court de 4 caractères.
+function kgCatCode(name) {
+  const n = String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  let h = 2166136261;
+  for(let i = 0; i < n.length; i++) { h ^= n.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return (h % 1679616).toString(36).padStart(4, '0');
+}
+function kgQrCats(tableId) { return ((RESTAURANT_INFO && RESTAURANT_INFO.qr_categories) || {})[tableId] || []; }
+function kgQrUrl(tableId) {
+  let u = _qrClientBase + '?r=' + (_qrRid || _qrSlug) + '&t=' + tableId;
+  const c = kgQrCats(tableId);
+  if(c.length) u += '&c=' + c.map(kgCatCode).join('.');
+  return u;
+}
+function kgMenuCategories() {
+  const set = new Set();
+  (_qrMenuItems || []).forEach(i => { const c = String(i.category || i.categorie || '').trim(); if(c) set.add(c); });
+  try { (typeof MENU !== 'undefined' ? MENU : []).forEach(i => { const c = String(i.cat || i.category || i.categorie || '').trim(); if(c) set.add(c); }); } catch(e) {}
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr'));
+}
+// 👥 Accès par QR code : seuls les utilisateurs cochés (et la direction) voient les commandes de ce QR.
+// Aucun utilisateur coché = visible par tous (comportement habituel).
+function kgQrUsers(tableId) { return ((RESTAURANT_INFO && RESTAURANT_INFO.qr_users) || {})[tableId] || []; }
+function kgQrPeutVoir(o) {
+  const u = (typeof currentUser !== 'undefined') ? currentUser : null;
+  if(!u || !o || !o.qr_table_id) return true;
+  if(['administrateur', 'gerant', 'superviseur'].includes(u.role)) return true;   // la direction voit tout
+  const ids = kgQrUsers(o.qr_table_id);
+  return !ids.length || ids.map(String).includes(String(u.id));
+}
+function _kgUsersBoxHtml(id, selected) {
+  const list = (typeof USERS !== 'undefined' ? USERS : []).filter(u => (u.status || 'actif') !== 'inactif');
+  if(!list.length) return '<div style="font-size:12px;color:var(--text2);">Aucun utilisateur.</div>';
+  const sel = new Set((selected || []).map(String));
+  return '<div id="' + id + '" style="max-height:180px;overflow:auto;border:1.5px solid var(--border);border-radius:12px;padding:6px 10px;background:var(--surface2);">' +
+    list.map(u => '<label style="display:flex;align-items:center;gap:10px;padding:7px 4px;font-size:14px;cursor:pointer;"><input type="checkbox" value="' + window.escHtml(String(u.id)) + '"' + (sel.has(String(u.id)) ? ' checked' : '') + ' style="width:18px;height:18px;accent-color:var(--accent);"> ' +
+      window.escHtml(((u.prenom || '') + ' ' + (u.nom || '')).trim() || u.login || 'Utilisateur') + ' <span style="color:var(--text2);font-size:11px;">· ' + window.escHtml(u.role || '') + '</span></label>').join('') + '</div>';
+}
+async function kgPersistQrCats() {
+  try { _lsSet('kg-restaurant-info', JSON.stringify(RESTAURANT_INFO)); } catch(e) {}
+  if(typeof saveSession === 'function') saveSession();
+  if(typeof KGSync !== 'undefined' && KGSync.isConnected) { try { await KGSync.push.restaurantInfo(); } catch(e) {} }
+}
+function _kgCatsBoxHtml(id, selected) {
+  const all = kgMenuCategories();
+  if(!all.length) return '<div style="font-size:12px;color:var(--text2);">Aucune catégorie trouvée dans le menu.</div>';
+  const sel = new Set((selected || []).map(kgCatCode));
+  return '<div id="' + id + '" style="max-height:200px;overflow:auto;border:1.5px solid var(--border);border-radius:12px;padding:6px 10px;background:var(--surface2);">' +
+    all.map(c => '<label style="display:flex;align-items:center;gap:10px;padding:7px 4px;font-size:14px;cursor:pointer;"><input type="checkbox" value="' + window.escHtml(c) + '"' + (sel.has(kgCatCode(c)) ? ' checked' : '') + ' style="width:18px;height:18px;accent-color:var(--accent);"> ' + window.escHtml(c) + '</label>').join('') + '</div>';
+}
+function _kgCatsRead(id) {
+  const box = document.getElementById(id);
+  return box ? Array.from(box.querySelectorAll('input:checked')).map(i => i.value) : [];
+}
+function kgEditQrCats(tableId) {
+  const t = _qrTables.find(x => x.id === tableId); if(!t) return;
+  document.getElementById('modal-qr-cats')?.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-qr-cats';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  m.innerHTML = '<div style="background:var(--surface);border-radius:14px;padding:18px;max-width:420px;width:100%;max-height:92vh;overflow:auto;">' +
+    '<div style="font-weight:800;font-size:16px;margin-bottom:4px;">⚙️ Options — ' + window.escHtml(t.label) + '</div>' +
+    '<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Cochez les catégories que ce QR code affiche. Aucune case = tout le menu.<br><b>Le lien du QR change : retéléchargez et réimprimez ce QR code.</b></div>' +
+    '<div style="font-weight:700;font-size:13px;margin:4px 0 4px;">🏷 Catégories visibles</div>' + _kgCatsBoxHtml('qr-edit-cats-box', kgQrCats(tableId)) +
+    '<div style="font-weight:700;font-size:13px;margin:12px 0 2px;">👥 Qui voit les commandes de ce QR ?</div><div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Aucun coché = tout le monde. L\'administrateur, le gérant et le superviseur voient toujours tout.</div>' + _kgUsersBoxHtml('qr-edit-users-box', kgQrUsers(tableId)) +
+    '<div style="display:flex;gap:8px;margin-top:14px;"><button id="qr-edit-cats-ok" style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Enregistrer</button>' +
+    '<button id="qr-edit-cats-no" style="padding:10px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--text);">Annuler</button></div></div>';
+  document.body.appendChild(m);
+  document.getElementById('qr-edit-cats-no').onclick = () => m.remove();
+  document.getElementById('qr-edit-cats-ok').onclick = async () => {
+    const sel = _kgCatsRead('qr-edit-cats-box');
+    const usr = _kgCatsRead('qr-edit-users-box');
+    RESTAURANT_INFO.qr_categories = { ...(RESTAURANT_INFO.qr_categories || {}) };
+    if(sel.length) RESTAURANT_INFO.qr_categories[tableId] = sel; else delete RESTAURANT_INFO.qr_categories[tableId];
+    RESTAURANT_INFO.qr_users = { ...(RESTAURANT_INFO.qr_users || {}) };
+    if(usr.length) RESTAURANT_INFO.qr_users[tableId] = usr; else delete RESTAURANT_INFO.qr_users[tableId];
+    await kgPersistQrCats();
+    m.remove(); renderQRCodesPanel(); try { renderQROrdersPanel(); updateQRNavBadge(); } catch(e) {}
+    _qrToast('✅ Options enregistrées' + (sel.length ? ' — catégories modifiées : pensez à réimprimer le QR' : ''));
+  };
 }
 
 // 🎨 Affiche QR : logo du restaurant en haut, nom, QR en grand, nom de la table
@@ -45698,7 +45803,7 @@ async function kgBuildQrCard(canvas, url, tableLabel) {
 }
 function zoomQR(tableId, label) {
   _qrZoomTable = _qrTables.find(t => t.id === tableId);
-  const url = _qrClientBase + '?r=' + (_qrRid || _qrSlug) + '&t=' + tableId;
+  const url = kgQrUrl(tableId);
   const modal = document.getElementById('modal-qrZoom');
   modal.style.display = 'flex';
   const _zt = document.getElementById('qr-zoom-title') || document.getElementById('qr-zoom-label');
@@ -45778,7 +45883,11 @@ function copyQRBaseUrl() {
   navigator.clipboard.writeText(url).then(() => _qrToast('✅ Lien copié !')).catch(() => _qrToast('❌ Impossible de copier'));
 }
 
-function openQRModal() { document.getElementById('modal-qrAddTable').style.display = 'flex'; }
+function openQRModal() {
+  const w = document.getElementById('qr-new-cats-wrap'); if(w) w.innerHTML = _kgCatsBoxHtml('qr-new-cats-box', []);
+  const wu = document.getElementById('qr-new-users-wrap'); if(wu) wu.innerHTML = _kgUsersBoxHtml('qr-new-users-box', []);
+  document.getElementById('modal-qrAddTable').style.display = 'flex';
+}
 function openQRLinkInTab() {
   const url = (document.getElementById('qr-lien-general')?.textContent || '').trim();
   if(!url || url === '—') { if(typeof _qrToast === 'function') _qrToast('⚠️ Lien non disponible'); return; }
@@ -45798,6 +45907,7 @@ async function deleteQRTable(tableId, label) {
   const { error } = await _qrSb.from('qr_tables').delete().eq('id', tableId).eq('restaurant_id', _qrRid);
   if(error) { _qrToast('❌ ' + error.message); return; }
   _qrTables = _qrTables.filter(t => t.id !== tableId);
+  if((RESTAURANT_INFO.qr_categories && RESTAURANT_INFO.qr_categories[tableId]) || (RESTAURANT_INFO.qr_users && RESTAURANT_INFO.qr_users[tableId])) { if(RESTAURANT_INFO.qr_categories) delete RESTAURANT_INFO.qr_categories[tableId]; if(RESTAURANT_INFO.qr_users) delete RESTAURANT_INFO.qr_users[tableId]; kgPersistQrCats(); }
   renderQRCodesPanel();
   _qrToast('🗑 Table "' + label + '" supprimée');
 }
@@ -45809,6 +45919,11 @@ async function saveQRTable() {
   const { data, error } = await _qrSb.from('qr_tables').insert({ restaurant_id: _qrRid, label, type }).select().single();
   if(error) { _qrToast('❌ ' + error.message); return; }
   _qrTables.push(data);
+  const _cats = _kgCatsRead('qr-new-cats-box');
+  const _usr = _kgCatsRead('qr-new-users-box');
+  if(_cats.length) RESTAURANT_INFO.qr_categories = { ...(RESTAURANT_INFO.qr_categories || {}), [data.id]: _cats };
+  if(_usr.length) RESTAURANT_INFO.qr_users = { ...(RESTAURANT_INFO.qr_users || {}), [data.id]: _usr };
+  if(_cats.length || _usr.length) await kgPersistQrCats();
   closeQRModal();
   document.getElementById('qr-new-label').value = '';
   renderQRCodesPanel();
@@ -49601,7 +49716,19 @@ function _confirmerEtCreerTicket(nomServeur) {
 }
 
 // Étape 2 : le nom/téléphone du client est validé (les deux optionnels) → on crée le ticket
+// 🔒 FIX tickets en attente incohérents : le contenu du ticket est figé AU CLIC.
+// Avant, le total était calculé avec le panier, puis le panier était relu APRÈS une attente (numéro de ticket) :
+// un article touché entre-temps s'ajoutait à la liste (ex. « Foi 4 000 F ») sans être compté dans le total (1 000 F).
+// Un double clic sur « Valider » pouvait aussi créer deux tickets.
 async function _validerClientEtCreerTicket() {
+  if(window._attenteCreationEnCours) return;                       // déjà en cours : on ignore le double clic
+  if(typeof cart === 'undefined' || !cart.length) { showNotif('⚠️ Panier vide — rien à mettre en attente'); return; }
+  window._attenteCreationEnCours = true;
+  const _snap = cart.map(c => ({ ...c }));                         // copie figée du panier
+  try { await _validerClientEtCreerTicketImpl(_snap); }
+  finally { window._attenteCreationEnCours = false; }
+}
+async function _validerClientEtCreerTicketImpl(_snap) {
   const nomEl = document.getElementById('modal-client-nom-input');
   const telEl = document.getElementById('modal-client-tel-input');
   const errEl = document.getElementById('modal-client-attente-error');
@@ -49615,7 +49742,7 @@ async function _validerClientEtCreerTicket() {
   const cashier = sessionCaisseActive?.cashier || (currentUser ? `${currentUser.prenom} ${currentUser.nom}` : 'Caissier');
   const serveur = _attenteServeurEnCours || cashier;
 
-  const totalAvantRemise = cart.reduce((a,c) => {
+  const totalAvantRemise = _snap.reduce((a,c) => {
     const p = c.discount > 0 ? Math.round((c.priceOriginal||c.price)*(1-c.discount/100)) : c.price;
     return a + p * c.qty;
   }, 0);
@@ -49642,7 +49769,7 @@ async function _validerClientEtCreerTicket() {
   const numero = await _getNextTicketAttenteNum();
 
   _loadTicketsAttente();
-  const itemsSaved = cart.map(c => ({
+  const itemsSaved = _snap.map(c => ({
     ...c,
     price: c.discount > 0 ? Math.round((c.priceOriginal||c.price)*(1-c.discount/100)) : c.price
   }));
