@@ -641,7 +641,7 @@ body {
   <!-- Texte -->
   <div style="position:relative;z-index:2;text-align:center;padding:0 32px;">
     <div style="font-size:28px;font-weight:800;color:#fff;margin-bottom:8px;letter-spacing:-.01em;">Nous sommes fermés</div>
-    <div style="font-size:14px;color:rgba(255,255,255,0.65);line-height:1.8;margin-bottom:24px;">Les commandes sont disponibles<br><strong style="color:#FFD700;font-size:16px;">de 17h00 à 02h00</strong></div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.65);line-height:1.8;margin-bottom:24px;">Les commandes sont disponibles<br><strong style="color:#FFD700;font-size:16px;">de 16h30 à 02h30</strong></div>
     <div id="ferme-countdown" style="display:inline-block;background:linear-gradient(135deg,rgba(91,47,212,0.4),rgba(255,107,53,0.3));border:1px solid rgba(255,255,255,0.2);border-radius:24px;padding:14px 32px;color:#fff;font-size:16px;font-weight:800;letter-spacing:.04em;"></div>
   </div>
   <style>
@@ -1000,21 +1000,21 @@ function normalizeItems(items) {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  // ✅ BLOCAGE HORAIRE : site ouvert de 17h00 à 02h00 (le lendemain), fermé le reste du temps
+  // ✅ BLOCAGE HORAIRE : commandes ouvertes de 16h30 à 02h30 (le lendemain), fermées le reste du temps
   function _checkHoraires() {
-    const h = new Date().getHours();
-    return h >= 17 || h < 2;
+    const d = new Date(), m = d.getHours() * 60 + d.getMinutes();
+    return m >= 16 * 60 + 30 || m < 2 * 60 + 30;
   }
   function _showFermeNuit() {
     const el = document.getElementById('screen-ferme-nuit');
     const loader = document.getElementById('loader');
     if(loader) loader.style.display = 'none';
     if(el) el.style.display = 'flex';
-    // Countdown jusqu'à 17h — zéro Supabase
+    // Countdown jusqu'à 16h30 — zéro Supabase
     function _updateCountdown() {
       const now = new Date();
       const ouverture = new Date();
-      ouverture.setHours(17, 0, 0, 0);
+      ouverture.setHours(16, 30, 0, 0);
       if(now >= ouverture) ouverture.setDate(ouverture.getDate() + 1);
       const diff = ouverture - now;
       const hh = Math.floor(diff / 3600000);
@@ -1523,14 +1523,14 @@ let _realtimeRestartPending = false;
 });
 
 function _isRestaurantHours() {
-  const h = new Date().getHours();
-  return h >= 17 || h < 2; // ✅ Actif uniquement de 17h00 à 02h00
+  const d = new Date(), m = d.getHours() * 60 + d.getMinutes();
+  return m >= 16 * 60 + 30 || m < 2 * 60 + 30; // ✅ Actif uniquement de 16h30 à 02h30
 }
 
 function startRealtime() {
-  // ✅ FIX EGRESS : bloquer hors horaires restaurant (17h-02h)
+  // ✅ FIX EGRESS : bloquer hors horaires restaurant (16h30-02h30)
   if(!_isRestaurantHours()) {
-    console.log('Hors horaires — realtime desactive jusqu a 17h');
+    console.log('Hors horaires — realtime desactive jusqu a 16h30');
     // Revérifier toutes les 30min si on est dans les horaires
     setTimeout(() => { if(_isRestaurantHours()) startRealtime(); }, 1800000);
     return;
@@ -1619,7 +1619,7 @@ function startRealtime() {
 
   // ── Polling de secours — STRICT, ne passe jamais ouvert si fermé ──
   setInterval(async () => {
-    if(!_isRestaurantHours()) return; // ✅ Bloquer hors 17h-02h
+    if(!_isRestaurantHours()) return; // ✅ Bloquer hors 16h30-02h30
     if(document.hidden) return;        // ✅ onglet en arrière-plan : aucune requête
     try {
       const {data} = await _kgPub(restaurantId+':commandes_ouvertes');
